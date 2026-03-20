@@ -40,13 +40,13 @@ nn_load_config() {
   # Parse each config to JSON (empty object if missing)
   local default_json="{}" user_json="{}" project_json="{}"
   if [[ -f "$default_cfg" ]]; then
-    default_json=$(yq -o=json -I=0 '.' "$default_cfg" 2>/dev/null) || default_json="{}"
+    default_json=$(yq -p=toml -o=json -I=0 '.' "$default_cfg" 2>/dev/null) || default_json="{}"
   fi
   if [[ -f "$user_cfg" ]]; then
-    user_json=$(yq -o=json -I=0 '.' "$user_cfg" 2>/dev/null) || user_json="{}"
+    user_json=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null) || user_json="{}"
   fi
   if [[ -n "$project_cfg" && -f "$project_cfg" ]]; then
-    project_json=$(yq -o=json -I=0 '.' "$project_cfg" 2>/dev/null) || project_json="{}"
+    project_json=$(yq -p=toml -o=json -I=0 '.' "$project_cfg" 2>/dev/null) || project_json="{}"
   fi
 
   # Determine schema name: project "schema" > user "default_schema" > default "default_schema" > "default"
@@ -82,7 +82,7 @@ nn_load_config() {
 
   # Step 3: Parse schema and merge (schema → default config → user config → project config)
   local schema_json
-  schema_json=$(yq -o=json -I=0 '.' "$schema_file" 2>/dev/null)
+  schema_json=$(yq -p=toml -o=json -I=0 '.' "$schema_file" 2>/dev/null)
   if [[ -z "$schema_json" || "$schema_json" == "null" ]]; then
     echo "notenav: failed to parse schema $schema_file" >&2
     return 1
