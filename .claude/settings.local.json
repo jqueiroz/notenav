@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nix flake check:*)",
+      "Bash(nix --extra-experimental-features 'nix-command flakes' flake check)"
+    ]
+  }
+}
