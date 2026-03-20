@@ -1,0 +1,27 @@
+# Example ~/.config/notenav/config.toml
+# Copy this to ~/.config/notenav/config.toml and customize.
+
+# Choose a built-in schema: default, ado, gtd, zettelkasten
+# Or point to a custom schema file in ~/.config/notenav/schemas/
+default_schema = "default"
+
+[defaults]
+sort = "modified"       # created | modified | title | priority
+group = "type"          # "" | type | status
+archive = false         # true to show done/removed by default
+
+[ui]
+editor = "nvim"         # editor for opening notes
+
+# Override individual entity/status/priority colors from the schema.
+# These merge on top of the schema, so you only need to specify what you
+# want to change.
+#
+# [entities.task]
+# color = "34"          # change tasks from cyan to blue
+#
+# [status.colors]
+# active = "32;1"       # bold green for active
+#
+# [priority.colors]
+# 1 = "31"              # non-bold red for P1

@@ -20,7 +20,7 @@ check_dep() {
 
 # --- dependency check ---
 missing=""
-for dep in bash fzf awk sort sed git; do
+for dep in bash fzf awk sort sed git yq jq; do
   if ! check_dep "$dep"; then
     missing="$missing $dep"
   fi

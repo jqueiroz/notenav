@@ -1,0 +1,81 @@
+# Getting Things Done schema
+# GTD workflow: inbox → next-action/project/waiting/someday
+
+[meta]
+name = "GTD"
+description = "Getting Things Done capture-and-process workflow"
+
+[entities.inbox]
+icon = "▸"
+color = "33"           # yellow
+description = "Unclarified capture"
+display_order = 1
+
+[entities.next-action]
+icon = "◆"
+color = "36"           # cyan
+description = "Concrete next physical action"
+display_order = 2
+
+[entities.project]
+icon = "◈"
+color = "35"           # magenta
+description = "Multi-step outcome"
+display_order = 3
+
+[entities.waiting]
+icon = "◇"
+color = "90"           # dim
+description = "Delegated or blocked on external"
+display_order = 4
+
+[entities.someday]
+icon = "☆"
+color = "34"           # blue
+description = "Maybe/someday list"
+display_order = 5
+
+[status]
+values = ["active", "done", "dropped"]
+display_order = ["active", "done", "dropped"]
+archive = ["done", "dropped"]
+filter_cycle = ["", "active", "done", "dropped"]
+
+[status.colors]
+active = "32"          # green
+done = "90"            # dim
+dropped = "90"         # dim
+
+[status.lifecycle.forward]
+active = "done"
+done = "active"
+dropped = "active"
+
+[status.lifecycle.reverse]
+done = "active"
+active = "dropped"
+dropped = "done"
+
+[priority]
+values = ["1", "2", "3"]
+filter_cycle = ["", "1", "2", "3"]
+unset_sort_value = 9
+
+[priority.colors]
+1 = "31;1"             # bold red
+2 = "33"               # yellow
+3 = "90"               # dim
+
+[priority.lifecycle.up]
+"" = "3"
+3 = "2"
+2 = "1"
+
+[priority.lifecycle.down]
+1 = "2"
+2 = "3"
+
+[zk]
+format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
+columns = ["type", "status", "priority", "tags", "title", "absPath", "modified", "created"]
+template_pattern = "{type}.md"

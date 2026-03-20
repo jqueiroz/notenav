@@ -11,6 +11,17 @@ Early extraction — previously embedded as `zkq()` in zshrc (~1100 LOC). Now st
 ```
 bin/nn              # Entry point: resolves root, sources lib, calls notenav_main
 lib/notenav.sh      # Full implementation (~1100 LOC)
+config/
+  config.toml       # Default config (ships with notenav)
+  schemas/
+    default.toml    # Default schema (task/idea/reference)
+    ado.toml        # Azure DevOps preset
+    gtd.toml        # Getting Things Done preset
+    zettelkasten.toml # Zettelkasten preset
+samples/
+  user-config.toml    # Example ~/.config/notenav/config.toml
+  project-config.toml # Example .nn/config.toml
+  custom-schema.toml  # Example custom schema
 CLAUDE.md           # This file
 README.md           # Public-facing README
 LICENSE             # MIT
@@ -23,6 +34,8 @@ LICENSE             # MIT
 - **zk** — note indexing, querying, LSP (the underlying note tool)
 - **fzf** 0.44+ — TUI framework (transform, execute, rebind)
 - **bat/batcat** — syntax-highlighted preview
+- **yq** (yq-go) — TOML→JSON conversion for config/schema loading
+- **jq** — JSON merging and querying for config system
 - **awk**, **sort**, **sed** — data pipeline (POSIX + gawk `mktime`)
 
 ## Three Operating Modes
@@ -137,6 +150,25 @@ nn type=task                                  # ad-hoc query
 nn backlog                                    # saved query
 nn type=task -i                               # interactive ad-hoc
 ```
+
+## Config System
+
+Schema and preferences are loaded from TOML files at startup via `nn_load_config()`.
+
+**Config resolution order** (later values win via jq deep merge):
+1. Schema file (base) — determined by config `schema`/`default_schema` key
+2. Default config: `$NOTENAV_ROOT/config/config.toml`
+3. User config: `~/.config/notenav/config.toml`
+4. Project config: `.nn/config.toml` (closest `.nn` dir walking up from cwd)
+
+**Schema resolution** (first match wins):
+1. `.nn/schemas/<name>.toml` — project-local
+2. `~/.config/notenav/schemas/<name>.toml` — user-global
+3. `$NOTENAV_ROOT/config/schemas/<name>.toml` — built-in
+
+The merged config is stored in `NN_CFG_JSON` and queried via `nn_cfg '.path.to.value'`.
+
+Built-in schemas: `default`, `ado`, `gtd`, `zettelkasten`.
 
 ## Conventions
 

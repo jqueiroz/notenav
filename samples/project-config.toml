@@ -1,0 +1,13 @@
+# Example .nn/config.toml (project-level overrides)
+# Place this in your project's .nn/ directory.
+
+# Use a different schema for this project
+schema = "ado"
+
+[defaults]
+sort = "priority"
+group = "status"
+
+# Override colors for this project only
+# [status.colors]
+# active = "32;1"

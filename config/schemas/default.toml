@@ -1,0 +1,79 @@
+# Default notenav schema
+# Simple task/idea/reference workflow with priority and status tracking
+
+[meta]
+name = "Default"
+description = "Simple task/idea/reference workflow"
+
+[entities.task]
+icon = "◆"
+color = "36"           # cyan
+description = "Scoped, ready to implement"
+display_order = 1
+
+[entities.idea]
+icon = "✦"
+color = "35"           # magenta
+description = "Needs exploration/research"
+display_order = 2
+
+[entities.reference]
+icon = "▪"
+color = "33"           # yellow
+description = "Living documentation"
+display_order = 3
+
+[status]
+values = ["new", "active", "blocked", "validating", "done", "removed"]
+display_order = ["active", "blocked", "validating", "new", "done", "removed"]
+archive = ["done", "removed"]
+filter_cycle = ["", "new", "active", "blocked", "validating", "done"]
+
+[status.colors]
+new = "90"             # dim
+active = "32"          # green
+blocked = "31"         # red
+validating = "34"      # blue
+done = "90"            # dim
+removed = "90"         # dim
+
+[status.lifecycle.forward]
+new = "active"
+active = "done"
+done = "new"
+blocked = "active"
+validating = "done"
+
+[status.lifecycle.reverse]
+done = "active"
+active = "new"
+new = "done"
+blocked = "new"
+validating = "active"
+
+[priority]
+values = ["1", "2", "3", "4"]
+filter_cycle = ["", "1", "2", "3", "4"]
+unset_sort_value = 9
+
+[priority.colors]
+1 = "31;1"             # bold red
+2 = "33"               # yellow
+3 = "33"               # yellow (default)
+4 = "33"               # yellow (default)
+
+[priority.lifecycle.up]
+"" = "4"
+4 = "3"
+3 = "2"
+2 = "1"
+
+[priority.lifecycle.down]
+1 = "2"
+2 = "3"
+3 = "4"
+
+[zk]
+format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
+columns = ["type", "status", "priority", "tags", "title", "absPath", "modified", "created"]
+template_pattern = "{type}.md"

@@ -1,0 +1,64 @@
+# Zettelkasten schema
+# Slip-box method: fleeting → literature → permanent notes
+
+[meta]
+name = "Zettelkasten"
+description = "Slip-box method for knowledge management"
+
+[entities.fleeting]
+icon = "◇"
+color = "33"           # yellow
+description = "Quick capture, to be processed"
+display_order = 1
+
+[entities.literature]
+icon = "▪"
+color = "34"           # blue
+description = "Notes from a source"
+display_order = 2
+
+[entities.permanent]
+icon = "◆"
+color = "36"           # cyan
+description = "Atomic, fully developed idea"
+display_order = 3
+
+[status]
+values = ["draft", "review", "mature", "archived"]
+display_order = ["review", "draft", "mature", "archived"]
+archive = ["archived"]
+filter_cycle = ["", "draft", "review", "mature", "archived"]
+
+[status.colors]
+draft = "33"           # yellow
+review = "34"          # blue
+mature = "32"          # green
+archived = "90"        # dim
+
+[status.lifecycle.forward]
+draft = "review"
+review = "mature"
+mature = "archived"
+archived = "draft"
+
+[status.lifecycle.reverse]
+archived = "mature"
+mature = "review"
+review = "draft"
+draft = "archived"
+
+[priority]
+values = []
+filter_cycle = [""]
+unset_sort_value = 9
+
+[priority.colors]
+
+[priority.lifecycle.up]
+
+[priority.lifecycle.down]
+
+[zk]
+format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
+columns = ["type", "status", "priority", "tags", "title", "absPath", "modified", "created"]
+template_pattern = "{type}.md"

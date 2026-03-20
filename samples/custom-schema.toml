@@ -1,0 +1,86 @@
+# Example custom schema
+# Save as ~/.config/notenav/schemas/<name>.toml or .nn/schemas/<name>.toml
+# Then set default_schema = "<name>" in your config.
+
+[meta]
+name = "My Workflow"
+description = "Custom schema example"
+
+# Define your entity types (note categories).
+# icon: single character shown in the list
+# color: ANSI color code (e.g. 31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan)
+# display_order: controls sort order in grouped view
+
+[entities.feature]
+icon = "◆"
+color = "36"
+description = "New feature"
+display_order = 1
+
+[entities.bug]
+icon = "✖"
+color = "31"
+description = "Bug fix"
+display_order = 2
+
+[entities.doc]
+icon = "▪"
+color = "33"
+description = "Documentation"
+display_order = 3
+
+# Status values and their lifecycle transitions.
+# values: all possible statuses
+# display_order: order for group headers
+# archive: statuses hidden by default (toggle with 'z')
+# filter_cycle: order when pressing 's' to cycle (include "" for "all")
+
+[status]
+values = ["open", "in-progress", "review", "done"]
+display_order = ["in-progress", "review", "open", "done"]
+archive = ["done"]
+filter_cycle = ["", "open", "in-progress", "review", "done"]
+
+[status.colors]
+open = "90"
+in-progress = "32"
+review = "34"
+done = "90"
+
+# forward/reverse define what happens when you press a/A on a note
+[status.lifecycle.forward]
+open = "in-progress"
+in-progress = "review"
+review = "done"
+done = "open"
+
+[status.lifecycle.reverse]
+done = "review"
+review = "in-progress"
+in-progress = "open"
+open = "done"
+
+# Priority levels. Use an empty values array to disable priority.
+[priority]
+values = ["1", "2", "3"]
+filter_cycle = ["", "1", "2", "3"]
+unset_sort_value = 9
+
+[priority.colors]
+1 = "31;1"
+2 = "33"
+3 = "90"
+
+[priority.lifecycle.up]
+"" = "3"
+3 = "2"
+2 = "1"
+
+[priority.lifecycle.down]
+1 = "2"
+2 = "3"
+
+[zk]
+format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
+columns = ["type", "status", "priority", "tags", "title", "absPath", "modified", "created"]
+template_pattern = "{type}.md"

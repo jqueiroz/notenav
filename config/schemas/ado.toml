@@ -1,0 +1,82 @@
+# Azure DevOps schema
+# Epic/story/task/bug workflow mirroring ADO work item types
+
+[meta]
+name = "Azure DevOps"
+description = "Epic/story/task/bug workflow inspired by Azure DevOps"
+
+[entities.epic]
+icon = "♛"
+color = "35"           # magenta
+description = "Large multi-story initiative"
+display_order = 1
+
+[entities.story]
+icon = "◇"
+color = "36"           # cyan
+description = "User-facing deliverable"
+display_order = 2
+
+[entities.task]
+icon = "◆"
+color = "34"           # blue
+description = "Discrete unit of work"
+display_order = 3
+
+[entities.bug]
+icon = "✖"
+color = "31"           # red
+description = "Defect to fix"
+display_order = 4
+
+[status]
+values = ["new", "active", "resolved", "closed", "removed"]
+display_order = ["active", "new", "resolved", "closed", "removed"]
+archive = ["closed", "removed"]
+filter_cycle = ["", "new", "active", "resolved", "closed"]
+
+[status.colors]
+new = "90"             # dim
+active = "32"          # green
+resolved = "34"        # blue
+closed = "90"          # dim
+removed = "90"         # dim
+
+[status.lifecycle.forward]
+new = "active"
+active = "resolved"
+resolved = "closed"
+closed = "new"
+
+[status.lifecycle.reverse]
+closed = "resolved"
+resolved = "active"
+active = "new"
+new = "closed"
+
+[priority]
+values = ["1", "2", "3", "4"]
+filter_cycle = ["", "1", "2", "3", "4"]
+unset_sort_value = 9
+
+[priority.colors]
+1 = "31;1"             # bold red — critical
+2 = "33"               # yellow — high
+3 = "33"               # yellow — medium
+4 = "90"               # dim — low
+
+[priority.lifecycle.up]
+"" = "4"
+4 = "3"
+3 = "2"
+2 = "1"
+
+[priority.lifecycle.down]
+1 = "2"
+2 = "3"
+3 = "4"
+
+[zk]
+format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
+columns = ["type", "status", "priority", "tags", "title", "absPath", "modified", "created"]
+template_pattern = "{type}.md"

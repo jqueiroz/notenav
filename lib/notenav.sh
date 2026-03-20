@@ -3,12 +3,117 @@
 
 NOTENAV_VERSION="0.1.0-dev"
 
+# --- Config loader ---
+# Parses TOML config/schema files via yq (TOML→JSON), merges with jq.
+# Result stored in NN_CFG_JSON for consumption by nn_cfg().
+
+nn_load_config() {
+  local notenav_root="$1"
+
+  # Require yq and jq
+  if ! command -v yq >/dev/null 2>&1; then
+    echo "notenav: yq is required for config loading (install yq-go)" >&2
+    return 1
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "notenav: jq is required for config loading" >&2
+    return 1
+  fi
+
+  # Step 1: Load config files to determine schema name
+  local default_cfg="$notenav_root/config/config.toml"
+  local user_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
+
+  # Find closest .nn directory (walk from cwd up to filesystem root)
+  local project_nn_dir=""
+  local _search_dir="$PWD"
+  while true; do
+    if [[ -d "$_search_dir/.nn" ]]; then
+      project_nn_dir="$_search_dir/.nn"
+      break
+    fi
+    [[ "$_search_dir" == "/" ]] && break
+    _search_dir="$(dirname "$_search_dir")"
+  done
+  local project_cfg="${project_nn_dir:+$project_nn_dir/config.toml}"
+
+  # Parse each config to JSON (empty object if missing)
+  local default_json="{}" user_json="{}" project_json="{}"
+  if [[ -f "$default_cfg" ]]; then
+    default_json=$(yq -o=json -I=0 '.' "$default_cfg" 2>/dev/null) || default_json="{}"
+  fi
+  if [[ -f "$user_cfg" ]]; then
+    user_json=$(yq -o=json -I=0 '.' "$user_cfg" 2>/dev/null) || user_json="{}"
+  fi
+  if [[ -n "$project_cfg" && -f "$project_cfg" ]]; then
+    project_json=$(yq -o=json -I=0 '.' "$project_cfg" 2>/dev/null) || project_json="{}"
+  fi
+
+  # Determine schema name: project "schema" > user "default_schema" > default "default_schema" > "default"
+  local schema_name
+  schema_name=$(printf '%s' "$project_json" | jq -r '.schema // empty' 2>/dev/null)
+  if [[ -z "$schema_name" ]]; then
+    schema_name=$(printf '%s' "$user_json" | jq -r '.default_schema // empty' 2>/dev/null)
+  fi
+  if [[ -z "$schema_name" ]]; then
+    schema_name=$(printf '%s' "$default_json" | jq -r '.default_schema // empty' 2>/dev/null)
+  fi
+  schema_name="${schema_name:-default}"
+
+  # Step 2: Resolve schema file (most specific wins)
+  local schema_file=""
+  if [[ -n "$project_nn_dir" && -f "$project_nn_dir/schemas/$schema_name.toml" ]]; then
+    schema_file="$project_nn_dir/schemas/$schema_name.toml"
+  elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/schemas/$schema_name.toml" ]]; then
+    schema_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/schemas/$schema_name.toml"
+  elif [[ -f "$notenav_root/config/schemas/$schema_name.toml" ]]; then
+    schema_file="$notenav_root/config/schemas/$schema_name.toml"
+  fi
+
+  if [[ -z "$schema_file" ]]; then
+    echo "notenav: schema '$schema_name' not found, falling back to default" >&2
+    schema_file="$notenav_root/config/schemas/default.toml"
+  fi
+
+  if [[ ! -f "$schema_file" ]]; then
+    echo "notenav: no schema file found at $schema_file" >&2
+    return 1
+  fi
+
+  # Step 3: Parse schema and merge (schema → default config → user config → project config)
+  local schema_json
+  schema_json=$(yq -o=json -I=0 '.' "$schema_file" 2>/dev/null)
+  if [[ -z "$schema_json" || "$schema_json" == "null" ]]; then
+    echo "notenav: failed to parse schema $schema_file" >&2
+    return 1
+  fi
+
+  # Deep merge: jq * is recursive merge, later values win
+  NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$schema_json" "$default_json" "$user_json" "$project_json" \
+    | jq -s '.[0] * .[1] * .[2] * .[3]' 2>/dev/null)
+
+  if [[ -z "$NN_CFG_JSON" || "$NN_CFG_JSON" == "null" ]]; then
+    echo "notenav: config merge failed" >&2
+    return 1
+  fi
+
+  export NN_CFG_JSON
+}
+
+# Query the merged config. Usage: nn_cfg '.entities | keys[]'
+nn_cfg() {
+  printf '%s' "$NN_CFG_JSON" | jq -r "$1"
+}
+
 notenav_main() {
   # --version support
   if [[ "$1" == "--version" || "$1" == "-V" ]]; then
     echo "notenav $NOTENAV_VERSION"
     return 0
   fi
+
+  # Load config (schema + user/project overrides)
+  nn_load_config "$NOTENAV_ROOT" || true
 
   shopt -s nullglob
 

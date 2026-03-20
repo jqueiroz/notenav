@@ -24,6 +24,8 @@
             gnused
             coreutils
             git
+            yq-go
+            jq
           ];
         in {
           default = pkgs.stdenv.mkDerivation {
@@ -37,9 +39,11 @@
 
             installPhase = ''
               runHook preInstall
-              mkdir -p $out/bin $out/lib
+              mkdir -p $out/bin $out/lib $out/config/schemas
               install -m755 bin/nn $out/bin/nn
               install -m644 lib/notenav.sh $out/lib/notenav.sh
+              install -m644 config/config.toml $out/config/config.toml
+              install -m644 config/schemas/*.toml $out/config/schemas/
               wrapProgram $out/bin/nn \
                 --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
               runHook postInstall
@@ -66,6 +70,8 @@
             gawk
             gnused
             coreutils
+            yq-go
+            jq
           ];
 
           shellHook = ''

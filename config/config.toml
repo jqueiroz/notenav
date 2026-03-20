@@ -1,0 +1,23 @@
+# notenav default configuration
+# This file ships with notenav and provides baseline defaults.
+# User overrides: ~/.config/notenav/config.toml
+# Project overrides: .nn/config.toml
+
+default_schema = "default"
+
+[defaults]
+sort = "created"
+group = "type"
+archive = false
+
+[ui]
+editor = ""            # empty = $EDITOR or nvim
+prompt = ": "
+
+[ui.age_thresholds]
+# relative age suffixes in the note list
+minute = 3600
+hour = 86400
+day = 604800
+week = 2592000
+month = 31536000
