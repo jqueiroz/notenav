@@ -10,29 +10,36 @@ notenav_main() {
     return 0
   fi
 
+  shopt -s nullglob
+
   # Collect .nn/queries/ dirs from git root down to cwd (deeper dirs override)
-  local -A saved_queries
+  declare -A saved_queries
   local git_root
   git_root=$(git rev-parse --show-toplevel 2>/dev/null)
   if [[ -n "$git_root" ]]; then
     local rel="${PWD#$git_root}"
     local search_path="$git_root"
     if [[ -d "$search_path/.nn/queries" ]]; then
-      for f in "$search_path/.nn/queries"/*(.N); do
-        saved_queries[${f:t}]="$f"
+      for f in "$search_path/.nn/queries"/*; do
+        [[ -f "$f" ]] || continue
+        saved_queries[${f##*/}]="$f"
       done
     fi
-    for segment in ${(s:/:)rel}; do
+    IFS='/' read -ra _segments <<< "$rel"
+    for segment in "${_segments[@]}"; do
+      [[ -z "$segment" ]] && continue
       search_path="$search_path/$segment"
       if [[ -d "$search_path/.nn/queries" ]]; then
-        for f in "$search_path/.nn/queries"/*(.N); do
-          saved_queries[${f:t}]="$f"
+        for f in "$search_path/.nn/queries"/*; do
+          [[ -f "$f" ]] || continue
+          saved_queries[${f##*/}]="$f"
         done
       fi
     done
   elif [[ -d ".nn/queries" ]]; then
-    for f in .nn/queries/*(.N); do
-      saved_queries[${f:t}]="$f"
+    for f in .nn/queries/*; do
+      [[ -f "$f" ]] || continue
+      saved_queries[${f##*/}]="$f"
     done
   fi
 
@@ -82,12 +89,13 @@ notenav_main() {
     # Write saved query definitions for filter.sh, sorted by priority
     # Files may start with "# N" comment to set sort order (default 50)
     local _sq_names=() _sq_unsorted=() _qfile _qpri _qfirst _qargs
-    for _qname in ${(ko)saved_queries}; do
+    mapfile -t _sorted_keys < <(printf '%s\n' "${!saved_queries[@]}" | sort)
+    for _qname in "${_sorted_keys[@]}"; do
       _qfile="${saved_queries[$_qname]}"
       _qpri=100
       _qfirst=$(head -1 "$_qfile")
-      if [[ "$_qfirst" =~ '^# *([0-9]+)' ]]; then
-        _qpri=${match[1]}
+      if [[ "$_qfirst" =~ ^#\ *([0-9]+) ]]; then
+        _qpri=${BASH_REMATCH[1]}
       fi
       _qargs=$(grep -v '^#' "$_qfile" | tr '\n' ' ' | sed 's/ *$//')
       _sq_unsorted+=("${_qpri}	${_qname}	${_qargs}")
@@ -1029,18 +1037,20 @@ ENDFILTER
       --bind 'H:toggle-wrap' \
       --bind "enter:execute[test -f {1} && ${EDITOR:-nvim} {1}]"
     rm -rf "$_nn_dir"
+    shopt -u nullglob
     return
   fi
 
   # ---- NAMED QUERY ----
   if [[ $# -ge 1 && "$1" != *=* && "$1" != -* && -n "${saved_queries[$1]}" ]]; then
     local saved="$1"; shift
-    notenav_main ${="$(grep -v '^#' "${saved_queries[$saved]}")"} "$@"
+    shopt -u nullglob
+    notenav_main $(grep -v '^#' "${saved_queries[$saved]}") "$@"
     return
   fi
 
   # ---- AD-HOC QUERY ----
-  local -A filters
+  declare -A filters
   local interactive=false zk_args=() parsing_filters=true
 
   while [[ $# -gt 0 ]]; do
@@ -1110,4 +1120,5 @@ ENDPREVIEW
     zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
       | awk -F'\t' "$awk_cond && length(\$1) > 0 {printf \"[%s] [P%s] [%s] %s\n\", \$1, \$3, \$2, \$5}"
   fi
+  shopt -u nullglob
 }

@@ -20,7 +20,7 @@ check_dep() {
 
 # --- dependency check ---
 missing=""
-for dep in zsh fzf awk sort sed git; do
+for dep in bash fzf awk sort sed git; do
   if ! check_dep "$dep"; then
     missing="$missing $dep"
   fi
@@ -34,6 +34,15 @@ fi
 # zk
 if ! check_dep zk; then
   missing="$missing zk"
+fi
+
+# bash version check (need 4+)
+if check_dep bash; then
+  bash_version=$(bash -c 'echo "${BASH_VERSINFO[0]}"' 2>/dev/null)
+  if [ -n "$bash_version" ] && [ "$bash_version" -lt 4 ] 2>/dev/null; then
+    warn "bash $bash_version found but notenav requires bash 4+."
+    warn "On macOS: brew install bash (or use the Nix install)."
+  fi
 fi
 
 if [ -n "$missing" ]; then

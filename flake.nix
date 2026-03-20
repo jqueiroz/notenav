@@ -16,7 +16,7 @@
       packages = forAllSystems ({ pkgs }:
         let
           runtimeDeps = with pkgs; [
-            zsh
+            bash
             zk
             fzf
             bat
@@ -59,7 +59,7 @@
       devShells = forAllSystems ({ pkgs }: {
         default = pkgs.mkShell {
           packages = with pkgs; [
-            zsh
+            bash
             zk
             fzf
             bat

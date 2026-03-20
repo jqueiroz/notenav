@@ -8,7 +8,7 @@ Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk
 
 ## Requirements
 
-- **zsh** — notenav is a zsh script (your default shell can be anything; zsh just needs to be installed)
+- **bash 4+** — notenav is a bash script (your default shell can be anything; bash 4+ just needs to be installed). macOS ships bash 3.2; use the Nix install path or `brew install bash`
 - **[zk](https://github.com/zk-org/zk)** — used for indexing markdown files. Available via [Homebrew](https://formulae.brew.sh/formula/zk), [AUR](https://aur.archlinux.org/packages/zk), or [GitHub releases](https://github.com/zk-org/zk/releases) (not in apt/dnf)
 - **[fzf](https://github.com/junegunn/fzf)** 0.44+ — TUI framework
 - **awk**, **sort**, **sed**, **git** — standard unix tools (gawk recommended)

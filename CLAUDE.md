@@ -19,7 +19,7 @@ LICENSE             # MIT
 
 ## Dependencies
 
-- **zsh** — uses zsh-specific features (`local -A`, `${(s:/:)}`, `*(.N)` glob qualifiers)
+- **bash 4+** — uses `declare -A` (associative arrays), `mapfile`, and other bash 4+ features
 - **zk** — note indexing, querying, LSP (the underlying note tool)
 - **fzf** 0.44+ — TUI framework (transform, execute, rebind)
 - **bat/batcat** — syntax-highlighted preview
