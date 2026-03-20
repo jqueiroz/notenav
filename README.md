@@ -18,11 +18,37 @@ Filter notes by frontmatter (type, status, priority, tags), body content, and sa
 
 ### Nix (recommended — handles all dependencies)
 
+**`nix profile` (imperative):**
+
 ```bash
 nix profile install github:jqueiroz/notenav
 ```
 
-Or, with flakes in a temporary shell:
+**NixOS (`configuration.nix`):**
+
+```nix
+# /etc/nixos/configuration.nix
+{
+  inputs.notenav.url = "github:jqueiroz/notenav";
+
+  # then in your config:
+  environment.systemPackages = [ inputs.notenav.packages.${pkgs.system}.default ];
+}
+```
+
+**Home Manager:**
+
+```nix
+# home.nix or flake-based home-manager config
+{
+  inputs.notenav.url = "github:jqueiroz/notenav";
+
+  # then in your home config:
+  home.packages = [ inputs.notenav.packages.${pkgs.system}.default ];
+}
+```
+
+**Try without installing:**
 
 ```bash
 nix run github:jqueiroz/notenav
