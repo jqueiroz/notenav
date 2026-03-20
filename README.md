@@ -1,15 +1,15 @@
 # notenav
 
-TUI faceted browser for [zk](https://github.com/zk-org/zk) notebooks, built on fzf.
+High-productivity TUI for navigating and viewing markdown files with frontmatter annotations. Filter by any frontmatter field (type, status, priority, tags), search body content, save and recall queries, and perform inline actions — all without leaving the terminal.
 
-Filter notes by frontmatter (type, status, priority, tags), body content, and saved queries. Supports inline actions (status cycling, priority bumping, bulk edits, note creation).
+Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing.
 
 > **Early development** — extracted from a personal zshrc. Not yet packaged for general use.
 
 ## Requirements
 
 - **zsh** — notenav is a zsh script (your default shell can be anything; zsh just needs to be installed)
-- **[zk](https://github.com/zk-org/zk)** — note indexing and querying. Available via [Homebrew](https://formulae.brew.sh/formula/zk), [AUR](https://aur.archlinux.org/packages/zk), or [GitHub releases](https://github.com/zk-org/zk/releases) (not in apt/dnf)
+- **[zk](https://github.com/zk-org/zk)** — used for indexing markdown files. Available via [Homebrew](https://formulae.brew.sh/formula/zk), [AUR](https://aur.archlinux.org/packages/zk), or [GitHub releases](https://github.com/zk-org/zk/releases) (not in apt/dnf)
 - **[fzf](https://github.com/junegunn/fzf)** 0.44+ — TUI framework
 - **[bat](https://github.com/sharkdp/bat)** — syntax-highlighted preview (called `batcat` on Debian/Ubuntu)
 - **awk**, **sort**, **sed**, **git** — standard unix tools (gawk recommended)
