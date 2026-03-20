@@ -1,0 +1,1113 @@
+# notenav — TUI faceted browser for zk notebooks
+# https://github.com/jqueiroz/notenav
+
+NOTENAV_VERSION="0.1.0-dev"
+
+notenav_main() {
+  # --version support
+  if [[ "$1" == "--version" || "$1" == "-V" ]]; then
+    echo "notenav $NOTENAV_VERSION"
+    return 0
+  fi
+
+  # Collect .nn/queries/ dirs from git root down to cwd (deeper dirs override)
+  local -A saved_queries
+  local git_root
+  git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+  if [[ -n "$git_root" ]]; then
+    local rel="${PWD#$git_root}"
+    local search_path="$git_root"
+    if [[ -d "$search_path/.nn/queries" ]]; then
+      for f in "$search_path/.nn/queries"/*(.N); do
+        saved_queries[${f:t}]="$f"
+      done
+    fi
+    for segment in ${(s:/:)rel}; do
+      search_path="$search_path/$segment"
+      if [[ -d "$search_path/.nn/queries" ]]; then
+        for f in "$search_path/.nn/queries"/*(.N); do
+          saved_queries[${f:t}]="$f"
+        done
+      fi
+    done
+  elif [[ -d ".nn/queries" ]]; then
+    for f in .nn/queries/*(.N); do
+      saved_queries[${f:t}]="$f"
+    done
+  fi
+
+  # Type icons
+  local _icon_task='◆' _icon_idea='✦' _icon_ref='▪'
+
+  # Format: type, status, priority, tags, title, absPath, modified, created
+  local _fmt='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
+  local _awk_color='{
+      tc = "\033[36m"; ic = "◆"; pc = "\033[33m"; sc = "\033[90m"; r = "\033[0m"
+      if ($1 == "idea") { tc = "\033[35m"; ic = "✦" }
+      if ($1 == "reference") { tc = "\033[33m"; ic = "▪" }
+      if ($3+0 == 1) pc = "\033[31;1m"
+      if ($3+0 == 2) pc = "\033[33m"
+      if ($2 == "active") sc = "\033[32m"
+      if ($2 == "blocked") sc = "\033[31m"
+      if ($2 == "validating") sc = "\033[34m"
+      printf "%s\t%s%s %s%s %sP%s%s %s%s%s %s\n", $6, tc, ic, $1, r, pc, $3, r, sc, $2, r, $5
+    }'
+
+  # Default zk path args based on cwd
+  local _zk_path=()
+  local _gr
+  _gr=$(git rev-parse --show-toplevel 2>/dev/null)
+  [[ -n "$_gr" && "$PWD" != "$_gr" ]] && _zk_path=("$(pwd)")
+
+  # ---- FACETED BROWSER (no args) ----
+  if [[ $# -eq 0 ]]; then
+    local _nn_dir=$(mktemp -d)
+
+    # Get all notes
+    zk list "${_zk_path[@]}" --format "$_fmt" --quiet 2>/dev/null > "$_nn_dir/.raw"
+
+    # Initialize filter state (empty = all)
+    : > "$_nn_dir/.f_type"
+    : > "$_nn_dir/.f_status"
+    : > "$_nn_dir/.f_priority"
+    : > "$_nn_dir/.f_tags"
+    : > "$_nn_dir/.f_sq"
+    echo created > "$_nn_dir/.f_sort"
+    echo type > "$_nn_dir/.f_active"
+    : > "$_nn_dir/.f_history"
+    echo type > "$_nn_dir/.f_group"
+    : > "$_nn_dir/.f_archive"
+    : > "$_nn_dir/.f_match"
+
+    # Write saved query definitions for filter.sh, sorted by priority
+    # Files may start with "# N" comment to set sort order (default 50)
+    local _sq_names=() _sq_unsorted=() _qfile _qpri _qfirst _qargs
+    for _qname in ${(ko)saved_queries}; do
+      _qfile="${saved_queries[$_qname]}"
+      _qpri=100
+      _qfirst=$(head -1 "$_qfile")
+      if [[ "$_qfirst" =~ '^# *([0-9]+)' ]]; then
+        _qpri=${match[1]}
+      fi
+      _qargs=$(grep -v '^#' "$_qfile" | tr '\n' ' ' | sed 's/ *$//')
+      _sq_unsorted+=("${_qpri}	${_qname}	${_qargs}")
+    done
+    printf '%s\n' "${_sq_unsorted[@]}" | sort -t'	' -k1,1n -k2,2 | while IFS=$'\t' read -r _ _qname _qargs; do
+      _sq_names+=("$_qname")
+      echo "$_qname	$_qargs" >> "$_nn_dir/.queries"
+    done
+
+    # Tag picker script (opens sub-fzf for multi-select)
+    cat > "$_nn_dir/tags.sh" << 'ENDTAGS'
+#!/bin/bash
+dir="$1"
+tags=$(awk -F'\t' 'length($4) > 0 {
+  n=split($4, arr, " "); for(i=1;i<=n;i++) t[arr[i]]=1
+} END { for(k in t) print k }' "$dir/.raw" | sort)
+[ -z "$tags" ] && exit 0
+cur_tags=""
+[ -s "$dir/.f_tags" ] && cur_tags=$(cat "$dir/.f_tags")
+n_cur=$(echo "$cur_tags" | grep -c . 2>/dev/null || echo 0)
+if [ "$n_cur" -gt 0 ]; then
+  ordered=$(printf '%s\n%s' "$cur_tags" "$tags" | awk '!seen[$0]++')
+  start_bind="load:select+down"
+  i=1; while [ "$i" -lt "$n_cur" ]; do start_bind="$start_bind+select+down"; i=$((i+1)); done
+else
+  ordered="$tags"
+  start_bind=""
+fi
+selected=$(echo "$ordered" | fzf --multi --reverse --prompt 'tags: ' \
+  --ansi --header $'Select tags for filtering (\033[36mSpace\033[0m/\033[36mTab\033[0m toggle \033[90m·\033[0m \033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel)' \
+  --bind 'j:down,k:up,space:toggle' ${start_bind:+--bind "$start_bind"})
+if [ $? -eq 0 ]; then
+  if [ -n "$selected" ]; then echo "$selected" > "$dir/.f_tags"
+  else : > "$dir/.f_tags"; fi
+fi
+ENDTAGS
+    chmod +x "$_nn_dir/tags.sh"
+
+    # Body text search: live fzf with zk --match
+    cat > "$_nn_dir/match_search.sh" << 'ENDMSEARCH'
+#!/bin/bash
+dir="$1"; query="$2"
+zk_path=()
+while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+if [ -n "$query" ]; then
+  zk list "${zk_path[@]}" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null
+else
+  zk list "${zk_path[@]}" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null
+fi
+ENDMSEARCH
+    chmod +x "$_nn_dir/match_search.sh"
+
+    cat > "$_nn_dir/match.sh" << 'ENDMATCH'
+#!/bin/bash
+dir="$1"
+cur=""
+[ -s "$dir/.f_match" ] && cur=$(cat "$dir/.f_match")
+result=$(: | fzf --ansi --disabled --query "$cur" \
+  --prompt 'search contents: ' \
+  --header $'Body text search · Enter apply · Esc cancel' \
+  --bind "start:reload:$dir/match_search.sh $dir {q}" \
+  --bind "change:reload:$dir/match_search.sh $dir {q}" \
+  --preview "$dir/preview.sh {1}" \
+  --delimiter $'\t' --with-nth 2 \
+  --print-query \
+  --bind 'j:down,k:up' \
+  --reverse)
+rc=$?
+query=$(printf '%s' "$result" | head -1)
+if [ $rc -eq 0 ] && [ -n "$query" ]; then
+  zk_path=()
+  while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+  zk list "${zk_path[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
+  echo "$query" > "$dir/.f_match"
+elif [ $rc -eq 0 ]; then
+  : > "$dir/.f_match"
+  : > "$dir/.f_match_paths"
+fi
+ENDMATCH
+    chmod +x "$_nn_dir/match.sh"
+
+    # Store zk list args for reload
+    printf '%s\n' "${_zk_path[@]}" > "$_nn_dir/.zk_path"
+    echo "$_fmt" > "$_nn_dir/.zk_fmt"
+
+    # Bulk action script: update frontmatter field on selected files, then reload
+    cat > "$_nn_dir/action.sh" << 'ENDACTION'
+#!/bin/bash
+# Usage: action.sh <dir> <field> <value> <file1> [file2 ...]
+dir="$1"; field="$2"; value="$3"; shift 3
+count=0
+for file in "$@"; do
+  [ ! -f "$file" ] && continue
+  # Update field within YAML frontmatter (between first --- and second ---)
+  awk -v field="$field" -v value="$value" '
+    NR==1 && /^---/ { in_fm=1; print; next }
+    in_fm && /^---/ { in_fm=0; if (!found) print field ": " value; print; next }
+    in_fm && $0 ~ "^"field":" { print field ": " value; found=1; next }
+    { print }
+  ' "$file" > "$file.tmp" && mv "$file.tmp" "$file" && count=$((count + 1))
+done
+# Pin acted-on files so they stay visible after filter
+printf '%s\n' "$@" > "$dir/.pinned"
+# Regenerate raw data
+fmt=$(cat "$dir/.zk_fmt")
+zk_path=()
+while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
+# Re-run current filter to update .current
+"$dir/filter.sh" "$dir" refresh > /dev/null
+ENDACTION
+    chmod +x "$_nn_dir/action.sh"
+
+    # Field picker: opens sub-fzf to choose a value, writes to .f_pick_val
+    cat > "$_nn_dir/fieldpick.sh" << 'ENDFP'
+#!/bin/bash
+dir="$1"; field="$2"; shift 2
+# Build context header from file paths
+ctx=""
+total=$#
+shown=0
+for f in "$@"; do
+  [ ! -f "$f" ] && continue
+  if [ $shown -lt 2 ]; then
+    t=$(awk -F'\t' -v p="$f" '$6 == p {print $5; exit}' "$dir/.raw")
+    [ -z "$t" ] && t=$(basename "$f" .md)
+    [ $shown -eq 0 ] && ctx="$t" || ctx="$ctx, $t"
+  fi
+  shown=$((shown + 1))
+done
+[ $shown -gt 2 ] && ctx="$ctx (+$((shown - 2)) more)"
+case "$field" in
+  status)   vals="new\nactive\nblocked\nvalidating\ndone" ;;
+  priority) vals="1\n2\n3\n4" ;;
+  type)     vals="◆ task\n✦ idea\n▪ reference" ;;
+  *) exit 1 ;;
+esac
+hdr="Enter apply · Esc cancel"
+[ -n "$ctx" ] && hdr=$(printf '%s\n%s' "$ctx" "$hdr")
+selected=$(printf "$vals" | fzf --reverse --prompt "set $field: " \
+  --border --border-label " Set $field " \
+  --header "$hdr" \
+  --bind 'j:down,k:up')
+[ -z "$selected" ] && exit 1
+# Strip icon prefix (e.g. "◆ task" → "task")
+selected=$(echo "$selected" | sed 's/^[^ ]* //')
+echo "$field" > "$dir/.fp_field"
+echo "$selected" > "$dir/.fp_value"
+ENDFP
+    chmod +x "$_nn_dir/fieldpick.sh"
+
+    # Combined pick-and-apply: pick value then update files
+    cat > "$_nn_dir/bulkset.sh" << 'ENDBS'
+#!/bin/bash
+dir="$1"; field="$2"; shift 2
+# Read file paths from args or .c_sel file
+if [ $# -gt 0 ]; then
+  files=("$@")
+else
+  files=()
+  while IFS= read -r f; do [ -n "$f" ] && files+=("$f"); done < "$dir/.c_sel"
+fi
+[ ${#files[@]} -eq 0 ] && exit 0
+# Pick value (pass file paths for context display)
+"$dir/fieldpick.sh" "$dir" "$field" "${files[@]}" || exit 0
+value=$(cat "$dir/.fp_value")
+# Apply to selected files
+"$dir/action.sh" "$dir" "$field" "$value" "${files[@]}"
+ENDBS
+    chmod +x "$_nn_dir/bulkset.sh"
+
+    # Bulk edit: multi-field frontmatter updater (single awk pass)
+    cat > "$_nn_dir/bulkedit_update.sh" << 'ENDBEU'
+#!/bin/bash
+# Usage: bulkedit_update.sh <file> field=value [field=value ...]
+file="$1"; shift
+[ ! -f "$file" ] && exit 1
+# Parse field=value pairs into individual vars
+set_type=""; set_status=""; set_priority=""; set_tags=""
+has_type=0; has_status=0; has_priority=0; has_tags=0
+for arg in "$@"; do
+  f="${arg%%=*}"; v="${arg#*=}"
+  case "$f" in
+    type)     set_type="$v"; has_type=1 ;;
+    status)   set_status="$v"; has_status=1 ;;
+    priority) set_priority="$v"; has_priority=1 ;;
+    tags)
+      has_tags=1
+      if [ -n "$v" ]; then
+        # Convert space-separated tags to YAML array: [tag1, tag2]
+        set_tags=$(echo "$v" | sed 's/  */ /g; s/^ //; s/ $//' | tr ' ' '\n' | paste -sd, | sed 's/^/[/; s/$/]/')
+      fi
+      ;;
+  esac
+done
+awk -v set_type="$set_type" -v has_type="$has_type" \
+    -v set_status="$set_status" -v has_status="$has_status" \
+    -v set_priority="$set_priority" -v has_priority="$has_priority" \
+    -v set_tags="$set_tags" -v has_tags="$has_tags" '
+  NR==1 && /^---/ { in_fm=1; print; next }
+  in_fm && /^---/ {
+    in_fm=0
+    if (has_type && !found_type && set_type != "") print "type: " set_type
+    if (has_status && !found_status && set_status != "") print "status: " set_status
+    if (has_priority && !found_priority && set_priority != "") print "priority: " set_priority
+    if (has_tags && !found_tags && set_tags != "") print "tags: " set_tags
+    print; next
+  }
+  in_fm && /^type:/ {
+    if (has_type) { if (set_type != "") print "type: " set_type; found_type=1; next }
+    else { found_type=1 }
+  }
+  in_fm && /^status:/ {
+    if (has_status) { if (set_status != "") print "status: " set_status; found_status=1; next }
+    else { found_status=1 }
+  }
+  in_fm && /^priority:/ {
+    if (has_priority) { if (set_priority != "") print "priority: " set_priority; found_priority=1; next }
+    else { found_priority=1 }
+  }
+  in_fm && /^tags:/ {
+    if (has_tags) { if (set_tags != "") print "tags: " set_tags; found_tags=1; next }
+    else { found_tags=1 }
+  }
+  { print }
+' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+ENDBEU
+    chmod +x "$_nn_dir/bulkedit_update.sh"
+
+    # Bulk edit: diff and apply changes from edited TSV
+    cat > "$_nn_dir/bulkedit_apply.sh" << 'ENDBA'
+#!/bin/bash
+dir="$1"; orig="$2"; edited="$3"
+errors=""
+count=0
+while IFS= read -r new_line; do
+  # Skip comments and empty lines
+  case "$new_line" in '#'*|'') continue ;; esac
+  path=$(printf '%s' "$new_line" | awk -F'\t' '{print $6}')
+  [ -z "$path" ] && continue
+  # Find matching original line by path
+  orig_line=$(awk -F'\t' -v p="$path" '$6 == p' "$orig")
+  [ -z "$orig_line" ] && continue
+  # Compare fields
+  new_type=$(printf '%s' "$new_line" | awk -F'\t' '{print $1}')
+  new_status=$(printf '%s' "$new_line" | awk -F'\t' '{print $2}')
+  new_pri=$(printf '%s' "$new_line" | awk -F'\t' '{print $3}')
+  new_tags=$(printf '%s' "$new_line" | awk -F'\t' '{print $4}')
+  old_type=$(printf '%s' "$orig_line" | awk -F'\t' '{print $1}')
+  old_status=$(printf '%s' "$orig_line" | awk -F'\t' '{print $2}')
+  old_pri=$(printf '%s' "$orig_line" | awk -F'\t' '{print $3}')
+  old_tags=$(printf '%s' "$orig_line" | awk -F'\t' '{print $4}')
+  # Skip if nothing changed
+  [ "$new_type" = "$old_type" ] && [ "$new_status" = "$old_status" ] && \
+    [ "$new_pri" = "$old_pri" ] && [ "$new_tags" = "$old_tags" ] && continue
+  # Validate type
+  case "$new_type" in
+    task|idea|reference) ;;
+    *) errors="${errors}Invalid type '$new_type' for $(basename "$path")\n"; continue ;;
+  esac
+  # Validate status
+  case "$new_status" in
+    new|active|blocked|validating|done|removed|"") ;;
+    *) errors="${errors}Invalid status '$new_status' for $(basename "$path")\n"; continue ;;
+  esac
+  # Validate priority
+  case "$new_pri" in
+    1|2|3|4|"") ;;
+    *) errors="${errors}Invalid priority '$new_pri' for $(basename "$path")\n"; continue ;;
+  esac
+  # Build update args for changed fields only
+  update_args=()
+  [ "$new_type" != "$old_type" ] && update_args+=("type=$new_type")
+  [ "$new_status" != "$old_status" ] && update_args+=("status=$new_status")
+  [ "$new_pri" != "$old_pri" ] && update_args+=("priority=$new_pri")
+  [ "$new_tags" != "$old_tags" ] && update_args+=("tags=$new_tags")
+  "$dir/bulkedit_update.sh" "$path" "${update_args[@]}" && count=$((count + 1))
+done < "$edited"
+# Regenerate raw data and re-filter
+fmt=$(cat "$dir/.zk_fmt")
+zk_path=()
+while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
+"$dir/filter.sh" "$dir" refresh > /dev/null
+ENDBA
+    chmod +x "$_nn_dir/bulkedit_apply.sh"
+
+    # Bulk edit: orchestrator — generates TSV, opens editor, applies changes
+    cat > "$_nn_dir/bulkedit.sh" << 'ENDBE'
+#!/bin/bash
+dir="$1"
+tmpfile="$dir/.bulkedit.tsv"
+origfile="$dir/.bulkedit_orig.tsv"
+# Header with vim modeline
+printf '# vim:ft=conf:ts=12:noet:nowrap\n' > "$tmpfile"
+printf '# type\tstatus\tpriority\ttags\ttitle\tpath\n' >> "$tmpfile"
+# Read each path from .current and look up metadata in .raw
+while IFS=$'\t' read -r fpath _rest; do
+  [ -z "$fpath" ] && continue
+  awk -F'\t' -v p="$fpath" '$6 == p { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6 }' "$dir/.raw" >> "$tmpfile"
+done < <(tac "$dir/.current")
+# Footer with valid values
+printf '\n# type: task, idea, reference\n' >> "$tmpfile"
+printf '# status: new, active, blocked, validating, done, removed (or empty)\n' >> "$tmpfile"
+printf '# priority: 1, 2, 3, 4 (or empty)\n' >> "$tmpfile"
+printf '# tags: space-separated\n' >> "$tmpfile"
+# Save original for diffing
+cp "$tmpfile" "$origfile"
+# Open editor
+${EDITOR:-nvim} "$tmpfile" </dev/tty >/dev/tty
+# Apply changes
+"$dir/bulkedit_apply.sh" "$dir" "$origfile" "$tmpfile"
+ENDBE
+    chmod +x "$_nn_dir/bulkedit.sh"
+
+    # Quick note creation: type picker → title prompt → zk new → editor
+    cat > "$_nn_dir/newnote.sh" << 'ENDNN'
+#!/bin/bash
+dir="$1"
+# Pick type (default to current type filter)
+cur_type=$(cat "$dir/.f_type")
+types=$'\033[36m◆ task\033[0m\t\033[90m  scoped, ready to implement\033[0m\n\033[35m✦ idea\033[0m\t\033[90m  needs exploration/research\033[0m\n\033[33m▪ reference\033[0m\t\033[90m  living documentation\033[0m'
+selected=$(printf "$types" | fzf --reverse --prompt "type: " \
+  --ansi --border --border-label ' New Note ' --delimiter '\t' --with-nth '1,2' \
+  --header $'Select note type\n\033[36mEnter\033[0m confirm \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
+  --bind "j:down,k:up" \
+  --query "${cur_type}" | awk '{print $2}')
+[ -z "$selected" ] && exit 0
+# Styled title prompt
+case "$selected" in
+  task) tc=$'\033[36m'; icon="◆" ;; idea) tc=$'\033[35m'; icon="✦" ;; reference) tc=$'\033[33m'; icon="▪" ;;
+esac
+printf '\n' > /dev/tty
+inner=41
+pad=$((inner - 7 - ${#selected}))
+top_dashes=$(printf '%*s' "$pad" '' | sed 's/ /─/g')
+printf '  %s╭─ New %s %s╮\033[0m\n' "$tc" "$selected" "$top_dashes" > /dev/tty
+printf '  %s│\033[0m%*s%s│\033[0m\n' "$tc" "$inner" "" "$tc" > /dev/tty
+printf '  %s│\033[0m  \033[1mTitle:\033[0m%*s%s│\033[0m\n' "$tc" "$((inner - 8))" "" "$tc" > /dev/tty
+printf '  %s│\033[0m%*s%s│\033[0m\n' "$tc" "$inner" "" "$tc" > /dev/tty
+bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
+printf '  %s╰%s╯\033[0m\n' "$tc" "$bot_dashes" > /dev/tty
+# Move cursor up 3 lines, to column 13 (after "Title: ")
+printf '\033[3A\033[13G' > /dev/tty
+read -r title < /dev/tty
+# Move to the bottom border line to overwrite with result
+printf '\033[1B' > /dev/tty
+if [ -z "$title" ]; then
+  printf '\r  %s└─ \033[0m\033[90mCancelled\033[0m\033[K\n\n' "$tc" > /dev/tty
+  exit 0
+fi
+# Create note
+new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>/dev/null)
+if [ -z "$new_path" ]; then
+  printf '\r  %s└─ \033[31mFailed to create note\033[0m\033[K\n\n' "$tc" > /dev/tty
+  exit 0
+fi
+printf '\r  %s└─ \033[32m%s Created!\033[0m Opening in editor...\033[K\n\n' "$tc" "$icon" > /dev/tty
+# Regenerate raw
+fmt=$(cat "$dir/.zk_fmt")
+zk_path=()
+while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
+"$dir/filter.sh" "$dir" refresh > /dev/null
+# Open in editor
+${EDITOR:-nvim} "$new_path" < /dev/tty > /dev/tty
+ENDNN
+    chmod +x "$_nn_dir/newnote.sh"
+
+    # Inline status cycling: advance/reverse status through lifecycle
+    cat > "$_nn_dir/cyclestatus.sh" << 'ENDCS'
+#!/bin/bash
+dir="$1"; file="$2"; direction="${3:-fwd}"
+[ ! -f "$file" ] && exit 0
+cur=$(awk -F'\t' -v p="$file" '$6 == p {print $2; exit}' "$dir/.raw")
+if [ "$direction" = "rev" ]; then
+  case "$cur" in
+    done) next=active ;; active) next=new ;; new) next=done ;;
+    blocked) next=new ;; validating) next=active ;;
+    *) next=new ;;
+  esac
+else
+  case "$cur" in
+    new) next=active ;; active) next=done ;; done) next=new ;;
+    blocked) next=active ;; validating) next=done ;;
+    *) next=new ;;
+  esac
+fi
+"$dir/action.sh" "$dir" status "$next" "$file"
+ENDCS
+    chmod +x "$_nn_dir/cyclestatus.sh"
+
+    # Quick priority bump: increase/decrease urgency
+    cat > "$_nn_dir/bumppri.sh" << 'ENDBP'
+#!/bin/bash
+dir="$1"; file="$2"; direction="$3"
+[ ! -f "$file" ] && exit 0
+cur=$(awk -F'\t' -v p="$file" '$6 == p {print $3; exit}' "$dir/.raw")
+case "$direction" in
+  up)   case "$cur" in "") next=4;; 4) next=3;; 3) next=2;; 2) next=1;; *) exit 0;; esac ;;
+  down) case "$cur" in 1) next=2;; 2) next=3;; 3) next=4;; *) exit 0;; esac ;;
+esac
+"$dir/action.sh" "$dir" priority "$next" "$file"
+ENDBP
+    chmod +x "$_nn_dir/bumppri.sh"
+
+    # Reload helper: reloads list and positions cursor on the given path
+    cat > "$_nn_dir/reload_at.sh" << 'ENDRA'
+#!/bin/bash
+dir="$1"; path="$2"
+n=$(awk -F'\t' -v p="$path" '$1==p{print NR;exit}' "$dir/.current")
+border=$(cat "$dir/.border" 2>/dev/null || echo " nn ")
+printf 'reload(cat %s/.current)+pos(%s)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "${n:-1}" "$dir" "$border"
+ENDRA
+    chmod +x "$_nn_dir/reload_at.sh"
+
+    # Query picker script (opens sub-fzf to select a saved query)
+    cat > "$_nn_dir/querypick.sh" << 'ENDQP'
+#!/bin/bash
+dir="$1"
+[ ! -f "$dir/.queries" ] && exit 0
+n=0
+list=""
+while IFS='	' read -r qname qargs; do
+  n=$((n + 1))
+  list="$list$(printf '%d\t%s\t%s\n' "$n" "$qname" "$qargs")"$'\n'
+done < "$dir/.queries"
+[ -z "$list" ] && exit 0
+selected=$(printf '%s' "$list" | fzf --reverse --prompt 'query: ' \
+  --delimiter '\t' --with-nth '1,2' \
+  --header 'Enter apply · Esc cancel' \
+  --bind 'j:down,k:up')
+[ -z "$selected" ] && exit 0
+num=$(echo "$selected" | cut -f1)
+echo "$num" > "$dir/.f_pick"
+ENDQP
+    chmod +x "$_nn_dir/querypick.sh"
+
+    # Preview helper script (file content + links + backlinks)
+    cat > "$_nn_dir/preview.sh" << 'ENDPREVIEW'
+#!/bin/bash
+file="$1"
+test -f "$file" || exit 0
+
+# Show file content
+$(command -v bat || command -v batcat) -p --color always "$file" 2>/dev/null || cat "$file"
+
+# Collect links in parallel
+tmp_links=$(mktemp); tmp_back=$(mktemp)
+zk list --linked-by "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_links" &
+zk list --link-to "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_back" &
+wait
+
+# Show outgoing links
+if [ -s "$tmp_links" ]; then
+  printf '\n\033[1;34m── Links ─────────────────────────\033[0m\n'
+  cat "$tmp_links"
+fi
+
+# Show backlinks
+if [ -s "$tmp_back" ]; then
+  printf '\n\033[1;35m── Backlinks ─────────────────────\033[0m\n'
+  cat "$tmp_back"
+fi
+
+rm -f "$tmp_links" "$tmp_back"
+ENDPREVIEW
+    chmod +x "$_nn_dir/preview.sh"
+
+    # Faceted filter helper script
+    cat > "$_nn_dir/filter.sh" << 'ENDFILTER'
+#!/bin/bash
+dir="$1"; action="$2"
+cycle() {
+  local dim="$1" direction="$2" cur="$3"
+  local -a vals
+  case "$dim" in
+    type)     vals=("" "task" "idea" "reference") ;;
+    status)   vals=("" "new" "active" "blocked" "validating" "done") ;;
+    priority) vals=("" "1" "2" "3" "4") ;;
+    sort)     vals=("created" "modified" "title" "priority") ;;
+    group)    vals=("" "type" "status") ;;
+  esac
+  local total=${#vals[@]} idx=0 i
+  for i in "${!vals[@]}"; do
+    [ "${vals[$i]}" = "$cur" ] && idx=$i && break
+  done
+  [ "$direction" = "next" ] && idx=$(( (idx + 1) % total )) \
+                             || idx=$(( (idx - 1 + total) % total ))
+  echo "${vals[$idx]}"
+}
+apply_sq() {
+  local num="$1" line name args
+  [ ! -f "$dir/.queries" ] && return
+  line=$(sed -n "${num}p" "$dir/.queries")
+  [ -z "$line" ] && return
+  name="${line%%	*}"; args="${line#*	}"
+  # Reset filters then apply saved query's key=value pairs
+  ft=""; fs=""; fp=""; : > "$dir/.f_tags"
+  for a in $args; do
+    case "$a" in
+      type=*) ft="${a#*=}";; status=*) fs="${a#*=}";;
+      priority=*) fp="${a#*=}";; tag=*) echo "${a#*=}" >> "$dir/.f_tags";;
+    esac
+  done
+  echo "$name" > "$dir/.f_sq"
+}
+ft=$(cat "$dir/.f_type"); fs=$(cat "$dir/.f_status")
+fp=$(cat "$dir/.f_priority"); fa=$(cat "$dir/.f_active")
+fsort=$(cat "$dir/.f_sort"); fgroup=$(cat "$dir/.f_group")
+farchive=$(cat "$dir/.f_archive"); fmatch=$(cat "$dir/.f_match")
+# Pinned items: when an action (priority bump, status cycle) causes an item
+# to no longer match active filters, it stays visible at the top of the list
+# (dimmed, marked "temporarily pinned"). Pins are cleared on any filter change
+# (type/status/priority/tag/query/reset/undo) but kept on refresh (which runs
+# after actions). action.sh overwrites .pinned each time, so only the latest
+# acted-on items stay pinned.
+case "$action" in refresh) ;; *) : > "$dir/.pinned" ;; esac
+# Push current state to history before mutating (skip for refresh/undo)
+case "$action" in
+  refresh|undo) ;;
+  *)
+    tags_joined=$(tr '\n' ' ' < "$dir/.f_tags" | sed 's/ $//')
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$ft" "$fs" "$fp" "$tags_joined" "$(cat "$dir/.f_sq")" "$fsort" "$fgroup" "$farchive" "$fmatch" \
+      >> "$dir/.f_history"
+    ;;
+esac
+case "$action" in
+  type)     fa=type;     ft=$(cycle type next "$ft"); : > "$dir/.f_sq" ;;
+  status)   fa=status;   fs=$(cycle status next "$fs"); : > "$dir/.f_sq" ;;
+  priority) fa=priority; fp=$(cycle priority next "$fp"); : > "$dir/.f_sq" ;;
+  sort)     fsort=$(cycle sort next "$fsort") ;;
+  clear-type) ft=""; : > "$dir/.f_sq" ;;
+  clear-status) fs=""; : > "$dir/.f_sq" ;;
+  clear-priority) fp=""; : > "$dir/.f_sq" ;;
+  clear-sort) fsort="priority" ;;
+  next|prev)  # h/l: cycle through saved queries
+    if [ -f "$dir/.queries" ]; then
+      total=$(wc -l < "$dir/.queries")
+      if [ "$total" -gt 0 ]; then
+        cur_sq=$(cat "$dir/.f_sq" 2>/dev/null)
+        cur_idx=0  # 0 = no query selected (show all)
+        if [ -n "$cur_sq" ]; then
+          n=0
+          while IFS='	' read -r qn _; do
+            n=$((n + 1))
+            [ "$qn" = "$cur_sq" ] && cur_idx=$n && break
+          done < "$dir/.queries"
+        fi
+        # total+1 positions: 0=all, 1..total=queries
+        positions=$((total + 1))
+        if [ "$action" = "next" ]; then
+          cur_idx=$(( (cur_idx + 1) % positions ))
+        else
+          cur_idx=$(( (cur_idx - 1 + positions) % positions ))
+        fi
+        if [ "$cur_idx" -eq 0 ]; then
+          ft=""; fs=""; fp=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"
+        else
+          apply_sq "$cur_idx"
+        fi
+      fi
+    fi ;;
+  sq*) apply_sq "${action#sq}" ;;
+  pick) [ -f "$dir/.f_pick" ] && apply_sq "$(cat "$dir/.f_pick")" && rm -f "$dir/.f_pick" ;;
+  reset) ft=""; fs=""; fp=""; fmatch=""; fgroup="type"; farchive=""; fsort="created"; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths" ;;
+  clear-tags) : > "$dir/.f_tags" ;;
+  clear-match) fmatch=""; : > "$dir/.f_match"; : > "$dir/.f_match_paths" ;;
+  group) fgroup=$(cycle group next "$fgroup") ;;
+  clear-group) fgroup="" ;;
+  archive) [ -n "$farchive" ] && farchive="" || farchive="show" ;;
+  undo)
+    if [ -s "$dir/.f_history" ]; then
+      snap=$(tail -1 "$dir/.f_history")
+      sed -i '$ d' "$dir/.f_history"
+      ft=$(printf '%s' "$snap" | cut -f1)
+      fs=$(printf '%s' "$snap" | cut -f2)
+      fp=$(printf '%s' "$snap" | cut -f3)
+      tags_snap=$(printf '%s' "$snap" | cut -f4)
+      sq_snap=$(printf '%s' "$snap" | cut -f5)
+      fsort=$(printf '%s' "$snap" | cut -f6)
+      fgroup=$(printf '%s' "$snap" | cut -f7)
+      farchive=$(printf '%s' "$snap" | cut -f8)
+      fmatch=$(printf '%s' "$snap" | cut -f9)
+      : > "$dir/.f_tags"
+      [ -n "$tags_snap" ] && printf '%s\n' $tags_snap > "$dir/.f_tags"
+      echo "$sq_snap" > "$dir/.f_sq"
+      echo "$fmatch" > "$dir/.f_match"
+      if [ -n "$fmatch" ]; then
+        zk_path=()
+        while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+        zk list "${zk_path[@]}" --match "$fmatch" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
+      else
+        : > "$dir/.f_match_paths"
+      fi
+    fi ;;
+  refresh) ;;  # just re-apply filters (after tag picker)
+esac
+echo "$ft" > "$dir/.f_type"; echo "$fs" > "$dir/.f_status"
+echo "$fp" > "$dir/.f_priority"; echo "$fa" > "$dir/.f_active"
+echo "$fsort" > "$dir/.f_sort"; echo "$fgroup" > "$dir/.f_group"
+echo "$farchive" > "$dir/.f_archive"
+echo "$fmatch" > "$dir/.f_match"
+# Build awk condition
+cond='length($1) > 0'
+[ -n "$ft" ] && cond="$cond && \$1==\"$ft\""
+[ -n "$fs" ] && cond="$cond && \$2==\"$fs\""
+# Hide archived statuses unless archive toggle is on or status is explicitly filtered
+[ -z "$farchive" ] && [ -z "$fs" ] && cond="$cond && \$2!=\"done\" && \$2!=\"removed\""
+if [ "$fp" = "none" ]; then
+  cond="$cond && \$3==\"\""
+elif [ -n "$fp" ]; then
+  cond="$cond && \$3==\"$fp\""
+fi
+# Tag filter (OR: match any selected tag)
+if [ -s "$dir/.f_tags" ]; then
+  tag_cond=""
+  while IFS= read -r tag; do
+    [ -z "$tag" ] && continue
+    if [ -n "$tag_cond" ]; then
+      tag_cond="$tag_cond || index(\" \" \$4 \" \", \" $tag \")"
+    else
+      tag_cond="index(\" \" \$4 \" \", \" $tag \")"
+    fi
+  done < "$dir/.f_tags"
+  [ -n "$tag_cond" ] && cond="$cond && ($tag_cond)"
+fi
+# Sort .raw before filtering (empty priority sorts after P4)
+do_sort() {
+  case "$1" in
+    priority) awk -F'\t' 'BEGIN{OFS=FS}{if($3=="")$3=9;print}' | sort -t'	' -k3,3n -s | awk -F'\t' 'BEGIN{OFS=FS}{if($3==9)$3="";print}' ;;
+    modified) sort -t'	' -k7,7r -s ;;
+    created)  sort -t'	' -k8,8r -s ;;
+    title)    sort -t'	' -k5,5 -s ;;
+    *)        cat ;;
+  esac
+}
+now=$(date +%s)
+# Pre-filter by body match if active
+_raw_input="$dir/.raw"
+if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
+  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw" > "$dir/.raw_matched"
+  _raw_input="$dir/.raw_matched"
+fi
+do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "$cond"' {
+  tc = "\033[36m"; ic = "◆"; pc = "\033[33m"; sc = "\033[90m"; r = "\033[0m"
+  if ($1 == "idea") { tc = "\033[35m"; ic = "✦" }
+  if ($1 == "reference") { tc = "\033[33m"; ic = "▪" }
+  if ($3+0 == 1) pc = "\033[31;1m"
+  if ($3+0 == 2) pc = "\033[33m"
+  if ($2 == "active") sc = "\033[32m"
+  if ($2 == "blocked") sc = "\033[31m"
+  if ($2 == "validating") sc = "\033[34m"
+  # Relative age from modified ($7): "YYYY-MM-DD HH:MM:SS..."
+  age = ""
+  if ($7 != "") {
+    split($7, dt, /[-: ]/)
+    ts = mktime(dt[1] " " dt[2] " " dt[3] " " dt[4] " " dt[5] " " int(dt[6]))
+    if (ts > 0) {
+      diff = now - ts
+      if (diff < 0) diff = 0
+      if (diff < 3600) age = int(diff/60) "m"
+      else if (diff < 86400) age = int(diff/3600) "h"
+      else if (diff < 604800) age = int(diff/86400) "d"
+      else if (diff < 2592000) age = int(diff/604800) "w"
+      else if (diff < 31536000) age = int(diff/2592000) "mo"
+      else age = int(diff/31536000) "y"
+    }
+  }
+  age_s = (age != "") ? " \033[90m" age r : ""
+  printf "%s\t%s%s %s%s %sP%s%s %s%s%s %s%s\n", $6, tc, ic, $1, r, pc, $3, r, sc, $2, r, $5, age_s
+}' > "$dir/.current"
+# Count filtered items (before pinning/grouping adds extra lines)
+count=$(wc -l < "$dir/.current")
+# Prepend pinned items (from actions) that got filtered out
+if [ -s "$dir/.pinned" ]; then
+  pinned_lines=""
+  while IFS= read -r pin; do
+    [ -z "$pin" ] && continue
+    grep -qF "$pin" "$dir/.current" && continue
+    # Render the pinned item from .raw with a dim marker
+    line=$(TZ=UTC awk -F'\t' -v p="$pin" -v now="$now" '$6 == p {
+      tc = "\033[90m"; ic = "◆"; pc = "\033[90m"; sc = "\033[90m"; r = "\033[0m"
+      if ($1 == "idea") ic = "✦"
+      if ($1 == "reference") ic = "▪"
+      age = ""
+      if ($7 != "") {
+        split($7, dt, /[-: ]/)
+        ts = mktime(dt[1] " " dt[2] " " dt[3] " " dt[4] " " dt[5] " " int(dt[6]))
+        if (ts > 0) { diff = now - ts; if (diff < 0) diff = 0
+          if (diff < 3600) age = int(diff/60) "m"
+          else if (diff < 86400) age = int(diff/3600) "h"
+          else if (diff < 604800) age = int(diff/86400) "d"
+          else if (diff < 2592000) age = int(diff/604800) "w"
+          else if (diff < 31536000) age = int(diff/2592000) "mo"
+          else age = int(diff/31536000) "y"
+        }
+      }
+      age_s = (age != "") ? " \033[90m" age r : ""
+      printf "%s\t%s%s %s%s %sP%s%s %s%s%s %s%s \033[90m(temporarily pinned)\033[0m\n", $6, tc, ic, $1, r, pc, $3, r, sc, $2, r, $5, age_s
+    }' "$dir/.raw")
+    [ -n "$line" ] && pinned_lines="${pinned_lines}${line}\n"
+  done < "$dir/.pinned"
+  if [ -n "$pinned_lines" ]; then
+    printf '%b' "$pinned_lines" | cat - "$dir/.current" > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
+  fi
+fi
+# Grouping post-processing: insert separator headers between groups
+if [ -n "$fgroup" ]; then
+  case "$fgroup" in type) gcol=1 ;; status) gcol=2 ;; esac
+  awk -F'\t' -v gcol="$gcol" '
+    NR==FNR { key[$6] = $gcol; next }
+    { path=$1; gk=key[path]; print gk "\t" $0 }
+  ' "$dir/.raw" "$dir/.current" \
+  | sort -t'	' -k1,1 -s \
+  | awk -F'\t' -v gmode="$fgroup" '
+    { gk=$1; sub(/^[^\t]*\t/, "")
+      counts[gk]++; lines[gk] = lines[gk] $0 "\n"
+    } END {
+      if (gmode == "status")
+        n = split("active blocked validating new done removed", order, " ")
+      else
+        n = split("task idea reference", order, " ")
+      # Icon lookup for type groups
+      icon["task"] = "◆"; icon["idea"] = "✦"; icon["reference"] = "▪"
+      for (i=1; i<=n; i++) {
+        g = order[i]
+        if (!(g in counts)) continue
+        ic = (g in icon) ? icon[g] " " : ""
+        printf "\t\033[90;1m── %s%s (%d) ──\033[0m\n", ic, g, counts[g]
+        printf "%s", lines[g]
+      }
+    }' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
+fi
+# Compute inline stats from filtered set
+stats_s=$(awk -F'\t' "$cond"'{
+  types[$1]++; combos[$1, $2]++
+} END {
+  split("task idea reference", order, " ")
+  first = 1
+  for (o = 1; o <= 3; o++) {
+    t = order[o]
+    if (!(t in types)) continue
+    if (!first) printf " \033[90m·\033[0m "
+    first = 0
+    tc = "\033[36m"; ic = "◆"
+    if (t == "idea") { tc = "\033[35m"; ic = "✦" }
+    if (t == "reference") { tc = "\033[33m"; ic = "▪" }
+    tl = t; if (types[t] != 1) tl = t "s"
+    printf "%s%s %d %s\033[0m", tc, ic, types[t], tl
+    printf " ("
+    split("new active blocked validating done", statuses, " ")
+    sfirst = 1
+    for (si = 1; si <= 5; si++) {
+      s = statuses[si]
+      key = t SUBSEP s
+      if (!(key in combos)) continue
+      if (!sfirst) printf ", "
+      sfirst = 0
+      sc = "\033[90m"
+      if (s == "active") sc = "\033[32m"
+      if (s == "blocked") sc = "\033[31m"
+      if (s == "validating") sc = "\033[34m"
+      printf "%s%d %s\033[0m", sc, combos[key], s
+    }
+    printf ")"
+  }
+}' "$dir/.raw")
+# Header line 1: filter state
+fmt_dim() {
+  local key="$1" val="$2" is_active="$3" label suffix ic=""
+  if [ "$key" = "p" ] && [ -n "$val" ]; then label="P$val"
+  elif [ "$key" = "e" ] && [ -n "$val" ]; then
+    case "$val" in task) ic="◆ ";; idea) ic="✦ ";; reference) ic="▪ ";; esac
+    label="${ic}${val}"
+  else label="${val:-all}"; fi
+  case "$key" in e) suffix="ntity";; s) suffix="tatus";; p) suffix="riority";; *) suffix="";; esac
+  if [ -n "$val" ]; then
+    # Filter active: cyan key, bold value
+    printf ' \033[36m[\033[1;36m%s\033[0;36m]%s:\033[0m \033[1m%s\033[0m' "$key" "$suffix" "$label"
+  elif [ "$is_active" = "1" ]; then
+    # Active dimension, no filter: cyan key, underlined
+    printf ' \033[36m[\033[1;36m%s\033[0;36m]%s:\033[0m \033[4mall\033[0m' "$key" "$suffix"
+  else
+    # Inactive, no filter: all dim
+    printf ' \033[90m[%s]%s: all\033[0m' "$key" "$suffix"
+  fi
+}
+ta=0; sa=0; pa=0
+case "$fa" in type) ta=1;; status) sa=1;; priority) pa=1;; esac
+t_s=$(fmt_dim e "$ft" $ta); s_s=$(fmt_dim s "$fs" $sa); p_s=$(fmt_dim p "$fp" $pa)
+if [ -n "$fgroup" ]; then
+  g_s=$(printf '\033[36m[g]\033[0mroup-by: \033[1m%s\033[0m' "$fgroup")
+else
+  g_s=$(printf '\033[36m[g]\033[0mroup-by: \033[90mn/a\033[0m')
+fi
+a_s=""
+[ -n "$farchive" ] && a_s=$(printf ' \033[1mshowing done/removed\033[0m') || a_s=$(printf ' \033[90mhiding done/removed\033[0m')
+c_s=$(printf '\033[90m── %d\033[0m' "$count")
+sort_s=$(printf '\033[36m[o]\033[0mrder: \033[1m⇅ %s\033[0m' "$fsort")
+# Show active tags in header if any
+tag_s=""
+if [ -s "$dir/.f_tags" ]; then
+  tag_list=$(tr '\n' ' ' < "$dir/.f_tags" | sed 's/ $//')
+  tag_s=$(printf ' \033[35mtags:%s\033[0m' "$tag_list")
+fi
+# Header line 2+: numbered saved queries with count badges, wrapped to terminal width
+active_sq=$(cat "$dir/.f_sq" 2>/dev/null)
+cols=$(tput cols 2>/dev/null || echo 80)
+# Count matches for "all" (respects archive toggle)
+all_cond='length($1) > 0'
+[ -z "$farchive" ] && all_cond="$all_cond && \$2!=\"done\" && \$2!=\"removed\""
+all_count=$(awk -F'\t' "$all_cond"'{n++} END{print n+0}' "$dir/.raw")
+# 0:all highlights only when no filters, no tags, no saved query, defaults
+has_tags=false; [ -s "$dir/.f_tags" ] && has_tags=true
+if [ -z "$active_sq" ] && [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && ! $has_tags; then
+  sq_lines=$(printf '\033[1;7m 0:all(%d) \033[0m' "$all_count")
+else
+  sq_lines=$(printf '\033[90m 0:all(%d) \033[0m' "$all_count")
+fi
+line_len=$((8 + ${#all_count}))
+if [ -f "$dir/.queries" ]; then
+  n=0
+  while IFS='	' read -r qname qargs; do
+    n=$((n + 1))
+    # Build awk condition for this query
+    sq_cond='length($1) > 0'
+    [ -z "$farchive" ] && sq_cond="$sq_cond && \$2!=\"done\" && \$2!=\"removed\""
+    for a in $qargs; do
+      case "$a" in
+        type=*) sq_cond="$sq_cond && \$1==\"${a#*=}\"" ;;
+        status=*) sq_cond="$sq_cond && \$2==\"${a#*=}\"" ;;
+        priority=none) sq_cond="$sq_cond && \$3==\"\"" ;;
+        priority=*) sq_cond="$sq_cond && \$3==\"${a#*=}\"" ;;
+        tag=*) sq_cond="$sq_cond && index(\" \" \$4 \" \", \" ${a#*=} \")" ;;
+      esac
+    done
+    sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw")
+    label=$(printf '%d:%s(%d)' "$n" "$qname" "$sq_count")
+    # visible length: " label " (spaces + content)
+    item_len=$(( ${#label} + 2 ))
+    if [ $line_len -gt 0 ] && [ $((line_len + item_len)) -gt $cols ]; then
+      sq_lines="$sq_lines"$'\n'
+      line_len=0
+    fi
+    if [ "$qname" = "$active_sq" ]; then
+      sq_lines="$sq_lines$(printf '\033[1;7m %s \033[0m' "$label")"
+    else
+      sq_lines="$sq_lines$(printf '\033[90m %s \033[0m' "$label")"
+    fi
+    line_len=$((line_len + item_len))
+  done < "$dir/.queries"
+fi
+# Section labels and keybinding help
+filters_lbl=$(printf '\033[1;90m Filters:\033[0m%s%s%s %s' "$t_s" "$s_s" "$p_s" "$c_s")
+if [ -n "$tag_s" ]; then
+  filters_lbl=$(printf '%s\n          \033[36m[t]\033[0mags:%s \033[90m·\033[0m \033[36m[T]\033[0m clear' "$filters_lbl" "$tag_s")
+else
+  filters_lbl=$(printf '%s\n          \033[36m[t]\033[0mags: \033[90mnone\033[0m' "$filters_lbl")
+fi
+if [ -n "$fmatch" ]; then
+  filters_lbl=$(printf '%s\n          \033[36m[m]\033[0match contents: \033[1m"%s"\033[0m \033[90m·\033[0m \033[36m[M]\033[0m clear' "$filters_lbl" "$fmatch")
+else
+  filters_lbl=$(printf '%s\n          \033[36m[m]\033[0match contents: \033[90mnone\033[0m' "$filters_lbl")
+fi
+queries_lbl=$(printf '\033[1;90m Presets:\033[0m %s' "$sq_lines")
+presets_hint=$(printf '\033[90m          \033[36mh\033[90m/\033[36ml\033[90m ←→  \033[36m0\033[90m-\033[36m9\033[90m/\033[36mf\033[90m jump\033[0m')
+view_lbl=$(printf '\033[1;90m View:\033[0m %s \033[90m·\033[0m %s \033[90m·\033[0m \033[36m[z]\033[0m%s' "$sort_s" "$g_s" "$a_s")
+actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
+change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[e]\033[0mntity type')
+change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[e]\033[1;37mntity type\033[0m')
+keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[R]\033[0meset everything \033[90m·\033[0m \033[36m[u]\033[0mndo \033[90m(filters only)\033[0m \033[90m·\033[0m \033[36m/\033[0m search \033[90m·\033[0m \033[36mq\033[0muit')
+stats_lbl=$(printf '\033[1;90m Stats:\033[0m %s' "$stats_s")
+printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header"
+printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
+total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
+printf ' nn · %d/%d ' "$count" "$total" > "$dir/.border"
+printf 'reload(cat %s/.current)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "$dir" "$(cat "$dir/.border")"
+ENDFILTER
+    chmod +x "$_nn_dir/filter.sh"
+
+    # Generate initial results, stats, and header via filter.sh
+    "$_nn_dir/filter.sh" "$_nn_dir" refresh > /dev/null
+
+    fzf --ansi --delimiter $'\t' --with-nth 2.. < "$_nn_dir/.current" \
+      --header '' --header-first \
+      --border rounded \
+      --border-label "$(cat "$_nn_dir/.border")" \
+      --border-label-pos bottom \
+      --preview "$_nn_dir/preview.sh {1}" \
+      --prompt ': ' \
+      --bind "e:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt(: )+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir type]" \
+      --bind "E:transform[$_nn_dir/filter.sh $_nn_dir clear-type]" \
+      --bind "s:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt(: )+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir status]" \
+      --bind "S:transform[$_nn_dir/filter.sh $_nn_dir clear-status]" \
+      --bind "p:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt(: )+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir priority]" \
+      --bind "P:transform[$_nn_dir/filter.sh $_nn_dir clear-priority]" \
+      --bind "l:transform[$_nn_dir/filter.sh $_nn_dir next]" \
+      --bind "h:transform[$_nn_dir/filter.sh $_nn_dir prev]" \
+      --bind "1:transform[$_nn_dir/filter.sh $_nn_dir sq1]" \
+      --bind "2:transform[$_nn_dir/filter.sh $_nn_dir sq2]" \
+      --bind "3:transform[$_nn_dir/filter.sh $_nn_dir sq3]" \
+      --bind "4:transform[$_nn_dir/filter.sh $_nn_dir sq4]" \
+      --bind "5:transform[$_nn_dir/filter.sh $_nn_dir sq5]" \
+      --bind "6:transform[$_nn_dir/filter.sh $_nn_dir sq6]" \
+      --bind "7:transform[$_nn_dir/filter.sh $_nn_dir sq7]" \
+      --bind "8:transform[$_nn_dir/filter.sh $_nn_dir sq8]" \
+      --bind "9:transform[$_nn_dir/filter.sh $_nn_dir sq9]" \
+      --bind "0:transform[$_nn_dir/filter.sh $_nn_dir reset]" \
+      --bind "R:transform[$_nn_dir/filter.sh $_nn_dir reset]" \
+      --bind "f:execute($_nn_dir/querypick.sh $_nn_dir)+transform[$_nn_dir/filter.sh $_nn_dir pick]" \
+      --bind "t:execute($_nn_dir/tags.sh $_nn_dir)+transform[$_nn_dir/filter.sh $_nn_dir refresh]" \
+      --bind "T:transform[$_nn_dir/filter.sh $_nn_dir clear-tags]" \
+      --bind "m:execute($_nn_dir/match.sh $_nn_dir)+transform[$_nn_dir/filter.sh $_nn_dir refresh]" \
+      --bind "M:transform[$_nn_dir/filter.sh $_nn_dir clear-match]" \
+      --bind "o:transform[$_nn_dir/filter.sh $_nn_dir sort]" \
+      --bind "a:execute($_nn_dir/cyclestatus.sh $_nn_dir {1} fwd)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind "A:execute($_nn_dir/cyclestatus.sh $_nn_dir {1} rev)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind "+:execute($_nn_dir/bumppri.sh $_nn_dir {1} down)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind ">:execute($_nn_dir/bumppri.sh $_nn_dir {1} down)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind "-:execute($_nn_dir/bumppri.sh $_nn_dir {1} up)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind "<:execute($_nn_dir/bumppri.sh $_nn_dir {1} up)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind "u:transform[$_nn_dir/filter.sh $_nn_dir undo]" \
+      --bind "g:transform[$_nn_dir/filter.sh $_nn_dir group]" \
+      --bind "z:transform[$_nn_dir/filter.sh $_nn_dir archive]" \
+      --bind "n:execute($_nn_dir/newnote.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']" \
+      --bind "c:execute-silent(touch /tmp/.nn-c)+change-prompt(c )+transform-header(cat $_nn_dir/.header-c)" \
+      --bind "i:execute[test -f {1} && ${EDITOR:-nvim} {1}]" \
+      --multi \
+      --bind "b:execute($_nn_dir/bulkedit.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']+deselect-all" \
+      --bind "start:transform-header(cat $_nn_dir/.header)+execute-silent(rm -f /tmp/.nn-s /tmp/.nn-c)" \
+      --bind 'j:down,k:up,q:abort,change:clear-query' \
+      --bind '/:unbind(j,k,q,change,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt(/ )+execute-silent(touch /tmp/.nn-s)' \
+      --bind 'esc:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf "change-prompt(: )+transform-header(cat '"$_nn_dir"'/.header)" || { test -f /tmp/.nn-s && rm /tmp/.nn-s && printf "rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt(: )" || printf "clear-query+rebind(change)"; }]' \
+      --bind '::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt(: )+execute-silent(rm -f /tmp/.nn-s)' \
+      --bind 'J:preview-page-down,K:preview-page-up' \
+      --bind 'ctrl-j:preview-page-down,ctrl-k:preview-page-up' \
+      --bind 'H:toggle-wrap' \
+      --bind "enter:execute[test -f {1} && ${EDITOR:-nvim} {1}]"
+    rm -rf "$_nn_dir"
+    return
+  fi
+
+  # ---- NAMED QUERY ----
+  if [[ $# -ge 1 && "$1" != *=* && "$1" != -* && -n "${saved_queries[$1]}" ]]; then
+    local saved="$1"; shift
+    notenav_main ${="$(grep -v '^#' "${saved_queries[$saved]}")"} "$@"
+    return
+  fi
+
+  # ---- AD-HOC QUERY ----
+  local -A filters
+  local interactive=false zk_args=() parsing_filters=true
+
+  while [[ $# -gt 0 ]]; do
+    if $parsing_filters; then
+      case "$1" in
+        -i|--interactive) interactive=true; shift ;;
+        --) parsing_filters=false; shift ;;
+        *=*) filters[${1%%=*}]="${1#*=}"; shift ;;
+        *) parsing_filters=false; zk_args+=("$1"); shift ;;
+      esac
+    else
+      zk_args+=("$1"); shift
+    fi
+  done
+
+  [[ ${#zk_args[@]} -eq 0 ]] && zk_args=("${_zk_path[@]}")
+
+  local awk_cond="1"
+  [[ -n "${filters[type]}" ]] && awk_cond="$awk_cond && \$1==\"${filters[type]}\""
+  [[ -n "${filters[status]}" ]] && awk_cond="$awk_cond && \$2==\"${filters[status]}\""
+  if [[ "${filters[priority]}" == "none" ]]; then
+    awk_cond="$awk_cond && \$3==\"\""
+  elif [[ -n "${filters[priority]}" ]]; then
+    awk_cond="$awk_cond && \$3==\"${filters[priority]}\""
+  fi
+  [[ -n "${filters[tag]}" ]] && awk_cond="$awk_cond && index(\" \" \$4 \" \", \" ${filters[tag]} \") > 0"
+
+  if $interactive; then
+    local nn_tmp=$(mktemp)
+    local _nn_prev=$(mktemp)
+    cat > "$_nn_prev" << 'ENDPREVIEW'
+#!/bin/bash
+file="$1"
+test -f "$file" || exit 0
+$(command -v bat || command -v batcat) -p --color always "$file" 2>/dev/null || cat "$file"
+tmp_links=$(mktemp); tmp_back=$(mktemp)
+zk list --linked-by "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_links" &
+zk list --link-to "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_back" &
+wait
+if [ -s "$tmp_links" ]; then
+  printf '\n\033[1;34m── Links ─────────────────────────\033[0m\n'
+  cat "$tmp_links"
+fi
+if [ -s "$tmp_back" ]; then
+  printf '\n\033[1;35m── Backlinks ─────────────────────\033[0m\n'
+  cat "$tmp_back"
+fi
+rm -f "$tmp_links" "$tmp_back"
+ENDPREVIEW
+    chmod +x "$_nn_prev"
+    zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
+      | awk -F'\t' "$awk_cond && length(\$1) > 0 $_awk_color" > "$nn_tmp"
+    fzf --ansi --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
+          --preview "$_nn_prev {1}" \
+          --prompt ': ' \
+          --bind 'start:execute-silent(rm -f /tmp/.nn-s)' \
+          --bind 'j:down,k:up,q:abort,change:clear-query' \
+          --bind '/:unbind(j,k,q,change)+change-prompt(/ )+execute-silent(touch /tmp/.nn-s)' \
+          --bind 'esc:transform[test -f /tmp/.nn-s && rm /tmp/.nn-s && printf "rebind(j,k,q)+change-prompt(: )" || printf "clear-query+rebind(change)"]' \
+          --bind '::rebind(j,k,q)+change-prompt(: )+execute-silent(rm -f /tmp/.nn-s)' \
+          --bind 'J:preview-page-down,K:preview-page-up' \
+          --bind 'ctrl-j:preview-page-down,ctrl-k:preview-page-up' \
+          --bind 'H:toggle-wrap' \
+          --bind "enter:execute(${EDITOR:-nvim} {1})"
+    rm -f "$nn_tmp" "$_nn_prev"
+  else
+    zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
+      | awk -F'\t' "$awk_cond && length(\$1) > 0 {printf \"[%s] [P%s] [%s] %s\n\", \$1, \$3, \$2, \$5}"
+  fi
+}

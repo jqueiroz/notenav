@@ -1,0 +1,7 @@
+#!/usr/bin/env zsh
+# nn — notenav entry point
+# TUI faceted browser for zk notebooks
+
+NOTENAV_ROOT="${0:A:h:h}"
+source "$NOTENAV_ROOT/lib/notenav.sh"
+notenav_main "$@"
