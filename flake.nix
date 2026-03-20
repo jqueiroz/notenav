@@ -13,6 +13,49 @@
       });
     in
     {
+      packages = forAllSystems ({ pkgs }:
+        let
+          runtimeDeps = with pkgs; [
+            zsh
+            zk
+            fzf
+            bat
+            gawk
+            gnused
+            coreutils
+            git
+          ];
+        in {
+          default = pkgs.stdenv.mkDerivation {
+            pname = "notenav";
+            version = "0.1.0-dev";
+            src = ./.;
+
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+
+            dontBuild = true;
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p $out/bin $out/lib
+              install -m755 bin/nn $out/bin/nn
+              install -m644 lib/notenav.sh $out/lib/notenav.sh
+              wrapProgram $out/bin/nn \
+                --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
+              runHook postInstall
+            '';
+
+            meta = with pkgs.lib; {
+              description = "TUI faceted browser for zk notebooks";
+              homepage = "https://github.com/jqueiroz/notenav";
+              license = licenses.mit;
+              platforms = platforms.unix;
+              mainProgram = "nn";
+            };
+          };
+        }
+      );
+
       devShells = forAllSystems ({ pkgs }: {
         default = pkgs.mkShell {
           packages = with pkgs; [
