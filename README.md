@@ -13,13 +13,17 @@ Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk
 - **[fzf](https://github.com/junegunn/fzf)** 0.44+ — TUI framework
 - **awk**, **sort**, **sed**, **git** — standard unix tools (gawk recommended)
 
-## Optional
+## Optional dependencies
+
+Not required, but progressively enhance the experience when installed.
 
 - **[bat](https://github.com/sharkdp/bat)** — syntax-highlighted preview (called `batcat` on Debian/Ubuntu)
 
 ## Install
 
-### Nix (recommended — handles all dependencies)
+### Nix (recommended — transparently handles all dependencies)
+
+[Nix](https://nixos.org/) is a package manager which runs on any Linux distro and macOS. It allows installing notenav along with all its dependencies in an isolated way, without touching your system packages. If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables flakes by default).
 
 **`nix profile` (imperative):**
 
