@@ -12,13 +12,13 @@ Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk
 
 ## Install
 
-**Option 1: via [Nix](https://nixos.org/)** (recommended — transparently handles all dependencies):
+**Option 1: via [Nix](https://nixos.org/)** (recommended — transparently handles all dependencies)
 
 ```bash
 nix profile install github:jqueiroz/notenav
 ```
 
-[Nix](https://nixos.org/) is a declarative package manager for Linux and macOS. Using Nix, you can install notenav and all of its dependencies in isolation from your system packages.
+[Nix](https://nixos.org/) is a declarative package manager for Linux and macOS. Using Nix, you can install notenav and all of its dependencies in isolation from your system packages. See [docs/install.md](docs/install.md) for NixOS and Home Manager options.
 
 **Option 2: Manual installation**
 
