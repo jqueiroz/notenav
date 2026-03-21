@@ -22,7 +22,7 @@ nix profile install github:jqueiroz/notenav
 
 Nix installs packages in isolated, immutable environments, avoiding conflicts with system dependencies and ensuring reproducibility.
 
-This command uses Nix's imperative interface (`nix profile`). If you prefer a fully declarative setup, see the NixOS or Home Manager instructions in [docs/install.md](docs/install.md).
+If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables flakes by default). This command uses Nix's imperative interface (`nix profile`). If you prefer a fully declarative setup, see the NixOS or Home Manager instructions in [docs/install.md](docs/install.md).
 
 **Option 2: Manual installation**
 
