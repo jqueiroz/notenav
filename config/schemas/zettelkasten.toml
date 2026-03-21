@@ -64,3 +64,17 @@ draft = "archived"
 [priority]
 enabled = false
 
+# --- Query presets ---
+
+[queries.drafts]
+order = 10
+args = "status=draft"
+
+[queries.fleeting]
+order = 20
+args = "type=fleeting"
+
+[queries.review]
+order = 30
+args = "status=review"
+

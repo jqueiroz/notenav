@@ -81,6 +81,19 @@ created: 2026-03-18
 ---
 ```
 
+## Query Presets
+
+Compass ships with four built-in query presets — filtered views that appear in the query bar when you launch `nn`:
+
+| Preset | Filter | Purpose |
+|--------|--------|---------|
+| p1-tasks | `type=task priority=1` | Your highest-priority tasks — the things to work on right now |
+| p1-ideas | `type=idea priority=1` | High-priority ideas worth exploring soon |
+| p1-references | `type=reference priority=1` | High-priority references that need attention |
+| inbox | `priority=none` | Unprioritized notes awaiting triage |
+
+These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#query-presets) for details.
+
 ## When to Use Compass
 
 Compass is a good default when you don't have a specific methodology in mind. It works well for:

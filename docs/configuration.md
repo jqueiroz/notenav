@@ -210,6 +210,42 @@ default_color = "33"
 
 Values can be numeric (`"1"`, `"2"`, `"3"`) or named (`"critical"`, `"high"`, `"low"`). To disable priority entirely, set `enabled = false` – this hides priority from the TUI and disables the `+`/`-` keybindings.
 
+### `[queries]`
+
+Query presets are saved filtered views that appear in the TUI query bar. Each schema ships with built-in presets, and you can add your own in user or project config.
+
+```toml
+[queries.my-view]
+order = 50           # lower = earlier in the query bar (default: 100)
+args = "type=task status=active"
+```
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `order` | number | Sort position in the query bar (default: `100`, lower = first) |
+| `args` | string | Filter arguments as key=value pairs |
+
+**Merge order** (later wins on name collisions):
+
+1. **Schema** – built-in presets from the active schema
+2. **User config** (`~/.config/notenav/config.toml`) – personal queries, available everywhere
+3. **Project config** (`.nn/config.toml`) – team-shared, project-specific
+
+Same-name queries at a later layer fully replace the earlier one. For example, defining `[queries.inbox]` in your project config overrides the schema's `inbox` preset.
+
+**Clearing schema presets:** If you want to start fresh without the schema's built-in queries, set `inherit = false`:
+
+```toml
+# .nn/config.toml — clear schema presets, define only your own
+[queries]
+inherit = false
+
+[queries.my-custom]
+args = "type=task status=active"
+```
+
+This removes all schema-level queries before merging. Queries defined in the same file (or higher layers) still apply. The `inherit` key itself is stripped from the final config.
+
 ## Built-in schemas
 
 notenav ships with four schemas. Use `extends` in `.nn/schema.toml` or `default_schema` in your user config to select one.

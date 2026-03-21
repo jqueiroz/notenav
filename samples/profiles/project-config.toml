@@ -8,6 +8,12 @@ schema = "ado"
 # Saved queries shared among project members.
 # Each query has an args string (key=value pairs) and optional order (default 100).
 # Lower order = earlier in the saved query bar.
+#
+# Schema presets are included by default. Project queries with the same name
+# override the schema preset. To clear all schema presets, set inherit = false:
+#
+#   [queries]
+#   inherit = false
 
 [queries.backlog]
 args = "tag=backlog"

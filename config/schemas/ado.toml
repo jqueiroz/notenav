@@ -83,3 +83,17 @@ default_color = "33"           # yellow
 2 = "3"
 3 = "4"
 
+# --- Query presets ---
+
+[queries.active-bugs]
+order = 10
+args = "type=bug status=active"
+
+[queries.p1-features]
+order = 20
+args = "type=feature priority=1"
+
+[queries.new-items]
+order = 30
+args = "status=new"
+

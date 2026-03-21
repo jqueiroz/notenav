@@ -80,6 +80,18 @@ created: 2026-03-18
 ---
 ```
 
+## Query Presets
+
+ADO ships with three built-in query presets:
+
+| Preset | Filter | Purpose |
+|--------|--------|---------|
+| active-bugs | `type=bug status=active` | Bugs currently being worked on — the fire list |
+| p1-features | `type=feature priority=1` | Critical features that need attention |
+| new-items | `status=new` | Recently created items awaiting triage |
+
+These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#query-presets) for details.
+
 ## When to Use ADO
 
 ADO is a good fit when:

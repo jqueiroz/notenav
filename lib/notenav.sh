@@ -96,9 +96,21 @@ nn_load_config() {
     project_queries=$(printf '%s' "$project_json" | jq '{queries: (.queries // {})}' 2>/dev/null) || project_queries="{}"
   fi
 
+  # Handle queries.inherit: if false in project or user config,
+  # strip schema queries so only explicit queries survive
+  local _inherit
+  _inherit=$(printf '%s' "$project_json" | jq -r '.queries.inherit // empty' 2>/dev/null)
+  if [[ -z "$_inherit" ]]; then
+    _inherit=$(printf '%s' "$user_json" | jq -r '.queries.inherit // empty' 2>/dev/null)
+  fi
+  if [[ "$_inherit" == "false" ]]; then
+    schema_json=$(printf '%s' "$schema_json" | jq 'del(.queries)' 2>/dev/null)
+  fi
+
   # Deep merge: jq * is recursive merge, later values win
+  # Strip the inherit key from the final result
   NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$schema_json" "$base_json" "$user_json" "$project_queries" \
-    | jq -s '.[0] * .[1] * .[2] * .[3]' 2>/dev/null)
+    | jq -s '.[0] * .[1] * .[2] * .[3] | del(.queries.inherit)' 2>/dev/null)
 
   if [[ -z "$NN_CFG_JSON" || "$NN_CFG_JSON" == "null" ]]; then
     echo "notenav: config merge failed" >&2
@@ -457,36 +469,13 @@ notenav_main() {
 
   shopt -s nullglob
 
-  # Collect .nn/queries/ dirs from git root down to cwd (deeper dirs override)
-  declare -A saved_queries
-  local git_root
-  git_root=$(git rev-parse --show-toplevel 2>/dev/null)
-  if [[ -n "$git_root" ]]; then
-    local rel="${PWD#$git_root}"
-    local search_path="$git_root"
-    if [[ -d "$search_path/.nn/queries" ]]; then
-      for f in "$search_path/.nn/queries"/*; do
-        [[ -f "$f" ]] || continue
-        saved_queries[${f##*/}]="$f"
-      done
-    fi
-    IFS='/' read -ra _segments <<< "$rel"
-    for segment in "${_segments[@]}"; do
-      [[ -z "$segment" ]] && continue
-      search_path="$search_path/$segment"
-      if [[ -d "$search_path/.nn/queries" ]]; then
-        for f in "$search_path/.nn/queries"/*; do
-          [[ -f "$f" ]] || continue
-          saved_queries[${f##*/}]="$f"
-        done
-      fi
-    done
-  elif [[ -d ".nn/queries" ]]; then
-    for f in .nn/queries/*; do
-      [[ -f "$f" ]] || continue
-      saved_queries[${f##*/}]="$f"
-    done
-  fi
+  # Extract saved queries from merged config (schema + user + project)
+  declare -A saved_queries saved_query_order
+  while IFS=$'\t' read -r _qname _qorder _qargs; do
+    [[ -z "$_qname" ]] && continue
+    saved_queries[$_qname]="$_qargs"
+    saved_query_order[$_qname]="$_qorder"
+  done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.order // 100)\t\(.value.args // "")"')
 
   # Format and color from config
   local _fmt="$NN_ZK_FMT"
@@ -518,26 +507,18 @@ notenav_main() {
     : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
 
-    # Write saved query definitions for filter.sh, sorted by priority
-    # Files may start with "# N" comment to set sort order (default 50)
-    local _sq_names=() _sq_unsorted=() _qfile _qpri _qfirst _qargs _sorted_keys=()
+    # Write saved query definitions for filter.sh, sorted by order
+    : > "$_nn_dir/.queries"
     if [[ ${#saved_queries[@]} -gt 0 ]]; then
-    mapfile -t _sorted_keys < <(printf '%s\n' "${!saved_queries[@]}" | sort)
+      local _sq_unsorted=()
+      for _qname in "${!saved_queries[@]}"; do
+        _sq_unsorted+=("${saved_query_order[$_qname]:-100}	$_qname	${saved_queries[$_qname]}")
+      done
+      printf '%s\n' "${_sq_unsorted[@]}" | sort -t'	' -k1,1n -k2,2 | \
+        while IFS=$'\t' read -r _ _qname _qargs; do
+          echo "$_qname	$_qargs" >> "$_nn_dir/.queries"
+        done
     fi
-    for _qname in "${_sorted_keys[@]}"; do
-      _qfile="${saved_queries[$_qname]}"
-      _qpri=100
-      _qfirst=$(head -1 "$_qfile")
-      if [[ "$_qfirst" =~ ^#\ *([0-9]+) ]]; then
-        _qpri=${BASH_REMATCH[1]}
-      fi
-      _qargs=$(grep -v '^#' "$_qfile" | tr '\n' ' ' | sed 's/ *$//')
-      _sq_unsorted+=("${_qpri}	${_qname}	${_qargs}")
-    done
-    printf '%s\n' "${_sq_unsorted[@]}" | sort -t'	' -k1,1n -k2,2 | while IFS=$'\t' read -r _ _qname _qargs; do
-      _sq_names+=("$_qname")
-      echo "$_qname	$_qargs" >> "$_nn_dir/.queries"
-    done
 
     # Tag picker script (opens sub-fzf for multi-select)
     cat > "$_nn_dir/tags.sh" << 'ENDTAGS'
@@ -1392,10 +1373,10 @@ ENDFILTER
   fi
 
   # ---- NAMED QUERY ----
-  if [[ $# -ge 1 && "$1" != *=* && "$1" != -* && -n "${saved_queries[$1]}" ]]; then
+  if [[ $# -ge 1 && "$1" != *=* && "$1" != -* && -n "${saved_queries[$1]+x}" ]]; then
     local saved="$1"; shift
     shopt -u nullglob
-    notenav_main $(grep -v '^#' "${saved_queries[$saved]}") "$@"
+    notenav_main ${saved_queries[$saved]} "$@"
     return
   fi
 

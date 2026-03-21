@@ -123,9 +123,12 @@ created: 2026-03-18
 
 ## Saved Queries
 
-Saved queries are defined in config TOML files under `[queries.<name>]`. Each query has an `args` string (key=value pairs) and optional `order` (default 100, lower = first in the query bar).
+Saved queries are defined in `[queries.<name>]` sections across three layers (later wins on name collisions):
 
-**Project queries** (`.nn/config.toml`) are shared among team members:
+1. **Schema queries** — built-in presets shipped with each schema (e.g. compass has `p1-tasks`, `inbox`)
+2. **User queries** (`~/.config/notenav/config.toml`) — personal, available everywhere
+3. **Project queries** (`.nn/config.toml`) — team-shared, project-specific
+
 ```toml
 [queries.backlog]
 args = "tag=backlog"
@@ -135,7 +138,7 @@ order = 5
 args = "type=bug status=active"
 ```
 
-**User queries** (`~/.config/notenav/config.toml`) are personal, available everywhere. Project queries win on name collisions.
+Set `inherit = false` under `[queries]` in project or user config to clear schema presets before merging.
 
 ## Source Reference
 

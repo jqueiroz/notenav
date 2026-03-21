@@ -99,6 +99,18 @@ The real power of a Zettelkasten comes from connections. Use your editor to add 
 
 Filter to `review` status to find notes that need another pass. Check for clarity, add links to related notes, and advance to `mature` when satisfied.
 
+## Query Presets
+
+Zettelkasten ships with three built-in query presets:
+
+| Preset | Filter | Purpose |
+|--------|--------|---------|
+| drafts | `status=draft` | Notes in first-pass form — rough, possibly incomplete |
+| fleeting | `type=fleeting` | Quick captures to process into literature or permanent notes |
+| review | `status=review` | Notes that need another look for clarity and linking |
+
+These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#query-presets) for details.
+
 ## When to Use Zettelkasten
 
 This schema is for knowledge management and intellectual work – research, writing, learning. It works best when:

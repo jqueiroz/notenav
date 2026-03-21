@@ -86,3 +86,21 @@ default_color = "33"           # yellow
 1 = "2"
 2 = "3"
 
+# --- Query presets ---
+
+[queries.next-actions]
+order = 10
+args = "type=action status=next"
+
+[queries.inbox]
+order = 20
+args = "status=inbox"
+
+[queries.waiting]
+order = 30
+args = "status=waiting"
+
+[queries.someday]
+order = 40
+args = "status=someday"
+

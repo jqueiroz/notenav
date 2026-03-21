@@ -102,3 +102,22 @@ default_color = "33"           # yellow
 2 = "3"
 3 = "4"
 
+# --- Query presets ---
+# Built-in filtered views. Project/user configs can override or clear these.
+
+[queries.p1-tasks]
+order = 10
+args = "type=task priority=1"
+
+[queries.p1-ideas]
+order = 20
+args = "type=idea priority=1"
+
+[queries.p1-references]
+order = 30
+args = "type=reference priority=1"
+
+[queries.inbox]
+order = 40
+args = "priority=none"
+
