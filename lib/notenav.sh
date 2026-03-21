@@ -609,9 +609,25 @@ nn_write_workflow_files() {
 }
 
 notenav_main() {
-  # --version support
+  # --version / --help
   if [[ "$1" == "--version" || "$1" == "-V" ]]; then
     echo "notenav $NOTENAV_VERSION"
+    return 0
+  fi
+  if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    cat <<'EOF'
+Usage: nn                        interactive TUI
+       nn <query-name>           run a saved query preset
+       nn key=value ...          ad-hoc filter (plain output)
+       nn key=value ... -i       ad-hoc filter (interactive)
+
+Options:
+  -h, --help       Show this help
+  -V, --version    Show version
+
+Filter keys: type, status, priority, tag
+Example: nn type=task status=active
+EOF
     return 0
   fi
 
