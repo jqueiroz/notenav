@@ -1404,7 +1404,7 @@ if [ "$count" -eq 0 ]; then
   if [ "$raw_total" -eq 0 ]; then
     printf 'Mostly harmless. No notes here – yet.\n\nPress '\''n'\'' to create your first note.\n' > "$dir/.empty_placeholder"
   else
-    printf 'Mostly harmless. No notes match this filter.\n' > "$dir/.empty_placeholder"
+    printf 'How many notes must a man write down,\nbefore they can be found?\n\nThe answer, my friend, is n².\n' > "$dir/.empty_placeholder"
   fi
   printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
 else
