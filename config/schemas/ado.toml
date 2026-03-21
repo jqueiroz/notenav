@@ -34,7 +34,7 @@ description = "Defect to fix"
 values = ["new", "active", "resolved", "closed", "removed"]
 display_order = ["active", "new", "resolved", "closed", "removed"]
 archive = ["closed", "removed"]
-filter_cycle = ["", "new", "active", "resolved", "closed"]
+filter_cycle = ["new", "active", "resolved", "closed"]
 default_color = "90"   # dim
 
 [status.colors]
@@ -63,8 +63,9 @@ new = "closed"
 
 [priority]
 values = ["1", "2", "3", "4"]
-filter_cycle = ["", "1", "2", "3", "4"]
+filter_cycle = ["1", "2", "3", "4"]
 unset_position = "last"
+default_color = "33"           # yellow
 
 [priority.colors]
 1 = "31;1"             # bold red — critical

@@ -35,13 +35,13 @@ description = "Documentation"
 # values: all possible statuses
 # display_order: order for group headers
 # archive: statuses hidden by default (toggle with 'z')
-# filter_cycle: order when pressing 's' to cycle (include "" for "all")
+# filter_cycle: order when pressing 's' to cycle ("all" is auto-prepended)
 
 [status]
 values = ["open", "in-progress", "review", "done"]
 display_order = ["in-progress", "review", "open", "done"]
 archive = ["done"]
-filter_cycle = ["", "open", "in-progress", "review", "done"]
+filter_cycle = ["open", "in-progress", "review", "done"]
 default_color = "90"   # used for statuses not listed below
 
 [status.colors]
@@ -69,8 +69,9 @@ open = "done"
 # Labels are optional short strings for the TUI; omit to show "P{value}".
 [priority]
 values = ["critical", "high", "low"]
-filter_cycle = ["", "critical", "high", "low"]
+filter_cycle = ["critical", "high", "low"]
 unset_position = "last"
+default_color = "33"
 
 [priority.labels]
 critical = "P!"

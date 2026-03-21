@@ -35,7 +35,7 @@ description = "Living documentation; continually updated as understanding grows"
 # values: all valid statuses a note can have
 # display_order: order for group headers when group-by-status is active
 # archive: statuses hidden by default; press 'z' to toggle visibility
-# filter_cycle: order when pressing 's' to cycle the status filter ("" = all)
+# filter_cycle: order when pressing 's' to cycle the status filter ("all" is auto-prepended)
 # default_color: fallback for statuses not explicitly listed in [status.colors]
 #
 # "removed" is in values but omitted from filter_cycle and lifecycle —
@@ -45,7 +45,7 @@ description = "Living documentation; continually updated as understanding grows"
 values = ["new", "active", "blocked", "done", "removed"]
 display_order = ["active", "blocked", "new", "done", "removed"]
 archive = ["done", "removed"]
-filter_cycle = ["", "new", "active", "blocked", "done"]
+filter_cycle = ["new", "active", "blocked", "done"]
 default_color = "90"   # dim
 
 [status.colors]
@@ -75,13 +75,14 @@ blocked = "new"
 # values: valid priority levels; array order = sort order (first = highest)
 #   values can be numeric ("1","2","3") or named ("critical","high","low")
 # labels: optional short display labels; omit to show "P{value}" (e.g. "P1")
-# filter_cycle: order when pressing 'p' to cycle the priority filter ("" = all)
+# filter_cycle: order when pressing 'p' to cycle the priority filter ("all" is auto-prepended)
 # unset_position: where unprioritized notes sort ("first" or "last")
 
 [priority]
 values = ["1", "2", "3", "4"]
-filter_cycle = ["", "1", "2", "3", "4"]
+filter_cycle = ["1", "2", "3", "4"]
 unset_position = "last"
+default_color = "33"           # yellow
 
 [priority.colors]
 1 = "31;1"             # bold red
@@ -103,6 +104,3 @@ unset_position = "last"
 2 = "3"
 3 = "4"
 
-# --- zk integration ---
-# format: zk list --format string; columns are tab-separated
-# columns: names for each tab-separated field (for documentation; matches format order)

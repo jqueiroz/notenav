@@ -35,7 +35,7 @@ description = "Non-actionable reference material"
 values = ["inbox", "next", "waiting", "someday", "done", "dropped"]
 display_order = ["next", "waiting", "inbox", "someday", "done", "dropped"]
 archive = ["done", "dropped"]
-filter_cycle = ["", "inbox", "next", "waiting", "someday", "done"]
+filter_cycle = ["inbox", "next", "waiting", "someday", "done"]
 default_color = "90"   # dim
 
 [status.colors]
@@ -69,8 +69,9 @@ dropped = "done"
 
 [priority]
 values = ["1", "2", "3"]
-filter_cycle = ["", "1", "2", "3"]
+filter_cycle = ["1", "2", "3"]
 unset_position = "last"
+default_color = "33"           # yellow
 
 [priority.colors]
 1 = "31;1"             # bold red
