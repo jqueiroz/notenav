@@ -39,7 +39,7 @@ LICENSE             # MIT
 - **zk** — note indexing, querying, LSP (the underlying note tool)
 - **fzf** 0.44+ — TUI framework (transform, execute, rebind)
 - **bat/batcat** — syntax-highlighted preview
-- **yq** (yq-go) — TOML→JSON conversion for config/schema loading
+- **yq** ([yq-go](https://github.com/mikefarah/yq), **not** [yq-python](https://github.com/kislyuk/yq)) — TOML→JSON conversion for config/schema loading
 - **jq** — JSON merging and querying for config system
 - **awk**, **sort**, **sed** — data pipeline (POSIX + gawk `mktime`)
 
