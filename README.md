@@ -54,7 +54,7 @@ Out of the box, `nn` uses **Compass** – a simple workflow built around three n
 
 **Priority** – four levels (P1–P4).
 
-**Inbox and triage** – borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views (`tasks`, `ideas`, `p1-tasks`, `p1-ideas`, etc.) where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
+**Inbox and triage** – borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views, where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
 
 **Built-in query presets** – Compass ships with `inbox`, `p1-tasks`, `p1-ideas`, and `p1-references`. You can add your own presets in project or user config.
 
