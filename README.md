@@ -10,13 +10,15 @@ Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk
 
 ## Install
 
-**Nix** (recommended — handles all dependencies):
+**Option 1: [Nix](https://nixos.org/)** (recommended — transparently handles all dependencies):
 
 ```bash
 nix profile install github:jqueiroz/notenav
 ```
 
-**Git clone:**
+Nix is a package manager which runs on any Linux distro and macOS. It installs notenav and all its dependencies in an isolated store, without touching your system packages — nothing conflicts, nothing breaks.
+
+**Option 2: Manual installation**
 
 ```bash
 git clone https://github.com/jqueiroz/notenav.git ~/.local/share/notenav
