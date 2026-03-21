@@ -43,11 +43,31 @@ Same dependencies as manual installation. See [docs/install.md](docs/install.md)
 
 ## Getting started: the Compass workflow
 
-Out of the box, `nn` uses **Compass** — a simple workflow built around three note types: **tasks** (actionable work), **ideas** (things to explore that may become tasks), and **references** (living documentation you revisit and update over time). Every note also carries a **status** (new, active, blocked, done) and an optional **priority** (1–4).
+Out of the box, `nn` uses **Compass** — a simple workflow built around three note types, four statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
 
-This is enough structure to manage a project without getting in the way. Triage new notes by promoting ideas into tasks, advance status with a single keypress, and use priority to keep focus on what matters. Notes that are done or removed are archived out of sight but still searchable.
+**Note types** — every note is one of:
+- **task** — concrete, actionable unit of work
+- **idea** — needs exploration; may evolve into one or more tasks
+- **reference** — living documentation, continually updated as understanding grows
 
-Compass ships with built-in query presets — `p1-tasks`, `p1-ideas`, `p1-references`, `inbox` — so you can jump to useful views immediately. You can add your own presets in project or user config.
+**Status** — tracks where a note is in its lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (tombstone — hidden from normal views). Press `a` to advance a note's status, `A` to reverse it.
+
+**Priority** — four levels (P1–P4). Notes without a priority land in the **inbox** query preset, making priority a natural triage mechanism: assign a priority to move a note out of the inbox and into your working views. Press `+`/`-` to bump priority up or down.
+
+**Built-in query presets** — Compass ships with `p1-tasks`, `p1-ideas`, `p1-references`, and `inbox`. Navigate between them with `h`/`l`, or press `f` to fuzzy-pick. You can add your own presets in project or user config.
+
+**Frontmatter** — notes are plain markdown with YAML frontmatter:
+
+```yaml
+---
+title: "Refactor config loader"
+type: task
+status: active
+priority: 2
+tags: [config, cleanup]
+created: 2026-03-18
+---
+```
 
 If Compass doesn't fit, switch to one of the other built-in workflows (**ado**, **gtd**, **zettelkasten**) or define your own. See [docs/configuration.md](docs/configuration.md) for the full workflow reference, and the [Compass workflow file](config/workflows/compass.toml) for the exact definitions.
 
