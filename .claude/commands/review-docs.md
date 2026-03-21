@@ -1,0 +1,53 @@
+Review all documentation for quality, accuracy, and consistency. Read every doc and cross-reference against the actual codebase.
+
+Files to review: `README.md`, `docs/install.md`, `docs/configuration.md`, `docs/workflows/*.md`, `samples/` (including inline comments), and `CLAUDE.md`.
+
+## What to check
+
+### 1. Accuracy against implementation
+- Read `lib/notenav.sh` and `bin/nn` alongside the docs
+- Keybinding tables match actual fzf bind calls in the code
+- CLI usage, flags, and examples in docs match actual argument parsing
+- Described data flow matches what the code actually does
+- State files and helper scripts listed in docs match what the code generates
+
+### 2. Accuracy against config files
+- Feature descriptions match what the TOML workflows actually define
+- Workflow doc pages (`docs/workflows/*.md`) match their corresponding `config/workflows/*.toml`
+- Sample files (`samples/`) match the documented config format and use valid keys
+- `docs/configuration.md` covers all config keys used in the codebase
+
+### 3. Completeness
+- Are any features, keybindings, or config options missing from the docs?
+- Are any documented features no longer implemented?
+- Do all workflows have a doc page under `docs/workflows/`?
+- Does `docs/install.md` cover all installation methods that exist?
+
+### 4. Consistency across docs
+- Terminology is used consistently (e.g. "query preset" vs "saved query" vs "named query")
+- Entity type names, status names, and priority values are spelled the same everywhere
+- The same feature isn't described differently in README vs configuration.md vs workflow docs
+- Formatting conventions are consistent (table style, heading levels, code block usage)
+
+### 5. Writing quality
+- Concise, no unnecessary repetition
+- Clear structure — easy to find what you need
+- Code examples are correct and runnable
+- No stale TODOs, placeholders, or draft text left in
+
+### 6. Cross-document navigation
+- Every doc is reachable from README or another doc (no orphan pages)
+- Relative links between docs are correct and resolve
+- README provides a clear path to detailed docs for each topic
+
+## Output format
+
+Group findings by document. For each finding:
+1. **File** and line number
+2. **Category** (1–6 above)
+3. **Issue** — what's wrong
+4. **Suggestion** — how to fix it
+
+End with a summary table: files reviewed, issues per category, overall assessment.
+
+Do NOT make any changes — this is a review only.
