@@ -308,7 +308,10 @@ nn_precompute_schema() {
       local _label; _label=$(nn_cfg ".priority.labels.\"$_v\" // empty")
       NN_PRIORITY_LABELS[$_v]="${_label:-P$_v}"
     done
-    for _v in "" "${NN_PRIORITY_VALUES[@]}"; do
+    # Empty-string key ("unset priority") can't be stored in bash assoc arrays
+    NN_PRIORITY_UP_UNSET=$(nn_cfg '.priority.lifecycle.up."" // empty')
+    NN_PRIORITY_DOWN_UNSET=$(nn_cfg '.priority.lifecycle.down."" // empty')
+    for _v in "${NN_PRIORITY_VALUES[@]}"; do
       local _up; _up=$(nn_cfg ".priority.lifecycle.up.\"$_v\" // empty")
       [[ -n "$_up" ]] && NN_PRIORITY_UP[$_v]=$_up
       local _down; _down=$(nn_cfg ".priority.lifecycle.down.\"$_v\" // empty")
@@ -385,14 +388,18 @@ nn_write_schema_files() {
     [[ -n "${NN_STATUS_REV[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_STATUS_REV[$_v]}"
   done > "$dir/.schema_status_rev"
 
-  # Priority lifecycle (TSV: from\tto)
+  # Priority lifecycle (TSV: from\tto; empty first field = unset priority)
   if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
-    for _v in "" "${NN_PRIORITY_VALUES[@]}"; do
-      [[ -n "${NN_PRIORITY_UP[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_PRIORITY_UP[$_v]}"
-    done > "$dir/.schema_priority_up"
-    for _v in "" "${NN_PRIORITY_VALUES[@]}"; do
-      [[ -n "${NN_PRIORITY_DOWN[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_PRIORITY_DOWN[$_v]}"
-    done > "$dir/.schema_priority_down"
+    { [[ -n "$NN_PRIORITY_UP_UNSET" ]] && printf '\t%s\n' "$NN_PRIORITY_UP_UNSET"
+      for _v in "${NN_PRIORITY_VALUES[@]}"; do
+        [[ -n "${NN_PRIORITY_UP[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_PRIORITY_UP[$_v]}"
+      done
+    } > "$dir/.schema_priority_up"
+    { [[ -n "$NN_PRIORITY_DOWN_UNSET" ]] && printf '\t%s\n' "$NN_PRIORITY_DOWN_UNSET"
+      for _v in "${NN_PRIORITY_VALUES[@]}"; do
+        [[ -n "${NN_PRIORITY_DOWN[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_PRIORITY_DOWN[$_v]}"
+      done
+    } > "$dir/.schema_priority_down"
   else
     : > "$dir/.schema_priority_up"
     : > "$dir/.schema_priority_down"
