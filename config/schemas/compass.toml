@@ -24,7 +24,7 @@ display_order = 1
 [entity.idea]
 icon = "✦"
 color = "35"           # magenta
-description = "Needs further exploration/research (to be added in the note file)"
+description = "Needs further exploration/research (may subsequently evolve into one or more tasks)"
 display_order = 2
 
 [entity.reference]
