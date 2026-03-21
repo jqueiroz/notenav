@@ -599,6 +599,50 @@ notenav_main() {
     : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
 
+    # The answer, my friend... (set n= to find out)
+    if [[ -n "${n:-}" ]]; then
+      local _nn_r
+      _nn_r=$(printf '%.3f' "$n" 2>/dev/null) || _nn_r=""
+      if [[ -n "$_nn_r" ]]; then
+        local _nn_s="1c88e4c5e86fbec104ea054cbf336757fff2a3f434b50b0c17870dd5096ff497"
+        local _nn_h
+        if command -v sha256sum >/dev/null 2>&1; then
+          _nn_h=$(printf '%s' "${_nn_s}:${_nn_r}" | sha256sum | cut -d' ' -f1)
+        else
+          _nn_h=$(printf '%s' "${_nn_s}:${_nn_r}" | shasum -a 256 | cut -d' ' -f1)
+        fi
+        _nn_h="${_nn_h:0:16}"
+        local _nn_v="e53ed40d5955cb2b 30f4b814cbc92463 9988f2e0a8c3ea64 15e5ca6d3a72cfa0 f523c49928de6a5c ee5ece594ca78264 cf340faa2238b725 7c856c9f9ff26f4b aaaead0e43ad26d4 49f63a4a7da4b6a4 fa2af0a34a352345 1e8e7fab5a45a877 ec91974e68e27e1b 46fc3f2d8f741551 6a3bef77b23183d3 c91d7c03aa95f68e 2fd41761b1bdef9b 73bcf8223af3a225 b4fe9feff4902634 e0a477b7b1867226 a30eabb810d2a9f5 6f476f037370dc95 50bc6164c933712e 1c015816e2fc4a62 93830790bdc159da e1af004831ea4e3c 3c7a290a2325bb13 41139cb8f316235c da743e6440f3b25d 296727a19c4b7e24 514faf7e340acfb7 a22efcca35e8a9f6 92093eba1a95ebb9 f8fe4424b21d3196 4f38e596657f8bab 1b7af2a5f3cfb70e 0ab5e78887b9b84f 0f1cd052900afaed 24975c1f1b329bf9 d12b4731059401b9 c46af2a4fa40785f 5889372ed71b4a90 a9b4c28f36ec84b7 4f3f47c03d382c2c 1407b31ae7519912 bd4f2240361880ca 6099aaf2fa60508d 399093374cd50c06 a4a0f2719cca4d8a 6051d298669bd21d fd0e0b1867520aec 3baf898ce0bcf869 9c05d88525c3e7f2 aa156c780bfc87af 1a893e4c9897ed98 27575cae72778d35 0e70acf418551f92 96f3157376897240 d3b51f1919cb492e 4dbff16d8ad52aba e71c231bbf0121f0 6993a765fe99febc bb8c26506f9c4cb0 d21194bc9a77e9bf fbd9c54c3b5c2095 e55af8e1ce9fada0 89e79ab63716b654 7caa6c974b4911cb ba5ae862a0f8004b 77272522e2a1c3e4 d1707a0a0f9bd66f fa72fc78fb15d577 983d654f125a3f49 6af57766fe817079 c6d569b8ebda3676 5ba78039ae111329 e277cebaf28f19d0"
+        if [[ " $_nn_v " == *" $_nn_h "* ]]; then
+          printf '%b\n' \
+            '' \
+            '  \033[33m╭─────────────────────────────────────────────────╮\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m               \033[35m✦\033[0m  \033[1;33mThe Answer\033[0m  \033[35m✦\033[0m                  \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m    ───────────────────────────────────────────  \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                       \033[1;32m42\033[0m                        \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m    \033[3;37mThe answer to the Ultimate Question\033[0m          \033[33m│\033[0m' \
+            '  \033[33m│\033[0m    \033[3;37mof Life, the Universe, and Everything.\033[0m       \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                  \033[90m— Douglas Adams\033[0m                \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m    ───────────────────────────────────────────  \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m    \033[1;37mYou found it.\033[0m \033[1;31mn²\033[0m \033[1;37m=\033[0m \033[1;31mnn\033[0m\033[1;37m, after all.\033[0m            \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
+            '  \033[33m╰─────────────────────────────────────────────────╯\033[0m' \
+            > "$_nn_dir/.empty_easteregg_override"
+        fi
+      fi
+    fi
+
     # Write query preset definitions for filter.sh, sorted by order
     : > "$_nn_dir/.queries"
     if [[ ${#saved_queries[@]} -gt 0 ]]; then
@@ -1407,6 +1451,7 @@ printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lb
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
 # Always write Dylan placeholder for preview when no item is selected
     printf '\n  [34m╭─────────────────────────────────────────────────╮[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                [35m♩[0m [1;36m♪[0m [32m♫[0m [36m♩[0m [35m♪[0m [31m♫[0m [32m♩[0m [1;36m♪[0m [35m♩[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    ───────────────────────────────────────────  [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore vim starts to crawl?[0m                  [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore they turn to a scrawl?[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;37mThe answer, my friend, can save us all.[0m      [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore we call vim unprepared?[0m               [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore adrift he'\''s declared?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;37mThe answer, my friend, is simply [1;31mn²[0m[1;37m.[0m         [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore vim hits a wall?[0m                      [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;37mThe answer, my friend, is [1;31mnn[0m[1;37m, after all.[0m     [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m            [35m♩[0m                                    [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                      [36m♪[0m                          [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m         [35m♫[0m                                       [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                   [32m♩[0m                             [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
+[ -f "$dir/.empty_easteregg_override" ] && cat "$dir/.empty_easteregg_override" > "$dir/.empty_placeholder"
 # Show Adams placeholder + dummy entry when notebook is truly empty
 if [ "$count" -eq 0 ]; then
   raw_total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
