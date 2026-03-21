@@ -12,7 +12,9 @@
       "Bash(nix-shell:*)",
       "Bash(bash:*)",
       "Bash(printf:*)",
-      "Bash(fzf:*)"
+      "Bash(fzf:*)",
+      "Bash(python3)",
+      "Bash(source:*)"
     ]
   }
 }
