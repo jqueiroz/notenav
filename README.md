@@ -48,7 +48,7 @@ Out of the box, `nn` uses **Compass** – a simple workflow built around three n
 
 **Note types** – every note is one of:
 - **task** – concrete, actionable unit of work
-- **idea** – needs exploration; may evolve into one or more tasks
+- **idea** – captures an early insight; enriched over time, may evolve into one or more tasks  <!-- alt: "needs exploration" -->
 - **reference** – living documentation, continually updated as understanding grows
 
 **Status** – every note moves through a lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (soft-deleted – the note stays on disk but is hidden from normal views).
