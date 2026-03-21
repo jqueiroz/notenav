@@ -1,5 +1,5 @@
-# notenav default configuration
-# This file ships with notenav and provides baseline defaults.
+# notenav base configuration
+# Ships with notenav; user and project configs overlay on top.
 # User overrides: ~/.config/notenav/config.toml
 # Project overrides: .nn/config.toml
 

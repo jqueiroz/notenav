@@ -12,7 +12,7 @@ Early extraction — previously embedded as `zkq()` in zshrc (~1100 LOC). Now st
 bin/nn              # Entry point: resolves root, sources lib, calls notenav_main
 lib/notenav.sh      # Full implementation (~1100 LOC)
 config/
-  base.toml        # Default config (ships with notenav)
+  base.toml        # Base config (ships with notenav; user/project configs overlay on top)
   schemas/
     compass.toml    # Default schema (task/idea/reference)
     ado.toml        # Azure DevOps preset
