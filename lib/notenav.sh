@@ -1285,15 +1285,6 @@ if [ -n "$fgroup" ]; then
       }
     }' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
 fi
-# Show placeholder when no notes match
-if [ "$count" -eq 0 ]; then
-  raw_total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
-  if [ "$raw_total" -eq 0 ]; then
-    printf '\t\033[90mMostly harmless. Also, entirely empty.\n\tPress '\''n'\'' to create your first note.\033[0m\n' > "$dir/.current"
-  else
-    printf '\t\033[90mMostly harmless. Also, mostly empty.\033[0m\n' > "$dir/.current"
-  fi
-fi
 # Compute inline stats from filtered set
 awk_stats=$(cat "$dir/.awk_color_stats")
 stats_s=$(awk -F'\t' "${cond}${awk_stats}" "$dir/.raw")
@@ -1407,6 +1398,18 @@ keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[R]\033[0meset everything \03
 stats_lbl=$(printf '\033[1;90m Stats:\033[0m %s' "$stats_s")
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header"
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
+# Show placeholder when no notes match
+if [ "$count" -eq 0 ]; then
+  raw_total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
+  if [ "$raw_total" -eq 0 ]; then
+    printf 'Mostly harmless. Also, entirely empty.\n\nPress '\''n'\'' to create your first note.\n' > "$dir/.empty_placeholder"
+  else
+    printf 'Mostly harmless. Also, mostly empty.\n' > "$dir/.empty_placeholder"
+  fi
+  printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
+else
+  rm -f "$dir/.empty_placeholder"
+fi
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
 printf ' nn · %d/%d ' "$count" "$total" > "$dir/.border"
 printf 'reload(cat %s/.current)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "$dir" "$(cat "$dir/.border")"
