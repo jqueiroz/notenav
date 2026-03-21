@@ -36,7 +36,7 @@ See [`samples/profiles/user-config.toml`](../samples/profiles/user-config.toml) 
 
 Schemas define what entity types, statuses, and priorities are available and how they behave. The project schema lives at `.nn/schema.toml`.
 
-`.nn/schema.toml` can work in three ways:
+`.nn/schema.toml` can work in four ways:
 
 **1. Extend a built-in schema** -- use a built-in as a base and override specific values:
 ```toml
@@ -51,7 +51,17 @@ next = "32;1"       # bold green instead of default
 extends = "ado"
 ```
 
-**3. Full custom definition** -- no `extends` key, define everything from scratch:
+**3. Extend a remote schema (GitHub gist)** -- use a gist URL as the base:
+```toml
+extends = "https://gist.githubusercontent.com/user/abc123/raw/schema.toml"
+
+[priority.colors]
+1 = "31"            # override on top of the remote schema
+```
+
+Remote schemas must be explicitly allow-listed in your user config (see [Remote schemas](#remote-schemas) below). By default, no remote URLs are allowed.
+
+**4. Full custom definition** -- no `extends` key, define everything from scratch:
 ```toml
 [meta]
 name = "My Workflow"
@@ -233,6 +243,30 @@ cp samples/schemas/custom-schema.toml .nn/schema.toml
 ```
 
 Then edit `.nn/schema.toml` to define your entity types, statuses, priorities, and lifecycle transitions. See [`samples/schemas/custom-schema.toml`](../samples/schemas/custom-schema.toml) for a fully annotated example.
+
+## Remote schemas
+
+`.nn/schema.toml` can extend a schema hosted as a GitHub gist. This lets teams share schemas without copying files between projects.
+
+```toml
+# .nn/schema.toml
+extends = "https://gist.githubusercontent.com/user/abc123/raw/schema.toml"
+```
+
+**Security:** Remote schemas are disabled by default. The user must explicitly allow-list each URL in their user config:
+
+```toml
+# ~/.config/notenav/config.toml
+[security]
+allowed_schemas = [
+  "https://gist.githubusercontent.com/user/abc123/raw/schema.toml",
+  "https://gist.githubusercontent.com/user/def456/raw/schema.toml",
+]
+```
+
+If a project's `.nn/schema.toml` references a URL that is not in the allow-list, notenav will refuse to load it and display an error with the URL that needs to be allowed.
+
+This is a deliberate opt-in design -- a cloned repo should never be able to silently fetch remote content without the user's knowledge.
 
 ## Preferences reference
 
