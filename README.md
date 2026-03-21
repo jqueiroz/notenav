@@ -77,7 +77,7 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 
 | Key | Action |
 |-----|--------|
-| `enter` | Open note |
+| `enter` | Open note in your preferred editor (defaults to `$EDITOR`, with fallback to nvim, vim, vi, nano) |
 | `n` | Create new note |
 | `a` / `A` | Advance / reverse status |
 | `+` / `-` (or `<` / `>`) | Bump priority up / down |

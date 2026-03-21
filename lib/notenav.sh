@@ -3,6 +3,26 @@
 
 NOTENAV_VERSION="0.1.0-dev"
 
+# --- Editor resolution ---
+# Fallback chain: config ui.editor > $EDITOR > nvim > vim > vi > nano
+_nn_resolve_editor() {
+  local cfg_editor="$1"
+  if [[ -n "$cfg_editor" ]]; then
+    printf '%s' "$cfg_editor"
+  elif [[ -n "$EDITOR" ]]; then
+    printf '%s' "$EDITOR"
+  else
+    local cmd
+    for cmd in nvim vim vi nano; do
+      if command -v "$cmd" >/dev/null 2>&1; then
+        printf '%s' "$cmd"
+        return
+      fi
+    done
+    printf 'vi'
+  fi
+}
+
 # --- Config loader ---
 # Parses TOML workflow/config files via yq (TOML→JSON), merges with jq.
 # Result stored in NN_CFG_JSON for consumption by nn_cfg().
@@ -513,7 +533,7 @@ nn_write_workflow_files() {
   printf '%s' "$NN_AWK_ICON_SETUP" > "$dir/.schema_icon_setup"
 
   # UI preferences
-  printf '%s' "${NN_UI_EDITOR:-${EDITOR:-vi}}" > "$dir/.schema_editor"
+  printf '%s' "$(_nn_resolve_editor "$NN_UI_EDITOR")" > "$dir/.schema_editor"
 
   # Archive label (slash-separated status names for header display)
   local _archive_label=""
@@ -555,8 +575,8 @@ notenav_main() {
   _gr=$(git rev-parse --show-toplevel 2>/dev/null)
   [[ -n "$_gr" && "$PWD" != "$_gr" ]] && _zk_path=("$(pwd)")
 
-  # Resolve editor: config > $EDITOR > vi
-  local _nn_editor="${NN_UI_EDITOR:-${EDITOR:-vi}}"
+  # Resolve editor
+  local _nn_editor="$(_nn_resolve_editor "$NN_UI_EDITOR")"
 
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
@@ -905,7 +925,7 @@ printf '# tags: space-separated\n' >> "$tmpfile"
 cp "$tmpfile" "$origfile"
 # Open editor
 nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
-${nn_editor:-${EDITOR:-vi}} "$tmpfile" </dev/tty >/dev/tty
+${nn_editor:-vi} "$tmpfile" </dev/tty >/dev/tty
 # Apply changes
 "$dir/bulkedit_apply.sh" "$dir" "$origfile" "$tmpfile"
 ENDBE
@@ -967,7 +987,7 @@ zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 # Open in editor
 nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
-${nn_editor:-${EDITOR:-vi}} "$new_path" < /dev/tty > /dev/tty
+${nn_editor:-vi} "$new_path" < /dev/tty > /dev/tty
 ENDNN
     chmod +x "$_nn_dir/newnote.sh"
 
