@@ -1,9 +1,9 @@
 # Example ~/.config/notenav/config.toml
 # Copy this to ~/.config/notenav/config.toml and customize.
 
-# Choose a built-in schema: default, ado, gtd, zettelkasten
-# Or point to a custom schema file in ~/.config/notenav/schemas/
-default_schema = "compass"
+# Choose a built-in workflow: compass, ado, gtd, zettelkasten
+# Or point to a custom workflow file in ~/.config/notenav/workflows/
+default_workflow = "compass"
 
 [defaults]
 sort_by = "modified"       # created | modified | title | priority
@@ -15,8 +15,8 @@ editor = "nvim"            # editor for opening notes
 # command_prompt = ": "   # prompt in normal (command) mode
 # search_prompt = "/ "    # prompt in search mode
 
-# Override individual entity/status/priority colors from the schema.
-# These merge on top of the schema, so you only need to specify what you
+# Override individual entity/status/priority colors from the workflow.
+# These merge on top of the workflow, so you only need to specify what you
 # want to change.
 #
 # [entity.task]

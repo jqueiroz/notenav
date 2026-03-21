@@ -1,13 +1,13 @@
-# Compass Schema
+# Compass Workflow
 
-The default notenav schema. A simple three-way categorization that covers most personal note-taking and task-management needs.
+The default notenav workflow. A simple three-way categorization that covers most personal note-taking and task-management needs.
 
-**Schema file:** [`config/schemas/compass.toml`](../../config/schemas/compass.toml)
+**Workflow file:** [`config/workflows/compass.toml`](../../config/workflows/compass.toml)
 
 ```toml
 # ~/.config/notenav/config.toml
 # Use compass (this is the default – no config needed)
-default_schema = "compass"
+default_workflow = "compass"
 ```
 
 ## Philosophy

@@ -4,7 +4,7 @@
 NOTENAV_VERSION="0.1.0-dev"
 
 # --- Config loader ---
-# Parses TOML config/schema files via yq (TOML→JSON), merges with jq.
+# Parses TOML workflow/config files via yq (TOML→JSON), merges with jq.
 # Result stored in NN_CFG_JSON for consumption by nn_cfg().
 
 nn_load_config() {
@@ -20,7 +20,7 @@ nn_load_config() {
     return 1
   fi
 
-  # Step 1: Load config files to determine schema name
+  # Step 1: Load base and user configs
   local base_cfg="$notenav_root/config/base.toml"
   local user_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
 
@@ -35,113 +35,130 @@ nn_load_config() {
     [[ "$_search_dir" == "/" ]] && break
     _search_dir="$(dirname "$_search_dir")"
   done
-  local project_cfg="${project_nn_dir:+$project_nn_dir/config.toml}"
 
-  # Parse each config to JSON (empty object if missing)
-  local base_json="{}" user_json="{}" project_json="{}"
+  local base_json="{}" user_json="{}"
   if [[ -f "$base_cfg" ]]; then
     base_json=$(yq -p=toml -o=json -I=0 '.' "$base_cfg" 2>/dev/null) || base_json="{}"
   fi
   if [[ -f "$user_cfg" ]]; then
     user_json=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null) || user_json="{}"
   fi
-  if [[ -n "$project_cfg" && -f "$project_cfg" ]]; then
-    project_json=$(yq -p=toml -o=json -I=0 '.' "$project_cfg" 2>/dev/null) || project_json="{}"
+
+  # Step 2: Load project workflow (.nn/workflow.toml)
+  # This single file replaces the old .nn/schema.toml + .nn/config.toml split.
+  # It can extend a built-in workflow and/or define project queries.
+  local project_wf_json="{}"
+  local project_wf_file="${project_nn_dir:+$project_nn_dir/workflow.toml}"
+  local _has_project_wf=false
+  if [[ -n "$project_wf_file" && -f "$project_wf_file" ]]; then
+    project_wf_json=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>/dev/null) || project_wf_json="{}"
+    [[ "$project_wf_json" != "{}" ]] && _has_project_wf=true
   fi
 
-  # Determine schema name: project "schema" > user "default_schema" > default "default_schema" > "compass"
-  local schema_name
-  schema_name=$(printf '%s' "$project_json" | jq -r '.schema // empty' 2>/dev/null)
-  if [[ -z "$schema_name" ]]; then
-    schema_name=$(printf '%s' "$user_json" | jq -r '.default_schema // empty' 2>/dev/null)
+  # Step 3: Determine base workflow to load
+  # If project workflow has extends → use that as the base
+  # If project workflow exists without extends → it IS the full definition (no base needed)
+  # If no project workflow → use user default_workflow or "compass"
+  local workflow_name="" workflow_json="{}"
+  if [[ "$_has_project_wf" == "true" ]]; then
+    workflow_name=$(printf '%s' "$project_wf_json" | jq -r '.extends // empty' 2>/dev/null)
   fi
-  if [[ -z "$schema_name" ]]; then
-    schema_name=$(printf '%s' "$base_json" | jq -r '.default_schema // empty' 2>/dev/null)
-  fi
-  schema_name="${schema_name:-compass}"
-
-  # Step 2: Resolve schema file (most specific wins)
-  local schema_file=""
-  if [[ -n "$project_nn_dir" && -f "$project_nn_dir/schemas/$schema_name.toml" ]]; then
-    schema_file="$project_nn_dir/schemas/$schema_name.toml"
-  elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/schemas/$schema_name.toml" ]]; then
-    schema_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/schemas/$schema_name.toml"
-  elif [[ -f "$notenav_root/config/schemas/$schema_name.toml" ]]; then
-    schema_file="$notenav_root/config/schemas/$schema_name.toml"
+  if [[ -z "$workflow_name" && "$_has_project_wf" == "false" ]]; then
+    workflow_name=$(printf '%s' "$user_json" | jq -r '.default_workflow // empty' 2>/dev/null)
+    if [[ -z "$workflow_name" ]]; then
+      workflow_name=$(printf '%s' "$base_json" | jq -r '.default_workflow // empty' 2>/dev/null)
+    fi
+    workflow_name="${workflow_name:-compass}"
   fi
 
-  if [[ -z "$schema_file" ]]; then
-    echo "notenav: schema '$schema_name' not found, falling back to compass" >&2
-    schema_file="$notenav_root/config/schemas/compass.toml"
-  fi
+  # Step 4: Load base workflow and resolve extends chain
+  if [[ -n "$workflow_name" ]]; then
+    local workflow_file=""
+    if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$workflow_name.toml" ]]; then
+      workflow_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$workflow_name.toml"
+    elif [[ -f "$notenav_root/config/workflows/$workflow_name.toml" ]]; then
+      workflow_file="$notenav_root/config/workflows/$workflow_name.toml"
+    fi
 
-  if [[ ! -f "$schema_file" ]]; then
-    echo "notenav: no schema file found at $schema_file" >&2
-    return 1
-  fi
+    if [[ -z "$workflow_file" ]]; then
+      echo "notenav: workflow '$workflow_name' not found, falling back to compass" >&2
+      workflow_file="$notenav_root/config/workflows/compass.toml"
+    fi
 
-  # Step 3: Parse schema, resolve extends chain, and merge
-  # Preferences: schema → base config → user config (project config does NOT contribute preferences)
-  # Queries: user queries + project queries (project wins on name collisions)
-  local schema_json
-  schema_json=$(yq -p=toml -o=json -I=0 '.' "$schema_file" 2>/dev/null)
-  if [[ -z "$schema_json" || "$schema_json" == "null" ]]; then
-    echo "notenav: failed to parse schema $schema_file (requires yq-go, not yq-python)" >&2
-    return 1
-  fi
-
-  # Resolve extends chain (max depth 5)
-  local _extends _depth=0
-  _extends=$(printf '%s' "$schema_json" | jq -r '.extends // empty' 2>/dev/null)
-  while [[ -n "$_extends" && $_depth -lt 5 ]]; do
-    if [[ "$_extends" == https://* ]]; then
-      echo "notenav: remote schema extends not yet supported: $_extends" >&2
+    if [[ ! -f "$workflow_file" ]]; then
+      echo "notenav: no workflow file found at $workflow_file" >&2
       return 1
     fi
-    # Resolve base schema file (built-in only for now)
-    local _base_file="$notenav_root/config/schemas/$_extends.toml"
-    if [[ ! -f "$_base_file" ]]; then
-      echo "notenav: extended schema '$_extends' not found" >&2
+
+    workflow_json=$(yq -p=toml -o=json -I=0 '.' "$workflow_file" 2>/dev/null)
+    if [[ -z "$workflow_json" || "$workflow_json" == "null" ]]; then
+      echo "notenav: failed to parse workflow $workflow_file (requires yq-go, not yq-python)" >&2
       return 1
     fi
-    local _base_json
-    _base_json=$(yq -p=toml -o=json -I=0 '.' "$_base_file" 2>/dev/null)
-    if [[ -z "$_base_json" || "$_base_json" == "null" ]]; then
-      echo "notenav: failed to parse base schema $_base_file" >&2
+
+    # Resolve extends chain on the base workflow itself (max depth 5)
+    local _extends _depth=0
+    _extends=$(printf '%s' "$workflow_json" | jq -r '.extends // empty' 2>/dev/null)
+    while [[ -n "$_extends" && $_depth -lt 5 ]]; do
+      if [[ "$_extends" == https://* ]]; then
+        echo "notenav: remote workflow extends not yet supported: $_extends" >&2
+        return 1
+      fi
+      local _base_file="$notenav_root/config/workflows/$_extends.toml"
+      if [[ ! -f "$_base_file" ]]; then
+        echo "notenav: extended workflow '$_extends' not found" >&2
+        return 1
+      fi
+      local _base_json
+      _base_json=$(yq -p=toml -o=json -I=0 '.' "$_base_file" 2>/dev/null)
+      if [[ -z "$_base_json" || "$_base_json" == "null" ]]; then
+        echo "notenav: failed to parse base workflow $_base_file" >&2
+        return 1
+      fi
+      workflow_json=$(printf '%s\n%s' "$_base_json" "$workflow_json" \
+        | jq -s '.[0] * .[1] | del(.extends)' 2>/dev/null)
+      _extends=$(printf '%s' "$_base_json" | jq -r '.extends // empty' 2>/dev/null)
+      (( _depth++ ))
+    done
+    if [[ $_depth -ge 5 ]]; then
+      echo "notenav: workflow extends chain too deep (max 5)" >&2
       return 1
     fi
-    # Deep merge: base * overlay (overlay wins)
-    schema_json=$(printf '%s\n%s' "$_base_json" "$schema_json" \
-      | jq -s '.[0] * .[1] | del(.extends)' 2>/dev/null)
-    # Check if the base itself extends something
-    _extends=$(printf '%s' "$_base_json" | jq -r '.extends // empty' 2>/dev/null)
-    (( _depth++ ))
-  done
-  if [[ $_depth -ge 5 ]]; then
-    echo "notenav: schema extends chain too deep (max 5)" >&2
-    return 1
   fi
 
-  # Extract only queries from project config (schema is already handled above)
+  # Step 5: Apply project workflow overrides and extract project queries
+  # Project queries are applied last in the merge so they win over user/workflow queries.
   local project_queries="{}"
-  if [[ -n "$project_json" && "$project_json" != "{}" ]]; then
-    project_queries=$(printf '%s' "$project_json" | jq '{queries: (.queries // {})}' 2>/dev/null) || project_queries="{}"
+  if [[ "$_has_project_wf" == "true" ]]; then
+    project_queries=$(printf '%s' "$project_wf_json" | jq '{queries: (.queries // {})}' 2>/dev/null) || project_queries="{}"
+    if [[ -n "$workflow_name" ]]; then
+      # Has extends — merge project overrides (minus queries/extends) onto base
+      local _project_overrides
+      _project_overrides=$(printf '%s' "$project_wf_json" | jq 'del(.queries) | del(.extends)' 2>/dev/null)
+      if [[ -n "$_project_overrides" && "$_project_overrides" != "{}" && "$_project_overrides" != "null" ]]; then
+        workflow_json=$(printf '%s\n%s' "$workflow_json" "$_project_overrides" \
+          | jq -s '.[0] * .[1]' 2>/dev/null)
+      fi
+    else
+      # Full custom definition — the file IS the workflow (minus queries)
+      workflow_json=$(printf '%s' "$project_wf_json" | jq 'del(.queries)' 2>/dev/null)
+    fi
   fi
 
   # Handle queries.inherit: if false in project or user config,
-  # strip schema queries so only explicit queries survive
+  # strip workflow queries so only explicit queries survive
   local _inherit
-  _inherit=$(printf '%s' "$project_json" | jq -r '.queries.inherit // empty' 2>/dev/null)
+  _inherit=$(printf '%s' "$project_wf_json" | jq -r '.queries.inherit // empty' 2>/dev/null)
   if [[ -z "$_inherit" ]]; then
     _inherit=$(printf '%s' "$user_json" | jq -r '.queries.inherit // empty' 2>/dev/null)
   fi
   if [[ "$_inherit" == "false" ]]; then
-    schema_json=$(printf '%s' "$schema_json" | jq 'del(.queries)' 2>/dev/null)
+    workflow_json=$(printf '%s' "$workflow_json" | jq 'del(.queries)' 2>/dev/null)
   fi
 
-  # Deep merge: jq * is recursive merge, later values win
-  # Strip the inherit key from the final result
-  NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$schema_json" "$base_json" "$user_json" "$project_queries" \
+  # Deep merge: workflow * base * user * project_queries
+  # Later values win. Project queries applied last so they override user/workflow queries.
+  NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$workflow_json" "$base_json" "$user_json" "$project_queries" \
     | jq -s '.[0] * .[1] * .[2] * .[3] | del(.queries.inherit)' 2>/dev/null)
 
   if [[ -z "$NN_CFG_JSON" || "$NN_CFG_JSON" == "null" ]]; then
@@ -157,13 +174,13 @@ nn_cfg() {
   printf '%s' "$NN_CFG_JSON" | jq -r "$1"
 }
 
-# --- Pre-compute schema values ---
-# Extracts all schema/config values into bash variables at startup.
+# --- Pre-compute workflow values ---
+# Extracts all workflow/config values into bash variables at startup.
 # Called once after nn_load_config(). Helper scripts read from temp files
-# written by nn_write_schema_files().
+# written by nn_write_workflow_files().
 
 _nn_gen_awk_bodies() {
-  # Uses NN_ENTITY_DISPLAY_ORDER / NN_STATUS_DISPLAY_ORDER (set by nn_precompute_schema)
+  # Uses NN_ENTITY_DISPLAY_ORDER / NN_STATUS_DISPLAY_ORDER (set by nn_precompute_workflow)
   # for group ordering and stats display. Falls back to NN_*_VALUES if unset.
 
   # Entity color+icon assignments
@@ -203,7 +220,7 @@ _nn_gen_awk_bodies() {
     done
   fi
 
-  # Age computation (constant across schemas)
+  # Age computation (constant across workflows)
   local _age_awk='age = ""
   if ($7 != "") {
     split($7, dt, /[-: ]/)
@@ -313,7 +330,7 @@ _nn_gen_awk_bodies() {
   done
 }
 
-nn_precompute_schema() {
+nn_precompute_workflow() {
   # Entity types
   mapfile -t NN_ENTITY_VALUES < <(nn_cfg '.entity.values[]')
   if [[ ${#NN_ENTITY_VALUES[@]} -eq 0 ]]; then
@@ -406,7 +423,7 @@ nn_precompute_schema() {
   done
 }
 
-nn_write_schema_files() {
+nn_write_workflow_files() {
   local dir="$1"
   printf '%s\n' "${NN_ENTITY_VALUES[@]}" > "$dir/.schema_entity_values"
   printf '%s\n' "${NN_STATUS_VALUES[@]}" > "$dir/.schema_status_values"
@@ -512,13 +529,13 @@ notenav_main() {
     return 0
   fi
 
-  # Load config (schema + user/project overrides)
+  # Load config (workflow + user preferences)
   nn_load_config "$NOTENAV_ROOT" || { echo "notenav: config loading failed" >&2; return 1; }
-  nn_precompute_schema || return 1
+  nn_precompute_workflow || return 1
 
   shopt -s nullglob
 
-  # Extract saved queries from merged config (schema + user + project)
+  # Extract saved queries from merged config (workflow + user + project)
   declare -A saved_queries saved_query_order
   while IFS=$'\t' read -r _qname _qorder _qargs; do
     [[ -z "$_qname" ]] && continue
@@ -542,7 +559,7 @@ notenav_main() {
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
     local _nn_dir=$(mktemp -d)
-    nn_write_schema_files "$_nn_dir"
+    nn_write_workflow_files "$_nn_dir"
 
     # Get all notes
     zk list "${_zk_path[@]}" --format "$_fmt" --quiet 2>/dev/null > "$_nn_dir/.raw"
@@ -874,7 +891,7 @@ while IFS=$'\t' read -r fpath _rest; do
   [ -z "$fpath" ] && continue
   awk -F'\t' -v p="$fpath" '$6 == p { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6 }' "$dir/.raw" >> "$tmpfile"
 done < <(tac "$dir/.current")
-# Footer with valid values from schema
+# Footer with valid values from workflow
 printf '\n# type: %s\n' "$(paste -sd', ' "$dir/.schema_entity_values")" >> "$tmpfile"
 printf '# status: %s (or empty)\n' "$(paste -sd', ' "$dir/.schema_status_values")" >> "$tmpfile"
 if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
@@ -908,7 +925,7 @@ selected=$(printf '%s' "$types" | fzf --reverse --prompt "type: " \
   --bind "j:down,k:up" \
   --query "${cur_type}" | awk '{print $2}')
 [ -z "$selected" ] && exit 0
-# Styled title prompt — look up icon and color from schema
+# Styled title prompt — look up icon and color from workflow
 tc=""; icon=""
 while IFS=$'\t' read -r v ic clr desc; do
   [ "$v" = "$selected" ] && tc=$(printf '\033[%sm' "$clr") && icon="$ic" && break

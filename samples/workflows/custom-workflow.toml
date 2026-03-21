@@ -1,10 +1,10 @@
-# Example custom schema
-# Save as ~/.config/notenav/schemas/<name>.toml or .nn/schemas/<name>.toml
-# Then set default_schema = "<name>" in your config.
+# Example custom workflow
+# Save as ~/.config/notenav/workflows/<name>.toml
+# Then set default_workflow = "<name>" in your user config.
 
 [meta]
 name = "My Workflow"
-description = "Custom schema example"
+description = "Custom workflow example"
 
 # Define your entity types (note categories).
 # values: valid types; array order = display order in grouped view

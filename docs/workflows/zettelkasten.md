@@ -1,19 +1,19 @@
-# Zettelkasten Schema
+# Zettelkasten Workflow
 
 Based on Niklas Luhmann's [Zettelkasten](https://en.wikipedia.org/wiki/Zettelkasten) (slip-box) method for knowledge management.
 
-**Schema file:** [`config/schemas/zettelkasten.toml`](../../config/schemas/zettelkasten.toml)
+**Workflow file:** [`config/workflows/zettelkasten.toml`](../../config/workflows/zettelkasten.toml)
 
 ```bash
-# In ~/.config/notenav/config.toml or .nn/config.toml
-default_schema = "zettelkasten"
+# In ~/.config/notenav/config.toml or .nn/workflow.toml
+default_workflow = "zettelkasten"
 ```
 
 ## Philosophy
 
 The Zettelkasten method treats notes as atomic, interconnected ideas. Each note should express one idea clearly enough that it makes sense on its own. Value emerges from the connections between notes, not from hierarchical organization.
 
-In this schema:
+In this workflow:
 
 - **Entity type** captures where the note is in the knowledge pipeline: fleeting capture → literature notes → permanent ideas.
 - **Status** captures the note's maturity: how developed and reviewed it is.
@@ -76,7 +76,7 @@ created: 2026-03-18
 ---
 ```
 
-## Working with the Zettelkasten Schema
+## Working with the Zettelkasten Workflow
 
 ### Daily capture
 
@@ -113,7 +113,7 @@ These can be overridden or cleared in project/user config. See [Configuration](.
 
 ## When to Use Zettelkasten
 
-This schema is for knowledge management and intellectual work – research, writing, learning. It works best when:
+This workflow is for knowledge management and intellectual work – research, writing, learning. It works best when:
 
 - You read widely and want to build on what you learn
 - You value long-term knowledge accumulation over task completion

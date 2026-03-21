@@ -6,10 +6,10 @@
 
 All configuration is TOML. Project and user configuration are orthogonal – neither inherits from or overrides the other:
 
-- **Project configuration** (`.nn/`) – defines the schema (`.nn/schema.toml`) and project-specific settings including saved queries (`.nn/config.toml`).
-- **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback schema, used in directories without project configuration.
+- **Project configuration** (`.nn/workflow.toml`) – defines the workflow (built-in or custom) and project-specific settings including saved queries.
+- **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback workflow, used in directories without project configuration.
 
-Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions.
+Workflows define your vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions.
 
 Both scopes are layered on top of notenav's base defaults, so you only need to specify what you want to change.
 
@@ -17,7 +17,7 @@ Both scopes are layered on top of notenav's base defaults, so you only need to s
 
 At startup, two things happen:
 
-1. **Schema resolution** – if `.nn/schema.toml` exists, it defines the project's schema. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/schema.toml` exists, the user config's `default_schema` is used, falling back to `"compass"`.
+1. **Workflow resolution** – if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"compass"`.
 
 2. **Preference merge** – preferences are assembled by deep-merging these files in order (later values win):
 
@@ -26,19 +26,19 @@ At startup, two things happen:
    | Base | `$NOTENAV_ROOT/config/base.toml` |
    | User | `$XDG_CONFIG_HOME/notenav/config.toml` |
 
-   The schema's values are merged first, then these layers on top. This means user preferences can override individual schema values (like colors) without replacing the entire schema.
+   The workflow's values are merged first, then these layers on top. This means user preferences can override individual workflow values (like colors) without replacing the entire workflow.
 
 The `.nn/` directory is found by walking up from the current directory.
 
 See [`samples/profiles/user-config.toml`](../samples/profiles/user-config.toml) and [`samples/profiles/project-config.toml`](../samples/profiles/project-config.toml) for annotated examples.
 
-## Schema files
+## Workflow files
 
-Schemas define what entity types, statuses, and priorities are available and how they behave. The project schema lives at `.nn/schema.toml`.
+Workflows define what entity types, statuses, and priorities are available and how they behave. The project workflow lives at `.nn/workflow.toml`.
 
-`.nn/schema.toml` can work in four ways:
+`.nn/workflow.toml` can work in four ways:
 
-**1. Extend a built-in schema** – use a built-in as a base and override specific values:
+**1. Extend a built-in workflow** – use a built-in as a base and override specific values:
 ```toml
 extends = "gtd"
 
@@ -51,15 +51,15 @@ next = "32;1"       # bold green instead of default
 extends = "ado"
 ```
 
-**3. Extend a remote schema (GitHub gist)** *(planned – not yet implemented)*:
+**3. Extend a remote workflow (GitHub gist)** *(planned – not yet implemented)*:
 ```toml
-extends = "https://gist.githubusercontent.com/user/abc123/raw/schema.toml"
+extends = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"
 
 [priority.colors]
-1 = "31"            # override on top of the remote schema
+1 = "31"            # override on top of the remote workflow
 ```
 
-Remote schemas will require explicit allow-listing in your user config (see [Remote schemas](#remote-schemas) below) and will use a local cache to avoid network fetches on every startup.
+Remote workflows will require explicit allow-listing in your user config (see [Remote workflows](#remote-workflows) below) and will use a local cache to avoid network fetches on every startup.
 
 **4. Full custom definition** – no `extends` key, define everything from scratch:
 ```toml
@@ -70,22 +70,22 @@ name = "My Workflow"
 # ...
 ```
 
-If no `.nn/schema.toml` exists, the user config's `default_schema` is used (defaults to `"compass"`).
+If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used (defaults to `"compass"`).
 
-By design, there is no support for a user-global schemas directory – projects are self-contained.
+By design, there is no support for a user-global workflows directory – projects are self-contained.
 
-## Schema reference
+## Workflow reference
 
-A schema file has four top-level sections: `[meta]`, `[entity]`, `[status]`, and `[priority]`.
+A workflow file has four top-level sections: `[meta]`, `[entity]`, `[status]`, and `[priority]`.
 
 ### `[meta]`
 
-Descriptive metadata. Not used at runtime but helps identify the schema.
+Descriptive metadata. Not used at runtime but helps identify the workflow.
 
 ```toml
 [meta]
 name = "My Workflow"
-description = "Custom schema for my project"
+description = "Custom workflow for my project"
 ```
 
 | Key | Type | Description |
@@ -95,7 +95,7 @@ description = "Custom schema for my project"
 
 ### `[entity]`
 
-Entity types are the categories of notes (e.g. task, idea, bug). Each entity is a sub-table under `[entity]`.
+Entity types are the categories of notes (e.g. task, idea, bug). Each entity type is a sub-table under `[entity]`.
 
 ```toml
 [entity]
@@ -212,7 +212,7 @@ Values can be numeric (`"1"`, `"2"`, `"3"`) or named (`"critical"`, `"high"`, `"
 
 ### `[queries]`
 
-Query presets are saved filtered views that appear in the TUI query bar. Each schema ships with built-in presets, and you can add your own in user or project config.
+Query presets are saved filtered views that appear in the TUI query bar. Each workflow ships with built-in presets, and you can add your own in user or project config.
 
 ```toml
 [queries.my-view]
@@ -227,16 +227,16 @@ args = "type=task status=active"
 
 **Merge order** (later wins on name collisions):
 
-1. **Schema** – built-in presets from the active schema
+1. **Workflow** – built-in presets from the active workflow
 2. **User config** (`~/.config/notenav/config.toml`) – personal queries, available everywhere
-3. **Project config** (`.nn/config.toml`) – team-shared, project-specific
+3. **Project config** (`.nn/workflow.toml`) – team-shared, project-specific
 
-Same-name queries at a later layer fully replace the earlier one. For example, defining `[queries.inbox]` in your project config overrides the schema's `inbox` preset.
+Same-name queries at a later layer fully replace the earlier one. For example, defining `[queries.inbox]` in your project config overrides the workflow's `inbox` preset.
 
-**Clearing schema presets:** If you want to start fresh without the schema's built-in queries, set `inherit = false`:
+**Clearing workflow presets:** If you want to start fresh without the workflow's built-in queries, set `inherit = false`:
 
 ```toml
-# .nn/config.toml — clear schema presets, define only your own
+# .nn/workflow.toml — clear workflow presets, define only your own
 [queries]
 inherit = false
 
@@ -244,27 +244,27 @@ inherit = false
 args = "type=task status=active"
 ```
 
-This removes all schema-level queries before merging. Queries defined in the same file (or higher layers) still apply. The `inherit` key itself is stripped from the final config.
+This removes all workflow-level queries before merging. Queries defined in the same file (or higher layers) still apply. The `inherit` key itself is stripped from the final config.
 
-## Built-in schemas
+## Built-in workflows
 
-notenav ships with four schemas. Use `extends` in `.nn/schema.toml` or `default_schema` in your user config to select one.
+notenav ships with four workflows. Use `extends` in `.nn/workflow.toml` or `default_workflow` in your user config to select one.
 
-| Schema | Entities | Statuses | Priority | Use case |
+| Workflow | Entities | Statuses | Priority | Use case |
 |--------|----------|----------|----------|----------|
 | **compass** (default) | task, idea, reference | new, active, blocked, done, removed | 1-4 | General-purpose task/idea tracking |
 | **ado** | feature, task, bug | new, active, resolved, closed, removed | 1-4 | Azure DevOps-style work items |
 | **gtd** | action, project, reference | inbox, next, waiting, someday, done, dropped | 1-3 | Getting Things Done workflow |
 | **zettelkasten** | fleeting, literature, permanent | draft, review, mature, archived | *(disabled)* | Slip-box knowledge management |
 
-## Creating a custom schema
+## Creating a custom workflow
 
-The `extends` key is optional. If present, it deep-merges your definitions on top of the base schema. If absent, your file is the entire schema definition.
+The `extends` key is optional. If present, it deep-merges your definitions on top of the base workflow. If absent, your file is the entire workflow definition.
 
 **Extending a built-in:**
 
 ```toml
-# .nn/schema.toml
+# .nn/workflow.toml
 extends = "compass"
 
 # Override just what you need
@@ -274,29 +274,29 @@ color = "31"
 description = "Defect to fix"
 ```
 
-`extends` can chain – for example, a remote schema can itself extend a built-in. The chain always terminates at a built-in or a full definition. Maximum recursion depth is 5 (currently non-configurable – please [file an issue](https://github.com/jqueiroz/notenav/issues) if you have a genuine use case for higher depth).
+`extends` can chain – for example, a remote workflow can itself extend a built-in. The chain always terminates at a built-in or a full definition. Maximum recursion depth is 5 (currently non-configurable – please [file an issue](https://github.com/jqueiroz/notenav/issues) if you have a genuine use case for higher depth).
 
-**Full custom schema (no `extends`):**
+**Full custom workflow (no `extends`):**
 
 ```bash
-cp samples/schemas/custom-schema.toml .nn/schema.toml
+cp samples/workflows/custom-workflow.toml .nn/workflow.toml
 ```
 
-Then edit `.nn/schema.toml` to define your entity types, statuses, priorities, and lifecycle transitions. See [`samples/schemas/custom-schema.toml`](../samples/schemas/custom-schema.toml) for a fully annotated example.
+Then edit `.nn/workflow.toml` to define your entity types, statuses, priorities, and lifecycle transitions. See [`samples/workflows/custom-workflow.toml`](../samples/workflows/custom-workflow.toml) for a fully annotated example.
 
-## Remote schemas *(planned)*
+## Remote workflows *(planned)*
 
-Remote schema extends (`extends = "https://..."`) is not yet implemented. When available, `.nn/schema.toml` will be able to extend schemas hosted on GitHub gists or GitLab snippets, with a local cache and explicit URL allow-listing for security.
+Remote workflow extends (`extends = "https://..."`) is not yet implemented. When available, `.nn/workflow.toml` will be able to extend workflows hosted on GitHub gists or GitLab snippets, with a local cache and explicit URL allow-listing for security.
 
 ## Preferences reference
 
-### `default_schema`
+### `default_workflow`
 
-User config key that defines the fallback schema for directories without a `.nn/schema.toml`.
+User config key that defines the fallback workflow for directories without a `.nn/workflow.toml`.
 
 ```toml
 # ~/.config/notenav/config.toml
-default_schema = "compass"    # this is the default
+default_workflow = "compass"    # this is the default
 ```
 
 ### `[defaults]`
@@ -333,12 +333,12 @@ search_prompt = "/ "     # prompt in search mode
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode |
 
-### Overriding schema colors
+### Overriding workflow colors
 
-You can override individual colors without writing a full custom schema. In `.nn/schema.toml`, use `extends` and override what you need:
+You can override individual colors without writing a full custom workflow. In `.nn/workflow.toml`, use `extends` and override what you need:
 
 ```toml
-# .nn/schema.toml
+# .nn/workflow.toml
 extends = "compass"
 
 [entity.task]
@@ -351,7 +351,7 @@ active = "32;1"       # bold green for active
 1 = "31"              # non-bold red for P1
 ```
 
-User config can also override colors – these merge on top of the schema values:
+User config can also override colors – these merge on top of the workflow values:
 
 ```toml
 # ~/.config/notenav/config.toml

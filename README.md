@@ -4,7 +4,7 @@ Your notes deserve a proper interface. Not a browser tab, not an Electron app �
 
 Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions – all via vim-like keybindings, without leaving the terminal.
 
-Schemas are fully customizable – define your own entity types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
+Workflows are fully customizable – define your own entity types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
 
 Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) – fully compatible with Obsidian, Dendron, Jekyll, and similar tools. Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
 
@@ -41,10 +41,10 @@ nn --version                    # version info
 
 All configuration is TOML. Project and user configuration are orthogonal – neither inherits from or overrides the other:
 
-- **Project configuration** (`.nn/`) – defines the schema (`.nn/schema.toml`, built-in or custom) and project-specific settings including saved queries (`.nn/config.toml`).
-- **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback schema (used only when `nn` is invoked in directories without project configuration).
+- **Project workflow** (`.nn/workflow.toml`) – defines the workflow (built-in or custom) and project-specific settings including saved queries.
+- **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback workflow (used only when `nn` is invoked in directories without project configuration).
 
-Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions. Ships with built-in schemas: **compass** (default – our favorite), **ado**, **gtd**, **zettelkasten**. Use a built-in preset or write your own – the built-in schema files ([compass](config/schemas/compass.toml), [gtd](config/schemas/gtd.toml), [zettelkasten](config/schemas/zettelkasten.toml)) are good starting points and serve as reference for the format. See [docs/configuration.md](docs/configuration.md) for the full config and schema reference.
+Workflows define your vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions. Ships with built-in workflows: **compass** (default – our favorite), **ado**, **gtd**, **zettelkasten**. Use a built-in preset or write your own – the built-in workflow files ([compass](config/workflows/compass.toml), [gtd](config/workflows/gtd.toml), [zettelkasten](config/workflows/zettelkasten.toml)) are good starting points and serve as reference for the format. See [docs/configuration.md](docs/configuration.md) for the full config and workflow reference.
 
 ## Platform support
 

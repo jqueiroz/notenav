@@ -1,9 +1,9 @@
 # notenav base configuration
 # Ships with notenav; user config overlays on top for preferences.
 # User config:    ~/.config/notenav/config.toml (preferences + personal queries)
-# Project config: .nn/config.toml (schema selection + shared queries only)
+# Project:        .nn/workflow.toml (workflow definition + project queries)
 
-default_schema = "compass"
+default_workflow = "compass"
 
 [defaults]
 sort_by = "created"

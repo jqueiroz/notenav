@@ -13,20 +13,20 @@ bin/nn              # Entry point: resolves root, sources lib, calls notenav_mai
 lib/notenav.sh      # Full implementation (~1100 LOC)
 config/
   base.toml        # Base config (ships with notenav; user/project configs overlay on top)
-  schemas/
-    compass.toml    # Default schema (task/idea/reference)
+  workflows/
+    compass.toml    # Default workflow (task/idea/reference)
     ado.toml        # Azure DevOps preset
     gtd.toml        # Getting Things Done preset
     zettelkasten.toml # Zettelkasten preset
 docs/
   install.md          # Full install instructions (requirements, all methods)
-  configuration.md    # Config system + schema reference
+  configuration.md    # Config system + workflow reference
 samples/
   profiles/
     user-config.toml    # Example ~/.config/notenav/config.toml
-    project-config.toml # Example .nn/config.toml
-  schemas/
-    custom-schema.toml  # Example custom schema
+    project-config.toml # Example .nn/workflow.toml
+  workflows/
+    custom-workflow.toml  # Example custom workflow
 CLAUDE.md           # This file
 README.md           # Public-facing README
 LICENSE             # MIT
@@ -39,7 +39,7 @@ LICENSE             # MIT
 - **zk** — note indexing, querying, LSP (the underlying note tool)
 - **fzf** 0.44+ — TUI framework (transform, execute, rebind)
 - **bat/batcat** — syntax-highlighted preview
-- **yq** ([yq-go](https://github.com/mikefarah/yq), **not** [yq-python](https://github.com/kislyuk/yq)) — TOML→JSON conversion for config/schema loading
+- **yq** ([yq-go](https://github.com/mikefarah/yq), **not** [yq-python](https://github.com/kislyuk/yq)) — TOML→JSON conversion for config/workflow loading
 - **jq** — JSON merging and querying for config system
 - **awk**, **sort**, **sed** — data pipeline (POSIX + gawk `mktime`)
 
@@ -51,7 +51,7 @@ Full TUI with filters, saved queries, inline actions. Creates a temp dir with he
 
 ### 2. Named query (`nn <name>`)
 
-Looks up `<name>` in saved queries (from user and project config `[queries]` sections). Delegates to `notenav_main` with the query's key=value args.
+Looks up `<name>` in saved queries (from workflow and user/project `[queries]` sections). Delegates to `notenav_main` with the query's key=value args.
 
 ### 3. Ad-hoc query (`nn key=value ...`)
 
@@ -125,9 +125,9 @@ created: 2026-03-18
 
 Saved queries are defined in `[queries.<name>]` sections across three layers (later wins on name collisions):
 
-1. **Schema queries** — built-in presets shipped with each schema (e.g. compass has `p1-tasks`, `inbox`)
+1. **Workflow queries** — built-in presets shipped with each workflow (e.g. compass has `p1-tasks`, `inbox`)
 2. **User queries** (`~/.config/notenav/config.toml`) — personal, available everywhere
-3. **Project queries** (`.nn/config.toml`) — team-shared, project-specific
+3. **Project queries** (`.nn/workflow.toml`) — team-shared, project-specific
 
 ```toml
 [queries.backlog]
@@ -138,7 +138,7 @@ order = 5
 args = "type=bug status=active"
 ```
 
-Set `inherit = false` under `[queries]` in project or user config to clear schema presets before merging.
+Set `inherit = false` under `[queries]` in project or user config to clear workflow presets before merging.
 
 ## Source Reference
 
@@ -161,25 +161,24 @@ nn type=task -i                               # interactive ad-hoc
 
 ## Config System
 
-Schema and preferences are loaded from TOML files at startup via `nn_load_config()`.
+Workflow and preferences are loaded from TOML files at startup via `nn_load_config()`.
 
-**Schema resolution:**
-- `.nn/schema.toml` defines the project schema (full definition or `extends = "<builtin>"`)
-- Falls back to user config `default_schema`, then `"compass"`
-- Projects are self-contained — no user-global schemas directory
+**Workflow resolution:**
+- `.nn/workflow.toml` defines the project workflow (full definition or `extends = "<builtin>"`)
+- Falls back to user config `default_workflow`, then `"compass"`
 
 **Preference merge** (later values win via jq deep merge):
-1. Schema values (base)
+1. Workflow values (base)
 2. Base config: `$NOTENAV_ROOT/config/base.toml`
 3. User config: `~/.config/notenav/config.toml`
 
 The merged config is stored in `NN_CFG_JSON` and queried via `nn_cfg '.path.to.value'`.
 
-Built-in schemas: `compass` (default), `ado`, `gtd`, `zettelkasten`.
+Built-in workflows: `compass` (default), `ado`, `gtd`, `zettelkasten`.
 
 ## Conventions
 
 - Entry point (`bin/nn`) stays minimal — all logic in `lib/notenav.sh`
 - Internal temp files use `/tmp/.nn-` prefix
-- Saved queries: `[queries]` section in user/project config
+- Saved queries: `[queries]` section in workflow/user config
 - Version string in `NOTENAV_VERSION` variable at top of `lib/notenav.sh`

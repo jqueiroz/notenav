@@ -1,4 +1,4 @@
-# Compass — the default notenav schema
+# Compass — the default notenav workflow
 # Simple task/idea/reference workflow with priority and status tracking
 
 [meta]
@@ -69,7 +69,7 @@ new = "done"
 blocked = "new"
 
 # --- Priority ---
-# enabled: set to false to disable priority entirely (see zettelkasten schema)
+# enabled: set to false to disable priority entirely (see zettelkasten workflow)
 # values: valid priority levels; array order = sort order (first = highest)
 #   can be numeric ("1","2","3") or named ("critical","high","low")
 # labels: optional short display labels; omit to show "P{value}" (e.g. "P1")

@@ -1,12 +1,12 @@
-# ADO Schema
+# ADO Workflow
 
 Inspired by [Azure DevOps](https://azure.microsoft.com/en-us/products/devops/) work item types and state transitions.
 
-**Schema file:** [`config/schemas/ado.toml`](../../config/schemas/ado.toml)
+**Workflow file:** [`config/workflows/ado.toml`](../../config/workflows/ado.toml)
 
 ```bash
-# In ~/.config/notenav/config.toml or .nn/config.toml
-default_schema = "ado"
+# In ~/.config/notenav/config.toml or .nn/workflow.toml
+default_workflow = "ado"
 ```
 
 ## Philosophy

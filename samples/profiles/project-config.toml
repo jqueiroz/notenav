@@ -1,16 +1,16 @@
-# Example .nn/config.toml (project-level config)
+# Example .nn/workflow.toml (project workflow)
 # Place this in your project's .nn/ directory.
-# Project config defines the schema and shared queries — not user preferences.
+# Defines the workflow and shared queries for the project.
 
-# Use a different schema for this project
-schema = "ado"
+# Extend a built-in workflow for this project
+extends = "ado"
 
 # Saved queries shared among project members.
 # Each query has an args string (key=value pairs) and optional order (default 100).
 # Lower order = earlier in the saved query bar.
 #
-# Schema presets are included by default. Project queries with the same name
-# override the schema preset. To clear all schema presets, set inherit = false:
+# Workflow presets are included by default. Project queries with the same name
+# override the workflow preset. To clear all workflow presets, set inherit = false:
 #
 #   [queries]
 #   inherit = false
