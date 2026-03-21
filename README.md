@@ -2,7 +2,7 @@
 
 TUI for navigating markdown notes with frontmatter annotations. Filter by type, status, priority, and tags; search body content; save and recall queries; perform inline actions — all via vim-like keybindings, without leaving the terminal.
 
-Schemas are fully customizable — define your own entity types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows (GTD, Azure DevOps, Zettelkasten) or write your own.
+Schemas are fully customizable — define your own entity types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows (GTD, Azure DevOps, Zettelkasten), or you can write your own from scratch.
 
 Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing. For non-interactive usage (scripting, batch operations, LSP), use zk directly.
 
