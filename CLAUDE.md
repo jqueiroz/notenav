@@ -18,6 +18,9 @@ config/
     ado.toml        # Azure DevOps preset
     gtd.toml        # Getting Things Done preset
     zettelkasten.toml # Zettelkasten preset
+docs/
+  install.md          # Full install instructions (requirements, all methods)
+  configuration.md    # Config system + schema reference
 samples/
   user-config.toml    # Example ~/.config/notenav/config.toml
   project-config.toml # Example .nn/config.toml
