@@ -325,6 +325,7 @@ TUI preferences.
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode
+fortune = false          # show a fun quote on exit
 ```
 
 | Key | Type | Default | Description |
@@ -332,6 +333,7 @@ search_prompt = "/ "     # prompt in search mode
 | `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR`, then falls back to nvim → vim → vi → nano |
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode |
+| `fortune` | boolean | `false` | Show a fun quote when exiting the faceted browser |
 
 ### Overriding workflow colors
 

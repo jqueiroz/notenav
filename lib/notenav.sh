@@ -490,6 +490,7 @@ nn_precompute_workflow() {
   NN_UI_EDITOR=$(nn_cfg '.ui.editor // empty')
   NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // ": "')
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
+  NN_UI_FORTUNE=$(nn_cfg '.ui.fortune // false')
 
   # ZK format
   NN_ZK_FMT=$(nn_cfg '.zk.format // empty')
@@ -1570,7 +1571,7 @@ ENDFILTER
     rm -rf "$_nn_dir"
     trap - EXIT
     shopt -u nullglob
-    echo "So long, and thanks for all the notes."
+    [[ "$NN_UI_FORTUNE" == "true" ]] && echo "So long, and thanks for all the notes."
     return
   fi
 
