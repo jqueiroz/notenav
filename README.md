@@ -8,7 +8,7 @@ Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/d
 
 ## Install
 
-**Option 1: via [Nix](https://nixos.org/)** (recommended — transparently handles all dependencies)
+**Option 1: via [Nix](https://nixos.org/)** (recommended path — transparently handles all dependencies)
 
 ```bash
 nix profile install github:jqueiroz/notenav
