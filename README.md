@@ -119,5 +119,4 @@ nn --version                    # version info
 
 MIT
 
-[^1]: Alright, this is a joke. I respect emacs, and I even have friends who use emacs.[^2]
-[^2]: This is again a joke. I truly respect emacs.
+[^1]: Just kidding – emacs users, you know you can set `$EDITOR`.
