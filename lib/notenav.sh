@@ -535,7 +535,7 @@ notenav_main() {
 
   shopt -s nullglob
 
-  # Extract saved queries from merged config (workflow + user + project)
+  # Extract query presets from merged config (workflow + user + project)
   declare -A saved_queries saved_query_order
   while IFS=$'\t' read -r _qname _qorder _qargs; do
     [[ -z "$_qname" ]] && continue
@@ -576,7 +576,7 @@ notenav_main() {
     : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
 
-    # Write saved query definitions for filter.sh, sorted by order
+    # Write query preset definitions for filter.sh, sorted by order
     : > "$_nn_dir/.queries"
     if [[ ${#saved_queries[@]} -gt 0 ]]; then
       local _sq_unsorted=()
@@ -1010,7 +1010,7 @@ printf 'reload(cat %s/.current)+pos(%s)+transform-header(cat %s/.header)+change-
 ENDRA
     chmod +x "$_nn_dir/reload_at.sh"
 
-    # Query picker script (opens sub-fzf to select a saved query)
+    # Query picker script (opens sub-fzf to select a query preset)
     cat > "$_nn_dir/querypick.sh" << 'ENDQP'
 #!/bin/bash
 dir="$1"
@@ -1096,7 +1096,7 @@ apply_sq() {
   line=$(sed -n "${num}p" "$dir/.queries")
   [ -z "$line" ] && return
   name="${line%%	*}"; args="${line#*	}"
-  # Reset filters then apply saved query's key=value pairs
+  # Reset filters then apply query preset's key=value pairs
   ft=""; fs=""; fp=""; : > "$dir/.f_tags"
   for a in $args; do
     case "$a" in
@@ -1126,7 +1126,7 @@ case "$action" in
   clear-status) fs=""; : > "$dir/.f_sq" ;;
   clear-priority) fp=""; : > "$dir/.f_sq" ;;
   clear-sort) IFS= read -r fsort < "$dir/.schema_defaults" ;;
-  next|prev)  # h/l: cycle through saved queries
+  next|prev)  # h/l: cycle through query presets
     if [ -f "$dir/.queries" ]; then
       total=$(wc -l < "$dir/.queries")
       if [ "$total" -gt 0 ]; then
@@ -1306,14 +1306,14 @@ if [ -s "$dir/.f_tags" ]; then
   tag_list=$(tr '\n' ' ' < "$dir/.f_tags" | sed 's/ $//')
   tag_s=$(printf ' \033[35mtags:%s\033[0m' "$tag_list")
 fi
-# Header line 2+: numbered saved queries with count badges, wrapped to terminal width
+# Header line 2+: numbered query presets with count badges, wrapped to terminal width
 active_sq=$(cat "$dir/.f_sq" 2>/dev/null)
 cols=$(tput cols 2>/dev/null || echo 80)
 # Count matches for "all" (respects archive toggle)
 all_cond='length($1) > 0'
 [ -z "$farchive" ] && all_cond="$all_cond$archive_cond"
 all_count=$(awk -F'\t' "$all_cond"'{n++} END{print n+0}' "$dir/.raw")
-# 0:all highlights only when no filters, no tags, no saved query, defaults
+# 0:all highlights only when no filters, no tags, no query preset, defaults
 has_tags=false; [ -s "$dir/.f_tags" ] && has_tags=true
 if [ -z "$active_sq" ] && [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && ! $has_tags; then
   sq_lines=$(printf '\033[1;7m 0:all(%d) \033[0m' "$all_count")

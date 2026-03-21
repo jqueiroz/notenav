@@ -24,7 +24,7 @@ docs/
 samples/
   profiles/
     user-config.toml    # Example ~/.config/notenav/config.toml
-    project-config.toml # Example .nn/workflow.toml
+    project-workflow.toml # Example .nn/workflow.toml
   workflows/
     custom-workflow.toml  # Example custom workflow
 CLAUDE.md           # This file
@@ -47,11 +47,11 @@ LICENSE             # MIT
 
 ### 1. Faceted browser (`nn` with no args)
 
-Full TUI with filters, saved queries, inline actions. Creates a temp dir with helper scripts and state files, launches fzf with extensive keybindings.
+Full TUI with filters, query presets, inline actions. Creates a temp dir with helper scripts and state files, launches fzf with extensive keybindings.
 
 ### 2. Named query (`nn <name>`)
 
-Looks up `<name>` in saved queries (from workflow and user/project `[queries]` sections). Delegates to `notenav_main` with the query's key=value args.
+Looks up `<name>` in query presets (from workflow and user/project `[queries]` sections). Delegates to `notenav_main` with the query's key=value args.
 
 ### 3. Ad-hoc query (`nn key=value ...`)
 
@@ -74,10 +74,10 @@ Filters notes by frontmatter fields. Supports `-i` for interactive (fzf) mode, `
 | `.border` | Border label with count stats |
 | `.f_type`, `.f_status`, `.f_priority` | Current filter values |
 | `.f_tags` | Selected tags (one per line) |
-| `.f_sq` | Active saved query name |
+| `.f_sq` | Active query preset name |
 | `.f_sort`, `.f_group`, `.f_archive` | View settings |
 | `.f_match` / `.f_match_paths` | Body text search query and matching paths |
-| `.queries` | Compiled saved queries (name \t args) |
+| `.queries` | Compiled query presets (name \t args) |
 | `.pinned` | Paths pinned after actions (visible despite filter) |
 | `.zk_path` / `.zk_fmt` | zk list args for reload |
 
@@ -102,7 +102,7 @@ Filters notes by frontmatter fields. Supports `-i` for interactive (fzf) mode, `
 
 **Navigation:** `j`/`k` move, `J`/`K` preview scroll, `H` wrap, `enter` open, `q` quit
 **Filters:** `e`/`E` type, `s`/`S` status, `p`/`P` priority, `t`/`T` tags, `m`/`M` body search, `R`/`0` reset
-**Saved queries:** `h`/`l` prev/next, `1`-`9` jump, `f` fuzzy pick
+**Query Presets:** `h`/`l` prev/next, `1`-`9` jump, `f` fuzzy pick
 **Search:** `/` enter, `Esc` exit
 **Actions:** `a`/`A` status cycle, `+`/`-` priority, `n` new note, `b` bulk edit
 **Change mode:** `c` then `s`/`p`/`e` — set field on selected notes
@@ -121,9 +121,9 @@ created: 2026-03-18
 ---
 ```
 
-## Saved Queries
+## Query Presets
 
-Saved queries are defined in `[queries.<name>]` sections across three layers (later wins on name collisions):
+Query Presets are defined in `[queries.<name>]` sections across three layers (later wins on name collisions):
 
 1. **Workflow queries** — built-in presets shipped with each workflow (e.g. compass has `p1-tasks`, `inbox`)
 2. **User queries** (`~/.config/notenav/config.toml`) — personal, available everywhere
@@ -155,7 +155,7 @@ nn --version                                  # notenav 0.1.0-dev
 cd ~/Writing/obsidian-johnjq
 nn                                            # faceted browser
 nn type=task                                  # ad-hoc query
-nn backlog                                    # saved query
+nn backlog                                    # query preset
 nn type=task -i                               # interactive ad-hoc
 ```
 
@@ -180,5 +180,5 @@ Built-in workflows: `compass` (default), `ado`, `gtd`, `zettelkasten`.
 
 - Entry point (`bin/nn`) stays minimal — all logic in `lib/notenav.sh`
 - Internal temp files use `/tmp/.nn-` prefix
-- Saved queries: `[queries]` section in workflow/user config
+- Query Presets: `[queries]` section in workflow/user config
 - Version string in `NOTENAV_VERSION` variable at top of `lib/notenav.sh`

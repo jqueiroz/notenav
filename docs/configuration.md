@@ -6,7 +6,7 @@
 
 All configuration is TOML. Project and user configuration are orthogonal – neither inherits from or overrides the other:
 
-- **Project configuration** (`.nn/workflow.toml`) – defines the workflow (built-in or custom) and project-specific settings including saved queries.
+- **Project configuration** (`.nn/workflow.toml`) – defines the workflow (built-in or custom) and project-specific settings including query presets.
 - **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback workflow, used in directories without project configuration.
 
 Workflows define your vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions.
@@ -19,18 +19,20 @@ At startup, two things happen:
 
 1. **Workflow resolution** – if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"compass"`.
 
-2. **Preference merge** – preferences are assembled by deep-merging these files in order (later values win):
+2. **Preference merge** – preferences are assembled by deep-merging these layers in order (later values win):
 
-   | Source | Path |
-   |--------|------|
-   | Base | `$NOTENAV_ROOT/config/base.toml` |
-   | User | `$XDG_CONFIG_HOME/notenav/config.toml` |
+   | Layer | Source | Wins on |
+   |-------|--------|---------|
+   | 1. Workflow | Built-in or extended workflow definition | — (base) |
+   | 2. Base config | `$NOTENAV_ROOT/config/base.toml` | Workflow defaults |
+   | 3. User config | `$XDG_CONFIG_HOME/notenav/config.toml` | Everything above |
+   | 4. Project queries | `[queries]` from `.nn/workflow.toml` | All queries |
 
-   The workflow's values are merged first, then these layers on top. This means user preferences can override individual workflow values (like colors) without replacing the entire workflow.
+   User preferences can override individual workflow values (like colors) without replacing the entire workflow. Project queries are applied last so they always win on name collisions.
 
 The `.nn/` directory is found by walking up from the current directory.
 
-See [`samples/profiles/user-config.toml`](../samples/profiles/user-config.toml) and [`samples/profiles/project-config.toml`](../samples/profiles/project-config.toml) for annotated examples.
+See [`samples/profiles/user-config.toml`](../samples/profiles/user-config.toml) and [`samples/profiles/project-workflow.toml`](../samples/profiles/project-workflow.toml) for annotated examples.
 
 ## Workflow files
 

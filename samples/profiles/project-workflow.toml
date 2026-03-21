@@ -5,9 +5,9 @@
 # Extend a built-in workflow for this project
 extends = "ado"
 
-# Saved queries shared among project members.
-# Each query has an args string (key=value pairs) and optional order (default 100).
-# Lower order = earlier in the saved query bar.
+# Query presets shared among project members.
+# Each preset has an args string (key=value pairs) and optional order (default 100).
+# Lower order = earlier in the query preset bar.
 #
 # Workflow presets are included by default. Project queries with the same name
 # override the workflow preset. To clear all workflow presets, set inherit = false:
