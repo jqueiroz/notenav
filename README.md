@@ -77,7 +77,7 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 
 | Key | Action |
 |-----|--------|
-| `enter` | Open note in your preferred editor (defaults to `$EDITOR`, with fallbacks: nvim → vim → vi → nano → emacs[^1]) |
+| `enter` | Open note in your preferred editor (defaults to `$EDITOR`, with fallbacks: nvim → vim → vi → nano) |
 | `n` | Create new note |
 | `a` / `A` | Advance / reverse status |
 | `+` / `-` (or `<` / `>`) | Bump priority up / down |
@@ -113,6 +113,3 @@ nn --version                    # version info
 ## License
 
 MIT
-
-[^1]: Alright, this is a joke. I respect emacs, and I even have friends who use emacs.[^2]
-[^2]: This is again a joke. I truly respect emacs.

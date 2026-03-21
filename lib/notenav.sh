@@ -4,7 +4,7 @@
 NOTENAV_VERSION="0.1.0-dev"
 
 # --- Editor resolution ---
-# Fallback chain: config ui.editor > $EDITOR > nvim > vim > vi > nano > emacs
+# Fallback chain: config ui.editor > $EDITOR > nvim > vim > vi > nano
 _nn_resolve_editor() {
   local cfg_editor="$1"
   if [[ -n "$cfg_editor" ]]; then
@@ -13,7 +13,7 @@ _nn_resolve_editor() {
     printf '%s' "$EDITOR"
   else
     local cmd
-    for cmd in nvim vim vi nano emacs; do
+    for cmd in nvim vim vi nano; do
       if command -v "$cmd" >/dev/null 2>&1; then
         printf '%s' "$cmd"
         return
