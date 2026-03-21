@@ -81,7 +81,10 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 | `n` | Create new note |
 | `a` / `A` | Advance / reverse status |
 | `+` / `-` (or `<` / `>`) | Adjust priority up / down |
-| `e` / `s` / `p` / `t` | Filter by [**e**]ntity type / [**s**]tatus / [**p**]riority / [**t**]ags |
+| `e` | Filter by [**e**]ntity type |
+| `s` | Filter by [**s**]tatus |
+| `p` | Filter by [**p**]riority |
+| `t` | Filter by [**t**]ags |
 | `m` | Search note body |
 | `h` / `l` | Previous / next query preset |
 | `f` | Fuzzy-pick query preset |
