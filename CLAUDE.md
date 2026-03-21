@@ -111,7 +111,7 @@ Filters notes by frontmatter fields. Supports `-i` for interactive (fzf) mode, `
 title: "Note Title"
 type: idea | task | reference
 priority: 1-5
-status: new | active | blocked | validating | done | removed
+status: new | active | blocked | done | removed
 tags: [feature-area]
 created: 2026-03-18
 ---

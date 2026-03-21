@@ -24,16 +24,15 @@ description = "Living documentation"
 display_order = 3
 
 [status]
-values = ["new", "active", "blocked", "validating", "done", "removed"]
-display_order = ["active", "blocked", "validating", "new", "done", "removed"]
+values = ["new", "active", "blocked", "done", "removed"]
+display_order = ["active", "blocked", "new", "done", "removed"]
 archive = ["done", "removed"]
-filter_cycle = ["", "new", "active", "blocked", "validating", "done"]
+filter_cycle = ["", "new", "active", "blocked", "done"]
 
 [status.colors]
 new = "90"             # dim
 active = "32"          # green
 blocked = "31"         # red
-validating = "34"      # blue
 done = "90"            # dim
 removed = "90"         # dim
 
@@ -42,14 +41,12 @@ new = "active"
 active = "done"
 done = "new"
 blocked = "active"
-validating = "done"
 
 [status.lifecycle.reverse]
 done = "active"
 active = "new"
 new = "done"
 blocked = "new"
-validating = "active"
 
 [priority]
 values = ["1", "2", "3", "4"]

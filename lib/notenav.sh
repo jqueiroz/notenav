@@ -161,7 +161,6 @@ notenav_main() {
       if ($3+0 == 2) pc = "\033[33m"
       if ($2 == "active") sc = "\033[32m"
       if ($2 == "blocked") sc = "\033[31m"
-      if ($2 == "validating") sc = "\033[34m"
       printf "%s\t%s%s %s%s %sP%s%s %s%s%s %s\n", $6, tc, ic, $1, r, pc, $3, r, sc, $2, r, $5
     }'
 
@@ -335,7 +334,7 @@ for f in "$@"; do
 done
 [ $shown -gt 2 ] && ctx="$ctx (+$((shown - 2)) more)"
 case "$field" in
-  status)   vals="new\nactive\nblocked\nvalidating\ndone" ;;
+  status)   vals="new\nactive\nblocked\ndone" ;;
   priority) vals="1\n2\n3\n4" ;;
   type)     vals="◆ task\n✦ idea\n▪ reference" ;;
   *) exit 1 ;;
@@ -465,7 +464,7 @@ while IFS= read -r new_line; do
   esac
   # Validate status
   case "$new_status" in
-    new|active|blocked|validating|done|removed|"") ;;
+    new|active|blocked|done|removed|"") ;;
     *) errors="${errors}Invalid status '$new_status' for $(basename "$path")\n"; continue ;;
   esac
   # Validate priority
@@ -506,7 +505,7 @@ while IFS=$'\t' read -r fpath _rest; do
 done < <(tac "$dir/.current")
 # Footer with valid values
 printf '\n# type: task, idea, reference\n' >> "$tmpfile"
-printf '# status: new, active, blocked, validating, done, removed (or empty)\n' >> "$tmpfile"
+printf '# status: new, active, blocked, done, removed (or empty)\n' >> "$tmpfile"
 printf '# priority: 1, 2, 3, 4 (or empty)\n' >> "$tmpfile"
 printf '# tags: space-separated\n' >> "$tmpfile"
 # Save original for diffing
@@ -581,13 +580,13 @@ cur=$(awk -F'\t' -v p="$file" '$6 == p {print $2; exit}' "$dir/.raw")
 if [ "$direction" = "rev" ]; then
   case "$cur" in
     done) next=active ;; active) next=new ;; new) next=done ;;
-    blocked) next=new ;; validating) next=active ;;
+    blocked) next=new ;;
     *) next=new ;;
   esac
 else
   case "$cur" in
     new) next=active ;; active) next=done ;; done) next=new ;;
-    blocked) next=active ;; validating) next=done ;;
+    blocked) next=active ;;
     *) next=new ;;
   esac
 fi
@@ -681,7 +680,7 @@ cycle() {
   local -a vals
   case "$dim" in
     type)     vals=("" "task" "idea" "reference") ;;
-    status)   vals=("" "new" "active" "blocked" "validating" "done") ;;
+    status)   vals=("" "new" "active" "blocked" "done") ;;
     priority) vals=("" "1" "2" "3" "4") ;;
     sort)     vals=("created" "modified" "title" "priority") ;;
     group)    vals=("" "type" "status") ;;
@@ -856,7 +855,6 @@ do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "$cond"' {
   if ($3+0 == 2) pc = "\033[33m"
   if ($2 == "active") sc = "\033[32m"
   if ($2 == "blocked") sc = "\033[31m"
-  if ($2 == "validating") sc = "\033[34m"
   # Relative age from modified ($7): "YYYY-MM-DD HH:MM:SS..."
   age = ""
   if ($7 != "") {
@@ -924,7 +922,7 @@ if [ -n "$fgroup" ]; then
       counts[gk]++; lines[gk] = lines[gk] $0 "\n"
     } END {
       if (gmode == "status")
-        n = split("active blocked validating new done removed", order, " ")
+        n = split("active blocked new done removed", order, " ")
       else
         n = split("task idea reference", order, " ")
       # Icon lookup for type groups
@@ -955,9 +953,9 @@ stats_s=$(awk -F'\t' "$cond"'{
     tl = t; if (types[t] != 1) tl = t "s"
     printf "%s%s %d %s\033[0m", tc, ic, types[t], tl
     printf " ("
-    split("new active blocked validating done", statuses, " ")
+    split("new active blocked done", statuses, " ")
     sfirst = 1
-    for (si = 1; si <= 5; si++) {
+    for (si = 1; si <= 4; si++) {
       s = statuses[si]
       key = t SUBSEP s
       if (!(key in combos)) continue
@@ -966,7 +964,6 @@ stats_s=$(awk -F'\t' "$cond"'{
       sc = "\033[90m"
       if (s == "active") sc = "\033[32m"
       if (s == "blocked") sc = "\033[31m"
-      if (s == "validating") sc = "\033[34m"
       printf "%s%d %s\033[0m", sc, combos[key], s
     }
     printf ")"
