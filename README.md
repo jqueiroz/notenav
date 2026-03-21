@@ -1,22 +1,12 @@
 # notenav (`nn`)
 
 > *How many notes must a man write down,*
-> *before vim hits a wall?*
->
-> *How many thoughts must a man jot down,*
-> *before they turn to a scrawl?*
->
-> ***The answer, my friend, is n².***
->
-> ---
->
-> *How many notes must a man write down,*
-> *before we call vim too small?*
->
-> *How many notes can a man write down,*
 > *before vim starts to crawl?*
 >
-> ***The answer, my friend, lies in nn.***
+> *How many thoughts can a man jot down,*
+> *before they turn to a scrawl?*
+>
+> ***The answer, my friend, can save us all.***
 >
 > ---
 >
@@ -27,6 +17,13 @@
 > *before he's left impaired?*
 >
 > ***The answer, my friend, is n².***
+>
+> ---
+>
+> *How many notes must a man write down,*
+> *before vim hits a wall?*
+>
+> ***The answer, my friend, lies in nn.***
 
 Your notes deserve a proper interface. Not a browser tab, not an Electron app – a fast, keyboard-driven TUI that feels like editing code. Finally, task and note management that's seamless and, dare we say, _fun_!
 
