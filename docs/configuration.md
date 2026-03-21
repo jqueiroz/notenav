@@ -322,14 +322,14 @@ TUI preferences.
 
 ```toml
 [ui]
-editor = ""              # empty = $EDITOR or nvim
+editor = ""              # empty = $EDITOR or vi
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR` or falls back to `nvim` |
+| `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR` or falls back to `vi` |
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode |
 

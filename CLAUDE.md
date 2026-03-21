@@ -178,6 +178,6 @@ Built-in workflows: `compass` (default), `ado`, `gtd`, `zettelkasten`.
 ## Conventions
 
 - Entry point (`bin/nn`) stays minimal — all logic in `lib/notenav.sh`
-- Internal temp files use `/tmp/.nn-` prefix
+- Internal temp files use per-session `mktemp -d` directories (cleaned up via EXIT trap)
 - Query Presets: `[queries]` section in workflow/user config
 - Version string in `NOTENAV_VERSION` variable at top of `lib/notenav.sh`
