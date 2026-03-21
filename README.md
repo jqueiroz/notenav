@@ -51,7 +51,7 @@ Out of the box, `nn` uses **Compass** – a simple workflow built around three n
 - **idea** – captures an early insight; enriched over time, may evolve into one or more tasks  <!-- alt: "needs exploration" -->
 - **reference** – living documentation, continually updated as understanding grows
 
-**Status** – every note moves through a lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (soft-deleted – the note stays on disk but is hidden from normal views).
+**Status** – every note moves through a lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (soft-deleted, i.e. the note stays on disk but it's hidden from normal views).
 
 **Priority** – four levels (P1–P4).
 
