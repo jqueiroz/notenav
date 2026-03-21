@@ -29,7 +29,15 @@ git clone https://github.com/jqueiroz/notenav.git ~/.local/share/notenav
 ln -s ~/.local/share/notenav/bin/nn ~/.local/bin/nn
 ```
 
-Requires bash 4+, [zk](https://github.com/zk-org/zk), [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq) (yq-go, **not** yq-python), and [jq](https://github.com/jqlang/jq). See [docs/install.md](docs/install.md) for all options (NixOS, Home Manager, one-liner) and full dependency details.
+Requires bash 4+, [zk](https://github.com/zk-org/zk), [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq) (yq-go, **not** yq-python), and [jq](https://github.com/jqlang/jq). See [docs/install.md](docs/install.md) for full dependency details.
+
+**Option 3: One-liner**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/curl/install.sh | sh
+```
+
+Same dependencies as manual installation. See [docs/install.md](docs/install.md) for details.
 
 ## Usage
 
