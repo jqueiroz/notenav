@@ -1,27 +1,21 @@
 # Azure DevOps schema
-# Epic/story/task/bug workflow mirroring ADO work item types
+# Feature/task/bug workflow mirroring ADO work item types
 
 [meta]
 name = "Azure DevOps"
-description = "Epic/story/task/bug workflow inspired by Azure DevOps"
+description = "Feature/task/bug workflow inspired by Azure DevOps"
 
-[entity.epic]
-icon = "♛"
-color = "35"           # magenta
-description = "Large multi-story initiative"
-display_order = 1
-
-[entity.story]
+[entity.feature]
 icon = "◇"
-color = "36"           # cyan
+color = "35"           # magenta
 description = "User-facing deliverable"
-display_order = 2
+display_order = 1
 
 [entity.task]
 icon = "◆"
-color = "34"           # blue
+color = "36"           # cyan
 description = "Discrete unit of work"
-display_order = 3
+display_order = 2
 
 [entity.bug]
 icon = "✖"
