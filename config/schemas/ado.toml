@@ -85,9 +85,3 @@ unset_sort_value = 9
 2 = "3"
 3 = "4"
 
-# --- zk integration ---
-
-[zk]
-format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
-columns = ["type", "status", "priority", "tags", "title", "absPath", "modified", "created"]
-template_pattern = "{type}.md"

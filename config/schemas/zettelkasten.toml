@@ -76,9 +76,3 @@ unset_sort_value = 9
 
 [priority.lifecycle.down]
 
-# --- zk integration ---
-
-[zk]
-format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
-columns = ["type", "status", "priority", "tags", "title", "absPath", "modified", "created"]
-template_pattern = "{type}.md"

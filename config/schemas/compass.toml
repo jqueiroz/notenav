@@ -24,7 +24,7 @@ display_order = 1
 [entity.idea]
 icon = "✦"
 color = "35"           # magenta
-description = "Needs exploration/research"
+description = "Needs further exploration/research (to be added in the note file)"
 display_order = 2
 
 [entity.reference]
@@ -106,9 +106,3 @@ unset_sort_value = 9
 # --- zk integration ---
 # format: zk list --format string; columns are tab-separated
 # columns: names for each tab-separated field (for documentation; matches format order)
-# template_pattern: zk new --template pattern; {type} is replaced with the entity name
-
-[zk]
-format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
-columns = ["type", "status", "priority", "tags", "title", "absPath", "modified", "created"]
-template_pattern = "{type}.md"
