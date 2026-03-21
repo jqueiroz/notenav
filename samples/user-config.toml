@@ -6,7 +6,7 @@ default_workflow = "compass"
 
 [defaults]
 sort_by = "modified"       # created | modified | title | priority
-group_by = "type"          # "" | type | status
+group_by = ""              # "" (none) | type | status
 show_archive = false       # true to show done/removed by default
 
 [ui]

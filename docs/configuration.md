@@ -306,14 +306,14 @@ Default view settings for the faceted browser.
 ```toml
 [defaults]
 sort_by = "created"       # created | modified | title | priority
-group_by = "type"         # "" (none) | type | status
+group_by = ""             # "" (none) | type | status
 show_archive = false      # true to show archived statuses by default
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `sort_by` | string | `"created"` | Sort order for notes |
-| `group_by` | string | `"type"` | Grouping in the list; `""` for no grouping |
+| `group_by` | string | `""` | Grouping in the list; `""` for no grouping |
 | `show_archive` | boolean | `false` | Whether archived statuses are visible on launch |
 
 ### `[ui]`

@@ -483,7 +483,7 @@ nn_precompute_workflow() {
 
   # Defaults
   NN_DEFAULT_SORT=$(nn_cfg '.defaults.sort_by // "created"')
-  NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // "type"')
+  NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // ""')
   NN_DEFAULT_ARCHIVE=$(nn_cfg '.defaults.show_archive // false')
 
   # UI preferences

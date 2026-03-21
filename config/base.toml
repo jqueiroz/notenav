@@ -7,7 +7,7 @@ default_workflow = "compass"
 
 [defaults]
 sort_by = "created"
-group_by = "type"
+group_by = ""
 show_archive = false
 
 [ui]
