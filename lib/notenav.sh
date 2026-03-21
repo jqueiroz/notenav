@@ -4,7 +4,7 @@
 NOTENAV_VERSION="0.1.0-dev"
 
 # --- Easter egg ---
-# set n= to find out
+# set n=... to unlock a hidden message
 
 _nn_easteregg_check() {
   command -v sha256sum >/dev/null 2>&1 || return 1
@@ -645,7 +645,7 @@ notenav_main() {
     : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
 
-    # set n= to find out
+    # set n=... to unlock a hidden message
     local _nn_k
     _nn_k=$(_nn_easteregg_check "${n:-}") && _nn_easteregg_decode "$_nn_dir" "$_nn_k"
 
