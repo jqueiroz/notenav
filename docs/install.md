@@ -19,7 +19,7 @@ Not required, but progressively enhance the experience when installed.
 
 ### Nix (recommended — transparently handles all dependencies)
 
-[Nix](https://nixos.org/) is a package manager which runs on any Linux distro and macOS. It allows installing notenav along with all its dependencies in an isolated way, without touching your system packages. If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables flakes by default).
+[Nix](https://nixos.org/) is a declarative package manager for Linux and macOS. Using Nix, you can install notenav and all of its dependencies in isolation from your system packages. If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables flakes by default).
 
 **`nix profile` (imperative):**
 
