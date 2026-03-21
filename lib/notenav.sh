@@ -1402,9 +1402,9 @@ printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lb
 if [ "$count" -eq 0 ]; then
   raw_total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
   if [ "$raw_total" -eq 0 ]; then
-    printf 'Mostly harmless. Also, entirely empty.\n\nPress '\''n'\'' to create your first note.\n' > "$dir/.empty_placeholder"
+    printf 'Mostly harmless. No notes here – yet.\n\nPress '\''n'\'' to create your first note.\n' > "$dir/.empty_placeholder"
   else
-    printf 'Mostly harmless. Also, mostly empty.\n' > "$dir/.empty_placeholder"
+    printf 'Mostly harmless. No notes match this filter.\n' > "$dir/.empty_placeholder"
   fi
   printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
 else
