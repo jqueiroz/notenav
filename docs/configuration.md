@@ -15,14 +15,19 @@ Both scopes are layered on top of notenav's base defaults, so you only need to s
 
 ## Config resolution
 
-At startup, configuration is assembled by deep-merging files in order (later values win):
+At startup, two things happen:
 
-| Layer | Path | Purpose |
-|-------|------|---------|
-| 1. Schema | *(selected schema file)* | Workflow vocabulary |
-| 2. Base config | `$NOTENAV_ROOT/config/base.toml` | Ships with notenav |
-| 3. User config | `~/.config/notenav/config.toml` | Personal preferences |
-| 4. Project config | `.nn/config.toml` | Per-project overrides |
+1. **Schema resolution** — the schema is determined from the project config (`schema`), falling back to the user config (`default_schema`), falling back to `"compass"`. The schema file is then located by searching project (`.nn/schemas/`), user (`~/.config/notenav/schemas/`), and built-in (`$NOTENAV_ROOT/config/schemas/`) directories, in that order (first match wins).
+
+2. **Preference merge** — preferences are assembled by deep-merging these files in order (later values win):
+
+   | Source | Path |
+   |--------|------|
+   | Base | `$NOTENAV_ROOT/config/base.toml` |
+   | User | `~/.config/notenav/config.toml` |
+   | Project | `.nn/config.toml` |
+
+   The schema's values are merged first, then these three layers on top. This means preferences can override individual schema values (like colors) without replacing the entire schema.
 
 The project config is found by walking up from the current directory to the nearest `.nn/` directory.
 
