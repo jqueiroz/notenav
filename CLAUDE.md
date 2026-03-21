@@ -158,7 +158,7 @@ nn --version                                  # notenav 0.1.0-dev
 
 # Test in a zk notebook
 cd ~/Writing/obsidian-johnjq
-nn                                            # faceted browser
+nn                                            # interactive TUI
 nn type=task                                  # ad-hoc query
 nn backlog                                    # query preset
 nn type=task -i                               # interactive ad-hoc

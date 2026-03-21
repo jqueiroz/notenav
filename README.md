@@ -118,7 +118,7 @@ See [docs/configuration.md](docs/configuration.md) for the full config and workf
 ## CLI reference
 
 ```bash
-nn                              # faceted browser
+nn                              # interactive TUI
 nn type=task status=active      # ad-hoc query
 nn backlog                      # query preset (from config)
 nn type=task -i                 # interactive (fzf) ad-hoc query

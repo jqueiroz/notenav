@@ -301,7 +301,7 @@ default_workflow = "compass"    # this is the default
 
 ### `[defaults]`
 
-Default view settings for the faceted browser.
+Default view settings.
 
 ```toml
 [defaults]
