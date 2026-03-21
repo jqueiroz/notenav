@@ -29,7 +29,7 @@ description = "Non-actionable reference material"
 # --- Statuses ---
 # Maps to GTD lists: inbox (unclarified), next (do now), waiting (delegated),
 # someday (parked), done, dropped.
-# "dropped" is the GTD equivalent of "removed" — a tombstone, omitted from lifecycle.
+# "dropped" is omitted from filter_cycle but participates in lifecycle.
 
 [status]
 values = ["next", "waiting", "inbox", "someday", "done", "dropped"]

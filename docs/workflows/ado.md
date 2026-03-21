@@ -39,7 +39,7 @@ Linear progression mirroring the ADO work item lifecycle:
 | active | In progress | green |
 | resolved | Done, pending verification | blue |
 | closed | Verified and complete (archived by default) | dim |
-| removed | Tombstone – cancelled or invalid | dim |
+| removed | Cancelled or invalid | dim |
 
 ### Lifecycle
 

@@ -40,7 +40,7 @@ Every note moves through a lifecycle: **new** → **active** → **done**. Notes
 | active | Currently being worked on | green |
 | blocked | Waiting on something external | red |
 | done | Completed (archived by default) | dim |
-| removed | Soft-deleted – only reachable via bulk edit or manual frontmatter change | dim |
+| removed | Soft-deleted | dim |
 
 ### Lifecycle
 
@@ -57,7 +57,7 @@ Press `a` to advance, `A` to reverse:
 - **Forward (a):** new → active → done → new (loop). blocked → active.
 - **Reverse (A):** done → active → new → done (loop). blocked → new.
 
-The `removed` status has no lifecycle transitions – it's a tombstone, reachable only through bulk edit or manual frontmatter changes.
+The `removed` status has no lifecycle transitions – pressing `a`/`A` won't cycle into or out of it. You can still set it explicitly via change mode (`c`→`s`), bulk edit, or manual frontmatter edit.
 
 ## Priority
 

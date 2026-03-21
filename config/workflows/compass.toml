@@ -37,8 +37,7 @@ description = "Living documentation; continually updated as understanding grows"
 # filter_cycle: order when pressing 's' to cycle the status filter ("all" is auto-prepended)
 # default_color: fallback for statuses not explicitly listed in [status.colors]
 #
-# "removed" is in values but omitted from filter_cycle and lifecycle —
-# it's a tombstone status, only reachable via bulk edit or manual frontmatter change.
+# "removed" is in values but omitted from filter_cycle and lifecycle.
 
 [status]
 values = ["active", "blocked", "new", "done", "removed"]

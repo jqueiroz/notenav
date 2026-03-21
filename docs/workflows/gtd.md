@@ -40,7 +40,7 @@ Each status maps to a GTD list:
 | waiting | Waiting For | Delegated or blocked on someone else | blue |
 | someday | Someday/Maybe | Interesting but not committed to now | dim |
 | done | Done | Completed (archived by default) | dim |
-| dropped | Dropped | Tombstone – decided not to do | dim |
+| dropped | Dropped | Decided not to pursue | dim |
 
 ### Lifecycle
 
@@ -55,7 +55,7 @@ Press `a` to advance (clarify/complete), `A` to reverse (reopen/defer):
 - **Forward (a):** inbox → next → done. waiting → next. someday → next. done/dropped → inbox (reopen).
 - **Reverse (A):** done → next → inbox → someday → dropped. waiting → inbox.
 
-The `dropped` status is the GTD equivalent of "removed" – a tombstone for items you've decided not to pursue. It has no forward lifecycle; pressing `a` on a dropped item sends it back to inbox for reconsideration.
+The `dropped` status is hidden by default (archived) but participates in the lifecycle – pressing `a` sends it back to inbox for reconsideration.
 
 ## Priority
 
