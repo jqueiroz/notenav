@@ -43,22 +43,22 @@ Same dependencies as manual installation. See [docs/install.md](docs/install.md)
 
 ## Getting started: the Compass workflow
 
-Out of the box, `nn` uses **Compass** — a simple workflow built around three note types, four statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
+Out of the box, `nn` uses **Compass** – a simple workflow built around three note types, four statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
 
-**Note types** — every note is one of:
-- **task** — concrete, actionable unit of work
-- **idea** — needs exploration; may evolve into one or more tasks
-- **reference** — living documentation, continually updated as understanding grows
+**Note types** – every note is one of:
+- **task** – concrete, actionable unit of work
+- **idea** – needs exploration; may evolve into one or more tasks
+- **reference** – living documentation, continually updated as understanding grows
 
-**Status** — tracks where a note is in its lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (tombstone — hidden from normal views). Press `a` to advance a note's status, `A` to reverse it.
+**Status** – tracks where a note is in its lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (tombstone – hidden from normal views). Press `a` to advance a note's status, `A` to reverse it.
 
-**Priority** — four levels (P1–P4). Press `+`/`-` to bump priority up or down.
+**Priority** – four levels (P1–P4). Press `+`/`-` to bump priority up or down.
 
-**Inbox and triage** — borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority — just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views (`p1-tasks`, `p1-ideas`, etc.) where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
+**Inbox and triage** – borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views (`p1-tasks`, `p1-ideas`, etc.) where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
 
-**Built-in query presets** — Compass ships with `inbox`, `p1-tasks`, `p1-ideas`, and `p1-references`. Navigate between them with `h`/`l`, or press `f` to fuzzy-pick. You can add your own presets in project or user config.
+**Built-in query presets** – Compass ships with `inbox`, `p1-tasks`, `p1-ideas`, and `p1-references`. Navigate between them with `h`/`l`, or press `f` to fuzzy-pick. You can add your own presets in project or user config.
 
-**Frontmatter** — notes are plain markdown with YAML frontmatter:
+**Frontmatter** – notes are plain markdown with YAML frontmatter:
 
 ```yaml
 ---
@@ -73,16 +73,6 @@ created: 2026-03-18
 
 If Compass doesn't fit, switch to one of the other built-in workflows (**ado**, **gtd**, **zettelkasten**) or define your own. See [docs/configuration.md](docs/configuration.md) for the full workflow reference, and the [Compass workflow file](config/workflows/compass.toml) for the exact definitions.
 
-## Usage
-
-```bash
-nn                              # faceted browser
-nn type=task status=active      # ad-hoc query
-nn backlog                      # query preset (from config)
-nn type=task -i                 # interactive (fzf) ad-hoc query
-nn --version                    # version info
-```
-
 ## Configuration
 
 All configuration is TOML. Project and user configuration are orthogonal – neither inherits from or overrides the other:
@@ -91,6 +81,16 @@ All configuration is TOML. Project and user configuration are orthogonal – nei
 - **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback workflow (used only when `nn` is invoked in directories lacking project configuration).
 
 Ships with built-in workflows: **compass** (default – our favorite), **ado**, **gtd**, **zettelkasten**. Use a built-in preset or write your own – the built-in workflow files ([compass](config/workflows/compass.toml), [ado](config/workflows/ado.toml), [gtd](config/workflows/gtd.toml), [zettelkasten](config/workflows/zettelkasten.toml)) are good starting points and serve as reference for the format. See [docs/configuration.md](docs/configuration.md) for the full config and workflow reference.
+
+## CLI reference
+
+```bash
+nn                              # faceted browser
+nn type=task status=active      # ad-hoc query
+nn backlog                      # query preset (from config)
+nn type=task -i                 # interactive (fzf) ad-hoc query
+nn --version                    # version info
+```
 
 ## License
 
