@@ -26,7 +26,7 @@ Config files control preferences and can also override individual schema values 
 
 The project config is found by walking up from the current directory to the nearest `.nn/` directory.
 
-See [`samples/user-config.toml`](../samples/user-config.toml) and [`samples/project-config.toml`](../samples/project-config.toml) for annotated examples.
+See [`samples/profiles/user-config.toml`](../samples/profiles/user-config.toml) and [`samples/profiles/project-config.toml`](../samples/profiles/project-config.toml) for annotated examples.
 
 ## Schema files
 
@@ -197,7 +197,7 @@ notenav ships with four schemas. Set `default_schema` or `schema` in your config
 
 1. Copy an existing schema as a starting point:
    ```bash
-   cp samples/custom-schema.toml ~/.config/notenav/schemas/myworkflow.toml
+   cp samples/schemas/custom-schema.toml ~/.config/notenav/schemas/myworkflow.toml
    ```
 
 2. Edit the file to define your entity types, statuses, priorities, and lifecycle transitions.
@@ -216,7 +216,7 @@ notenav ships with four schemas. Set `default_schema` or `schema` in your config
 
 For a project-local schema, place it in `.nn/schemas/` instead — it will be found first.
 
-See [`samples/custom-schema.toml`](../samples/custom-schema.toml) for a fully annotated example.
+See [`samples/schemas/custom-schema.toml`](../samples/schemas/custom-schema.toml) for a fully annotated example.
 
 ## Config reference
 

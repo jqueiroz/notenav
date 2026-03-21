@@ -22,9 +22,11 @@ docs/
   install.md          # Full install instructions (requirements, all methods)
   configuration.md    # Config system + schema reference
 samples/
-  user-config.toml    # Example ~/.config/notenav/config.toml
-  project-config.toml # Example .nn/config.toml
-  custom-schema.toml  # Example custom schema
+  profiles/
+    user-config.toml    # Example ~/.config/notenav/config.toml
+    project-config.toml # Example .nn/config.toml
+  schemas/
+    custom-schema.toml  # Example custom schema
 CLAUDE.md           # This file
 README.md           # Public-facing README
 LICENSE             # MIT
