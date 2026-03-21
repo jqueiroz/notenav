@@ -16,7 +16,7 @@ Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk
 nix profile install github:jqueiroz/notenav
 ```
 
-Nix is a package manager which runs on any Linux distro and macOS. It installs notenav and all its dependencies in an isolated store, without touching your system packages — nothing conflicts, nothing breaks.
+Nix is a package manager which runs on any Linux distribution and macOS. It installs notenav and all of its dependencies in an isolated store, without touching your system packages — nothing conflicts, nothing breaks.
 
 **Option 2: Manual installation**
 
