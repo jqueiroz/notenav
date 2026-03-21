@@ -18,7 +18,7 @@ default_color = "36"   # cyan
 [entity.task]
 icon = "◆"
 color = "36"           # cyan
-description = "Scoped, ready to implement"
+description = "Concrete, actionable unit of work"
 display_order = 1
 
 [entity.idea]
@@ -30,7 +30,7 @@ display_order = 2
 [entity.reference]
 icon = "▪"
 color = "33"           # yellow
-description = "Living documentation"
+description = "Living documentation; continually updated as understanding grows"
 display_order = 3
 
 # --- Statuses ---
