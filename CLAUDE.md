@@ -30,7 +30,7 @@ samples/
     project-workflow.toml # Example .nn/workflow.toml (extends a built-in)
     custom-workflow.toml  # Example .nn/workflow.toml (full custom definition)
 .claude/
-  commands/           # Claude Code slash commands (best-practices, audit-config, etc.)
+  commands/           # Claude Code slash commands (best-practices, review-config, etc.)
 flake.nix           # Nix package definition
 CLAUDE.md           # This file
 README.md           # Public-facing README
