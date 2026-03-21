@@ -1313,7 +1313,7 @@ if [ -n "$fmatch" ]; then
 else
   filters_lbl=$(printf '%s\n          \033[36m[m]\033[0match contents: \033[90mnone\033[0m' "$filters_lbl")
 fi
-queries_lbl=$(printf '\033[1;90m Presets:\033[0m %s' "$sq_lines")
+queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
 presets_hint=$(printf '\033[90m          \033[36mh\033[90m/\033[36ml\033[90m ←→  \033[36m0\033[90m-\033[36m9\033[90m/\033[36mf\033[90m jump\033[0m')
 view_lbl=$(printf '\033[1;90m View:\033[0m %s \033[90m·\033[0m %s \033[90m·\033[0m \033[36m[z]\033[0m%s' "$sort_s" "$g_s" "$a_s")
 actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
