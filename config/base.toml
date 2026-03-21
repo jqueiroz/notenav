@@ -15,6 +15,7 @@ editor = ""              # empty = $EDITOR or vi
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode
 fortune = false          # show a fun quote on exit
+priority_plus = "number" # what + key does: "number" = increase number (P1→P2), "importance" = increase urgency (P2→P1)
 
 [zk]
 format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'

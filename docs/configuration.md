@@ -205,10 +205,12 @@ default_color = "33"
 | `default_color` | string | Fallback ANSI color for priorities not in `[priority.colors]` |
 | `[priority.colors]` | table | ANSI color per priority level |
 | `[priority.labels]` | table | Optional short display labels; omit to show `P{value}` (e.g. "P1") |
-| `[priority.lifecycle.up]` | table | Transition map for `+` key; `""` key = bump from unset |
-| `[priority.lifecycle.down]` | table | Transition map for `-` key |
+| `[priority.lifecycle.up]` | table | Transition map: move toward higher urgency (lower number); `""` key = bump from unset |
+| `[priority.lifecycle.down]` | table | Transition map: move toward lower urgency (higher number) |
 
 Values can be numeric (`"1"`, `"2"`, `"3"`) or named (`"critical"`, `"high"`, `"low"`). To disable priority entirely, set `enabled = false` – this hides priority from the TUI and disables the `+`/`-` keybindings.
+
+Which key maps to which lifecycle table depends on the [`priority_plus`](#priority-key-direction) setting in `[ui]`.
 
 ### `[queries]`
 
@@ -326,6 +328,7 @@ editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode
 fortune = false          # show a fun quote on exit
+priority_plus = "number" # what the + key does to priority
 ```
 
 | Key | Type | Default | Description |
@@ -334,6 +337,18 @@ fortune = false          # show a fun quote on exit
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode |
 | `fortune` | boolean | `false` | Show a fun quote on exit |
+| `priority_plus` | string | `"number"` | What the `+` key does to priority (see below) |
+
+#### Priority key direction
+
+The `+`/`-` keys (and their `>`/`<` aliases) bump a note's priority. The `priority_plus` setting controls which direction `+` moves:
+
+| Value | `+` / `>` does | `-` / `<` does | Mental model |
+|-------|----------------|----------------|--------------|
+| `"number"` (default) | Increase priority number (P1→P2, less urgent) | Decrease priority number (P2→P1, more urgent) | `+` adds to the number |
+| `"importance"` | Increase urgency (P2→P1, more important) | Decrease urgency (P1→P2, less important) | `+` means "more important" |
+
+Both values use the same lifecycle tables (`[priority.lifecycle.up]` and `[priority.lifecycle.down]`) – the setting only controls which table the `+` and `-` keys map to.
 
 ### Overriding workflow colors
 

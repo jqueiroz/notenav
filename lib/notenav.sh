@@ -494,6 +494,7 @@ nn_precompute_workflow() {
   NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // ": "')
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
   NN_UI_FORTUNE=$(nn_cfg '.ui.fortune // false')
+  NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "number"')
 
   # ZK format
   NN_ZK_FMT=$(nn_cfg '.zk.format // empty')
@@ -1537,6 +1538,13 @@ ENDFILTER
     # Generate initial results, stats, and header via filter.sh
     "$_nn_dir/filter.sh" "$_nn_dir" refresh > /dev/null
 
+    # Priority key direction: "number" = + raises number (lowers urgency), "importance" = + raises urgency
+    local _nn_plus_dir="down" _nn_minus_dir="up"
+    if [[ "$NN_UI_PRIORITY_PLUS" == "importance" ]]; then
+      _nn_plus_dir="up"
+      _nn_minus_dir="down"
+    fi
+
     fzf --ansi --delimiter $'\t' --with-nth 2.. < "$_nn_dir/.current" \
       --header '' --header-first \
       --border rounded \
@@ -1571,10 +1579,10 @@ ENDFILTER
       --bind "o:transform[$_nn_dir/filter.sh $_nn_dir sort]" \
       --bind "a:execute($_nn_dir/cyclestatus.sh $_nn_dir {1} fwd)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
       --bind "A:execute($_nn_dir/cyclestatus.sh $_nn_dir {1} rev)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind "+:execute($_nn_dir/bumppri.sh $_nn_dir {1} down)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind ">:execute($_nn_dir/bumppri.sh $_nn_dir {1} down)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind "-:execute($_nn_dir/bumppri.sh $_nn_dir {1} up)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind "<:execute($_nn_dir/bumppri.sh $_nn_dir {1} up)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind "+:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_plus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind ">:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_plus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind "-:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind "<:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
       --bind "g:transform[$_nn_dir/filter.sh $_nn_dir group]" \
       --bind "z:transform[$_nn_dir/filter.sh $_nn_dir archive]" \
       --bind "n:execute($_nn_dir/newnote.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']" \
