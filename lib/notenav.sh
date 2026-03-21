@@ -1588,7 +1588,6 @@ ENDFILTER
       --bind "esc:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)' || { test -f $_nn_dir/.nn-s && rm $_nn_dir/.nn-s && printf 'rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)'; }]" \
       --bind "::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_dir/.nn-s)" \
       --bind 'J:preview-page-down,K:preview-page-up' \
-      --bind 'ctrl-j:preview-page-down,ctrl-k:preview-page-up' \
       --bind 'H:toggle-wrap' \
       --bind "enter:execute[test -f {1} && $_nn_editor {1}]"
     rm -rf "$_nn_dir"
@@ -1673,7 +1672,6 @@ ENDPREVIEW
           --bind "esc:transform[test -f $_nn_sflag && rm $_nn_sflag && printf 'rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)']" \
           --bind "::rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_sflag)" \
           --bind 'J:preview-page-down,K:preview-page-up' \
-          --bind 'ctrl-j:preview-page-down,ctrl-k:preview-page-up' \
           --bind 'H:toggle-wrap' \
           --bind "enter:execute($_nn_editor {1})"
     rm -f "$nn_tmp" "$_nn_prev" "$_nn_sflag"
