@@ -1405,9 +1405,9 @@ printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lb
 if [ "$count" -eq 0 ]; then
   raw_total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
   if [ "$raw_total" -eq 0 ]; then
-    printf 'Mostly harmless. No notes here – yet.\n\nPress '\''n'\'' to create your first note.\n' > "$dir/.empty_placeholder"
+    printf '       .  *  .\n    *    .    *\n      .    .\n        *\n\n  Mostly harmless.\n  No notes here – yet.\n\n  Press '\''n'\'' to create your first note.\n' > "$dir/.empty_placeholder"
   else
-    printf 'How many notes must a man write down,\nbefore they can be found?\n\nThe answer, my friend, is n².\n' > "$dir/.empty_placeholder"
+    printf '    ♪ ♫\n\n  How many notes must a man write down,\n  before they can be found?\n\n  The answer, my friend, is n².\n' > "$dir/.empty_placeholder"
   fi
   printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
 else
