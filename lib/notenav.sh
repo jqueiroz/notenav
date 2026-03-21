@@ -163,9 +163,8 @@ nn_cfg() {
 # written by nn_write_schema_files().
 
 _nn_gen_awk_bodies() {
-  # Accept display order arrays via nameref
-  local -n _ent_display_order="${1:-NN_ENTITY_VALUES}"
-  local -n _sta_display_order="${2:-NN_STATUS_VALUES}"
+  # Uses NN_ENTITY_DISPLAY_ORDER / NN_STATUS_DISPLAY_ORDER (set by nn_precompute_schema)
+  # for group ordering and stats display. Falls back to NN_*_VALUES if unset.
 
   # Entity color+icon assignments
   local _ent_awk="" _first=true
@@ -264,7 +263,7 @@ _nn_gen_awk_bodies() {
   NN_AWK_COLOR_PINNED="$_pinned"
 
   # Stats AWK body
-  local _entity_order_str="${_ent_display_order[*]}"
+  local _entity_order_str="${NN_ENTITY_DISPLAY_ORDER[*]:-${NN_ENTITY_VALUES[*]}}"
   local _status_fc_str="${NN_STATUS_FILTER_CYCLE[*]}"
   local _stats_entity_lookup="" _stats_status_lookup=""
   for _v in "${NN_ENTITY_VALUES[@]}"; do
@@ -305,7 +304,7 @@ _nn_gen_awk_bodies() {
 
   # Group ordering strings (use display_order)
   NN_ENTITY_ORDER_STR="$_entity_order_str"
-  NN_STATUS_ORDER_STR="${_sta_display_order[*]}"
+  NN_STATUS_ORDER_STR="${NN_STATUS_DISPLAY_ORDER[*]:-${NN_STATUS_VALUES[*]}}"
 
   # Entity icon AWK snippet for grouping
   NN_AWK_ICON_SETUP=""
@@ -378,12 +377,10 @@ nn_precompute_schema() {
   fi
 
   # Display order (falls back to values order if not specified)
-  local _entity_display_order
-  mapfile -t _entity_display_order < <(nn_cfg '.entity.display_order // [] | .[]')
-  [[ ${#_entity_display_order[@]} -eq 0 ]] && _entity_display_order=("${NN_ENTITY_VALUES[@]}")
-  local _status_display_order
-  mapfile -t _status_display_order < <(nn_cfg '.status.display_order // [] | .[]')
-  [[ ${#_status_display_order[@]} -eq 0 ]] && _status_display_order=("${NN_STATUS_VALUES[@]}")
+  mapfile -t NN_ENTITY_DISPLAY_ORDER < <(nn_cfg '.entity.display_order // [] | .[]')
+  [[ ${#NN_ENTITY_DISPLAY_ORDER[@]} -eq 0 ]] && NN_ENTITY_DISPLAY_ORDER=("${NN_ENTITY_VALUES[@]}")
+  mapfile -t NN_STATUS_DISPLAY_ORDER < <(nn_cfg '.status.display_order // [] | .[]')
+  [[ ${#NN_STATUS_DISPLAY_ORDER[@]} -eq 0 ]] && NN_STATUS_DISPLAY_ORDER=("${NN_STATUS_VALUES[@]}")
 
   # Defaults
   NN_DEFAULT_SORT=$(nn_cfg '.defaults.sort_by // "created"')
@@ -399,8 +396,8 @@ nn_precompute_schema() {
   NN_ZK_FMT=$(nn_cfg '.zk.format // empty')
   [[ -z "$NN_ZK_FMT" ]] && NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
 
-  # Generate AWK bodies (pass display order)
-  _nn_gen_awk_bodies _entity_display_order _status_display_order
+  # Generate AWK bodies
+  _nn_gen_awk_bodies
 
   # Archive AWK condition (e.g. ' && $2!="done" && $2!="removed"')
   NN_ARCHIVE_COND=""
