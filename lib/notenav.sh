@@ -80,13 +80,45 @@ nn_load_config() {
     return 1
   fi
 
-  # Step 3: Parse schema and merge
+  # Step 3: Parse schema, resolve extends chain, and merge
   # Preferences: schema → base config → user config (project config does NOT contribute preferences)
   # Queries: user queries + project queries (project wins on name collisions)
   local schema_json
   schema_json=$(yq -p=toml -o=json -I=0 '.' "$schema_file" 2>/dev/null)
   if [[ -z "$schema_json" || "$schema_json" == "null" ]]; then
     echo "notenav: failed to parse schema $schema_file (requires yq-go, not yq-python)" >&2
+    return 1
+  fi
+
+  # Resolve extends chain (max depth 5)
+  local _extends _depth=0
+  _extends=$(printf '%s' "$schema_json" | jq -r '.extends // empty' 2>/dev/null)
+  while [[ -n "$_extends" && $_depth -lt 5 ]]; do
+    if [[ "$_extends" == https://* ]]; then
+      echo "notenav: remote schema extends not yet supported: $_extends" >&2
+      return 1
+    fi
+    # Resolve base schema file (built-in only for now)
+    local _base_file="$notenav_root/config/schemas/$_extends.toml"
+    if [[ ! -f "$_base_file" ]]; then
+      echo "notenav: extended schema '$_extends' not found" >&2
+      return 1
+    fi
+    local _base_json
+    _base_json=$(yq -p=toml -o=json -I=0 '.' "$_base_file" 2>/dev/null)
+    if [[ -z "$_base_json" || "$_base_json" == "null" ]]; then
+      echo "notenav: failed to parse base schema $_base_file" >&2
+      return 1
+    fi
+    # Deep merge: base * overlay (overlay wins)
+    schema_json=$(printf '%s\n%s' "$_base_json" "$schema_json" \
+      | jq -s '.[0] * .[1] | del(.extends)' 2>/dev/null)
+    # Check if the base itself extends something
+    _extends=$(printf '%s' "$_base_json" | jq -r '.extends // empty' 2>/dev/null)
+    (( _depth++ ))
+  done
+  if [[ $_depth -ge 5 ]]; then
+    echo "notenav: schema extends chain too deep (max 5)" >&2
     return 1
   fi
 
@@ -131,6 +163,10 @@ nn_cfg() {
 # written by nn_write_schema_files().
 
 _nn_gen_awk_bodies() {
+  # Accept display order arrays via nameref
+  local -n _ent_display_order="${1:-NN_ENTITY_VALUES}"
+  local -n _sta_display_order="${2:-NN_STATUS_VALUES}"
+
   # Entity color+icon assignments
   local _ent_awk="" _first=true
   for _v in "${NN_ENTITY_VALUES[@]}"; do
@@ -228,7 +264,7 @@ _nn_gen_awk_bodies() {
   NN_AWK_COLOR_PINNED="$_pinned"
 
   # Stats AWK body
-  local _entity_order_str="${NN_ENTITY_VALUES[*]}"
+  local _entity_order_str="${_ent_display_order[*]}"
   local _status_fc_str="${NN_STATUS_FILTER_CYCLE[*]}"
   local _stats_entity_lookup="" _stats_status_lookup=""
   for _v in "${NN_ENTITY_VALUES[@]}"; do
@@ -267,9 +303,9 @@ _nn_gen_awk_bodies() {
   }
 }'
 
-  # Group ordering strings
+  # Group ordering strings (use display_order)
   NN_ENTITY_ORDER_STR="$_entity_order_str"
-  NN_STATUS_ORDER_STR="${NN_STATUS_VALUES[*]}"
+  NN_STATUS_ORDER_STR="${_sta_display_order[*]}"
 
   # Entity icon AWK snippet for grouping
   NN_AWK_ICON_SETUP=""
@@ -341,17 +377,30 @@ nn_precompute_schema() {
     NN_PRIORITY_UNSET_POS="last"
   fi
 
+  # Display order (falls back to values order if not specified)
+  local _entity_display_order
+  mapfile -t _entity_display_order < <(nn_cfg '.entity.display_order // [] | .[]')
+  [[ ${#_entity_display_order[@]} -eq 0 ]] && _entity_display_order=("${NN_ENTITY_VALUES[@]}")
+  local _status_display_order
+  mapfile -t _status_display_order < <(nn_cfg '.status.display_order // [] | .[]')
+  [[ ${#_status_display_order[@]} -eq 0 ]] && _status_display_order=("${NN_STATUS_VALUES[@]}")
+
   # Defaults
   NN_DEFAULT_SORT=$(nn_cfg '.defaults.sort_by // "created"')
   NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // "type"')
   NN_DEFAULT_ARCHIVE=$(nn_cfg '.defaults.show_archive // false')
 
+  # UI preferences
+  NN_UI_EDITOR=$(nn_cfg '.ui.editor // empty')
+  NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // ": "')
+  NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
+
   # ZK format
   NN_ZK_FMT=$(nn_cfg '.zk.format // empty')
   [[ -z "$NN_ZK_FMT" ]] && NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
 
-  # Generate AWK bodies
-  _nn_gen_awk_bodies
+  # Generate AWK bodies (pass display order)
+  _nn_gen_awk_bodies _entity_display_order _status_display_order
 
   # Archive AWK condition (e.g. ' && $2!="done" && $2!="removed"')
   NN_ARCHIVE_COND=""
@@ -447,6 +496,9 @@ nn_write_schema_files() {
   # AWK icon setup for grouping
   printf '%s' "$NN_AWK_ICON_SETUP" > "$dir/.schema_icon_setup"
 
+  # UI preferences
+  printf '%s' "${NN_UI_EDITOR:-${EDITOR:-nvim}}" > "$dir/.schema_editor"
+
   # Archive label (slash-separated status names for header display)
   local _archive_label=""
   for _v in "${NN_STATUS_ARCHIVE[@]}"; do
@@ -486,6 +538,9 @@ notenav_main() {
   local _gr
   _gr=$(git rev-parse --show-toplevel 2>/dev/null)
   [[ -n "$_gr" && "$PWD" != "$_gr" ]] && _zk_path=("$(pwd)")
+
+  # Resolve editor: config > $EDITOR > nvim
+  local _nn_editor="${NN_UI_EDITOR:-${EDITOR:-nvim}}"
 
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
@@ -832,7 +887,8 @@ printf '# tags: space-separated\n' >> "$tmpfile"
 # Save original for diffing
 cp "$tmpfile" "$origfile"
 # Open editor
-${EDITOR:-nvim} "$tmpfile" </dev/tty >/dev/tty
+nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
+${nn_editor:-${EDITOR:-nvim}} "$tmpfile" </dev/tty >/dev/tty
 # Apply changes
 "$dir/bulkedit_apply.sh" "$dir" "$origfile" "$tmpfile"
 ENDBE
@@ -893,7 +949,8 @@ while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
 zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 # Open in editor
-${EDITOR:-nvim} "$new_path" < /dev/tty > /dev/tty
+nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
+${nn_editor:-${EDITOR:-nvim}} "$new_path" < /dev/tty > /dev/tty
 ENDNN
     chmod +x "$_nn_dir/newnote.sh"
 
@@ -1319,12 +1376,12 @@ ENDFILTER
       --border-label "$(cat "$_nn_dir/.border")" \
       --border-label-pos bottom \
       --preview "$_nn_dir/preview.sh {1}" \
-      --prompt ': ' \
-      --bind "e:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt(: )+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir type]" \
+      --prompt "$NN_UI_COMMAND_PROMPT" \
+      --bind "e:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir type]" \
       --bind "E:transform[$_nn_dir/filter.sh $_nn_dir clear-type]" \
-      --bind "s:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt(: )+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir status]" \
+      --bind "s:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir status]" \
       --bind "S:transform[$_nn_dir/filter.sh $_nn_dir clear-status]" \
-      --bind "p:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt(: )+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir priority]" \
+      --bind "p:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir priority]" \
       --bind "P:transform[$_nn_dir/filter.sh $_nn_dir clear-priority]" \
       --bind "l:transform[$_nn_dir/filter.sh $_nn_dir next]" \
       --bind "h:transform[$_nn_dir/filter.sh $_nn_dir prev]" \
@@ -1355,18 +1412,18 @@ ENDFILTER
       --bind "z:transform[$_nn_dir/filter.sh $_nn_dir archive]" \
       --bind "n:execute($_nn_dir/newnote.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']" \
       --bind "c:execute-silent(touch /tmp/.nn-c)+change-prompt(c )+transform-header(cat $_nn_dir/.header-c)" \
-      --bind "i:execute[test -f {1} && ${EDITOR:-nvim} {1}]" \
+      --bind "i:execute[test -f {1} && $_nn_editor {1}]" \
       --multi \
       --bind "b:execute($_nn_dir/bulkedit.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']+deselect-all" \
       --bind "start:transform-header(cat $_nn_dir/.header)+execute-silent(rm -f /tmp/.nn-s /tmp/.nn-c)" \
       --bind 'j:down,k:up,q:abort,change:clear-query' \
-      --bind '/:unbind(j,k,q,change,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt(/ )+execute-silent(touch /tmp/.nn-s)' \
-      --bind 'esc:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf "change-prompt(: )+transform-header(cat '"$_nn_dir"'/.header)" || { test -f /tmp/.nn-s && rm /tmp/.nn-s && printf "rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt(: )" || printf "clear-query+rebind(change)"; }]' \
-      --bind '::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt(: )+execute-silent(rm -f /tmp/.nn-s)' \
+      --bind "/:unbind(j,k,q,change,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch /tmp/.nn-s)" \
+      --bind "esc:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)' || { test -f /tmp/.nn-s && rm /tmp/.nn-s && printf 'rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)'; }]" \
+      --bind "::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f /tmp/.nn-s)" \
       --bind 'J:preview-page-down,K:preview-page-up' \
       --bind 'ctrl-j:preview-page-down,ctrl-k:preview-page-up' \
       --bind 'H:toggle-wrap' \
-      --bind "enter:execute[test -f {1} && ${EDITOR:-nvim} {1}]"
+      --bind "enter:execute[test -f {1} && $_nn_editor {1}]"
     rm -rf "$_nn_dir"
     shopt -u nullglob
     return
@@ -1436,16 +1493,16 @@ ENDPREVIEW
       | awk -F'\t' "$awk_cond && length(\$1) > 0 $_awk_color" > "$nn_tmp"
     fzf --ansi --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
           --preview "$_nn_prev {1}" \
-          --prompt ': ' \
+          --prompt "$NN_UI_COMMAND_PROMPT" \
           --bind 'start:execute-silent(rm -f /tmp/.nn-s)' \
           --bind 'j:down,k:up,q:abort,change:clear-query' \
-          --bind '/:unbind(j,k,q,change)+change-prompt(/ )+execute-silent(touch /tmp/.nn-s)' \
-          --bind 'esc:transform[test -f /tmp/.nn-s && rm /tmp/.nn-s && printf "rebind(j,k,q)+change-prompt(: )" || printf "clear-query+rebind(change)"]' \
-          --bind '::rebind(j,k,q)+change-prompt(: )+execute-silent(rm -f /tmp/.nn-s)' \
+          --bind "/:unbind(j,k,q,change)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch /tmp/.nn-s)" \
+          --bind "esc:transform[test -f /tmp/.nn-s && rm /tmp/.nn-s && printf 'rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)']" \
+          --bind "::rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f /tmp/.nn-s)" \
           --bind 'J:preview-page-down,K:preview-page-up' \
           --bind 'ctrl-j:preview-page-down,ctrl-k:preview-page-up' \
           --bind 'H:toggle-wrap' \
-          --bind "enter:execute(${EDITOR:-nvim} {1})"
+          --bind "enter:execute($_nn_editor {1})"
     rm -f "$nn_tmp" "$_nn_prev"
   else
     local _adhoc_fmt
