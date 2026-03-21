@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # nn — notenav entry point
-# TUI faceted browser for zk notebooks
+# TUI faceted browser for markdown notes
 
 _realpath() {
   if readlink -f "$1" 2>/dev/null; then return; fi

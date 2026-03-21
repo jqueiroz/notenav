@@ -1,4 +1,4 @@
-# notenav — TUI faceted browser for zk notebooks
+# notenav — TUI faceted browser for markdown notes
 # https://github.com/jqueiroz/notenav
 
 NOTENAV_VERSION="0.1.0-dev"
