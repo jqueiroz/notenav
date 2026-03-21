@@ -624,7 +624,7 @@ notenav_main() {
       echo "Invalid n!"; return 1
     fi
     _nn_easteregg_decode "/tmp" "$_nn_k"
-    cat "/tmp/.empty_easteregg_override" 2>/dev/null
+    cat "/tmp/.empty_easteregg_override" 2>/dev/null && echo
     rm -f "/tmp/.empty_easteregg_override"
     return 0
   fi
