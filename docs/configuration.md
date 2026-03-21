@@ -4,10 +4,10 @@
 
 ## Overview
 
-All configuration is TOML, across two scopes:
+All configuration is TOML. Project and user configuration are orthogonal – neither inherits from or overrides the other:
 
-- **Project** (`.nn/`) – defines the schema (`.nn/schema.toml`) and saved queries (`.nn/queries.toml`) for the project.
-- **User** (`~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback schema, used in directories without project-level configuration.
+- **Project configuration** (`.nn/`) – defines the schema (`.nn/schema.toml`) and saved queries (`.nn/queries.toml`) for the project.
+- **User preferences** (`~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback schema, used in directories without project configuration.
 
 Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions.
 
