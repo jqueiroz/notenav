@@ -1,6 +1,6 @@
 # Compass Workflow
 
-The default notenav workflow. A simple three-way categorization that covers most personal note-taking and task-management needs.
+The default notenav workflow. A simple workflow built around three note types, four statuses, and four priority levels – enough structure to manage a project without getting in the way.
 
 **Workflow file:** [`config/workflows/compass.toml`](../../config/workflows/compass.toml)
 
@@ -15,20 +15,24 @@ default_workflow = "compass"
 Every note is one of three things:
 
 - A **task** – something concrete you need to do
-- An **idea** – something you're exploring that isn't actionable yet
+- An **idea** – captures an early insight; enriched over time, may evolve into one or more tasks
 - A **reference** – living documentation you maintain over time
 
 This maps naturally to how most people think about their notes. Ideas may evolve into tasks as they become clearer. Tasks get done. References grow and change as understanding deepens.
+
+**Capture first, organize later** – borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): when you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views, where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
 
 ## Entity Types
 
 | Icon | Type | Description |
 |------|------|-------------|
 | ◆ | task | Concrete, actionable unit of work |
-| ✦ | idea | Needs further exploration/research; may evolve into one or more tasks |
+| ✦ | idea | Captures an early insight; enriched over time, may evolve into one or more tasks |
 | ▪ | reference | Living documentation; continually updated as understanding grows |
 
 ## Statuses
+
+Every note moves through a lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (soft-deleted, i.e. the note stays on disk but is hidden from normal views).
 
 | Status | Meaning | Color |
 |--------|---------|-------|
@@ -36,7 +40,7 @@ This maps naturally to how most people think about their notes. Ideas may evolve
 | active | Currently being worked on | green |
 | blocked | Waiting on something external | red |
 | done | Completed (archived by default) | dim |
-| removed | Tombstone – only reachable via bulk edit | dim |
+| removed | Soft-deleted – only reachable via bulk edit or manual frontmatter change | dim |
 
 ### Lifecycle
 
@@ -87,10 +91,10 @@ Compass ships with five built-in query presets – filtered views that appear in
 
 | Preset | Filter | Purpose |
 |--------|--------|---------|
+| inbox | `priority=none` | Unprioritized notes awaiting triage |
 | p1-tasks | `type=task priority=1` | Your highest-priority tasks – the things to work on right now |
 | p1-ideas | `type=idea priority=1` | High-priority ideas worth exploring soon |
 | p1-references | `type=reference priority=1` | High-priority references that need attention |
-| inbox | `priority=none` | Unprioritized notes awaiting triage |
 | all-active | `status=active` | Everything currently in progress |
 
 These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#query-presets) for details.
