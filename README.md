@@ -4,7 +4,7 @@ TUI for navigating markdown notes with frontmatter annotations. Filter by type, 
 
 Schemas are fully customizable — define your own entity types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
 
-Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) — fully compatible with Obsidian, Dendron, Jekyll, and similar tools. Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing. For non-interactive usage (scripting, batch operations, LSP), use zk directly.
+Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) — fully compatible with Obsidian, Dendron, Jekyll, and similar tools. Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
 
 ## Install
 
