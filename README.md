@@ -50,13 +50,13 @@ Out of the box, `nn` uses **Compass** – a simple workflow built around three n
 - **idea** – needs exploration; may evolve into one or more tasks
 - **reference** – living documentation, continually updated as understanding grows
 
-**Status** – tracks where a note is in its lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (tombstone – hidden from normal views). Press `a` to advance a note's status, `A` to reverse it.
+**Status** – tracks where a note is in its lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (tombstone – hidden from normal views).
 
-**Priority** – four levels (P1–P4). Press `+`/`-` (or `<`/`>`) to bump priority up or down.
+**Priority** – four levels (P1–P4).
 
-**Inbox and triage** – borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views (`p1-tasks`, `p1-ideas`, etc.) where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
+**Inbox and triage** – borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views (`tasks`, `ideas`, `p1-tasks`, `p1-ideas`, etc.) where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
 
-**Built-in query presets** – Compass ships with `inbox`, `p1-tasks`, `p1-ideas`, and `p1-references`. Navigate between them with `h`/`l`, or press `f` to fuzzy-pick. You can add your own presets in project or user config.
+**Built-in query presets** – Compass ships with `inbox`, `p1-tasks`, `p1-ideas`, and `p1-references`. You can add your own presets in project or user config.
 
 **Frontmatter** – notes are plain markdown with YAML frontmatter:
 
@@ -72,6 +72,24 @@ created: 2026-03-18
 ```
 
 If Compass doesn't fit, switch to one of the other built-in workflows (**ado**, **gtd**, **zettelkasten**) or define your own. See [docs/configuration.md](docs/configuration.md) for the full workflow reference, and the [Compass workflow file](config/workflows/compass.toml) for the exact definitions.
+
+## Main keybindings
+
+| Key | Action |
+|-----|--------|
+| `enter` | Open note |
+| `n` | Create new note |
+| `a` / `A` | Advance / reverse status |
+| `+` / `-` (or `<` / `>`) | Bump priority up / down |
+| `e` / `s` / `p` / `t` | Filter by type / status / priority / tags |
+| `m` | Search note body |
+| `h` / `l` | Previous / next query preset |
+| `f` | Fuzzy-pick query preset |
+| `o` / `g` / `z` | Sort / group / toggle archive |
+| `b` | Bulk edit |
+| `q` | Quit |
+
+These keybindings apply to all workflows, including custom ones. With the default configuration, every keybinding is displayed on-screen.
 
 ## Configuration
 
