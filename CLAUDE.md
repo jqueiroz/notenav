@@ -160,17 +160,15 @@ nn type=task -i                               # interactive ad-hoc
 
 Schema and preferences are loaded from TOML files at startup via `nn_load_config()`.
 
-**Config resolution order** (later values win via jq deep merge):
-1. Schema file (base) — determined by config `schema`/`default_schema` key
+**Schema resolution:**
+- `.nn/schema.toml` defines the project schema (full definition or `extends = "<builtin>"`)
+- Falls back to user config `default_schema`, then `"compass"`
+- Projects are self-contained — no user-global schemas directory
+
+**Preference merge** (later values win via jq deep merge):
+1. Schema values (base)
 2. Base config: `$NOTENAV_ROOT/config/base.toml`
-3. User config: `~/.config/notenav/config.toml` (preferences + personal queries)
-4. Project config: `.nn/config.toml` (schema selection + shared queries only — no preferences)
-
-**Schema resolution** (first match wins):
-1. `.nn/schemas/<name>.toml` — project-local
-2. `$NOTENAV_ROOT/config/schemas/<name>.toml` — built-in
-
-Projects are self-contained — custom schemas live in `.nn/schemas/`, never in a user-global directory.
+3. User config: `~/.config/notenav/config.toml`
 
 The merged config is stored in `NN_CFG_JSON` and queried via `nn_cfg '.path.to.value'`.
 

@@ -11,7 +11,7 @@ default_schema = "ado"
 
 ## Philosophy
 
-A software development workflow with three work item types (feature, task, bug) and a linear state progression (new → active → resolved → closed). Mirrors how teams track work in Azure DevOps, Jira, or similar tools — but in your local notes.
+A software development workflow with three work item types (feature, task, bug) and a linear state progression (new → active → resolved → closed). Mirrors how teams track work in Azure DevOps, Jira, or similar tools -- but in your local notes.
 
 This is useful when your notes are primarily about tracking software work items and you want the same mental model you use in your project management tool.
 
@@ -19,8 +19,8 @@ This is useful when your notes are primarily about tracking software work items 
 
 | Icon | Type | Description |
 |------|------|-------------|
-| ◇ | feature | Planned capability or improvement — a user-visible change |
-| ◆ | task | Discrete unit of work — an implementation step |
+| ◇ | feature | Planned capability or improvement -- a user-visible change |
+| ◆ | task | Discrete unit of work -- an implementation step |
 | ✖ | bug | Defect to fix |
 
 ### Choosing the right type
@@ -39,7 +39,7 @@ Linear progression mirroring the ADO work item lifecycle:
 | active | In progress | green |
 | resolved | Done, pending verification | blue |
 | closed | Verified and complete (archived by default) | dim |
-| removed | Tombstone — cancelled or invalid | dim |
+| removed | Tombstone -- cancelled or invalid | dim |
 
 ### Lifecycle
 
@@ -54,7 +54,7 @@ Press `a` to advance, `A` to reverse:
 - **Forward (a):** new → active → resolved → closed → new (loop).
 - **Reverse (A):** closed → resolved → active → new → closed (loop).
 
-This is a fully connected cycle — you can reopen closed items by advancing past closed back to new, or reverse step by step.
+This is a fully connected cycle -- you can reopen closed items by advancing past closed back to new, or reverse step by step.
 
 ## Priority
 
@@ -62,10 +62,10 @@ Four levels, matching typical issue tracker severity:
 
 | Level | Meaning | Color |
 |-------|---------|-------|
-| P1 | Critical — drop everything | bold red |
-| P2 | High — do soon | yellow |
-| P3 | Medium — normal priority | yellow |
-| P4 | Low — when time allows | dim |
+| P1 | Critical -- drop everything | bold red |
+| P2 | High -- do soon | yellow |
+| P3 | Medium -- normal priority | yellow |
+| P4 | Low -- when time allows | dim |
 
 ## Example Frontmatter
 

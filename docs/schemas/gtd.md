@@ -19,9 +19,9 @@ The key insight in this schema: **entity = what it is, status = which GTD list i
 
 | Icon | Type | Description |
 |------|------|-------------|
-| ◆ | action | Single concrete action — a physical, visible next step |
-| ◈ | project | Multi-step outcome — anything requiring more than one action |
-| ▪ | reference | Non-actionable reference material — kept for future lookup |
+| ◆ | action | Single concrete action -- a physical, visible next step |
+| ◈ | project | Multi-step outcome -- anything requiring more than one action |
+| ▪ | reference | Non-actionable reference material -- kept for future lookup |
 
 ### Choosing the right type
 
@@ -36,11 +36,11 @@ Each status maps to a GTD list:
 | Status | GTD List | Meaning | Color |
 |--------|----------|---------|-------|
 | inbox | Inbox | Captured but not yet processed | yellow |
-| next | Next Actions | Ready to do — the immediate to-do list | green |
+| next | Next Actions | Ready to do -- the immediate to-do list | green |
 | waiting | Waiting For | Delegated or blocked on someone else | blue |
 | someday | Someday/Maybe | Interesting but not committed to now | dim |
 | done | Done | Completed (archived by default) | dim |
-| dropped | Dropped | Tombstone — decided not to do | dim |
+| dropped | Dropped | Tombstone -- decided not to do | dim |
 
 ### Lifecycle
 
@@ -55,7 +55,7 @@ Press `a` to advance (clarify/complete), `A` to reverse (reopen/defer):
 - **Forward (a):** inbox → next → done. waiting → next. someday → next. done/dropped → inbox (reopen).
 - **Reverse (A):** done → next → inbox → someday → dropped. waiting → inbox.
 
-The `dropped` status is the GTD equivalent of "removed" — a tombstone for items you've decided not to pursue. It has no forward lifecycle; pressing `a` on a dropped item sends it back to inbox for reconsideration.
+The `dropped` status is the GTD equivalent of "removed" -- a tombstone for items you've decided not to pursue. It has no forward lifecycle; pressing `a` on a dropped item sends it back to inbox for reconsideration.
 
 ## Priority
 
@@ -71,7 +71,7 @@ Three levels only. GTD favors context and energy level over rigid priority schem
 
 ### 1. Capture
 
-Create notes freely with `n`. Everything starts in **inbox**. Don't worry about categorization yet — just get it out of your head.
+Create notes freely with `n`. Everything starts in **inbox**. Don't worry about categorization yet -- just get it out of your head.
 
 ### 2. Clarify
 
@@ -88,7 +88,7 @@ Use priority (`+`/`-`) to flag urgent items. Use tags for contexts (e.g., `@phon
 
 ### 4. Review
 
-Filter by status to review each list. The weekly review is the backbone of GTD — process inbox to zero, review next/waiting/someday lists.
+Filter by status to review each list. The weekly review is the backbone of GTD -- process inbox to zero, review next/waiting/someday lists.
 
 ### 5. Do
 
@@ -109,6 +109,6 @@ created: 2026-03-18
 
 ## When to Use GTD
 
-GTD works best when you have a high volume of heterogeneous inputs — work tasks, personal errands, ideas, delegated items — and need a reliable system to process them all. It scales from a handful of notes to hundreds.
+GTD works best when you have a high volume of heterogeneous inputs -- work tasks, personal errands, ideas, delegated items -- and need a reliable system to process them all. It scales from a handful of notes to hundreds.
 
 If you don't need the full GTD list structure, [Compass](compass.md) is simpler. If you're focused on software development, see [ADO](ado.md).

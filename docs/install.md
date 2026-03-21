@@ -4,20 +4,20 @@
 
 ## Requirements
 
-- **bash 4+** — notenav is a bash script (your default shell can be anything; bash 4+ just needs to be installed). macOS ships bash 3.2; use the Nix install path or `brew install bash`
-- **[zk](https://github.com/zk-org/zk)** — used for indexing markdown files. Available via [Homebrew](https://formulae.brew.sh/formula/zk), [AUR](https://aur.archlinux.org/packages/zk), or [GitHub releases](https://github.com/zk-org/zk/releases) (not in apt/dnf)
-- **[fzf](https://github.com/junegunn/fzf)** 0.44+ — TUI framework
-- **awk**, **sort**, **sed**, **git** — standard unix tools (gawk recommended)
+- **bash 4+** -- notenav is a bash script (your default shell can be anything; bash 4+ just needs to be installed). macOS ships bash 3.2; use the Nix install path or `brew install bash`
+- **[zk](https://github.com/zk-org/zk)** -- used for indexing markdown files. Available via [Homebrew](https://formulae.brew.sh/formula/zk), [AUR](https://aur.archlinux.org/packages/zk), or [GitHub releases](https://github.com/zk-org/zk/releases) (not in apt/dnf)
+- **[fzf](https://github.com/junegunn/fzf)** 0.44+ -- TUI framework
+- **awk**, **sort**, **sed**, **git** -- standard unix tools (gawk recommended)
 
 ## Optional dependencies
 
 Not required, but progressively enhance the experience when installed.
 
-- **[bat](https://github.com/sharkdp/bat)** — syntax-highlighted preview (called `batcat` on Debian/Ubuntu)
+- **[bat](https://github.com/sharkdp/bat)** -- syntax-highlighted preview (called `batcat` on Debian/Ubuntu)
 
 ## Install
 
-### Nix (recommended — transparently handles all dependencies)
+### Nix (recommended -- transparently handles all dependencies)
 
 [Nix](https://nixos.org/) is a declarative package manager for Linux and macOS. Using Nix, you can install notenav and all of its dependencies in isolation from your system packages. If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables flakes by default).
 

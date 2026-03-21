@@ -1,14 +1,14 @@
 # notenav
 
-TUI for navigating markdown notes with frontmatter annotations. Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions — all via vim-like keybindings, without leaving the terminal.
+TUI for navigating markdown notes with frontmatter annotations. Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions -- all via vim-like keybindings, without leaving the terminal.
 
-Schemas are fully customizable — define your own entity types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
+Schemas are fully customizable -- define your own entity types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
 
-Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) — fully compatible with Obsidian, Dendron, Jekyll, and similar tools. Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
+Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) -- fully compatible with Obsidian, Dendron, Jekyll, and similar tools. Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
 
 ## Install
 
-**Option 1: via [Nix](https://nixos.org/)** (recommended path — transparently handles all dependencies)
+**Option 1: via [Nix](https://nixos.org/)** (recommended path -- transparently handles all dependencies)
 
 ```bash
 nix profile install github:jqueiroz/notenav
@@ -39,11 +39,11 @@ nn --version                    # version info
 
 All configuration is TOML, across two scopes:
 
-- **Project-level** (`.nn/config.toml`) — defines the schema (built-in or custom), saved queries, and preset filters for the project.
-- **User-level** (`~/.config/notenav/config.toml`) — personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback schema (used only when `nn` is invoked in directories without project-level configuration).
+- **Project-level** (`.nn/`) -- defines the schema (`.nn/schema.toml`, built-in or custom) and saved queries (`.nn/queries.toml`) for the project.
+- **User-level** (`~/.config/notenav/config.toml`) -- personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback schema (used only when `nn` is invoked in directories without project-level configuration).
   - `~/.notenav.toml` is also supported as an alternative path.
 
-Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions. Ships with built-in schemas: **compass** (default — our favorite), **ado**, **gtd**, **zettelkasten**. Use a built-in preset or write your own — the built-in schema files ([compass](config/schemas/compass.toml), [gtd](config/schemas/gtd.toml), [zettelkasten](config/schemas/zettelkasten.toml)) are good starting points and serve as reference for the format. See [docs/configuration.md](docs/configuration.md) for the full config and schema reference.
+Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions. Ships with built-in schemas: **compass** (default -- our favorite), **ado**, **gtd**, **zettelkasten**. Use a built-in preset or write your own -- the built-in schema files ([compass](config/schemas/compass.toml), [gtd](config/schemas/gtd.toml), [zettelkasten](config/schemas/zettelkasten.toml)) are good starting points and serve as reference for the format. See [docs/configuration.md](docs/configuration.md) for the full config and schema reference.
 
 ## License
 
