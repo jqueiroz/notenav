@@ -9,24 +9,22 @@ description = "Feature/task/bug workflow inspired by Azure DevOps"
 
 [entity]
 default_color = "36"   # cyan
+display_order = ["feature", "task", "bug"]
 
 [entity.feature]
 icon = "◇"
 color = "35"           # magenta
 description = "Planned capability or improvement"
-display_order = 1
 
 [entity.task]
 icon = "◆"
 color = "36"           # cyan
 description = "Discrete unit of work"
-display_order = 2
 
 [entity.bug]
 icon = "✖"
 color = "31"           # red
 description = "Defect to fix"
-display_order = 4
 
 # --- Statuses ---
 # Follows the ADO new → active → resolved → closed progression.

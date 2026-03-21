@@ -14,24 +14,22 @@ description = "Custom schema example"
 
 [entity]
 default_color = "36"
+display_order = ["feature", "bug", "doc"]
 
 [entity.feature]
 icon = "◆"
 color = "36"
 description = "New feature"
-display_order = 1
 
 [entity.bug]
 icon = "✖"
 color = "31"
 description = "Bug fix"
-display_order = 2
 
 [entity.doc]
 icon = "▪"
 color = "33"
 description = "Documentation"
-display_order = 3
 
 # Status values and their lifecycle transitions.
 # values: all possible statuses

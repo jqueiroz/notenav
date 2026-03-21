@@ -9,24 +9,22 @@ description = "Getting Things Done capture-and-process workflow"
 
 [entity]
 default_color = "36"   # cyan
+display_order = ["action", "project", "reference"]
 
 [entity.action]
 icon = "◆"
 color = "36"           # cyan
 description = "Single concrete action"
-display_order = 1
 
 [entity.project]
 icon = "◈"
 color = "35"           # magenta
 description = "Multi-step outcome"
-display_order = 2
 
 [entity.reference]
 icon = "▪"
 color = "33"           # yellow
 description = "Non-actionable reference material"
-display_order = 3
 
 # --- Statuses ---
 # Maps to GTD lists: inbox (unclarified), next (do now), waiting (delegated),

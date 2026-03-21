@@ -14,24 +14,22 @@ description = "Simple task/idea/reference workflow"
 
 [entity]
 default_color = "36"   # cyan
+display_order = ["task", "idea", "reference"]
 
 [entity.task]
 icon = "◆"
 color = "36"           # cyan
 description = "Concrete, actionable unit of work"
-display_order = 1
 
 [entity.idea]
 icon = "✦"
 color = "35"           # magenta
 description = "Needs further exploration/research (may subsequently evolve into one or more tasks)"
-display_order = 2
 
 [entity.reference]
 icon = "▪"
 color = "33"           # yellow
 description = "Living documentation; continually updated as understanding grows"
-display_order = 3
 
 # --- Statuses ---
 # values: all valid statuses a note can have

@@ -11,24 +11,22 @@ description = "Slip-box method for knowledge management"
 
 [entity]
 default_color = "36"   # cyan
+display_order = ["fleeting", "literature", "permanent"]
 
 [entity.fleeting]
 icon = "◇"
 color = "33"           # yellow
 description = "Quick capture, to be processed"
-display_order = 1
 
 [entity.literature]
 icon = "▪"
 color = "34"           # blue
 description = "Notes from a source"
-display_order = 2
 
 [entity.permanent]
 icon = "◆"
 color = "36"           # cyan
 description = "Atomic, fully developed idea"
-display_order = 3
 
 # --- Statuses ---
 # Linear maturity progression: draft → review → mature → archived.
