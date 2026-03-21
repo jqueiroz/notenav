@@ -17,7 +17,7 @@ editor = "nvim"         # editor for opening notes
 # These merge on top of the schema, so you only need to specify what you
 # want to change.
 #
-# [entities.task]
+# [entity.task]
 # color = "34"          # change tasks from cyan to blue
 #
 # [status.colors]

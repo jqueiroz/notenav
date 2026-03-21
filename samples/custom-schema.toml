@@ -11,19 +11,19 @@ description = "Custom schema example"
 # color: ANSI color code (e.g. 31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan)
 # display_order: controls sort order in grouped view
 
-[entities.feature]
+[entity.feature]
 icon = "◆"
 color = "36"
 description = "New feature"
 display_order = 1
 
-[entities.bug]
+[entity.bug]
 icon = "✖"
 color = "31"
 description = "Bug fix"
 display_order = 2
 
-[entities.doc]
+[entity.doc]
 icon = "▪"
 color = "33"
 description = "Documentation"

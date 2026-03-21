@@ -5,19 +5,19 @@
 name = "Zettelkasten"
 description = "Slip-box method for knowledge management"
 
-[entities.fleeting]
+[entity.fleeting]
 icon = "◇"
 color = "33"           # yellow
 description = "Quick capture, to be processed"
 display_order = 1
 
-[entities.literature]
+[entity.literature]
 icon = "▪"
 color = "34"           # blue
 description = "Notes from a source"
 display_order = 2
 
-[entities.permanent]
+[entity.permanent]
 icon = "◆"
 color = "36"           # cyan
 description = "Atomic, fully developed idea"

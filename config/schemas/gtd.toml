@@ -5,31 +5,31 @@
 name = "GTD"
 description = "Getting Things Done capture-and-process workflow"
 
-[entities.inbox]
+[entity.inbox]
 icon = "▸"
 color = "33"           # yellow
 description = "Unclarified capture"
 display_order = 1
 
-[entities.next-action]
+[entity.next-action]
 icon = "◆"
 color = "36"           # cyan
 description = "Concrete next physical action"
 display_order = 2
 
-[entities.project]
+[entity.project]
 icon = "◈"
 color = "35"           # magenta
 description = "Multi-step outcome"
 display_order = 3
 
-[entities.waiting]
+[entity.waiting]
 icon = "◇"
 color = "90"           # dim
 description = "Delegated or blocked on external"
 display_order = 4
 
-[entities.someday]
+[entity.someday]
 icon = "☆"
 color = "34"           # blue
 description = "Maybe/someday list"

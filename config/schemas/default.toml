@@ -5,19 +5,19 @@
 name = "Default"
 description = "Simple task/idea/reference workflow"
 
-[entities.task]
+[entity.task]
 icon = "◆"
 color = "36"           # cyan
 description = "Scoped, ready to implement"
 display_order = 1
 
-[entities.idea]
+[entity.idea]
 icon = "✦"
 color = "35"           # magenta
 description = "Needs exploration/research"
 display_order = 2
 
-[entities.reference]
+[entity.reference]
 icon = "▪"
 color = "33"           # yellow
 description = "Living documentation"

@@ -5,25 +5,25 @@
 name = "Azure DevOps"
 description = "Epic/story/task/bug workflow inspired by Azure DevOps"
 
-[entities.epic]
+[entity.epic]
 icon = "♛"
 color = "35"           # magenta
 description = "Large multi-story initiative"
 display_order = 1
 
-[entities.story]
+[entity.story]
 icon = "◇"
 color = "36"           # cyan
 description = "User-facing deliverable"
 display_order = 2
 
-[entities.task]
+[entity.task]
 icon = "◆"
 color = "34"           # blue
 description = "Discrete unit of work"
 display_order = 3
 
-[entities.bug]
+[entity.bug]
 icon = "✖"
 color = "31"           # red
 description = "Defect to fix"

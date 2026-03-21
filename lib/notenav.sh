@@ -100,7 +100,7 @@ nn_load_config() {
   export NN_CFG_JSON
 }
 
-# Query the merged config. Usage: nn_cfg '.entities | keys[]'
+# Query the merged config. Usage: nn_cfg '.entity | keys[]'
 nn_cfg() {
   printf '%s' "$NN_CFG_JSON" | jq -r "$1"
 }
@@ -193,8 +193,10 @@ notenav_main() {
 
     # Write saved query definitions for filter.sh, sorted by priority
     # Files may start with "# N" comment to set sort order (default 50)
-    local _sq_names=() _sq_unsorted=() _qfile _qpri _qfirst _qargs
+    local _sq_names=() _sq_unsorted=() _qfile _qpri _qfirst _qargs _sorted_keys=()
+    if [[ ${#saved_queries[@]} -gt 0 ]]; then
     mapfile -t _sorted_keys < <(printf '%s\n' "${!saved_queries[@]}" | sort)
+    fi
     for _qname in "${_sorted_keys[@]}"; do
       _qfile="${saved_queries[$_qname]}"
       _qpri=100
