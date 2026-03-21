@@ -6,7 +6,7 @@
 
 All configuration is TOML. Project and user configuration are orthogonal – neither inherits from or overrides the other:
 
-- **Project configuration** (`.nn/workflow.toml`) – defines the workflow (built-in or custom) and project-specific settings including query presets.
+- **Project configuration** (`.nn/workflow.toml`) – defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
 - **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback workflow, used in directories without project configuration.
 
 Workflows define your vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions.
