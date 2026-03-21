@@ -27,6 +27,8 @@ description = "Living documentation"
 display_order = 3
 
 [status]
+# "removed" is in values but omitted from filter_cycle and lifecycle —
+# it's a tombstone status, only reachable via bulk edit or manual frontmatter change.
 values = ["new", "active", "blocked", "done", "removed"]
 display_order = ["active", "blocked", "new", "done", "removed"]
 archive = ["done", "removed"]
