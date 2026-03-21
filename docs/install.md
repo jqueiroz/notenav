@@ -19,7 +19,7 @@ Not required, but progressively enhance the experience when installed.
 
 ## Install
 
-### Nix (recommended – transparently handles all dependencies)
+### Option 1: Nix (recommended – transparently handles all dependencies)
 
 [Nix](https://nixos.org/) is a declarative package manager for Linux and macOS. Using Nix, you can install notenav and all of its dependencies in isolation from your system packages. If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables flakes by default).
 
@@ -59,7 +59,7 @@ nix profile install github:jqueiroz/notenav
 nix run github:jqueiroz/notenav
 ```
 
-### Manual installation
+### Option 2: Manual installation
 
 ```bash
 git clone https://github.com/jqueiroz/notenav.git ~/.local/share/notenav
@@ -68,7 +68,7 @@ ln -s ~/.local/share/notenav/bin/nn ~/.local/bin/nn
 
 Make sure `~/.local/bin` is on your `PATH`.
 
-### One-liner
+### Option 3: One-liner
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/curl/install.sh | sh
