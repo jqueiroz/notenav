@@ -72,7 +72,6 @@ Filters notes by frontmatter fields. Supports `-i` for interactive (fzf) mode, `
 | `.f_sq` | Active saved query name |
 | `.f_sort`, `.f_group`, `.f_archive` | View settings |
 | `.f_match` / `.f_match_paths` | Body text search query and matching paths |
-| `.f_history` | Filter state stack for undo |
 | `.queries` | Compiled saved queries (name \t args) |
 | `.pinned` | Paths pinned after actions (visible despite filter) |
 | `.zk_path` / `.zk_fmt` | zk list args for reload |
@@ -102,7 +101,7 @@ Filters notes by frontmatter fields. Supports `-i` for interactive (fzf) mode, `
 **Search:** `/` enter, `Esc` exit
 **Actions:** `a`/`A` status cycle, `+`/`-` priority, `n` new note, `b` bulk edit
 **Change mode:** `c` then `s`/`p`/`e` — set field on selected notes
-**View:** `o` sort, `g` group, `z` archive toggle, `u` undo
+**View:** `o` sort, `g` group, `z` archive toggle
 
 ## Frontmatter Schema
 

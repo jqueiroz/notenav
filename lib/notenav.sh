@@ -185,7 +185,6 @@ notenav_main() {
     : > "$_nn_dir/.f_sq"
     echo created > "$_nn_dir/.f_sort"
     echo type > "$_nn_dir/.f_active"
-    : > "$_nn_dir/.f_history"
     echo type > "$_nn_dir/.f_group"
     : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
@@ -716,20 +715,10 @@ farchive=$(cat "$dir/.f_archive"); fmatch=$(cat "$dir/.f_match")
 # Pinned items: when an action (priority bump, status cycle) causes an item
 # to no longer match active filters, it stays visible at the top of the list
 # (dimmed, marked "temporarily pinned"). Pins are cleared on any filter change
-# (type/status/priority/tag/query/reset/undo) but kept on refresh (which runs
+# (type/status/priority/tag/query/reset) but kept on refresh (which runs
 # after actions). action.sh overwrites .pinned each time, so only the latest
 # acted-on items stay pinned.
 case "$action" in refresh) ;; *) : > "$dir/.pinned" ;; esac
-# Push current state to history before mutating (skip for refresh/undo)
-case "$action" in
-  refresh|undo) ;;
-  *)
-    tags_joined=$(tr '\n' ' ' < "$dir/.f_tags" | sed 's/ $//')
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-      "$ft" "$fs" "$fp" "$tags_joined" "$(cat "$dir/.f_sq")" "$fsort" "$fgroup" "$farchive" "$fmatch" \
-      >> "$dir/.f_history"
-    ;;
-esac
 case "$action" in
   type)     fa=type;     ft=$(cycle type next "$ft"); : > "$dir/.f_sq" ;;
   status)   fa=status;   fs=$(cycle status next "$fs"); : > "$dir/.f_sq" ;;
@@ -774,31 +763,6 @@ case "$action" in
   group) fgroup=$(cycle group next "$fgroup") ;;
   clear-group) fgroup="" ;;
   archive) [ -n "$farchive" ] && farchive="" || farchive="show" ;;
-  undo)
-    if [ -s "$dir/.f_history" ]; then
-      snap=$(tail -1 "$dir/.f_history")
-      sed -i '$ d' "$dir/.f_history"
-      ft=$(printf '%s' "$snap" | cut -f1)
-      fs=$(printf '%s' "$snap" | cut -f2)
-      fp=$(printf '%s' "$snap" | cut -f3)
-      tags_snap=$(printf '%s' "$snap" | cut -f4)
-      sq_snap=$(printf '%s' "$snap" | cut -f5)
-      fsort=$(printf '%s' "$snap" | cut -f6)
-      fgroup=$(printf '%s' "$snap" | cut -f7)
-      farchive=$(printf '%s' "$snap" | cut -f8)
-      fmatch=$(printf '%s' "$snap" | cut -f9)
-      : > "$dir/.f_tags"
-      [ -n "$tags_snap" ] && printf '%s\n' $tags_snap > "$dir/.f_tags"
-      echo "$sq_snap" > "$dir/.f_sq"
-      echo "$fmatch" > "$dir/.f_match"
-      if [ -n "$fmatch" ]; then
-        zk_path=()
-        while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
-        zk list "${zk_path[@]}" --match "$fmatch" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
-      else
-        : > "$dir/.f_match_paths"
-      fi
-    fi ;;
   refresh) ;;  # just re-apply filters (after tag picker)
 esac
 echo "$ft" > "$dir/.f_type"; echo "$fs" > "$dir/.f_status"
@@ -1072,7 +1036,7 @@ view_lbl=$(printf '\033[1;90m View:\033[0m %s \033[90m·\033[0m %s \033[90m·\03
 actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
 change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[e]\033[0mntity type')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[e]\033[1;37mntity type\033[0m')
-keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[R]\033[0meset everything \033[90m·\033[0m \033[36m[u]\033[0mndo \033[90m(filters only)\033[0m \033[90m·\033[0m \033[36m/\033[0m search \033[90m·\033[0m \033[36mq\033[0muit')
+keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[R]\033[0meset everything \033[90m·\033[0m \033[36m/\033[0m search \033[90m·\033[0m \033[36mq\033[0muit')
 stats_lbl=$(printf '\033[1;90m Stats:\033[0m %s' "$stats_s")
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header"
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
@@ -1123,7 +1087,6 @@ ENDFILTER
       --bind ">:execute($_nn_dir/bumppri.sh $_nn_dir {1} down)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
       --bind "-:execute($_nn_dir/bumppri.sh $_nn_dir {1} up)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
       --bind "<:execute($_nn_dir/bumppri.sh $_nn_dir {1} up)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind "u:transform[$_nn_dir/filter.sh $_nn_dir undo]" \
       --bind "g:transform[$_nn_dir/filter.sh $_nn_dir group]" \
       --bind "z:transform[$_nn_dir/filter.sh $_nn_dir archive]" \
       --bind "n:execute($_nn_dir/newnote.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']" \
@@ -1133,7 +1096,7 @@ ENDFILTER
       --bind "b:execute($_nn_dir/bulkedit.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']+deselect-all" \
       --bind "start:transform-header(cat $_nn_dir/.header)+execute-silent(rm -f /tmp/.nn-s /tmp/.nn-c)" \
       --bind 'j:down,k:up,q:abort,change:clear-query' \
-      --bind '/:unbind(j,k,q,change,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt(/ )+execute-silent(touch /tmp/.nn-s)' \
+      --bind '/:unbind(j,k,q,change,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt(/ )+execute-silent(touch /tmp/.nn-s)' \
       --bind 'esc:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf "change-prompt(: )+transform-header(cat '"$_nn_dir"'/.header)" || { test -f /tmp/.nn-s && rm /tmp/.nn-s && printf "rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt(: )" || printf "clear-query+rebind(change)"; }]' \
       --bind '::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt(: )+execute-silent(rm -f /tmp/.nn-s)' \
       --bind 'J:preview-page-down,K:preview-page-up' \
