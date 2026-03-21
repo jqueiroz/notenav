@@ -71,7 +71,7 @@ Make sure `~/.local/bin` is on your `PATH`.
 ### One-liner
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/curl/install.sh | sh
 ```
 
 This clones to `~/.local/share/notenav` and symlinks `nn` into `~/.local/bin`. Run it again to update (essentially `git pull --ff-only`). Set `NOTENAV_DIR` or `NOTENAV_BIN` to customize paths.
