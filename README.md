@@ -14,9 +14,9 @@
 > *before we call vim unprepared?*
 >
 > *How many thoughts can a man jot down,*
-> *before he's left impaired?*
+> *before his mind's ensnared?*
 >
-> ***The answer, my friend, is n².***
+> ***The answer, my friend, is simply n².***
 >
 > ---
 >
