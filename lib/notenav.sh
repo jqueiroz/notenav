@@ -1058,8 +1058,12 @@ ENDQP
     # Preview helper script (file content + links + backlinks)
     cat > "$_nn_dir/preview.sh" << 'ENDPREVIEW'
 #!/usr/bin/env bash
+dir="$(dirname "$0")"
 file="$1"
-test -f "$file" || exit 0
+if [ ! -f "$file" ]; then
+  [ -f "$dir/.empty_placeholder" ] && cat "$dir/.empty_placeholder"
+  exit 0
+fi
 
 # Placeholder file: show content only, no links
 case "$file" in *.empty_placeholder) cat "$file"; exit 0 ;; esac
@@ -1401,19 +1405,16 @@ keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[R]\033[0meset everything \03
 stats_lbl=$(printf '\033[1;90m Stats:\033[0m %s' "$stats_s")
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header"
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
-# Show placeholder when no notes match
+# Always write Dylan placeholder for preview when no item is selected
+_bl='\033[90m│\033[0m                                           \033[90m│\033[0m'
+printf '\n  \033[90m╭───────────────────────────────────────────╮\033[0m\n  %b\n  %b\n  \033[90m│\033[0m                \033[1;36m♪ ♫\033[0m                        \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m    ─────────────────────────────────────  \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m    \033[37mHow many notes must a man write down,\033[0m  \033[90m│\033[0m\n  \033[90m│\033[0m    \033[37mbefore vim hits a wall?\033[0m                \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m    \033[37mHow many notes must a man write down,\033[0m  \033[90m│\033[0m\n  \033[90m│\033[0m    \033[37mbefore they turn to a scrawl?\033[0m          \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m    \033[1;37mThe answer, my friend, is \033[1;33mn²\033[0m\033[1;37m.\033[0m          \033[90m│\033[0m\n  %b\n  %b\n  \033[90m│\033[0m            \033[35m♩\033[0m                              \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m                      \033[36m♪\033[0m                    \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m         \033[35m♫\033[0m                                 \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m                   \033[32m♩\033[0m                       \033[90m│\033[0m\n  %b\n  %b\n  %b\n  %b\n  %b\n  \033[90m╰───────────────────────────────────────────╯\033[0m\n' "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" > "$dir/.empty_placeholder"
+# Show Adams placeholder + dummy entry when notebook is truly empty
 if [ "$count" -eq 0 ]; then
   raw_total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
   if [ "$raw_total" -eq 0 ]; then
-    _bl='\033[90m│\033[0m                                           \033[90m│\033[0m'
     printf '\n  \033[90m╭───────────────────────────────────────────╮\033[0m\n  %b\n  %b\n  \033[90m│\033[0m                \033[1;33mDON'\''T PANIC\033[0m                \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m    ─────────────────────────────────────  \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m    No notes here – yet.                   \033[90m│\033[0m\n  \033[90m│\033[0m    Press \033[36mn\033[0m to create your first note.     \033[90m│\033[0m\n  %b\n  %b\n  %b\n  \033[90m│\033[0m              \033[31m·\033[0m       \033[35m✦\033[0m                    \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m         \033[36m✦\033[0m                \033[32m·\033[0m                \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m                  \033[1;37m·\033[0m                        \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m             \033[35m✦\033[0m            \033[34m·\033[0m                \033[90m│\033[0m\n  %b\n  %b\n  %b\n  \033[90m│\033[0m    \033[37mHint: check out the keybinding\033[0m         \033[90m│\033[0m\n  \033[90m│\033[0m    \033[37mindications on the footer, and\033[0m         \033[90m│\033[0m\n  \033[90m│\033[0m    \033[37mhappy note-taking!\033[0m                     \033[90m│\033[0m\n  %b\n  %b\n  \033[90m╰───────────────────────────────────────────╯\033[0m\n' "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" > "$dir/.empty_placeholder"
-  else
-    _bl='\033[90m│\033[0m                                           \033[90m│\033[0m'
-    printf '\n  \033[90m╭───────────────────────────────────────────╮\033[0m\n  %b\n  %b\n  \033[90m│\033[0m                \033[1;36m♪ ♫\033[0m                        \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m    ─────────────────────────────────────  \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m    \033[37mHow many notes must a man write down,\033[0m  \033[90m│\033[0m\n  \033[90m│\033[0m    \033[37mbefore they're just a scrawl?\033[0m          \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m    \033[1;37mThe answer, my friend, is \033[1;33mn²\033[0m\033[1;37m.\033[0m          \033[90m│\033[0m\n  %b\n  %b\n  \033[90m│\033[0m            \033[35m♩\033[0m                              \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m                      \033[36m♪\033[0m                    \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m         \033[35m♫\033[0m                                 \033[90m│\033[0m\n  %b\n  \033[90m│\033[0m                   \033[32m♩\033[0m                       \033[90m│\033[0m\n  %b\n  %b\n  %b\n  %b\n  %b\n  \033[90m╰───────────────────────────────────────────╯\033[0m\n' "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" "$_bl" > "$dir/.empty_placeholder"
   fi
   printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
-else
-  rm -f "$dir/.empty_placeholder"
 fi
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
 printf ' nn · %d/%d ' "$count" "$total" > "$dir/.border"
