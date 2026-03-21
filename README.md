@@ -1,7 +1,7 @@
 # notenav (`nn`)
 
 > *How many notes must a man write down,*
-> *before vim hits a wall?*
+> *before they call vim too small?*
 >
 > *How many notes must a man write down,*
 > *before they turn to a scrawl?*
