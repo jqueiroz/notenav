@@ -90,7 +90,7 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 | `h` / `l` | Previous / next query preset |
 | `f` | Fuzzy-pick query preset |
 | `o` / `g` / `z` | Sort / group / toggle archive |
-| `b` | Bulk edit |
+| `b` | Bulk edit (via your preferred editor) |
 | `q` | Quit |
 
 These keybindings apply to all workflows, including custom ones. With the default configuration, every keybinding is displayed on-screen.
