@@ -2,7 +2,7 @@
 
 Your notes deserve a proper interface. Not a browser tab, not an Electron app – a fast, keyboard-driven TUI that feels like editing code. Finally, task and note management that's seamless and, dare we say, _fun_!
 
-Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions – all via vim-like keybindings, without leaving the terminal.
+Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions – all without leaving the terminal. Friendly learning curve: under the default configuration, every keybinding is displayed on-screen.
 
 Workflows are fully customizable – define your own entity types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
 
