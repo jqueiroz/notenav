@@ -119,4 +119,4 @@ nn --version                    # version info
 
 MIT
 
-[^1]: All in good fun – emacs users, you know you can set `$EDITOR`.
+[^1]: All in good spirit – emacs users, you know you can set `$EDITOR`.
