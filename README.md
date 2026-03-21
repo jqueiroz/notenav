@@ -40,7 +40,7 @@ nn --version                    # version info
 All configuration is TOML, across two scopes:
 
 - **Project-level** (`.nn/config.toml`) — defines the schema (built-in or custom), saved queries, and preset filters for the project.
-- **User-level** (`~/.config/notenav/config.toml`) — personal defaults for visualization, editor, sorting, and grouping. Also defines a fallback schema (used in directories where project-level configuration is absent).
+- **User-level** (`~/.config/notenav/config.toml`) — personal preferenes for visualization, editor, sorting, and grouping. Also defines a default/fallback schema (used in directories where project-level configuration is absent).
 
 Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions. Use a built-in preset or write your own.
 
