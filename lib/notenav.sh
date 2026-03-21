@@ -1414,6 +1414,7 @@ ENDFILTER
       --border-label-pos bottom \
       --preview "$_nn_dir/preview.sh {1}" \
       --prompt "$NN_UI_COMMAND_PROMPT" \
+      --empty "Mostly harmless. Also, mostly empty." \
       --bind "e:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir type]" \
       --bind "E:transform[$_nn_dir/filter.sh $_nn_dir clear-type]" \
       --bind "s:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir status]" \
@@ -1464,6 +1465,7 @@ ENDFILTER
     rm -rf "$_nn_dir"
     trap - EXIT
     shopt -u nullglob
+    echo "So long, and thanks for all the notes."
     return
   fi
 
