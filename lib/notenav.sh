@@ -802,7 +802,7 @@ for file in "$@"; do
   awk -v field="$field" -v value="$value" '
     NR==1 && /^---/ { in_fm=1; print; next }
     in_fm && /^---/ { in_fm=0; if (!found) print field ": " value; print; next }
-    in_fm && $0 ~ "^"field":" { print field ": " value; found=1; next }
+    in_fm && $0 ~ "^"field":( |$)" { print field ": " value; found=1; next }
     { print }
   ' "$file" > "$file.tmp" && mv "$file.tmp" "$file" && count=$((count + 1))
 done
@@ -1309,26 +1309,29 @@ echo "$fsort" > "$dir/.f_sort"; echo "$fgroup" > "$dir/.f_group"
 echo "$farchive" > "$dir/.f_archive"
 echo "$fmatch" > "$dir/.f_match"
 # Build awk condition
+# Sanitize values for safe interpolation into awk expressions
+awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 cond='length($1) > 0'
-[ -n "$ft" ] && cond="$cond && \$1==\"$ft\""
-[ -n "$fs" ] && cond="$cond && \$2==\"$fs\""
+[ -n "$ft" ] && cond="$cond && \$1==\"$(awk_esc "$ft")\""
+[ -n "$fs" ] && cond="$cond && \$2==\"$(awk_esc "$fs")\""
 # Hide archived statuses unless archive toggle is on or status is explicitly filtered
 archive_cond=$(cat "$dir/.schema_archive_cond")
 [ -z "$farchive" ] && [ -z "$fs" ] && cond="$cond$archive_cond"
 if [ "$fp" = "none" ]; then
   cond="$cond && \$3==\"\""
 elif [ -n "$fp" ]; then
-  cond="$cond && \$3==\"$fp\""
+  cond="$cond && \$3==\"$(awk_esc "$fp")\""
 fi
 # Tag filter (OR: match any selected tag)
 if [ -s "$dir/.f_tags" ]; then
   tag_cond=""
   while IFS= read -r tag; do
     [ -z "$tag" ] && continue
+    _etag=$(awk_esc "$tag")
     if [ -n "$tag_cond" ]; then
-      tag_cond="$tag_cond || index(\" \" \$4 \" \", \" $tag \")"
+      tag_cond="$tag_cond || index(\" \" \$4 \" \", \" $_etag \")"
     else
-      tag_cond="index(\" \" \$4 \" \", \" $tag \")"
+      tag_cond="index(\" \" \$4 \" \", \" $_etag \")"
     fi
   done < "$dir/.f_tags"
   [ -n "$tag_cond" ] && cond="$cond && ($tag_cond)"
@@ -1467,12 +1470,13 @@ if [ -f "$dir/.queries" ]; then
     sq_cond='length($1) > 0'
     [ -z "$farchive" ] && sq_cond="$sq_cond$archive_cond"
     for a in $qargs; do
+      _av=$(awk_esc "${a#*=}")
       case "$a" in
-        type=*) sq_cond="$sq_cond && \$1==\"${a#*=}\"" ;;
-        status=*) sq_cond="$sq_cond && \$2==\"${a#*=}\"" ;;
+        type=*) sq_cond="$sq_cond && \$1==\"$_av\"" ;;
+        status=*) sq_cond="$sq_cond && \$2==\"$_av\"" ;;
         priority=none) sq_cond="$sq_cond && \$3==\"\"" ;;
-        priority=*) sq_cond="$sq_cond && \$3==\"${a#*=}\"" ;;
-        tag=*) sq_cond="$sq_cond && index(\" \" \$4 \" \", \" ${a#*=} \")" ;;
+        priority=*) sq_cond="$sq_cond && \$3==\"$_av\"" ;;
+        tag=*) sq_cond="$sq_cond && index(\" \" \$4 \" \", \" $_av \")" ;;
       esac
     done
     sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw")
@@ -1581,8 +1585,8 @@ ENDFILTER
       --bind "start:transform-header(cat $_nn_dir/.header)+execute-silent(rm -f $_nn_dir/.nn-s $_nn_dir/.nn-c)" \
       --bind 'j:down,k:up,q:abort,change:clear-query' \
       --bind "/:unbind(j,k,q,change,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch $_nn_dir/.nn-s)" \
-      --bind "esc:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)' || { test -f $_nn_dir/.nn-s && rm $_nn_dir/.nn-s && printf 'rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)'; }]" \
-      --bind "::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_dir/.nn-s)" \
+      --bind "esc:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)' || { test -f $_nn_dir/.nn-s && rm $_nn_dir/.nn-s && printf 'rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)'; }]" \
+      --bind "::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_dir/.nn-s)" \
       --bind 'J:preview-page-down,K:preview-page-up' \
       --bind 'ctrl-j:preview-page-down,ctrl-k:preview-page-up' \
       --bind 'H:toggle-wrap' \
@@ -1621,15 +1625,17 @@ ENDFILTER
 
   [[ ${#zk_args[@]} -eq 0 ]] && zk_args=("${_zk_path[@]}")
 
+  # Sanitize values for safe interpolation into awk expressions
+  _awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
   local awk_cond="1"
-  [[ -n "${filters[type]}" ]] && awk_cond="$awk_cond && \$1==\"${filters[type]}\""
-  [[ -n "${filters[status]}" ]] && awk_cond="$awk_cond && \$2==\"${filters[status]}\""
+  [[ -n "${filters[type]}" ]] && awk_cond="$awk_cond && \$1==\"$(_awk_esc "${filters[type]}")\""
+  [[ -n "${filters[status]}" ]] && awk_cond="$awk_cond && \$2==\"$(_awk_esc "${filters[status]}")\""
   if [[ "${filters[priority]}" == "none" ]]; then
     awk_cond="$awk_cond && \$3==\"\""
   elif [[ -n "${filters[priority]}" ]]; then
-    awk_cond="$awk_cond && \$3==\"${filters[priority]}\""
+    awk_cond="$awk_cond && \$3==\"$(_awk_esc "${filters[priority]}")\""
   fi
-  [[ -n "${filters[tag]}" ]] && awk_cond="$awk_cond && index(\" \" \$4 \" \", \" ${filters[tag]} \") > 0"
+  [[ -n "${filters[tag]}" ]] && awk_cond="$awk_cond && index(\" \" \$4 \" \", \" $(_awk_esc "${filters[tag]}") \") > 0"
 
   if $interactive; then
     local nn_tmp=$(mktemp)

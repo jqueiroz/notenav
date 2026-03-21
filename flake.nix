@@ -60,9 +60,9 @@
         }
       );
 
-      devShells = forAllSystems ({ pkgs }: {
-        default = pkgs.mkShell {
-          packages = with pkgs; [
+      devShells = forAllSystems ({ pkgs }:
+        let
+          runtimeDeps = with pkgs; [
             bash
             zk
             fzf
@@ -73,11 +73,14 @@
             yq-go
             jq
           ];
+        in {
+          default = pkgs.mkShell {
+            packages = runtimeDeps;
 
-          shellHook = ''
-            export PATH="$PWD/bin:$PATH"
-          '';
-        };
-      });
+            shellHook = ''
+              export PATH="$PWD/bin:$PATH"
+            '';
+          };
+        });
     };
 }
