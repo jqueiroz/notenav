@@ -86,7 +86,7 @@ nn_load_config() {
   local schema_json
   schema_json=$(yq -p=toml -o=json -I=0 '.' "$schema_file" 2>/dev/null)
   if [[ -z "$schema_json" || "$schema_json" == "null" ]]; then
-    echo "notenav: failed to parse schema $schema_file" >&2
+    echo "notenav: failed to parse schema $schema_file (requires yq-go, not yq-python)" >&2
     return 1
   fi
 
@@ -201,7 +201,8 @@ _nn_gen_awk_bodies() {
 
   # Pinned items AWK body (all dim, icon varies by entity)
   local _pinned='tc = "\033[90m"; pc = "\033[90m"; sc = "\033[90m"; r = "\033[0m"'
-  _pinned+=$'\n'"  ic = \"${NN_ENTITY_ICONS[${NN_ENTITY_VALUES[0]}]}\""
+  local _default_icon="${NN_ENTITY_ICONS[${NN_ENTITY_VALUES[0]:-_}]:-*}"
+  _pinned+=$'\n'"  ic = \"$_default_icon\""
   for (( _i=1; _i<${#NN_ENTITY_VALUES[@]}; _i++ )); do
     local _v="${NN_ENTITY_VALUES[$_i]}"
     _pinned+=$'\n'"  if (\$1 == \"$_v\") ic = \"${NN_ENTITY_ICONS[$_v]}\""
@@ -268,6 +269,10 @@ _nn_gen_awk_bodies() {
 nn_precompute_schema() {
   # Entity types
   mapfile -t NN_ENTITY_VALUES < <(nn_cfg '.entity.values[]')
+  if [[ ${#NN_ENTITY_VALUES[@]} -eq 0 ]]; then
+    echo "notenav: no entity values in config (is yq-go installed?)" >&2
+    return 1
+  fi
   NN_ENTITY_DEFAULT_COLOR=$(nn_cfg '.entity.default_color // "36"')
   declare -gA NN_ENTITY_ICONS NN_ENTITY_COLORS NN_ENTITY_DESCS
   for _v in "${NN_ENTITY_VALUES[@]}"; do
@@ -447,8 +452,8 @@ notenav_main() {
   fi
 
   # Load config (schema + user/project overrides)
-  nn_load_config "$NOTENAV_ROOT" || true
-  nn_precompute_schema
+  nn_load_config "$NOTENAV_ROOT" || { echo "notenav: config loading failed" >&2; return 1; }
+  nn_precompute_schema || return 1
 
   shopt -s nullglob
 
