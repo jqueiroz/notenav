@@ -8,6 +8,10 @@ Workflows are fully customizable – define your own entity types, statuses, pri
 
 Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) – fully compatible with Obsidian, Dendron, Jekyll, and similar tools. Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
 
+## Platform support
+
+Currently works on **Linux** and **macOS**. Windows support is planned – in the meantime, consider using [WSL](https://learn.microsoft.com/en-us/windows/wsl/).
+
 ## Install
 
 **Option 1: via [Nix](https://nixos.org/)** (recommended path – transparently handles all dependencies)
@@ -45,10 +49,6 @@ All configuration is TOML. Project and user configuration are orthogonal – nei
 - **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback workflow (used only when `nn` is invoked in directories without project configuration).
 
 Workflows define your vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions. Ships with built-in workflows: **compass** (default – our favorite), **ado**, **gtd**, **zettelkasten**. Use a built-in preset or write your own – the built-in workflow files ([compass](config/workflows/compass.toml), [gtd](config/workflows/gtd.toml), [zettelkasten](config/workflows/zettelkasten.toml)) are good starting points and serve as reference for the format. See [docs/configuration.md](docs/configuration.md) for the full config and workflow reference.
-
-## Platform support
-
-Currently works on **Linux** and **macOS**. Windows support is planned – in the meantime, consider using [WSL](https://learn.microsoft.com/en-us/windows/wsl/).
 
 ## License
 
