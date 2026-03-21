@@ -46,6 +46,10 @@ All configuration is TOML. Project and user configuration are orthogonal – nei
 
 Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions. Ships with built-in schemas: **compass** (default – our favorite), **ado**, **gtd**, **zettelkasten**. Use a built-in preset or write your own – the built-in schema files ([compass](config/schemas/compass.toml), [gtd](config/schemas/gtd.toml), [zettelkasten](config/schemas/zettelkasten.toml)) are good starting points and serve as reference for the format. See [docs/configuration.md](docs/configuration.md) for the full config and schema reference.
 
+## Platform support
+
+Currently works on **Linux** and **macOS**. Windows support is planned – in the meantime, consider using [WSL](https://learn.microsoft.com/en-us/windows/wsl/).
+
 ## License
 
 MIT

@@ -59,7 +59,7 @@ nix profile install github:jqueiroz/notenav
 nix run github:jqueiroz/notenav
 ```
 
-### Git clone
+### Manual installation
 
 ```bash
 git clone https://github.com/jqueiroz/notenav.git ~/.local/share/notenav
@@ -74,4 +74,4 @@ Make sure `~/.local/bin` is on your `PATH`.
 curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/install.sh | sh
 ```
 
-This clones to `~/.local/share/notenav` and symlinks `nn` into `~/.local/bin`. Run it again to update. Set `NOTENAV_DIR` or `NOTENAV_BIN` to customize paths.
+This clones to `~/.local/share/notenav` and symlinks `nn` into `~/.local/bin`. Run it again to update (essentially `git pull`). Set `NOTENAV_DIR` or `NOTENAV_BIN` to customize paths.
