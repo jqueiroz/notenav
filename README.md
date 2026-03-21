@@ -41,7 +41,7 @@ nn --version                    # version info
 
 Schemas are fully customizable via TOML files — define entity types, statuses, priorities, colors, and lifecycle transitions. Config layers (base, user, project) merge so you only specify what you want to change.
 
-Ships with built-in schemas: **compass** (default), **ado**, **gtd**, **zettelkasten**. See [docs/configuration.md](docs/configuration.md) for the full config and schema reference.
+Ships with built-in schemas: [**compass**](docs/schemas/compass.md) (default), [**ado**](docs/schemas/ado.md), [**gtd**](docs/schemas/gtd.md), [**zettelkasten**](docs/schemas/zettelkasten.md). See [docs/configuration.md](docs/configuration.md) for the full config and schema reference.
 
 ## License
 
