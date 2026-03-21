@@ -302,6 +302,7 @@ nn_precompute_schema() {
     mapfile -t NN_PRIORITY_VALUES < <(nn_cfg '.priority.values[]')
     mapfile -t NN_PRIORITY_FILTER_CYCLE < <(nn_cfg '.priority.filter_cycle // [] | .[]')
     NN_PRIORITY_DEFAULT_COLOR=$(nn_cfg '.priority.default_color // "33"')
+    NN_PRIORITY_UNSET_POS=$(nn_cfg '.priority.unset_position // "last"')
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
       NN_PRIORITY_COLORS[$_v]=$(nn_cfg ".priority.colors.\"$_v\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")
       local _label; _label=$(nn_cfg ".priority.labels.\"$_v\" // empty")
@@ -317,6 +318,7 @@ nn_precompute_schema() {
     NN_PRIORITY_VALUES=()
     NN_PRIORITY_FILTER_CYCLE=()
     NN_PRIORITY_DEFAULT_COLOR="33"
+    NN_PRIORITY_UNSET_POS="last"
   fi
 
   # Defaults
@@ -395,6 +397,8 @@ nn_write_schema_files() {
     : > "$dir/.schema_priority_up"
     : > "$dir/.schema_priority_down"
   fi
+
+  printf '%s' "$NN_PRIORITY_UNSET_POS" > "$dir/.schema_priority_unset_pos"
 
   # Priority labels (TSV: value\tlabel)
   for _v in "${NN_PRIORITY_VALUES[@]}"; do
@@ -660,7 +664,7 @@ case "$field" in
 esac
 hdr="Enter apply · Esc cancel"
 [ -n "$ctx" ] && hdr=$(printf '%s\n%s' "$ctx" "$hdr")
-selected=$(printf "$vals" | fzf --reverse --prompt "set $field: " \
+selected=$(printf "$vals" | fzf --ansi --reverse --prompt "set $field: " \
   --border --border-label " Set $field " \
   --header "$hdr" \
   --bind 'j:down,k:up')
@@ -1009,7 +1013,9 @@ cycle() {
       if [ "$(cat "$dir/.schema_priority_enabled")" = "false" ]; then vals=(""); else
         mapfile -t vals < "$dir/.schema_priority_filter_cycle"; vals=("" "${vals[@]}")
       fi ;;
-    sort)     vals=("created" "modified" "title" "priority") ;;
+    sort)
+      vals=("created" "modified" "title")
+      [ "$(cat "$dir/.schema_priority_enabled")" != "false" ] && vals+=("priority") ;;
     group)    vals=("" "type" "status") ;;
   esac
   local total=${#vals[@]} idx=0 i
@@ -1055,7 +1061,7 @@ case "$action" in
   clear-type) ft=""; : > "$dir/.f_sq" ;;
   clear-status) fs=""; : > "$dir/.f_sq" ;;
   clear-priority) fp=""; : > "$dir/.f_sq" ;;
-  clear-sort) fsort="priority" ;;
+  clear-sort) IFS= read -r fsort < "$dir/.schema_defaults" ;;
   next|prev)  # h/l: cycle through saved queries
     if [ -f "$dir/.queries" ]; then
       total=$(wc -l < "$dir/.queries")
@@ -1125,10 +1131,13 @@ if [ -s "$dir/.f_tags" ]; then
   done < "$dir/.f_tags"
   [ -n "$tag_cond" ] && cond="$cond && ($tag_cond)"
 fi
-# Sort .raw before filtering (empty priority sorts after P4)
+# Sort .raw before filtering
 do_sort() {
   case "$1" in
-    priority) awk -F'\t' 'BEGIN{OFS=FS}{if($3=="")$3=9;print}' | sort -t'	' -k3,3n -s | awk -F'\t' 'BEGIN{OFS=FS}{if($3==9)$3="";print}' ;;
+    priority)
+      local unset_pos=$(cat "$dir/.schema_priority_unset_pos")
+      local placeholder=9; [ "$unset_pos" = "first" ] && placeholder=0
+      awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' | sort -t'	' -k3,3n -s | awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3==p)$3="";print}' ;;
     modified) sort -t'	' -k7,7r -s ;;
     created)  sort -t'	' -k8,8r -s ;;
     title)    sort -t'	' -k5,5 -s ;;
@@ -1446,8 +1455,14 @@ ENDPREVIEW
           --bind "enter:execute(${EDITOR:-nvim} {1})"
     rm -f "$nn_tmp" "$_nn_prev"
   else
+    local _adhoc_fmt
+    if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
+      _adhoc_fmt='{printf "[%s] [P%s] [%s] %s\n", $1, $3, $2, $5}'
+    else
+      _adhoc_fmt='{printf "[%s] [%s] %s\n", $1, $2, $5}'
+    fi
     zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
-      | awk -F'\t' "$awk_cond && length(\$1) > 0 {printf \"[%s] [P%s] [%s] %s\n\", \$1, \$3, \$2, \$5}"
+      | awk -F'\t' "$awk_cond && length(\$1) > 0 $_adhoc_fmt"
   fi
   shopt -u nullglob
 }
