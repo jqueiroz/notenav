@@ -8,7 +8,7 @@ description = "Feature/task/bug workflow inspired by Azure DevOps"
 [entity.feature]
 icon = "◇"
 color = "35"           # magenta
-description = "User-facing deliverable"
+description = "Planned capability or improvement"
 display_order = 1
 
 [entity.task]
