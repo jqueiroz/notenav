@@ -2,7 +2,7 @@
 
 > *How many notes must a man write down,*
 > *before vim hits a wall?*
-> *How many notes can a man write down,*
+> *How many thoughts must a man jot down,*
 > *before they turn to a scrawl?*
 > ***The answer, my friend, is n².***
 >
