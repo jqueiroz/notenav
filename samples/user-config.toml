@@ -2,7 +2,6 @@
 # Copy this to ~/.config/notenav/config.toml and customize.
 
 # Choose a built-in workflow: compass, ado, gtd, zettelkasten
-# Or point to a custom workflow file in ~/.config/notenav/workflows/
 default_workflow = "compass"
 
 [defaults]

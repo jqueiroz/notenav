@@ -100,7 +100,7 @@ Entity types are the categories of notes (e.g. task, idea, bug). Each entity typ
 ```toml
 [entity]
 default_color = "36"                          # fallback ANSI color
-display_order = ["task", "idea", "reference"] # grouping order
+values = ["task", "idea", "reference"]        # valid types; array order = display order
 
 [entity.task]
 icon = "◆"
@@ -110,8 +110,9 @@ description = "Concrete, actionable unit of work"
 
 | Key | Type | Description |
 |-----|------|-------------|
+| `values` | array | Valid entity types; array order is used as the default display order |
 | `default_color` | string | ANSI color code used for entity types not explicitly listed |
-| `display_order` | array | Order for group headers when grouping by type |
+| `display_order` | array | *(optional)* Override group header order; defaults to `values` order |
 | `[entity.<name>].icon` | string | Single character displayed in the list |
 | `[entity.<name>].color` | string | ANSI color code (e.g. `"31"` = red, `"32"` = green) |
 | `[entity.<name>].description` | string | What this entity type represents |
@@ -125,7 +126,6 @@ Statuses represent the state of a note (e.g. new, active, done).
 ```toml
 [status]
 values = ["new", "active", "blocked", "done", "removed"]
-display_order = ["active", "blocked", "new", "done", "removed"]
 archive = ["done", "removed"]
 filter_cycle = ["new", "active", "blocked", "done"]
 default_color = "90"
@@ -152,8 +152,8 @@ blocked = "new"
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `values` | array | All valid statuses a note can have |
-| `display_order` | array | Order for group headers when grouping by status |
+| `values` | array | All valid statuses; array order is used as the default display order |
+| `display_order` | array | *(optional)* Override group header order; defaults to `values` order |
 | `archive` | array | Statuses hidden by default; press `z` to toggle visibility |
 | `filter_cycle` | array | Order when pressing `s` to cycle the filter (`"all"` is auto-prepended) |
 | `default_color` | string | Fallback ANSI color for statuses not in `[status.colors]` |

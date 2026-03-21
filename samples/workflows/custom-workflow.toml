@@ -1,6 +1,5 @@
 # Example custom workflow
-# Save as ~/.config/notenav/workflows/<name>.toml
-# Then set default_workflow = "<name>" in your user config.
+# Save as .nn/workflow.toml in your project directory.
 
 [meta]
 name = "My Workflow"
