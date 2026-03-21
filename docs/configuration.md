@@ -246,11 +246,14 @@ Then edit `.nn/schema.toml` to define your entity types, statuses, priorities, a
 
 ## Remote schemas
 
-`.nn/schema.toml` can extend a schema hosted as a GitHub gist. This lets teams share schemas without copying files between projects.
+`.nn/schema.toml` can extend a schema hosted on GitHub (gists) or GitLab (snippets). This lets teams share schemas without copying files between projects. Only these two hosts are accepted -- arbitrary URLs are not supported.
 
 ```toml
-# .nn/schema.toml
+# .nn/schema.toml -- GitHub gist
 extends = "https://gist.githubusercontent.com/user/abc123/raw/schema.toml"
+
+# .nn/schema.toml -- GitLab snippet
+extends = "https://gitlab.com/-/snippets/12345/raw"
 ```
 
 **Security:** Remote schemas are disabled by default. The user must explicitly allow-list each URL in their user config:
@@ -260,13 +263,11 @@ extends = "https://gist.githubusercontent.com/user/abc123/raw/schema.toml"
 [security]
 allowed_schemas = [
   "https://gist.githubusercontent.com/user/abc123/raw/schema.toml",
-  "https://gist.githubusercontent.com/user/def456/raw/schema.toml",
+  "https://gitlab.com/-/snippets/12345/raw",
 ]
 ```
 
 If a project's `.nn/schema.toml` references a URL that is not in the allow-list, notenav will refuse to load it and display an error with the URL that needs to be allowed.
-
-This is a deliberate opt-in design -- a cloned repo should never be able to silently fetch remote content without the user's knowledge.
 
 ## Preferences reference
 
