@@ -10,7 +10,7 @@
 > *before we call vim too small?*
 > *How many notes can a man write down,*
 > *before vim starts to crawl?*
-> ***The answer, my friend, is n².***
+> ***The answer, my friend, lies in nn.***
 
 Your notes deserve a proper interface. Not a browser tab, not an Electron app – a fast, keyboard-driven TUI that feels like editing code. Finally, task and note management that's seamless and, dare we say, _fun_!
 
