@@ -42,7 +42,7 @@
               mkdir -p $out/bin $out/lib $out/config/schemas
               install -m755 bin/nn $out/bin/nn
               install -m644 lib/notenav.sh $out/lib/notenav.sh
-              install -m644 config/config.toml $out/config/config.toml
+              install -m644 config/base.toml $out/config/base.toml
               install -m644 config/schemas/*.toml $out/config/schemas/
               wrapProgram $out/bin/nn \
                 --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}

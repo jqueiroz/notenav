@@ -12,7 +12,7 @@ Early extraction — previously embedded as `zkq()` in zshrc (~1100 LOC). Now st
 bin/nn              # Entry point: resolves root, sources lib, calls notenav_main
 lib/notenav.sh      # Full implementation (~1100 LOC)
 config/
-  config.toml       # Default config (ships with notenav)
+  base.toml        # Default config (ships with notenav)
   schemas/
     compass.toml    # Default schema (task/idea/reference)
     ado.toml        # Azure DevOps preset
@@ -156,7 +156,7 @@ Schema and preferences are loaded from TOML files at startup via `nn_load_config
 
 **Config resolution order** (later values win via jq deep merge):
 1. Schema file (base) — determined by config `schema`/`default_schema` key
-2. Default config: `$NOTENAV_ROOT/config/config.toml`
+2. Default config: `$NOTENAV_ROOT/config/base.toml`
 3. User config: `~/.config/notenav/config.toml`
 4. Project config: `.nn/config.toml` (closest `.nn` dir walking up from cwd)
 

@@ -21,7 +21,7 @@ nn_load_config() {
   fi
 
   # Step 1: Load config files to determine schema name
-  local default_cfg="$notenav_root/config/config.toml"
+  local default_cfg="$notenav_root/config/base.toml"
   local user_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
 
   # Find closest .nn directory (walk from cwd up to filesystem root)
