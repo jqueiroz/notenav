@@ -71,7 +71,7 @@ created: 2026-03-18
 ---
 ```
 
-If Compass doesn't fit your requirements, switch to another built-in workflow or define your own – see [Configuration](#configuration) below.
+If Compass doesn't fit your requirements, explore our other built-in workflows or define your own – see [Configuration](#configuration) below.
 
 ## Main keybindings
 
