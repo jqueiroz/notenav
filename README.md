@@ -52,9 +52,11 @@ Out of the box, `nn` uses **Compass** — a simple workflow built around three n
 
 **Status** — tracks where a note is in its lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (tombstone — hidden from normal views). Press `a` to advance a note's status, `A` to reverse it.
 
-**Priority** — four levels (P1–P4). Notes without a priority land in the **inbox** query preset, making priority a natural triage mechanism: assign a priority to move a note out of the inbox and into your working views. Press `+`/`-` to bump priority up or down.
+**Priority** — four levels (P1–P4). Press `+`/`-` to bump priority up or down.
 
-**Built-in query presets** — Compass ships with `p1-tasks`, `p1-ideas`, `p1-references`, and `inbox`. Navigate between them with `h`/`l`, or press `f` to fuzzy-pick. You can add your own presets in project or user config.
+**Inbox and triage** — borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority — just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views (`p1-tasks`, `p1-ideas`, etc.) where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
+
+**Built-in query presets** — Compass ships with `inbox`, `p1-tasks`, `p1-ideas`, and `p1-references`. Navigate between them with `h`/`l`, or press `f` to fuzzy-pick. You can add your own presets in project or user config.
 
 **Frontmatter** — notes are plain markdown with YAML frontmatter:
 
