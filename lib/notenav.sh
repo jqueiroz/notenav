@@ -3,6 +3,43 @@
 
 NOTENAV_VERSION="0.1.0-dev"
 
+# --- Easter egg ---
+# set n= to find out
+
+_nn_easteregg_check() {
+  local n_val="$1"
+  [[ -z "$n_val" ]] && return 1
+  local r
+  r=$(printf '%.3f' "$n_val" 2>/dev/null) || return 1
+  [[ "$r" =~ ^[0-9]+\.[0-9]{3}$ ]] || return 1
+  local m=$((10#${r//./}))
+  [[ $m -lt 100000 ]] || return 1
+  local c=(1 4294468254 2642731119 122659929 2164572375 2330401513 717966757 423181846 530412563 1768892861 633857867 2533514155 240575819 3577079690 2029525601 2626075629 1850089275 1878876126 2308415616 4276154078 4253491333 1610483476 2124378602 1585133291 568874633 3889344605 4080374166 2243623360 3484400414 2857424014 2252730753 326645829 324433067 2649607392 1281264392 1219808302 4234787025 3340256205 2159922310 2783389167 3878017592 3833383543 2726118482 1238011156 2080854841 3309221260 1023443079 2716131580 1716965137 209023906 1413608238 431653006 471589519 1325821094 3843798832 1853804510 530339149 1224587765 2291574389 1245133833 3776603946 3108938303 943412244 1989576653 1461465057 1434716601 1510460364 2417224591 3534665513 837204933 907792651 754990678 3939738244 1755448303 3460423759 293241947 406360315 81308162)
+  local p=4294967291
+  local v=0
+  local k
+  for k in "${c[@]}"; do
+    v=$(( (v * m + k) % p ))
+  done
+  [[ $v -eq 0 ]]
+}
+
+_nn_easteregg_decode() {
+  local dir="$1"
+  local key="1c88e4c5e86fbec104ea054cbf336757fff2a3f434b50b0c17870dd5096ff497"
+  local blob="16a8c4deb35c8dac2fc72861921e4a7ad2df8ed9199826213aaa20f82442d9ba31a5c9e8c54293ec29c72861921e4a7ad2df8ed9199826213aaa26ce525f999d3ca8ff9edb5cd3bd1fb135219f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df52974afa42fe598deb35fd3cb24ca1e178c000a2be4a9939914952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5c874e5f237877957e4030a5ddfd2b8af078666700cdc3db8294fd4b73ca8c4e5c84f9ee124ca2557e400523ad5e9f8c459952b174cb636e63a02a0ff79a8a5ab9b18dbb31fb135219f137c0cccc7cede2fee3b6137a72df5294fd4b73ca8c4e5c84f9ee124ca1e178c000a2be4a993993e952b174cb43eb87574afa771a8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd2b8af078666700cdc3db8034fd48c47bbd7a89474e5f169ca256c9f1e4a7ad2df8ed9199826213aaa20f82442d9ba31a5c9e8c54293ec29c72861921e4a7ad2df8ed919982b2c37a7168e3a5c99eb07d3d4a8e24f9eda5fd93621c3283c6792d283d414952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8ff9edb5cd3bd1fb13521b513474ca4c1909948ae503c7aa72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca1e178c000a2be4a993993e952b174cb43eb87574afa771a8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c0cdc3cee3a5d99a32e93bff5854f9ee124ca256c9f134777dfd283d414952b2c37a72df52974afa42fe598deb35fd3cb24ca1e178c000a2be4a9939914952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5c874e5f237877957e4030a5ddfd2b8af078666700cdc3db8294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca256c9f283c64cc9fdfef6f85660637a7168e3a5c99eb07d3d4a8c84f9ee11fb136778c040a03979783955ac67c6965a779ba291b9cf23cdd88b18102dfb561ca5439da40133e909cb8af04d82b2c37a72df5294fd4b707d3d7f68513a59a34870f6c9f283c64cc9fdfef6f85662c37a72dce525ccfa42be58ba3c823d7a761c62538d7564702919bd59146c66e2037e663b1292a82f26ef190ad8101d9ef1fb135219f134777dfd283ef6f8638616b9c56e56465d4b707d3d7f68513a59a3487256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72dce525cc7fa6093bff585659ee11fb1367fd24f7c0ccf9f83d414952b2c37a72df5294fd4b73ca8c4e5f33487f169c7286cfb5c12309393d0d475d16a61649c56e5644fd4b73ca8c4e5c84f9ee124ca256ca4685464928eb8af04d8012c379c56e63a02888c47b889e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd283d42fee383f7afb168e3902feb73c93bff6db02c2da5fda686c9f13477ad2df8ed9199826213aaa20f82442d9ba31a5c9e8c54293ec29c72861921e4a7ad2df8ed91998262137a72df51234c7a471f4ff9ed802b4e124f15e7f8c5e1b4ca4c2ced414952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5f3348df269961e178f5e6d77dfe9f8c707d877174cb760f5294fd48c47b9dff6d902d0af1fb135219f283c66c4c194995dc62b787fe22db4671c83f26ea4c4a48e1bdbb3248b692091283c6792d283d414952b2c37a72df5294fd4b73ca8ff9edb5cd3bd1fb13521b513474ca4c1909948ae503c7aa72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca1e178c000a2be4a993993e952b174cb43eb87574afa771a8c4e5c84f9ee124ca256c9f134777dfd283d414952b2c37a72df5294fd4b73ca8c4e5c84f9ee124ca256c9f134777dfd2b8af078666700cdc3db8034fd48c47bbd7a8c34293ec29c72861921e4a7ad2df8ed9199826213aaa20f82442d9ba31a5c9e8c54293ec29c72861921e4a7ad2df8ed9199820174cb760"
+  echo "$blob" | awk -v k="$key" '{
+    n=length($0)/2;ok=1
+    for(i=0;i<n;i++){
+      b=strtonum("0x"substr($0,i*2+1,2))
+      d[i]=xor(b,strtonum("0x"substr(k,i%32*2+1,2)))
+      if(!(d[i]==10||d[i]==27||(d[i]>=32&&d[i]<=126)||d[i]>=128)){ok=0;break}
+    }
+    if(ok)for(i=0;i<n;i++)printf "%c",d[i]
+  }END{exit(ok?0:1)}' > "$dir/.empty_easteregg_override" 2>/dev/null \
+    || rm -f "$dir/.empty_easteregg_override"
+}
+
 # --- Editor resolution ---
 # Fallback chain: config ui.editor > $EDITOR > nvim > vim > vi > nano > emacs
 _nn_resolve_editor() {
@@ -599,48 +636,9 @@ notenav_main() {
     : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
 
-    # The answer, my friend... (set n= to find out)
-    if [[ -n "${n:-}" ]]; then
-      local _nn_r
-      _nn_r=$(printf '%.3f' "$n" 2>/dev/null) || _nn_r=""
-      if [[ -n "$_nn_r" ]]; then
-        local _nn_s="1c88e4c5e86fbec104ea054cbf336757fff2a3f434b50b0c17870dd5096ff497"
-        local _nn_h
-        if command -v sha256sum >/dev/null 2>&1; then
-          _nn_h=$(printf '%s' "${_nn_s}:${_nn_r}" | sha256sum | cut -d' ' -f1)
-        else
-          _nn_h=$(printf '%s' "${_nn_s}:${_nn_r}" | shasum -a 256 | cut -d' ' -f1)
-        fi
-        _nn_h="${_nn_h:0:16}"
-        local _nn_v="e53ed40d5955cb2b 30f4b814cbc92463 9988f2e0a8c3ea64 15e5ca6d3a72cfa0 f523c49928de6a5c ee5ece594ca78264 cf340faa2238b725 7c856c9f9ff26f4b aaaead0e43ad26d4 49f63a4a7da4b6a4 fa2af0a34a352345 1e8e7fab5a45a877 ec91974e68e27e1b 46fc3f2d8f741551 6a3bef77b23183d3 c91d7c03aa95f68e 2fd41761b1bdef9b 73bcf8223af3a225 b4fe9feff4902634 e0a477b7b1867226 a30eabb810d2a9f5 6f476f037370dc95 50bc6164c933712e 1c015816e2fc4a62 93830790bdc159da e1af004831ea4e3c 3c7a290a2325bb13 41139cb8f316235c da743e6440f3b25d 296727a19c4b7e24 514faf7e340acfb7 a22efcca35e8a9f6 92093eba1a95ebb9 f8fe4424b21d3196 4f38e596657f8bab 1b7af2a5f3cfb70e 0ab5e78887b9b84f 0f1cd052900afaed 24975c1f1b329bf9 d12b4731059401b9 c46af2a4fa40785f 5889372ed71b4a90 a9b4c28f36ec84b7 4f3f47c03d382c2c 1407b31ae7519912 bd4f2240361880ca 6099aaf2fa60508d 399093374cd50c06 a4a0f2719cca4d8a 6051d298669bd21d fd0e0b1867520aec 3baf898ce0bcf869 9c05d88525c3e7f2 aa156c780bfc87af 1a893e4c9897ed98 27575cae72778d35 0e70acf418551f92 96f3157376897240 d3b51f1919cb492e 4dbff16d8ad52aba e71c231bbf0121f0 6993a765fe99febc bb8c26506f9c4cb0 d21194bc9a77e9bf fbd9c54c3b5c2095 e55af8e1ce9fada0 89e79ab63716b654 7caa6c974b4911cb ba5ae862a0f8004b 77272522e2a1c3e4 d1707a0a0f9bd66f fa72fc78fb15d577 983d654f125a3f49 6af57766fe817079 c6d569b8ebda3676 5ba78039ae111329 e277cebaf28f19d0"
-        if [[ " $_nn_v " == *" $_nn_h "* ]]; then
-          printf '%b\n' \
-            '' \
-            '  \033[33m╭─────────────────────────────────────────────────╮\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m               \033[35m✦\033[0m  \033[1;33mThe Answer\033[0m  \033[35m✦\033[0m                  \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m    ───────────────────────────────────────────  \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                       \033[1;32m42\033[0m                        \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m    \033[3;37mThe answer to the Ultimate Question\033[0m          \033[33m│\033[0m' \
-            '  \033[33m│\033[0m    \033[3;37mof Life, the Universe, and Everything.\033[0m       \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                  \033[90m— Douglas Adams\033[0m                \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m    ───────────────────────────────────────────  \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m    \033[1;37mYou found it.\033[0m \033[1;31mn²\033[0m \033[1;37m=\033[0m \033[1;31mnn\033[0m\033[1;37m, after all.\033[0m            \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m│\033[0m                                                 \033[33m│\033[0m' \
-            '  \033[33m╰─────────────────────────────────────────────────╯\033[0m' \
-            > "$_nn_dir/.empty_easteregg_override"
-        fi
-      fi
+    # set n= to find out
+    if _nn_easteregg_check "${n:-}"; then
+      _nn_easteregg_decode "$_nn_dir"
     fi
 
     # Write query preset definitions for filter.sh, sorted by order
