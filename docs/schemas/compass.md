@@ -4,7 +4,8 @@ The default notenav schema. A simple three-way categorization that covers most p
 
 **Schema file:** [`config/schemas/compass.toml`](../../config/schemas/compass.toml)
 
-```bash
+```toml
+# ~/.config/notenav/config.toml
 # Use compass (this is the default — no config needed)
 default_schema = "compass"
 ```
