@@ -223,7 +223,9 @@ notenav ships with four schemas. Use `extends` in `.nn/schema.toml` or `default_
 
 ## Creating a custom schema
 
-The simplest way to start is by extending a built-in:
+The `extends` key is optional. If present, it deep-merges your definitions on top of the base schema. If absent, your file is the entire schema definition.
+
+**Extending a built-in:**
 
 ```toml
 # .nn/schema.toml
@@ -236,7 +238,9 @@ color = "31"
 description = "Defect to fix"
 ```
 
-For a full custom schema, copy an existing one as a starting point:
+`extends` can chain – a remote schema can itself extend a built-in, and so on. The maximum recursion depth is 5.
+
+**Full custom schema (no `extends`):**
 
 ```bash
 cp samples/schemas/custom-schema.toml .nn/schema.toml
