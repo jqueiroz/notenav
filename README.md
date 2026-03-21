@@ -16,7 +16,7 @@ Currently works on **Linux** and **macOS**. Windows support is planned – in th
 
 **Option 1: via [Nix](https://nixos.org/)** (recommended path – handles all dependencies)
 
-Nix installs packages in isolated, immutable environments, avoiding conflicts with system dependencies and ensuring reproducibility. If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables flakes by default). Then, install notenav by running:
+Nix installs packages in isolated, immutable environments, avoiding conflicts with system dependencies and ensuring reproducibility. If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables [flakes](https://wiki.nixos.org/wiki/Flakes) by default). Then, install notenav by running:
 
 ```bash
 nix profile install github:jqueiroz/notenav
