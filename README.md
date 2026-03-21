@@ -77,11 +77,11 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 
 | Key | Action |
 |-----|--------|
-| `enter` | Open note in your preferred editor (defaults to `$EDITOR`, with fallbacks: nvim → vim → vi → nano) |
+| `enter` | Open note in your preferred editor |
 | `n` | Create new note |
 | `a` / `A` | Advance / reverse status |
 | `+` / `-` (or `<` / `>`) | Bump priority up / down |
-| `e` / `s` / `p` / `t` | Filter by type / status / priority / tags |
+| `e` / `s` / `p` / `t` | Filter by **e**ntity type / **s**tatus / **p**riority / **t**ags |
 | `m` | Search note body |
 | `h` / `l` | Previous / next query preset |
 | `f` | Fuzzy-pick query preset |
@@ -90,6 +90,8 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 | `q` | Quit |
 
 These keybindings apply to all workflows, including custom ones. With the default configuration, every keybinding is displayed on-screen.
+
+Editor defaults to `$EDITOR`, with fallbacks: nvim → vim → vi → nano.
 
 ## Configuration
 
