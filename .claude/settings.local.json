@@ -9,7 +9,8 @@
       "Bash(bash bin/nn:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(nix-shell:*)"
+      "Bash(nix-shell:*)",
+      "Bash(bash:*)"
     ]
   }
 }
