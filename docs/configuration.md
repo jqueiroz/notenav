@@ -4,24 +4,24 @@
 
 ## Overview
 
-notenav uses two kinds of TOML files:
+All configuration is TOML, across two scopes:
 
-- **Config** — preferences like default sort order, editor, and which schema to use
-- **Schema** — vocabulary for your notes: entity types, statuses, priorities, colors, and lifecycle transitions
+- **Project** (`.nn/config.toml`) — defines the schema (built-in or custom), saved queries, and preset filters for the project.
+- **User** (`~/.config/notenav/config.toml`) — personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback schema, used in directories without project-level configuration.
 
-Both are layered: base defaults ship with notenav, then user-global and project-local files overlay on top. This means you only need to specify what you want to change.
+Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions.
 
-## Config files
+Both scopes are layered on top of notenav's base defaults, so you only need to specify what you want to change.
 
-Config files control preferences and can also override individual schema values (like colors).
+## Config resolution
 
-**Resolution order** (later values win via deep merge):
+At startup, configuration is assembled by deep-merging files in order (later values win):
 
 | Layer | Path | Purpose |
 |-------|------|---------|
-| 1. Schema | *(selected schema file)* | Vocabulary base |
+| 1. Schema | *(selected schema file)* | Workflow vocabulary |
 | 2. Base config | `$NOTENAV_ROOT/config/base.toml` | Ships with notenav |
-| 3. User config | `~/.config/notenav/config.toml` | Personal defaults |
+| 3. User config | `~/.config/notenav/config.toml` | Personal preferences |
 | 4. Project config | `.nn/config.toml` | Per-project overrides |
 
 The project config is found by walking up from the current directory to the nearest `.nn/` directory.
@@ -40,11 +40,10 @@ Schemas define what entity types, statuses, and priorities are available and how
 | 2. User | `~/.config/notenav/schemas/<name>.toml` |
 | 3. Built-in | `$NOTENAV_ROOT/config/schemas/<name>.toml` |
 
-**Selecting a schema:**
+**Defining which schema to use:**
 
-- In user config (`~/.config/notenav/config.toml`): set `default_schema = "<name>"`
 - In project config (`.nn/config.toml`): set `schema = "<name>"`
-- Project-level `schema` takes precedence over user-level `default_schema`
+- In user config (`~/.config/notenav/config.toml`): set `default_schema = "<name>"` — used as fallback in directories without project-level configuration
 
 ## Schema reference
 
@@ -184,7 +183,7 @@ Values can be numeric (`"1"`, `"2"`, `"3"`) or named (`"critical"`, `"high"`, `"
 
 ## Built-in schemas
 
-notenav ships with four schemas. Set `default_schema` or `schema` in your config to use one.
+notenav ships with four schemas. Define `schema` in your project config or `default_schema` in your user config to use one.
 
 | Schema | Entities | Statuses | Priority | Use case |
 |--------|----------|----------|----------|----------|
@@ -202,34 +201,34 @@ notenav ships with four schemas. Set `default_schema` or `schema` in your config
 
 2. Edit the file to define your entity types, statuses, priorities, and lifecycle transitions.
 
-3. Select it in your config:
+3. Define it in your config:
+   ```toml
+   # .nn/config.toml (project)
+   schema = "myworkflow"
+   ```
+
+   Or as a user-level fallback:
    ```toml
    # ~/.config/notenav/config.toml
    default_schema = "myworkflow"
-   ```
-
-   Or for a single project:
-   ```toml
-   # .nn/config.toml
-   schema = "myworkflow"
    ```
 
 For a project-local schema, place it in `.nn/schemas/` instead — it will be found first.
 
 See [`samples/schemas/custom-schema.toml`](../samples/schemas/custom-schema.toml) for a fully annotated example.
 
-## Config reference
+## Preferences reference
 
 ### `default_schema` / `schema`
 
-Top-level keys that select which schema to load.
+Top-level keys that define which schema to use.
 
 ```toml
-# In user config (~/.config/notenav/config.toml):
-default_schema = "compass"
-
 # In project config (.nn/config.toml):
 schema = "ado"
+
+# In user config (~/.config/notenav/config.toml):
+default_schema = "compass"    # fallback for directories without project config
 ```
 
 ### `[defaults]`
@@ -264,12 +263,12 @@ prompt = ": "
 | `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR` or falls back to `nvim` |
 | `prompt` | string | `": "` | fzf prompt string |
 
-### Overriding schema colors from config
+### Overriding schema colors
 
 You can override individual colors from the active schema without creating a full custom schema. These merge on top of the schema values.
 
 ```toml
-# In user or project config:
+# In user or project config (both work):
 
 [entity.task]
 color = "34"          # change tasks from cyan to blue

@@ -14,7 +14,7 @@ Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/d
 nix profile install github:jqueiroz/notenav
 ```
 
-[Nix](https://nixos.org/) is a declarative package manager for Linux and macOS. Using Nix, you can install notenav and all of its dependencies in isolation from your system packages. See [docs/install.md](docs/install.md) for NixOS and Home Manager options.
+[Nix](https://nixos.org/) is a declarative package manager for Linux and macOS. Using Nix, you can install `nn` and all of its dependencies in isolation from your system packages. See [docs/install.md](docs/install.md) for NixOS and Home Manager options.
 
 **Option 2: Manual installation**
 
