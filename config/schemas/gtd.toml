@@ -9,7 +9,7 @@ description = "Getting Things Done capture-and-process workflow"
 
 [entity]
 default_color = "36"   # cyan
-display_order = ["action", "project", "reference"]
+values = ["action", "project", "reference"]
 
 [entity.action]
 icon = "◆"
@@ -32,8 +32,7 @@ description = "Non-actionable reference material"
 # "dropped" is the GTD equivalent of "removed" — a tombstone, omitted from lifecycle.
 
 [status]
-values = ["inbox", "next", "waiting", "someday", "done", "dropped"]
-display_order = ["next", "waiting", "inbox", "someday", "done", "dropped"]
+values = ["next", "waiting", "inbox", "someday", "done", "dropped"]
 archive = ["done", "dropped"]
 filter_cycle = ["inbox", "next", "waiting", "someday", "done"]
 default_color = "90"   # dim

@@ -11,7 +11,7 @@ description = "Slip-box method for knowledge management"
 
 [entity]
 default_color = "36"   # cyan
-display_order = ["fleeting", "literature", "permanent"]
+values = ["fleeting", "literature", "permanent"]
 
 [entity.fleeting]
 icon = "◇"
@@ -33,8 +33,7 @@ description = "Atomic, fully developed idea"
 # All statuses participate in lifecycle (no tombstones).
 
 [status]
-values = ["draft", "review", "mature", "archived"]
-display_order = ["review", "draft", "mature", "archived"]
+values = ["review", "draft", "mature", "archived"]
 archive = ["archived"]
 filter_cycle = ["draft", "review", "mature", "archived"]
 default_color = "90"   # dim

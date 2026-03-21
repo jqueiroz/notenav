@@ -7,14 +7,14 @@ description = "Simple task/idea/reference workflow"
 
 # --- Entity types ---
 # Each entity represents a kind of note. Shown as icon + name in the TUI.
+# values: valid entity types; array order = display order in grouped view
 # icon: single character displayed in the list
 # color: ANSI color code (31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan)
-# display_order: controls grouping order when group-by-type is active
 # default_color: fallback for entity types not explicitly listed
 
 [entity]
 default_color = "36"   # cyan
-display_order = ["task", "idea", "reference"]
+values = ["task", "idea", "reference"]
 
 [entity.task]
 icon = "◆"
@@ -32,8 +32,7 @@ color = "33"           # yellow
 description = "Living documentation; continually updated as understanding grows"
 
 # --- Statuses ---
-# values: all valid statuses a note can have
-# display_order: order for group headers when group-by-status is active
+# values: all valid statuses; array order = display order in grouped view
 # archive: statuses hidden by default; press 'z' to toggle visibility
 # filter_cycle: order when pressing 's' to cycle the status filter ("all" is auto-prepended)
 # default_color: fallback for statuses not explicitly listed in [status.colors]
@@ -42,8 +41,7 @@ description = "Living documentation; continually updated as understanding grows"
 # it's a tombstone status, only reachable via bulk edit or manual frontmatter change.
 
 [status]
-values = ["new", "active", "blocked", "done", "removed"]
-display_order = ["active", "blocked", "new", "done", "removed"]
+values = ["active", "blocked", "new", "done", "removed"]
 archive = ["done", "removed"]
 filter_cycle = ["new", "active", "blocked", "done"]
 default_color = "90"   # dim
@@ -73,7 +71,7 @@ blocked = "new"
 # --- Priority ---
 # enabled: set to false to disable priority entirely (see zettelkasten schema)
 # values: valid priority levels; array order = sort order (first = highest)
-#   values can be numeric ("1","2","3") or named ("critical","high","low")
+#   can be numeric ("1","2","3") or named ("critical","high","low")
 # labels: optional short display labels; omit to show "P{value}" (e.g. "P1")
 # filter_cycle: order when pressing 'p' to cycle the priority filter ("all" is auto-prepended)
 # unset_position: where unprioritized notes sort ("first" or "last")

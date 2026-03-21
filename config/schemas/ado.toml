@@ -9,7 +9,7 @@ description = "Feature/task/bug workflow inspired by Azure DevOps"
 
 [entity]
 default_color = "36"   # cyan
-display_order = ["feature", "task", "bug"]
+values = ["feature", "task", "bug"]
 
 [entity.feature]
 icon = "◇"
@@ -31,8 +31,7 @@ description = "Defect to fix"
 # "removed" is a tombstone, omitted from filter_cycle and lifecycle.
 
 [status]
-values = ["new", "active", "resolved", "closed", "removed"]
-display_order = ["active", "new", "resolved", "closed", "removed"]
+values = ["active", "new", "resolved", "closed", "removed"]
 archive = ["closed", "removed"]
 filter_cycle = ["new", "active", "resolved", "closed"]
 default_color = "90"   # dim
