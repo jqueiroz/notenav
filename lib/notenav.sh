@@ -1242,6 +1242,10 @@ awk_body=$(cat "$dir/.awk_color_body")
 do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
 # Count filtered items (before pinning/grouping adds extra lines)
 count=$(wc -l < "$dir/.current")
+# Show placeholder when no notes match
+if [ "$count" -eq 0 ]; then
+  printf '\t\033[90mMostly harmless. Also, mostly empty.\033[0m\n' > "$dir/.current"
+fi
 # Prepend pinned items (from actions) that got filtered out
 if [ -s "$dir/.pinned" ]; then
   pinned_lines=""
@@ -1414,7 +1418,6 @@ ENDFILTER
       --border-label-pos bottom \
       --preview "$_nn_dir/preview.sh {1}" \
       --prompt "$NN_UI_COMMAND_PROMPT" \
-      --empty "Mostly harmless. Also, mostly empty." \
       --bind "e:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir type]" \
       --bind "E:transform[$_nn_dir/filter.sh $_nn_dir clear-type]" \
       --bind "s:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir status]" \
