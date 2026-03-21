@@ -333,7 +333,7 @@ fortune = false          # show a fun quote on exit
 | `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR`, then falls back to nvim → vim → vi → nano |
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode |
-| `fortune` | boolean | `false` | Show a fun quote when exiting the faceted browser |
+| `fortune` | boolean | `false` | Show a fun quote on exit |
 
 ### Overriding workflow colors
 
