@@ -5,8 +5,10 @@
 name = "GTD"
 description = "Getting Things Done capture-and-process workflow"
 
+# --- Entity types ---
+
 [entity]
-default_color = "36"   # cyan — fallback for unknown entity types
+default_color = "36"   # cyan
 
 [entity.action]
 icon = "◆"
@@ -26,12 +28,17 @@ color = "33"           # yellow
 description = "Non-actionable reference material"
 display_order = 3
 
+# --- Statuses ---
+# Maps to GTD lists: inbox (unclarified), next (do now), waiting (delegated),
+# someday (parked), done, dropped.
+# "dropped" is the GTD equivalent of "removed" — a tombstone, omitted from lifecycle.
+
 [status]
 values = ["inbox", "next", "waiting", "someday", "done", "dropped"]
 display_order = ["next", "waiting", "inbox", "someday", "done", "dropped"]
 archive = ["done", "dropped"]
 filter_cycle = ["", "inbox", "next", "waiting", "someday", "done"]
-default_color = "90"   # dim — fallback for unknown statuses
+default_color = "90"   # dim
 
 [status.colors]
 inbox = "33"           # yellow — needs processing
@@ -40,6 +47,8 @@ waiting = "34"         # blue — blocked on someone else
 someday = "90"         # dim — parked
 done = "90"            # dim
 dropped = "90"         # dim
+
+# 'a' advances forward (clarify/complete), 'A' reverses (reopen/defer)
 
 [status.lifecycle.forward]
 inbox = "next"
@@ -56,6 +65,9 @@ inbox = "someday"
 waiting = "inbox"
 someday = "dropped"
 dropped = "done"
+
+# --- Priority ---
+# 3 levels only (GTD favors context over priority, so keep it light)
 
 [priority]
 values = ["1", "2", "3"]
@@ -75,6 +87,8 @@ unset_sort_value = 9
 [priority.lifecycle.down]
 1 = "2"
 2 = "3"
+
+# --- zk integration ---
 
 [zk]
 format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'

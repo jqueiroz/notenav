@@ -5,8 +5,10 @@
 name = "Azure DevOps"
 description = "Feature/task/bug workflow inspired by Azure DevOps"
 
+# --- Entity types ---
+
 [entity]
-default_color = "36"   # cyan — fallback for unknown entity types
+default_color = "36"   # cyan
 
 [entity.feature]
 icon = "◇"
@@ -26,12 +28,16 @@ color = "31"           # red
 description = "Defect to fix"
 display_order = 4
 
+# --- Statuses ---
+# Follows the ADO new → active → resolved → closed progression.
+# "removed" is a tombstone, omitted from filter_cycle and lifecycle.
+
 [status]
 values = ["new", "active", "resolved", "closed", "removed"]
 display_order = ["active", "new", "resolved", "closed", "removed"]
 archive = ["closed", "removed"]
 filter_cycle = ["", "new", "active", "resolved", "closed"]
-default_color = "90"   # dim — fallback for unknown statuses
+default_color = "90"   # dim
 
 [status.colors]
 new = "90"             # dim
@@ -39,6 +45,8 @@ active = "32"          # green
 resolved = "34"        # blue
 closed = "90"          # dim
 removed = "90"         # dim
+
+# 'a' advances forward, 'A' reverses
 
 [status.lifecycle.forward]
 new = "active"
@@ -51,6 +59,9 @@ closed = "resolved"
 resolved = "active"
 active = "new"
 new = "closed"
+
+# --- Priority ---
+# 1 = critical, 4 = low
 
 [priority]
 values = ["1", "2", "3", "4"]
@@ -73,6 +84,8 @@ unset_sort_value = 9
 1 = "2"
 2 = "3"
 3 = "4"
+
+# --- zk integration ---
 
 [zk]
 format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'

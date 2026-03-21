@@ -5,8 +5,15 @@
 name = "Compass"
 description = "Simple task/idea/reference workflow"
 
+# --- Entity types ---
+# Each entity represents a kind of note. Shown as icon + name in the TUI.
+# icon: single character displayed in the list
+# color: ANSI color code (31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan)
+# display_order: controls grouping order when group-by-type is active
+# default_color: fallback for entity types not explicitly listed
+
 [entity]
-default_color = "36"   # cyan — fallback for unknown entity types
+default_color = "36"   # cyan
 
 [entity.task]
 icon = "◆"
@@ -26,14 +33,22 @@ color = "33"           # yellow
 description = "Living documentation"
 display_order = 3
 
-[status]
+# --- Statuses ---
+# values: all valid statuses a note can have
+# display_order: order for group headers when group-by-status is active
+# archive: statuses hidden by default; press 'z' to toggle visibility
+# filter_cycle: order when pressing 's' to cycle the status filter ("" = all)
+# default_color: fallback for statuses not explicitly listed in [status.colors]
+#
 # "removed" is in values but omitted from filter_cycle and lifecycle —
 # it's a tombstone status, only reachable via bulk edit or manual frontmatter change.
+
+[status]
 values = ["new", "active", "blocked", "done", "removed"]
 display_order = ["active", "blocked", "new", "done", "removed"]
 archive = ["done", "removed"]
 filter_cycle = ["", "new", "active", "blocked", "done"]
-default_color = "90"   # dim — fallback for unknown statuses
+default_color = "90"   # dim
 
 [status.colors]
 new = "90"             # dim
@@ -41,6 +56,9 @@ active = "32"          # green
 blocked = "31"         # red
 done = "90"            # dim
 removed = "90"         # dim
+
+# Lifecycle transitions define what happens when you press 'a' (forward) or 'A' (reverse)
+# on a note. Each key maps to the next status in that direction.
 
 [status.lifecycle.forward]
 new = "active"
@@ -54,6 +72,12 @@ active = "new"
 new = "done"
 blocked = "new"
 
+# --- Priority ---
+# values: valid priority levels (use [] to disable priority entirely)
+# filter_cycle: order when pressing 'p' to cycle the priority filter ("" = all)
+# unset_sort_value: notes with no priority sort as if they had this value
+#   (9 = after all real priorities, so unprioritized notes sink to the bottom)
+
 [priority]
 values = ["1", "2", "3", "4"]
 filter_cycle = ["", "1", "2", "3", "4"]
@@ -65,6 +89,9 @@ unset_sort_value = 9
 3 = "33"               # yellow (default)
 4 = "33"               # yellow (default)
 
+# Lifecycle for '+' (up) and '-' (down) keybindings.
+# "" = no priority set; bumping up from unset starts at the lowest level.
+
 [priority.lifecycle.up]
 "" = "4"
 4 = "3"
@@ -75,6 +102,11 @@ unset_sort_value = 9
 1 = "2"
 2 = "3"
 3 = "4"
+
+# --- zk integration ---
+# format: zk list --format string; columns are tab-separated
+# columns: names for each tab-separated field (for documentation; matches format order)
+# template_pattern: zk new --template pattern; {type} is replaced with the entity name
 
 [zk]
 format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'

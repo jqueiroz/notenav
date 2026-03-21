@@ -5,8 +5,12 @@
 name = "Zettelkasten"
 description = "Slip-box method for knowledge management"
 
+# --- Entity types ---
+# Follows the classic Zettelkasten note progression:
+# fleeting (quick capture) → literature (source notes) → permanent (atomic ideas)
+
 [entity]
-default_color = "36"   # cyan — fallback for unknown entity types
+default_color = "36"   # cyan
 
 [entity.fleeting]
 icon = "◇"
@@ -26,18 +30,24 @@ color = "36"           # cyan
 description = "Atomic, fully developed idea"
 display_order = 3
 
+# --- Statuses ---
+# Linear maturity progression: draft → review → mature → archived.
+# All statuses participate in lifecycle (no tombstones).
+
 [status]
 values = ["draft", "review", "mature", "archived"]
 display_order = ["review", "draft", "mature", "archived"]
 archive = ["archived"]
 filter_cycle = ["", "draft", "review", "mature", "archived"]
-default_color = "90"   # dim — fallback for unknown statuses
+default_color = "90"   # dim
 
 [status.colors]
 draft = "33"           # yellow
 review = "34"          # blue
 mature = "32"          # green
 archived = "90"        # dim
+
+# 'a' advances maturity, 'A' reverses it
 
 [status.lifecycle.forward]
 draft = "review"
@@ -51,6 +61,10 @@ mature = "review"
 review = "draft"
 draft = "archived"
 
+# --- Priority ---
+# Disabled — Zettelkasten doesn't use priority; notes mature by connection density.
+# Use empty values array to disable priority features entirely.
+
 [priority]
 values = []
 filter_cycle = [""]
@@ -61,6 +75,8 @@ unset_sort_value = 9
 [priority.lifecycle.up]
 
 [priority.lifecycle.down]
+
+# --- zk integration ---
 
 [zk]
 format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
