@@ -65,7 +65,7 @@ review = "in-progress"
 in-progress = "open"
 open = "done"
 
-# Priority levels. Use an empty values array to disable priority.
+# Priority levels. Set enabled = false to disable priority entirely.
 [priority]
 values = ["1", "2", "3"]
 filter_cycle = ["", "1", "2", "3"]

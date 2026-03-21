@@ -63,16 +63,7 @@ draft = "archived"
 
 # --- Priority ---
 # Disabled — Zettelkasten doesn't use priority; notes mature by connection density.
-# Use empty values array to disable priority features entirely.
 
 [priority]
-values = []
-filter_cycle = [""]
-unset_sort_value = 9
-
-[priority.colors]
-
-[priority.lifecycle.up]
-
-[priority.lifecycle.down]
+enabled = false
 

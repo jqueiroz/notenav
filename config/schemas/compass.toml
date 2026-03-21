@@ -73,7 +73,8 @@ new = "done"
 blocked = "new"
 
 # --- Priority ---
-# values: valid priority levels (use [] to disable priority entirely)
+# enabled: set to false to disable priority entirely (see zettelkasten schema)
+# values: valid priority levels
 # filter_cycle: order when pressing 'p' to cycle the priority filter ("" = all)
 # unset_sort_value: notes with no priority sort as if they had this value
 #   (9 = after all real priorities, so unprioritized notes sink to the bottom)
