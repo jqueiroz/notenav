@@ -1,59 +1,56 @@
 # Getting Things Done schema
-# GTD workflow: inbox → next-action/project/waiting/someday
+# Entities = what it is, statuses = which GTD list it lives on
 
 [meta]
 name = "GTD"
 description = "Getting Things Done capture-and-process workflow"
 
-[entity.inbox]
-icon = "▸"
-color = "33"           # yellow
-description = "Unclarified capture"
-display_order = 1
-
-[entity.next-action]
+[entity.action]
 icon = "◆"
 color = "36"           # cyan
-description = "Concrete next physical action"
-display_order = 2
+description = "Single concrete action"
+display_order = 1
 
 [entity.project]
 icon = "◈"
 color = "35"           # magenta
 description = "Multi-step outcome"
+display_order = 2
+
+[entity.reference]
+icon = "▪"
+color = "33"           # yellow
+description = "Non-actionable reference material"
 display_order = 3
 
-[entity.waiting]
-icon = "◇"
-color = "90"           # dim
-description = "Delegated or blocked on external"
-display_order = 4
-
-[entity.someday]
-icon = "☆"
-color = "34"           # blue
-description = "Maybe/someday list"
-display_order = 5
-
 [status]
-values = ["active", "done", "dropped"]
-display_order = ["active", "done", "dropped"]
+values = ["inbox", "next", "waiting", "someday", "done", "dropped"]
+display_order = ["next", "waiting", "inbox", "someday", "done", "dropped"]
 archive = ["done", "dropped"]
-filter_cycle = ["", "active", "done", "dropped"]
+filter_cycle = ["", "inbox", "next", "waiting", "someday", "done"]
 
 [status.colors]
-active = "32"          # green
+inbox = "33"           # yellow — needs processing
+next = "32"            # green — ready to do
+waiting = "34"         # blue — blocked on someone else
+someday = "90"         # dim — parked
 done = "90"            # dim
 dropped = "90"         # dim
 
 [status.lifecycle.forward]
-active = "done"
-done = "active"
-dropped = "active"
+inbox = "next"
+next = "done"
+waiting = "next"
+someday = "next"
+done = "inbox"
+dropped = "inbox"
 
 [status.lifecycle.reverse]
-done = "active"
-active = "dropped"
+done = "next"
+next = "inbox"
+inbox = "someday"
+waiting = "inbox"
+someday = "dropped"
 dropped = "done"
 
 [priority]
