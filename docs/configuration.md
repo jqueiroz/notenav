@@ -238,7 +238,7 @@ color = "31"
 description = "Defect to fix"
 ```
 
-`extends` can chain – a remote schema can itself extend a built-in, and so on. The maximum recursion depth is 5.
+`extends` can chain – for example, a remote schema can itself extend a built-in. The chain always terminates at a built-in or a full definition. Maximum recursion depth is 5.
 
 **Full custom schema (no `extends`):**
 
