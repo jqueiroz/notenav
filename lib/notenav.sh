@@ -570,9 +570,9 @@ dir="$1"; query="$2"
 zk_path=()
 while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
 if [ -n "$query" ]; then
-  zk list "${zk_path[@]}" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null
+  zk list "${zk_path[@]}" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
 else
-  zk list "${zk_path[@]}" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null
+  zk list "${zk_path[@]}" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
 fi
 ENDMSEARCH
     chmod +x "$_nn_dir/match_search.sh"
