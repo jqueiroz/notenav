@@ -1061,6 +1061,9 @@ ENDQP
 file="$1"
 test -f "$file" || exit 0
 
+# Placeholder file: show content only, no links
+case "$file" in *.empty_placeholder) cat "$file"; exit 0 ;; esac
+
 # Show file content
 $(command -v bat || command -v batcat) -p --color always "$file" 2>/dev/null || cat "$file"
 
