@@ -348,7 +348,7 @@ The `+`/`-` keys (and their `>`/`<` aliases) bump a note's priority. The `priori
 | `"number"` (default) | Increase priority number (P1→P2, less urgent) | Decrease priority number (P2→P1, more urgent) | `+` adds to the number |
 | `"importance"` | Increase urgency (P2→P1, more important) | Decrease urgency (P1→P2, less important) | `+` means "more important" |
 
-Both values use the same lifecycle tables (`[priority.lifecycle.up]` and `[priority.lifecycle.down]`) – the setting only controls which table the `+` and `-` keys map to.
+Both values use the same lifecycle tables (`[priority.lifecycle.up]` and `[priority.lifecycle.down]`) – the setting only controls which table the `+`/`-` and `>`/`<` keys map to.
 
 ### Overriding workflow colors
 
