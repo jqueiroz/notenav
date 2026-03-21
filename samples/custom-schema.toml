@@ -66,21 +66,29 @@ in-progress = "open"
 open = "done"
 
 # Priority levels. Set enabled = false to disable priority entirely.
+# Values can be numeric ("1","2","3") or named ("critical","high","low").
+# Array order = sort order (first = highest priority).
+# Labels are optional short strings for the TUI; omit to show "P{value}".
 [priority]
-values = ["1", "2", "3"]
-filter_cycle = ["", "1", "2", "3"]
+values = ["critical", "high", "low"]
+filter_cycle = ["", "critical", "high", "low"]
 unset_position = "last"
 
+[priority.labels]
+critical = "P!"
+high = "P+"
+low = "P-"
+
 [priority.colors]
-1 = "31;1"
-2 = "33"
-3 = "90"
+critical = "31;1"
+high = "33"
+low = "90"
 
 [priority.lifecycle.up]
-"" = "3"
-3 = "2"
-2 = "1"
+"" = "low"
+low = "high"
+high = "critical"
 
 [priority.lifecycle.down]
-1 = "2"
-2 = "3"
+critical = "high"
+high = "low"
