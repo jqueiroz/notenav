@@ -997,16 +997,22 @@ ENDBE
 dir="$1"
 # Pick type (default to current type filter)
 cur_type=$(cat "$dir/.f_type")
-types=""
+types="" cur_line=""
 while IFS=$'\t' read -r v ic clr desc; do
-  [ -n "$types" ] && types="$types"$'\n'
-  types="$types$(printf '\033[%sm%s %s\033[0m\t\033[90m  %s\033[0m' "$clr" "$ic" "$v" "$desc")"
+  line=$(printf '\033[%sm%s %s\033[0m\t\033[90m  %s\033[0m' "$clr" "$ic" "$v" "$desc")
+  if [ "$v" = "$cur_type" ]; then
+    cur_line="$line"
+  else
+    [ -n "$types" ] && types="$types"$'\n'
+    types="$types$line"
+  fi
 done < "$dir/.schema_entities"
+# Put filtered type first so fzf pre-selects it
+[ -n "$cur_line" ] && types="$cur_line${types:+$'\n'$types}"
 selected=$(printf '%s' "$types" | fzf --reverse --prompt "type: " \
   --ansi --border --border-label ' New Note ' --delimiter '\t' --with-nth '1,2' \
   --header $'Select note type\n\033[36mEnter\033[0m confirm \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
-  --bind "j:down,k:up" \
-  --query "${cur_type}" | awk '{print $2}')
+  --bind "j:down,k:up" | awk '{print $2}')
 [ -z "$selected" ] && exit 0
 # Styled title prompt — look up icon and color from workflow
 tc=""; icon=""
