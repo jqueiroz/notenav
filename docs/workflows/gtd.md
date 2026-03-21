@@ -47,13 +47,13 @@ Each status maps to a GTD list:
 Press `a` to advance (clarify/complete), `A` to reverse (reopen/defer):
 
 ```
-      inbox ──▶ next ──▶ done
-        ▲         ▲
-  waiting ─┘  someday ─┘
+  dropped ──▶ inbox ──▶ next ──▶ done
+                ▲         ▲
+          waiting ─┘  someday ─┘
 ```
 
 - **Forward (a):** inbox → next → done. waiting → next. someday → next. done/dropped → inbox (reopen).
-- **Reverse (A):** done → next → inbox → someday → dropped. waiting → inbox.
+- **Reverse (A):** done → next → inbox → someday → dropped. waiting → inbox. dropped → done.
 
 The `dropped` status is hidden by default (archived) but participates in the lifecycle – pressing `a` sends it back to inbox for reconsideration.
 
@@ -80,7 +80,7 @@ Filter to inbox notes (`s` to cycle to inbox status). For each item, ask: "Is th
 - **Yes, one step** → set type to `action`, advance to `next` with `a`
 - **Yes, multiple steps** → set type to `project`, advance to `next`
 - **No, but useful** → set type to `reference`, advance to `next` (or `someday`)
-- **No, not needed** → set status to `dropped` via bulk edit
+- **No, not needed** → set status to `dropped` via change mode (`c`→`s`)
 
 ### 3. Organize
 
