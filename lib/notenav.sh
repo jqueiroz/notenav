@@ -180,6 +180,7 @@ nn_cfg() {
 # written by nn_write_workflow_files().
 
 _nn_gen_awk_bodies() {
+  local _v _i
   # Uses NN_ENTITY_DISPLAY_ORDER / NN_STATUS_DISPLAY_ORDER (set by nn_precompute_workflow)
   # for group ordering and stats display. Falls back to NN_*_VALUES if unset.
 
@@ -511,7 +512,7 @@ nn_write_workflow_files() {
   printf '%s' "$NN_AWK_ICON_SETUP" > "$dir/.schema_icon_setup"
 
   # UI preferences
-  printf '%s' "${NN_UI_EDITOR:-${EDITOR:-nvim}}" > "$dir/.schema_editor"
+  printf '%s' "${NN_UI_EDITOR:-${EDITOR:-vi}}" > "$dir/.schema_editor"
 
   # Archive label (slash-separated status names for header display)
   local _archive_label=""
@@ -554,11 +555,12 @@ notenav_main() {
   [[ -n "$_gr" && "$PWD" != "$_gr" ]] && _zk_path=("$(pwd)")
 
   # Resolve editor: config > $EDITOR > nvim
-  local _nn_editor="${NN_UI_EDITOR:-${EDITOR:-nvim}}"
+  local _nn_editor="${NN_UI_EDITOR:-${EDITOR:-vi}}"
 
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
     local _nn_dir=$(mktemp -d)
+    trap "rm -rf '${_nn_dir}'" EXIT
     nn_write_workflow_files "$_nn_dir"
 
     # Get all notes
@@ -591,7 +593,7 @@ notenav_main() {
 
     # Tag picker script (opens sub-fzf for multi-select)
     cat > "$_nn_dir/tags.sh" << 'ENDTAGS'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"
 tags=$(awk -F'\t' 'length($4) > 0 {
   n=split($4, arr, " "); for(i=1;i<=n;i++) t[arr[i]]=1
@@ -620,7 +622,7 @@ ENDTAGS
 
     # Body text search: live fzf with zk --match
     cat > "$_nn_dir/match_search.sh" << 'ENDMSEARCH'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"; query="$2"
 zk_path=()
 while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
@@ -633,7 +635,7 @@ ENDMSEARCH
     chmod +x "$_nn_dir/match_search.sh"
 
     cat > "$_nn_dir/match.sh" << 'ENDMATCH'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"
 cur=""
 [ -s "$dir/.f_match" ] && cur=$(cat "$dir/.f_match")
@@ -667,7 +669,7 @@ ENDMATCH
 
     # Bulk action script: update frontmatter field on selected files, then reload
     cat > "$_nn_dir/action.sh" << 'ENDACTION'
-#!/bin/bash
+#!/usr/bin/env bash
 # Usage: action.sh <dir> <field> <value> <file1> [file2 ...]
 dir="$1"; field="$2"; value="$3"; shift 3
 count=0
@@ -695,7 +697,7 @@ ENDACTION
 
     # Field picker: opens sub-fzf to choose a value, writes to .f_pick_val
     cat > "$_nn_dir/fieldpick.sh" << 'ENDFP'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"; field="$2"; shift 2
 # Build context header from file paths
 ctx=""
@@ -726,7 +728,7 @@ case "$field" in
 esac
 hdr="Enter apply · Esc cancel"
 [ -n "$ctx" ] && hdr=$(printf '%s\n%s' "$ctx" "$hdr")
-selected=$(printf "$vals" | fzf --ansi --reverse --prompt "set $field: " \
+selected=$(printf '%b' "$vals" | fzf --ansi --reverse --prompt "set $field: " \
   --border --border-label " Set $field " \
   --header "$hdr" \
   --bind 'j:down,k:up')
@@ -740,7 +742,7 @@ ENDFP
 
     # Combined pick-and-apply: pick value then update files
     cat > "$_nn_dir/bulkset.sh" << 'ENDBS'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"; field="$2"; shift 2
 # Read file paths from args or .c_sel file
 if [ $# -gt 0 ]; then
@@ -760,7 +762,7 @@ ENDBS
 
     # Bulk edit: multi-field frontmatter updater (single awk pass)
     cat > "$_nn_dir/bulkedit_update.sh" << 'ENDBEU'
-#!/bin/bash
+#!/usr/bin/env bash
 # Usage: bulkedit_update.sh <file> field=value [field=value ...]
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
@@ -818,7 +820,7 @@ ENDBEU
 
     # Bulk edit: diff and apply changes from edited TSV
     cat > "$_nn_dir/bulkedit_apply.sh" << 'ENDBA'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"; orig="$2"; edited="$3"
 errors=""
 count=0
@@ -879,7 +881,7 @@ ENDBA
 
     # Bulk edit: orchestrator — generates TSV, opens editor, applies changes
     cat > "$_nn_dir/bulkedit.sh" << 'ENDBE'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"
 tmpfile="$dir/.bulkedit.tsv"
 origfile="$dir/.bulkedit_orig.tsv"
@@ -902,7 +904,7 @@ printf '# tags: space-separated\n' >> "$tmpfile"
 cp "$tmpfile" "$origfile"
 # Open editor
 nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
-${nn_editor:-${EDITOR:-nvim}} "$tmpfile" </dev/tty >/dev/tty
+${nn_editor:-${EDITOR:-vi}} "$tmpfile" </dev/tty >/dev/tty
 # Apply changes
 "$dir/bulkedit_apply.sh" "$dir" "$origfile" "$tmpfile"
 ENDBE
@@ -910,7 +912,7 @@ ENDBE
 
     # Quick note creation: type picker → title prompt → zk new → editor
     cat > "$_nn_dir/newnote.sh" << 'ENDNN'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"
 # Pick type (default to current type filter)
 cur_type=$(cat "$dir/.f_type")
@@ -964,13 +966,13 @@ zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 # Open in editor
 nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
-${nn_editor:-${EDITOR:-nvim}} "$new_path" < /dev/tty > /dev/tty
+${nn_editor:-${EDITOR:-vi}} "$new_path" < /dev/tty > /dev/tty
 ENDNN
     chmod +x "$_nn_dir/newnote.sh"
 
     # Inline status cycling: advance/reverse status through lifecycle
     cat > "$_nn_dir/cyclestatus.sh" << 'ENDCS'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"; file="$2"; direction="${3:-fwd}"
 [ ! -f "$file" ] && exit 0
 cur=$(awk -F'\t' -v p="$file" '$6 == p {print $2; exit}' "$dir/.raw")
@@ -986,7 +988,7 @@ ENDCS
 
     # Quick priority bump: increase/decrease urgency
     cat > "$_nn_dir/bumppri.sh" << 'ENDBP'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"; file="$2"; direction="$3"
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
@@ -1002,7 +1004,7 @@ ENDBP
 
     # Reload helper: reloads list and positions cursor on the given path
     cat > "$_nn_dir/reload_at.sh" << 'ENDRA'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"; path="$2"
 n=$(awk -F'\t' -v p="$path" '$1==p{print NR;exit}' "$dir/.current")
 border=$(cat "$dir/.border" 2>/dev/null || echo " nn ")
@@ -1012,7 +1014,7 @@ ENDRA
 
     # Query picker script (opens sub-fzf to select a query preset)
     cat > "$_nn_dir/querypick.sh" << 'ENDQP'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"
 [ ! -f "$dir/.queries" ] && exit 0
 n=0
@@ -1034,7 +1036,7 @@ ENDQP
 
     # Preview helper script (file content + links + backlinks)
     cat > "$_nn_dir/preview.sh" << 'ENDPREVIEW'
-#!/bin/bash
+#!/usr/bin/env bash
 file="$1"
 test -f "$file" || exit 0
 
@@ -1065,7 +1067,7 @@ ENDPREVIEW
 
     # Faceted filter helper script
     cat > "$_nn_dir/filter.sh" << 'ENDFILTER'
-#!/bin/bash
+#!/usr/bin/env bash
 dir="$1"; action="$2"
 cycle() {
   local dim="$1" direction="$2" cur="$3"
@@ -1391,11 +1393,11 @@ ENDFILTER
       --border-label-pos bottom \
       --preview "$_nn_dir/preview.sh {1}" \
       --prompt "$NN_UI_COMMAND_PROMPT" \
-      --bind "e:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir type]" \
+      --bind "e:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir type]" \
       --bind "E:transform[$_nn_dir/filter.sh $_nn_dir clear-type]" \
-      --bind "s:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir status]" \
+      --bind "s:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir status]" \
       --bind "S:transform[$_nn_dir/filter.sh $_nn_dir clear-status]" \
-      --bind "p:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir priority]" \
+      --bind "p:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir priority]" \
       --bind "P:transform[$_nn_dir/filter.sh $_nn_dir clear-priority]" \
       --bind "l:transform[$_nn_dir/filter.sh $_nn_dir next]" \
       --bind "h:transform[$_nn_dir/filter.sh $_nn_dir prev]" \
@@ -1425,20 +1427,21 @@ ENDFILTER
       --bind "g:transform[$_nn_dir/filter.sh $_nn_dir group]" \
       --bind "z:transform[$_nn_dir/filter.sh $_nn_dir archive]" \
       --bind "n:execute($_nn_dir/newnote.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']" \
-      --bind "c:execute-silent(touch /tmp/.nn-c)+change-prompt(c )+transform-header(cat $_nn_dir/.header-c)" \
+      --bind "c:execute-silent(touch $_nn_dir/.nn-c)+change-prompt(c )+transform-header(cat $_nn_dir/.header-c)" \
       --bind "i:execute[test -f {1} && $_nn_editor {1}]" \
       --multi \
       --bind "b:execute($_nn_dir/bulkedit.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']+deselect-all" \
-      --bind "start:transform-header(cat $_nn_dir/.header)+execute-silent(rm -f /tmp/.nn-s /tmp/.nn-c)" \
+      --bind "start:transform-header(cat $_nn_dir/.header)+execute-silent(rm -f $_nn_dir/.nn-s $_nn_dir/.nn-c)" \
       --bind 'j:down,k:up,q:abort,change:clear-query' \
-      --bind "/:unbind(j,k,q,change,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch /tmp/.nn-s)" \
-      --bind "esc:transform[test -f /tmp/.nn-c && rm -f /tmp/.nn-c && printf 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)' || { test -f /tmp/.nn-s && rm /tmp/.nn-s && printf 'rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)'; }]" \
-      --bind "::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f /tmp/.nn-s)" \
+      --bind "/:unbind(j,k,q,change,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch $_nn_dir/.nn-s)" \
+      --bind "esc:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)' || { test -f $_nn_dir/.nn-s && rm $_nn_dir/.nn-s && printf 'rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)'; }]" \
+      --bind "::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,u,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_dir/.nn-s)" \
       --bind 'J:preview-page-down,K:preview-page-up' \
       --bind 'ctrl-j:preview-page-down,ctrl-k:preview-page-up' \
       --bind 'H:toggle-wrap' \
       --bind "enter:execute[test -f {1} && $_nn_editor {1}]"
     rm -rf "$_nn_dir"
+    trap - EXIT
     shopt -u nullglob
     return
   fi
@@ -1483,8 +1486,10 @@ ENDFILTER
   if $interactive; then
     local nn_tmp=$(mktemp)
     local _nn_prev=$(mktemp)
+    local _nn_sflag=$(mktemp -u)
+    trap "rm -f '${nn_tmp}' '${_nn_prev}' '${_nn_sflag}'" EXIT
     cat > "$_nn_prev" << 'ENDPREVIEW'
-#!/bin/bash
+#!/usr/bin/env bash
 file="$1"
 test -f "$file" || exit 0
 $(command -v bat || command -v batcat) -p --color always "$file" 2>/dev/null || cat "$file"
@@ -1508,16 +1513,17 @@ ENDPREVIEW
     fzf --ansi --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
           --preview "$_nn_prev {1}" \
           --prompt "$NN_UI_COMMAND_PROMPT" \
-          --bind 'start:execute-silent(rm -f /tmp/.nn-s)' \
+          --bind "start:execute-silent(rm -f $_nn_sflag)" \
           --bind 'j:down,k:up,q:abort,change:clear-query' \
-          --bind "/:unbind(j,k,q,change)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch /tmp/.nn-s)" \
-          --bind "esc:transform[test -f /tmp/.nn-s && rm /tmp/.nn-s && printf 'rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)']" \
-          --bind "::rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f /tmp/.nn-s)" \
+          --bind "/:unbind(j,k,q,change)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch $_nn_sflag)" \
+          --bind "esc:transform[test -f $_nn_sflag && rm $_nn_sflag && printf 'rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)']" \
+          --bind "::rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_sflag)" \
           --bind 'J:preview-page-down,K:preview-page-up' \
           --bind 'ctrl-j:preview-page-down,ctrl-k:preview-page-up' \
           --bind 'H:toggle-wrap' \
           --bind "enter:execute($_nn_editor {1})"
-    rm -f "$nn_tmp" "$_nn_prev"
+    rm -f "$nn_tmp" "$_nn_prev" "$_nn_sflag"
+    trap - EXIT
   else
     local _adhoc_fmt
     if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then

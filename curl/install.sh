@@ -3,7 +3,7 @@
 # Usage: curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/install.sh | sh
 set -e
 
-NOTENAV_DIR="${NOTENAV_DIR:-$HOME/.local/share/notenav}"
+NOTENAV_DIR="${NOTENAV_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/notenav}"
 NOTENAV_BIN="${NOTENAV_BIN:-$HOME/.local/bin}"
 
 info() { printf '  %s\n' "$@"; }
