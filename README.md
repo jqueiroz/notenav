@@ -6,8 +6,6 @@ Schemas are fully customizable — define your own entity types, statuses, prior
 
 Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing. For non-interactive usage (scripting, batch operations, LSP), use zk directly.
 
-> **Early development** — extracted from a personal zshrc. Not yet packaged for general use.
-
 ## Install
 
 **Option 1: via [Nix](https://nixos.org/)** (recommended — transparently handles all dependencies)
