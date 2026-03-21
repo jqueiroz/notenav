@@ -46,9 +46,9 @@ Same dependencies as manual installation. See [docs/install.md](docs/install.md)
 Out of the box, `nn` uses **Compass** – a simple workflow built around three note types, four statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
 
 **Note types** – every note is one of:
-- **task** – concrete, actionable unit of work.
-- **idea** – needs exploration; may evolve into one or more tasks.
-- **reference** – living documentation, continually updated as understanding grows.
+- **task** – concrete, actionable unit of work
+- **idea** – needs exploration; may evolve into one or more tasks
+- **reference** – living documentation, continually updated as understanding grows
 
 **Status** – tracks where a note is in its lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (tombstone – hidden from normal views).
 
