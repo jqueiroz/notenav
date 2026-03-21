@@ -80,7 +80,9 @@ nn_load_config() {
     return 1
   fi
 
-  # Step 3: Parse schema and merge (schema → base config → user config → project config)
+  # Step 3: Parse schema and merge
+  # Preferences: schema → base config → user config (project config does NOT contribute preferences)
+  # Queries: user queries + project queries (project wins on name collisions)
   local schema_json
   schema_json=$(yq -p=toml -o=json -I=0 '.' "$schema_file" 2>/dev/null)
   if [[ -z "$schema_json" || "$schema_json" == "null" ]]; then
@@ -88,8 +90,14 @@ nn_load_config() {
     return 1
   fi
 
+  # Extract only queries from project config (schema is already handled above)
+  local project_queries="{}"
+  if [[ -n "$project_json" && "$project_json" != "{}" ]]; then
+    project_queries=$(printf '%s' "$project_json" | jq '{queries: (.queries // {})}' 2>/dev/null) || project_queries="{}"
+  fi
+
   # Deep merge: jq * is recursive merge, later values win
-  NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$schema_json" "$base_json" "$user_json" "$project_json" \
+  NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$schema_json" "$base_json" "$user_json" "$project_queries" \
     | jq -s '.[0] * .[1] * .[2] * .[3]' 2>/dev/null)
 
   if [[ -z "$NN_CFG_JSON" || "$NN_CFG_JSON" == "null" ]]; then

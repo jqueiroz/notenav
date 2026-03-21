@@ -51,7 +51,7 @@ Full TUI with filters, saved queries, inline actions. Creates a temp dir with he
 
 ### 2. Named query (`nn <name>`)
 
-Looks up `<name>` in `.nn/queries/` directories (inherited from git root down to cwd). Delegates to `notenav_main` with the query's key=value args.
+Looks up `<name>` in saved queries (from user and project config `[queries]` sections). Delegates to `notenav_main` with the query's key=value args.
 
 ### 3. Ad-hoc query (`nn key=value ...`)
 
@@ -123,18 +123,19 @@ created: 2026-03-18
 
 ## Saved Queries
 
-Saved queries live in `.nn/queries/` directories, inherited from git root down to cwd (deeper dirs override). Each file = query name, contents = `key=value` args (one per line). Optional `# N` first line sets display order (default 100, lower = first).
+Saved queries are defined in config TOML files under `[queries.<name>]`. Each query has an `args` string (key=value pairs) and optional `order` (default 100, lower = first in the query bar).
 
-Example (`.nn/queries/backlog`):
-```
-tag=backlog
+**Project queries** (`.nn/config.toml`) are shared among team members:
+```toml
+[queries.backlog]
+args = "tag=backlog"
+
+[queries.active-bugs]
+order = 5
+args = "type=bug status=active"
 ```
 
-Example with sort order (`.nn/queries/tasks-p1`):
-```
-# 10
-type=task priority=1
-```
+**User queries** (`~/.config/notenav/config.toml`) are personal, available everywhere. Project queries win on name collisions.
 
 ## Source Reference
 
@@ -162,8 +163,8 @@ Schema and preferences are loaded from TOML files at startup via `nn_load_config
 **Config resolution order** (later values win via jq deep merge):
 1. Schema file (base) — determined by config `schema`/`default_schema` key
 2. Base config: `$NOTENAV_ROOT/config/base.toml`
-3. User config: `~/.config/notenav/config.toml`
-4. Project config: `.nn/config.toml` (closest `.nn` dir walking up from cwd)
+3. User config: `~/.config/notenav/config.toml` (preferences + personal queries)
+4. Project config: `.nn/config.toml` (schema selection + shared queries only — no preferences)
 
 **Schema resolution** (first match wins):
 1. `.nn/schemas/<name>.toml` — project-local
@@ -178,5 +179,5 @@ Built-in schemas: `compass` (default), `ado`, `gtd`, `zettelkasten`.
 
 - Entry point (`bin/nn`) stays minimal — all logic in `lib/notenav.sh`
 - Internal temp files use `/tmp/.nn-` prefix
-- Saved query dirs: `.nn/queries/`
+- Saved queries: `[queries]` section in user/project config
 - Version string in `NOTENAV_VERSION` variable at top of `lib/notenav.sh`

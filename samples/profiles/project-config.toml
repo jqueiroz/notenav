@@ -1,13 +1,20 @@
-# Example .nn/config.toml (project-level overrides)
+# Example .nn/config.toml (project-level config)
 # Place this in your project's .nn/ directory.
+# Project config defines the schema and shared queries — not user preferences.
 
 # Use a different schema for this project
 schema = "ado"
 
-[defaults]
-sort_by = "priority"
-group_by = "status"
+# Saved queries shared among project members.
+# Each query has an args string (key=value pairs) and optional order (default 100).
+# Lower order = earlier in the saved query bar.
 
-# Override colors for this project only
-# [status.colors]
-# active = "32;1"
+[queries.backlog]
+args = "tag=backlog"
+
+[queries.active-bugs]
+order = 5
+args = "type=bug status=active"
+
+[queries.my-features]
+args = "type=feature status=active"

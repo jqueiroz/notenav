@@ -1,7 +1,7 @@
 # notenav base configuration
-# Ships with notenav; user and project configs overlay on top.
-# User overrides: ~/.config/notenav/config.toml
-# Project overrides: .nn/config.toml
+# Ships with notenav; user config overlays on top for preferences.
+# User config:    ~/.config/notenav/config.toml (preferences + personal queries)
+# Project config: .nn/config.toml (schema selection + shared queries only)
 
 default_schema = "compass"
 
