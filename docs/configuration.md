@@ -238,7 +238,7 @@ color = "31"
 description = "Defect to fix"
 ```
 
-`extends` can chain – for example, a remote schema can itself extend a built-in. The chain always terminates at a built-in or a full definition. Maximum recursion depth is 5.
+`extends` can chain – for example, a remote schema can itself extend a built-in. The chain always terminates at a built-in or a full definition. Maximum recursion depth is 5 (currently non-configurable – please [file an issue](https://github.com/jqueiroz/notenav/issues) if you have a genuine use case for higher depth).
 
 **Full custom schema (no `extends`):**
 
@@ -307,14 +307,16 @@ TUI preferences.
 
 ```toml
 [ui]
-editor = ""        # empty = $EDITOR or nvim
-prompt = ": "
+editor = ""              # empty = $EDITOR or nvim
+command_prompt = ": "    # prompt in normal (command) mode
+search_prompt = "/ "     # prompt in search mode
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR` or falls back to `nvim` |
-| `prompt` | string | `": "` | fzf prompt string |
+| `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
+| `search_prompt` | string | `"/ "` | fzf prompt string in search mode |
 
 ### Overriding schema colors
 

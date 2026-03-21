@@ -11,8 +11,9 @@ group_by = "type"
 show_archive = false
 
 [ui]
-editor = ""            # empty = $EDITOR or nvim
-prompt = ": "
+editor = ""              # empty = $EDITOR or nvim
+command_prompt = ": "    # prompt in normal (command) mode
+search_prompt = "/ "     # prompt in search mode
 
 [zk]
 format = '{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'

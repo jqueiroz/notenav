@@ -11,7 +11,9 @@ group_by = "type"          # "" | type | status
 show_archive = false       # true to show done/removed by default
 
 [ui]
-editor = "nvim"         # editor for opening notes
+editor = "nvim"            # editor for opening notes
+# command_prompt = ": "   # prompt in normal (command) mode
+# search_prompt = "/ "    # prompt in search mode
 
 # Override individual entity/status/priority colors from the schema.
 # These merge on top of the schema, so you only need to specify what you
