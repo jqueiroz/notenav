@@ -14,13 +14,15 @@ Currently works on **Linux** and **macOS**. Windows support is planned – in th
 
 ## Install
 
-**Option 1: via [Nix](https://nixos.org/)** (recommended path – transparently handles all dependencies)
+**Option 1: via [Nix](https://nixos.org/)** (recommended path – handles all dependencies)
 
 ```bash
 nix profile install github:jqueiroz/notenav
 ```
 
-[Nix](https://nixos.org/) is a declarative package manager for Linux and macOS. Using Nix, you can install `nn` and all of its dependencies in isolation from your system packages. See [docs/install.md](docs/install.md) for NixOS and Home Manager options.
+Nix installs packages in isolated, immutable environments, avoiding conflicts with system dependencies and ensuring reproducibility.
+
+This command uses Nix's imperative interface (`nix profile`). If you prefer a fully declarative setup, see the NixOS or Home Manager instructions in [docs/install.md](docs/install.md).
 
 **Option 2: Manual installation**
 
