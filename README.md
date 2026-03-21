@@ -42,9 +42,7 @@ All configuration is TOML, across two scopes:
 - **Project-level** (`.nn/config.toml`) — defines the schema (built-in or custom), saved queries, and preset filters for the project.
 - **User-level** (`~/.config/notenav/config.toml`) — personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback schema (used only when `nn` is invoked in directories without project-level configuration).
 
-Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions. Use a built-in preset or write your own.
-
-Ships with built-in schemas: [**compass**](docs/schemas/compass.md) (default — our favorite), [**ado**](docs/schemas/ado.md), [**gtd**](docs/schemas/gtd.md), [**zettelkasten**](docs/schemas/zettelkasten.md). See [docs/configuration.md](docs/configuration.md) for the full config and schema reference.
+Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions. Use a built-in preset or write your own — the built-in schemas ([compass](config/schemas/compass.toml), [gtd](config/schemas/gtd.toml), [zettelkasten](config/schemas/zettelkasten.toml)) are good starting points and serve as reference for the format. See [docs/configuration.md](docs/configuration.md) for the full config and schema reference.
 
 ## License
 
