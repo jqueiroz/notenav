@@ -1241,11 +1241,7 @@ fi
 awk_body=$(cat "$dir/.awk_color_body")
 do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
 # Count filtered items (before pinning/grouping adds extra lines)
-count=$(wc -l < "$dir/.current")
-# Show placeholder when no notes match
-if [ "$count" -eq 0 ]; then
-  printf '\t\033[90mMostly harmless. Also, mostly empty.\033[0m\n' > "$dir/.current"
-fi
+count=$(awk 'END{print NR}' "$dir/.current")
 # Prepend pinned items (from actions) that got filtered out
 if [ -s "$dir/.pinned" ]; then
   pinned_lines=""
@@ -1288,6 +1284,15 @@ if [ -n "$fgroup" ]; then
         printf "%s", lines[g]
       }
     }' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
+fi
+# Show placeholder when no notes match
+if [ "$count" -eq 0 ]; then
+  raw_total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
+  if [ "$raw_total" -eq 0 ]; then
+    printf '\t\033[90mMostly harmless. Also, entirely empty.\n\tPress '\''n'\'' to create your first note.\033[0m\n' > "$dir/.current"
+  else
+    printf '\t\033[90mMostly harmless. Also, mostly empty.\033[0m\n' > "$dir/.current"
+  fi
 fi
 # Compute inline stats from filtered set
 awk_stats=$(cat "$dir/.awk_color_stats")
