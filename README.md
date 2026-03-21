@@ -71,7 +71,7 @@ created: 2026-03-18
 ---
 ```
 
-If Compass doesn't fit your requirements, switch to one of the other built-in workflows (**ado**, **gtd**, **zettelkasten**) or define your own. See [docs/configuration.md](docs/configuration.md) for the full workflow reference, and the [Compass workflow file](config/workflows/compass.toml) for the exact definitions.
+If Compass doesn't fit your requirements, explore our other built-in workflows (**ado**, **gtd**, **zettelkasten**) or define your own. See [docs/configuration.md](docs/configuration.md) for the full workflow reference, and the [Compass workflow file](config/workflows/compass.toml) for the exact definitions.
 
 ## Main keybindings
 
