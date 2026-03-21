@@ -9,7 +9,11 @@ description = "Custom schema example"
 # Define your entity types (note categories).
 # icon: single character shown in the list
 # color: ANSI color code (e.g. 31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan)
+# default_color: used for entity types not listed below
 # display_order: controls sort order in grouped view
+
+[entity]
+default_color = "36"
 
 [entity.feature]
 icon = "◆"
@@ -40,6 +44,7 @@ values = ["open", "in-progress", "review", "done"]
 display_order = ["in-progress", "review", "open", "done"]
 archive = ["done"]
 filter_cycle = ["", "open", "in-progress", "review", "done"]
+default_color = "90"   # used for statuses not listed below
 
 [status.colors]
 open = "90"

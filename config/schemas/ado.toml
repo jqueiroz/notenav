@@ -5,6 +5,9 @@
 name = "Azure DevOps"
 description = "Feature/task/bug workflow inspired by Azure DevOps"
 
+[entity]
+default_color = "36"   # cyan — fallback for unknown entity types
+
 [entity.feature]
 icon = "◇"
 color = "35"           # magenta
@@ -28,6 +31,7 @@ values = ["new", "active", "resolved", "closed", "removed"]
 display_order = ["active", "new", "resolved", "closed", "removed"]
 archive = ["closed", "removed"]
 filter_cycle = ["", "new", "active", "resolved", "closed"]
+default_color = "90"   # dim — fallback for unknown statuses
 
 [status.colors]
 new = "90"             # dim

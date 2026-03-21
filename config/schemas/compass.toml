@@ -5,6 +5,9 @@
 name = "Compass"
 description = "Simple task/idea/reference workflow"
 
+[entity]
+default_color = "36"   # cyan — fallback for unknown entity types
+
 [entity.task]
 icon = "◆"
 color = "36"           # cyan
@@ -28,6 +31,7 @@ values = ["new", "active", "blocked", "done", "removed"]
 display_order = ["active", "blocked", "new", "done", "removed"]
 archive = ["done", "removed"]
 filter_cycle = ["", "new", "active", "blocked", "done"]
+default_color = "90"   # dim — fallback for unknown statuses
 
 [status.colors]
 new = "90"             # dim

@@ -5,6 +5,9 @@
 name = "GTD"
 description = "Getting Things Done capture-and-process workflow"
 
+[entity]
+default_color = "36"   # cyan — fallback for unknown entity types
+
 [entity.action]
 icon = "◆"
 color = "36"           # cyan
@@ -28,6 +31,7 @@ values = ["inbox", "next", "waiting", "someday", "done", "dropped"]
 display_order = ["next", "waiting", "inbox", "someday", "done", "dropped"]
 archive = ["done", "dropped"]
 filter_cycle = ["", "inbox", "next", "waiting", "someday", "done"]
+default_color = "90"   # dim — fallback for unknown statuses
 
 [status.colors]
 inbox = "33"           # yellow — needs processing

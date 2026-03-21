@@ -5,6 +5,9 @@
 name = "Zettelkasten"
 description = "Slip-box method for knowledge management"
 
+[entity]
+default_color = "36"   # cyan — fallback for unknown entity types
+
 [entity.fleeting]
 icon = "◇"
 color = "33"           # yellow
@@ -28,6 +31,7 @@ values = ["draft", "review", "mature", "archived"]
 display_order = ["review", "draft", "mature", "archived"]
 archive = ["archived"]
 filter_cycle = ["", "draft", "review", "mature", "archived"]
+default_color = "90"   # dim — fallback for unknown statuses
 
 [status.colors]
 draft = "33"           # yellow
