@@ -4,7 +4,7 @@ TUI faceted browser for [zk](https://github.com/zk-org/zk) notebooks, built on f
 
 ## Project Status
 
-Early extraction — previously embedded as `zkq()` in zshrc (~1100 LOC). Now standalone at `~/Development/Projects/notenav/`. Functional but not yet packaged for general use.
+Early extraction – previously embedded as `zkq()` in zshrc (~1100 LOC). Now standalone at `~/Development/Projects/notenav/`. Packaged via Nix flake; also installable manually or via one-liner.
 
 ## Repo Layout
 
@@ -18,14 +18,20 @@ config/
     ado.toml        # Azure DevOps preset
     gtd.toml        # Getting Things Done preset
     zettelkasten.toml # Zettelkasten preset
+curl/
+  install.sh       # curl-pipe-sh installer script
 docs/
   install.md          # Full install instructions (requirements, all methods)
   configuration.md    # Config system + workflow reference
+  workflows/          # Per-workflow documentation (compass.md, ado.md, etc.)
 samples/
   user-config.toml      # Example ~/.config/notenav/config.toml
   workflows/
     project-workflow.toml # Example .nn/workflow.toml (extends a built-in)
     custom-workflow.toml  # Example .nn/workflow.toml (full custom definition)
+.claude/
+  commands/           # Claude Code slash commands (best-practices, audit-config, etc.)
+flake.nix           # Nix package definition
 CLAUDE.md           # This file
 README.md           # Public-facing README
 LICENSE             # MIT
@@ -34,13 +40,13 @@ LICENSE             # MIT
 
 ## Dependencies
 
-- **bash 4+** — uses `declare -A` (associative arrays), `mapfile`, and other bash 4+ features
-- **zk** — note indexing, querying, LSP (the underlying note tool)
-- **fzf** 0.44+ — TUI framework (transform, execute, rebind)
-- **bat/batcat** — syntax-highlighted preview
-- **yq** ([yq-go](https://github.com/mikefarah/yq), **not** [yq-python](https://github.com/kislyuk/yq)) — TOML→JSON conversion for config/workflow loading
-- **jq** — JSON merging and querying for config system
-- **awk**, **sort**, **sed** — data pipeline (POSIX + gawk `mktime`)
+- **bash 4+** – uses `declare -A` (associative arrays), `mapfile`, and other bash 4+ features
+- **zk** – note indexing, querying, LSP (the underlying note tool)
+- **fzf** 0.44+ – TUI framework (transform, execute, rebind)
+- **bat/batcat** – syntax-highlighted preview
+- **yq** ([yq-go](https://github.com/mikefarah/yq), **not** [yq-python](https://github.com/kislyuk/yq)) – TOML→JSON conversion for config/workflow loading
+- **jq** – JSON merging and querying for config system
+- **awk**, **sort**, **sed** – data pipeline (POSIX + gawk `mktime`)
 
 ## Three Operating Modes
 
@@ -103,8 +109,8 @@ Filters notes by frontmatter fields. Supports `-i` for interactive (fzf) mode, `
 **Filters:** `e`/`E` type, `s`/`S` status, `p`/`P` priority, `t`/`T` tags, `m`/`M` body search, `R`/`0` reset
 **Query Presets:** `h`/`l` prev/next, `1`-`9` jump, `f` fuzzy pick
 **Search:** `/` enter, `Esc` exit
-**Actions:** `a`/`A` status cycle, `+`/`-` priority, `n` new note, `b` bulk edit
-**Change mode:** `c` then `s`/`p`/`e` — set field on selected notes
+**Actions:** `a`/`A` status cycle, `+`/`-` (or `<`/`>`) priority, `n` new note, `b` bulk edit
+**Change mode:** `c` then `s`/`p`/`e` – set field on selected notes
 **View:** `o` sort, `g` group, `z` archive toggle
 
 ## Frontmatter Schema
@@ -113,7 +119,7 @@ Filters notes by frontmatter fields. Supports `-i` for interactive (fzf) mode, `
 ---
 title: "Note Title"
 type: idea | task | reference
-priority: 1-5
+priority: 1-4
 status: new | active | blocked | done | removed
 tags: [feature-area]
 created: 2026-03-18
@@ -124,9 +130,9 @@ created: 2026-03-18
 
 Query Presets are defined in `[queries.<name>]` sections across three layers (later wins on name collisions):
 
-1. **Workflow queries** — built-in presets shipped with each workflow (e.g. compass has `p1-tasks`, `inbox`)
-2. **User queries** (`~/.config/notenav/config.toml`) — personal, available everywhere
-3. **Project queries** (`.nn/workflow.toml`) — team-shared, project-specific
+1. **Workflow queries** – built-in presets shipped with each workflow (e.g. compass has `p1-tasks`, `inbox`)
+2. **User queries** (`~/.config/notenav/config.toml`) – personal, available everywhere
+3. **Project queries** (`.nn/workflow.toml`) – team-shared, project-specific
 
 ```toml
 [queries.backlog]
@@ -177,8 +183,8 @@ Built-in workflows: `compass` (default), `ado`, `gtd`, `zettelkasten`.
 
 ## Conventions
 
-- Entry point (`bin/nn`) stays minimal — all logic in `lib/notenav.sh`
+- Entry point (`bin/nn`) stays minimal – all logic in `lib/notenav.sh`
 - Internal temp files use per-session `mktemp -d` directories (cleaned up via EXIT trap)
 - Query Presets: `[queries]` section in workflow/user config
 - Version string in `NOTENAV_VERSION` variable at top of `lib/notenav.sh`
-- Use en-dashes (–), not em-dashes (—), in prose
+- Use en-dashes (–), not em-dashes (–), in prose
