@@ -113,6 +113,321 @@ nn_cfg() {
   printf '%s' "$NN_CFG_JSON" | jq -r "$1"
 }
 
+# --- Pre-compute schema values ---
+# Extracts all schema/config values into bash variables at startup.
+# Called once after nn_load_config(). Helper scripts read from temp files
+# written by nn_write_schema_files().
+
+_nn_gen_awk_bodies() {
+  # Entity color+icon assignments
+  local _ent_awk="" _first=true
+  for _v in "${NN_ENTITY_VALUES[@]}"; do
+    if $_first; then
+      _ent_awk="tc = \"\\033[${NN_ENTITY_COLORS[$_v]}m\"; ic = \"${NN_ENTITY_ICONS[$_v]}\""
+      _first=false
+    else
+      _ent_awk+=$'\n'"  if (\$1 == \"$_v\") { tc = \"\\033[${NN_ENTITY_COLORS[$_v]}m\"; ic = \"${NN_ENTITY_ICONS[$_v]}\" }"
+    fi
+  done
+
+  # Status color assignments
+  local _sta_awk="sc = \"\\033[${NN_STATUS_DEFAULT_COLOR}m\""
+  for _v in "${NN_STATUS_VALUES[@]}"; do
+    [[ "${NN_STATUS_COLORS[$_v]}" == "$NN_STATUS_DEFAULT_COLOR" ]] && continue
+    _sta_awk+=$'\n'"  if (\$2 == \"$_v\") sc = \"\\033[${NN_STATUS_COLORS[$_v]}m\""
+  done
+
+  # Priority color + label assignments
+  local _pri_awk=""
+  if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
+    _pri_awk="pc = \"\\033[${NN_PRIORITY_DEFAULT_COLOR}m\""
+    for _v in "${NN_PRIORITY_VALUES[@]}"; do
+      [[ "${NN_PRIORITY_COLORS[$_v]}" == "$NN_PRIORITY_DEFAULT_COLOR" ]] && continue
+      if [[ "$_v" =~ ^[0-9]+$ ]]; then
+        _pri_awk+=$'\n'"  if (\$3+0 == $_v) pc = \"\\033[${NN_PRIORITY_COLORS[$_v]}m\""
+      else
+        _pri_awk+=$'\n'"  if (\$3 == \"$_v\") pc = \"\\033[${NN_PRIORITY_COLORS[$_v]}m\""
+      fi
+    done
+    _pri_awk+=$'\n''  pl = "P" $3'
+    for _v in "${NN_PRIORITY_VALUES[@]}"; do
+      [[ "${NN_PRIORITY_LABELS[$_v]}" == "P$_v" ]] && continue
+      _pri_awk+=$'\n'"  if (\$3 == \"$_v\") pl = \"${NN_PRIORITY_LABELS[$_v]}\""
+    done
+  fi
+
+  # Age computation (constant across schemas)
+  local _age_awk='age = ""
+  if ($7 != "") {
+    split($7, dt, /[-: ]/)
+    ts = mktime(dt[1] " " dt[2] " " dt[3] " " dt[4] " " dt[5] " " int(dt[6]))
+    if (ts > 0) {
+      diff = now - ts
+      if (diff < 0) diff = 0
+      if (diff < 3600) age = int(diff/60) "m"
+      else if (diff < 86400) age = int(diff/3600) "h"
+      else if (diff < 604800) age = int(diff/86400) "d"
+      else if (diff < 2592000) age = int(diff/604800) "w"
+      else if (diff < 31536000) age = int(diff/2592000) "mo"
+      else age = int(diff/31536000) "y"
+    }
+  }
+  age_s = (age != "") ? " \033[90m" age r : ""'
+
+  # Ad-hoc mode AWK body (no age)
+  local _simple="$_ent_awk"
+  [[ -n "$_pri_awk" ]] && _simple+=$'\n'"  $_pri_awk"
+  _simple+=$'\n'"  $_sta_awk"
+  _simple+=$'\n''  r = "\033[0m"'
+  if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
+    _simple+=$'\n''  printf "%s\t%s%s %s%s %s%s%s %s%s%s %s\n", $6, tc, ic, $1, r, pc, pl, r, sc, $2, r, $5'
+  else
+    _simple+=$'\n''  printf "%s\t%s%s %s%s %s%s%s %s\n", $6, tc, ic, $1, r, sc, $2, r, $5'
+  fi
+  NN_AWK_COLOR="{ $_simple }"
+
+  # Filter.sh main display AWK body (with age)
+  local _full="$_ent_awk"
+  [[ -n "$_pri_awk" ]] && _full+=$'\n'"  $_pri_awk"
+  _full+=$'\n'"  $_sta_awk"
+  _full+=$'\n''  r = "\033[0m"'
+  _full+=$'\n'"  $_age_awk"
+  if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
+    _full+=$'\n''  printf "%s\t%s%s %s%s %s%s%s %s%s%s %s%s\n", $6, tc, ic, $1, r, pc, pl, r, sc, $2, r, $5, age_s'
+  else
+    _full+=$'\n''  printf "%s\t%s%s %s%s %s%s%s %s%s\n", $6, tc, ic, $1, r, sc, $2, r, $5, age_s'
+  fi
+  NN_AWK_COLOR_BODY="$_full"
+
+  # Pinned items AWK body (all dim, icon varies by entity)
+  local _pinned='tc = "\033[90m"; pc = "\033[90m"; sc = "\033[90m"; r = "\033[0m"'
+  _pinned+=$'\n'"  ic = \"${NN_ENTITY_ICONS[${NN_ENTITY_VALUES[0]}]}\""
+  for (( _i=1; _i<${#NN_ENTITY_VALUES[@]}; _i++ )); do
+    local _v="${NN_ENTITY_VALUES[$_i]}"
+    _pinned+=$'\n'"  if (\$1 == \"$_v\") ic = \"${NN_ENTITY_ICONS[$_v]}\""
+  done
+  _pinned+=$'\n'"  $_age_awk"
+  if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
+    _pinned+=$'\n''  printf "%s\t%s%s %s%s %sP%s%s %s%s%s %s%s \033[90m(temporarily pinned)\033[0m\n", $6, tc, ic, $1, r, pc, $3, r, sc, $2, r, $5, age_s'
+  else
+    _pinned+=$'\n''  printf "%s\t%s%s %s%s %s%s%s %s%s \033[90m(temporarily pinned)\033[0m\n", $6, tc, ic, $1, r, sc, $2, r, $5, age_s'
+  fi
+  NN_AWK_COLOR_PINNED="$_pinned"
+
+  # Stats AWK body
+  local _entity_order_str="${NN_ENTITY_VALUES[*]}"
+  local _status_fc_str="${NN_STATUS_FILTER_CYCLE[*]}"
+  local _stats_entity_lookup="" _stats_status_lookup=""
+  for _v in "${NN_ENTITY_VALUES[@]}"; do
+    _stats_entity_lookup+="icon[\"$_v\"] = \"${NN_ENTITY_ICONS[$_v]}\"; clr[\"$_v\"] = \"\\033[${NN_ENTITY_COLORS[$_v]}m\"; "
+  done
+  for _v in "${NN_STATUS_FILTER_CYCLE[@]}"; do
+    _stats_status_lookup+="sc[\"$_v\"] = \"\\033[${NN_STATUS_COLORS[$_v]}m\"; "
+  done
+  NN_AWK_COLOR_STATS='{ types[$1]++; combos[$1, $2]++ } END {
+  n = split("'"$_entity_order_str"'", order, " ")
+  '"$_stats_entity_lookup"'
+  '"$_stats_status_lookup"'
+  first = 1
+  for (o = 1; o <= n; o++) {
+    t = order[o]
+    if (!(t in types)) continue
+    if (!first) printf " \033[90m·\033[0m "
+    first = 0
+    tc = (t in clr) ? clr[t] : "\033[36m"
+    ic = (t in icon) ? icon[t] : "*"
+    tl = t; if (types[t] != 1) tl = t "s"
+    printf "%s%s %d %s\033[0m", tc, ic, types[t], tl
+    printf " ("
+    sn = split("'"$_status_fc_str"'", statuses, " ")
+    sfirst = 1
+    for (si = 1; si <= sn; si++) {
+      s = statuses[si]
+      key = t SUBSEP s
+      if (!(key in combos)) continue
+      if (!sfirst) printf ", "
+      sfirst = 0
+      scolor = (s in sc) ? sc[s] : "\033[90m"
+      printf "%s%d %s\033[0m", scolor, combos[key], s
+    }
+    printf ")"
+  }
+}'
+
+  # Group ordering strings
+  NN_ENTITY_ORDER_STR="$_entity_order_str"
+  NN_STATUS_ORDER_STR="${NN_STATUS_VALUES[*]}"
+
+  # Entity icon AWK snippet for grouping
+  NN_AWK_ICON_SETUP=""
+  for _v in "${NN_ENTITY_VALUES[@]}"; do
+    NN_AWK_ICON_SETUP+="icon[\"$_v\"] = \"${NN_ENTITY_ICONS[$_v]}\"; "
+  done
+}
+
+nn_precompute_schema() {
+  # Entity types
+  mapfile -t NN_ENTITY_VALUES < <(nn_cfg '.entity.values[]')
+  NN_ENTITY_DEFAULT_COLOR=$(nn_cfg '.entity.default_color // "36"')
+  declare -gA NN_ENTITY_ICONS NN_ENTITY_COLORS NN_ENTITY_DESCS
+  for _v in "${NN_ENTITY_VALUES[@]}"; do
+    NN_ENTITY_ICONS[$_v]=$(nn_cfg ".entity.\"$_v\".icon // \"*\"")
+    NN_ENTITY_COLORS[$_v]=$(nn_cfg ".entity.\"$_v\".color // \"$NN_ENTITY_DEFAULT_COLOR\"")
+    NN_ENTITY_DESCS[$_v]=$(nn_cfg ".entity.\"$_v\".description // \"\"")
+  done
+
+  # Statuses
+  mapfile -t NN_STATUS_VALUES < <(nn_cfg '.status.values[]')
+  mapfile -t NN_STATUS_ARCHIVE < <(nn_cfg '.status.archive // [] | .[]')
+  mapfile -t NN_STATUS_FILTER_CYCLE < <(nn_cfg '.status.filter_cycle // [] | .[]')
+  NN_STATUS_DEFAULT_COLOR=$(nn_cfg '.status.default_color // "90"')
+  declare -gA NN_STATUS_COLORS
+  for _v in "${NN_STATUS_VALUES[@]}"; do
+    NN_STATUS_COLORS[$_v]=$(nn_cfg ".status.colors.\"$_v\" // \"$NN_STATUS_DEFAULT_COLOR\"")
+  done
+
+  # Status lifecycle
+  declare -gA NN_STATUS_FWD NN_STATUS_REV
+  for _v in "${NN_STATUS_VALUES[@]}"; do
+    local _fwd; _fwd=$(nn_cfg ".status.lifecycle.forward.\"$_v\" // empty")
+    [[ -n "$_fwd" ]] && NN_STATUS_FWD[$_v]=$_fwd
+    local _rev; _rev=$(nn_cfg ".status.lifecycle.reverse.\"$_v\" // empty")
+    [[ -n "$_rev" ]] && NN_STATUS_REV[$_v]=$_rev
+  done
+
+  # Priority
+  NN_PRIORITY_ENABLED=$(nn_cfg '.priority.enabled // true')
+  declare -gA NN_PRIORITY_COLORS NN_PRIORITY_LABELS NN_PRIORITY_UP NN_PRIORITY_DOWN
+  if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
+    mapfile -t NN_PRIORITY_VALUES < <(nn_cfg '.priority.values[]')
+    mapfile -t NN_PRIORITY_FILTER_CYCLE < <(nn_cfg '.priority.filter_cycle // [] | .[]')
+    NN_PRIORITY_DEFAULT_COLOR=$(nn_cfg '.priority.default_color // "33"')
+    for _v in "${NN_PRIORITY_VALUES[@]}"; do
+      NN_PRIORITY_COLORS[$_v]=$(nn_cfg ".priority.colors.\"$_v\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")
+      local _label; _label=$(nn_cfg ".priority.labels.\"$_v\" // empty")
+      NN_PRIORITY_LABELS[$_v]="${_label:-P$_v}"
+    done
+    for _v in "" "${NN_PRIORITY_VALUES[@]}"; do
+      local _up; _up=$(nn_cfg ".priority.lifecycle.up.\"$_v\" // empty")
+      [[ -n "$_up" ]] && NN_PRIORITY_UP[$_v]=$_up
+      local _down; _down=$(nn_cfg ".priority.lifecycle.down.\"$_v\" // empty")
+      [[ -n "$_down" ]] && NN_PRIORITY_DOWN[$_v]=$_down
+    done
+  else
+    NN_PRIORITY_VALUES=()
+    NN_PRIORITY_FILTER_CYCLE=()
+    NN_PRIORITY_DEFAULT_COLOR="33"
+  fi
+
+  # Defaults
+  NN_DEFAULT_SORT=$(nn_cfg '.defaults.sort_by // "created"')
+  NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // "type"')
+  NN_DEFAULT_ARCHIVE=$(nn_cfg '.defaults.show_archive // false')
+
+  # ZK format
+  NN_ZK_FMT=$(nn_cfg '.zk.format // empty')
+  [[ -z "$NN_ZK_FMT" ]] && NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
+
+  # Generate AWK bodies
+  _nn_gen_awk_bodies
+
+  # Archive AWK condition (e.g. ' && $2!="done" && $2!="removed"')
+  NN_ARCHIVE_COND=""
+  for _v in "${NN_STATUS_ARCHIVE[@]}"; do
+    NN_ARCHIVE_COND+=" && \$2!=\"$_v\""
+  done
+}
+
+nn_write_schema_files() {
+  local dir="$1"
+  printf '%s\n' "${NN_ENTITY_VALUES[@]}" > "$dir/.schema_entity_values"
+  printf '%s\n' "${NN_STATUS_VALUES[@]}" > "$dir/.schema_status_values"
+  if [[ ${#NN_PRIORITY_VALUES[@]} -gt 0 ]]; then
+    printf '%s\n' "${NN_PRIORITY_VALUES[@]}" > "$dir/.schema_priority_values"
+  else
+    : > "$dir/.schema_priority_values"
+  fi
+  if [[ ${#NN_STATUS_FILTER_CYCLE[@]} -gt 0 ]]; then
+    printf '%s\n' "${NN_STATUS_FILTER_CYCLE[@]}" > "$dir/.schema_status_filter_cycle"
+  else
+    : > "$dir/.schema_status_filter_cycle"
+  fi
+  if [[ ${#NN_PRIORITY_FILTER_CYCLE[@]} -gt 0 ]]; then
+    printf '%s\n' "${NN_PRIORITY_FILTER_CYCLE[@]}" > "$dir/.schema_priority_filter_cycle"
+  else
+    : > "$dir/.schema_priority_filter_cycle"
+  fi
+  if [[ ${#NN_STATUS_ARCHIVE[@]} -gt 0 ]]; then
+    printf '%s\n' "${NN_STATUS_ARCHIVE[@]}" > "$dir/.schema_archive"
+  else
+    : > "$dir/.schema_archive"
+  fi
+  printf '%s' "$NN_PRIORITY_ENABLED" > "$dir/.schema_priority_enabled"
+
+  # Entity details (TSV: value\ticon\tcolor\tdescription)
+  local _v
+  for _v in "${NN_ENTITY_VALUES[@]}"; do
+    printf '%s\t%s\t%s\t%s\n' "$_v" "${NN_ENTITY_ICONS[$_v]}" "${NN_ENTITY_COLORS[$_v]}" "${NN_ENTITY_DESCS[$_v]}"
+  done > "$dir/.schema_entities"
+
+  # Entity icon map (TSV: value\ticon)
+  for _v in "${NN_ENTITY_VALUES[@]}"; do
+    printf '%s\t%s\n' "$_v" "${NN_ENTITY_ICONS[$_v]}"
+  done > "$dir/.schema_entity_icons"
+
+  # Status lifecycle (TSV: from\tto)
+  for _v in "${NN_STATUS_VALUES[@]}"; do
+    [[ -n "${NN_STATUS_FWD[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_STATUS_FWD[$_v]}"
+  done > "$dir/.schema_status_fwd"
+  for _v in "${NN_STATUS_VALUES[@]}"; do
+    [[ -n "${NN_STATUS_REV[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_STATUS_REV[$_v]}"
+  done > "$dir/.schema_status_rev"
+
+  # Priority lifecycle (TSV: from\tto)
+  if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
+    for _v in "" "${NN_PRIORITY_VALUES[@]}"; do
+      [[ -n "${NN_PRIORITY_UP[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_PRIORITY_UP[$_v]}"
+    done > "$dir/.schema_priority_up"
+    for _v in "" "${NN_PRIORITY_VALUES[@]}"; do
+      [[ -n "${NN_PRIORITY_DOWN[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_PRIORITY_DOWN[$_v]}"
+    done > "$dir/.schema_priority_down"
+  else
+    : > "$dir/.schema_priority_up"
+    : > "$dir/.schema_priority_down"
+  fi
+
+  # Priority labels (TSV: value\tlabel)
+  for _v in "${NN_PRIORITY_VALUES[@]}"; do
+    printf '%s\t%s\n' "$_v" "${NN_PRIORITY_LABELS[$_v]}"
+  done > "$dir/.schema_priority_labels"
+
+  # Defaults (one per line: sort_by, group_by, show_archive)
+  printf '%s\n%s\n%s\n' "$NN_DEFAULT_SORT" "$NN_DEFAULT_GROUP" "$NN_DEFAULT_ARCHIVE" > "$dir/.schema_defaults"
+
+  # AWK bodies
+  printf '%s' "$NN_AWK_COLOR_BODY" > "$dir/.awk_color_body"
+  printf '%s' "$NN_AWK_COLOR_PINNED" > "$dir/.awk_color_pinned"
+  printf '%s' "$NN_AWK_COLOR_STATS" > "$dir/.awk_color_stats"
+
+  # Archive AWK condition
+  printf '%s' "$NN_ARCHIVE_COND" > "$dir/.schema_archive_cond"
+
+  # Entity and status order strings (space-separated, for AWK split)
+  printf '%s' "$NN_ENTITY_ORDER_STR" > "$dir/.schema_entity_order"
+  printf '%s' "$NN_STATUS_ORDER_STR" > "$dir/.schema_status_order"
+
+  # AWK icon setup for grouping
+  printf '%s' "$NN_AWK_ICON_SETUP" > "$dir/.schema_icon_setup"
+
+  # Archive label (slash-separated status names for header display)
+  local _archive_label=""
+  for _v in "${NN_STATUS_ARCHIVE[@]}"; do
+    [[ -n "$_archive_label" ]] && _archive_label+="/"
+    _archive_label+="$_v"
+  done
+  printf '%s' "$_archive_label" > "$dir/.schema_archive_label"
+}
+
 notenav_main() {
   # --version support
   if [[ "$1" == "--version" || "$1" == "-V" ]]; then
@@ -122,6 +437,7 @@ notenav_main() {
 
   # Load config (schema + user/project overrides)
   nn_load_config "$NOTENAV_ROOT" || true
+  nn_precompute_schema
 
   shopt -s nullglob
 
@@ -156,21 +472,9 @@ notenav_main() {
     done
   fi
 
-  # Type icons
-  local _icon_task='◆' _icon_idea='✦' _icon_ref='▪'
-
-  # Format: type, status, priority, tags, title, absPath, modified, created
-  local _fmt='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
-  local _awk_color='{
-      tc = "\033[36m"; ic = "◆"; pc = "\033[33m"; sc = "\033[90m"; r = "\033[0m"
-      if ($1 == "idea") { tc = "\033[35m"; ic = "✦" }
-      if ($1 == "reference") { tc = "\033[33m"; ic = "▪" }
-      if ($3+0 == 1) pc = "\033[31;1m"
-      if ($3+0 == 2) pc = "\033[33m"
-      if ($2 == "active") sc = "\033[32m"
-      if ($2 == "blocked") sc = "\033[31m"
-      printf "%s\t%s%s %s%s %sP%s%s %s%s%s %s\n", $6, tc, ic, $1, r, pc, $3, r, sc, $2, r, $5
-    }'
+  # Format and color from config
+  local _fmt="$NN_ZK_FMT"
+  local _awk_color="$NN_AWK_COLOR"
 
   # Default zk path args based on cwd
   local _zk_path=()
@@ -181,6 +485,7 @@ notenav_main() {
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
     local _nn_dir=$(mktemp -d)
+    nn_write_schema_files "$_nn_dir"
 
     # Get all notes
     zk list "${_zk_path[@]}" --format "$_fmt" --quiet 2>/dev/null > "$_nn_dir/.raw"
@@ -191,9 +496,9 @@ notenav_main() {
     : > "$_nn_dir/.f_priority"
     : > "$_nn_dir/.f_tags"
     : > "$_nn_dir/.f_sq"
-    echo created > "$_nn_dir/.f_sort"
+    echo "$NN_DEFAULT_SORT" > "$_nn_dir/.f_sort"
     echo type > "$_nn_dir/.f_active"
-    echo type > "$_nn_dir/.f_group"
+    echo "$NN_DEFAULT_GROUP" > "$_nn_dir/.f_group"
     : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
 
@@ -341,9 +646,16 @@ for f in "$@"; do
 done
 [ $shown -gt 2 ] && ctx="$ctx (+$((shown - 2)) more)"
 case "$field" in
-  status)   vals="new\nactive\nblocked\ndone" ;;
-  priority) vals="1\n2\n3\n4" ;;
-  type)     vals="◆ task\n✦ idea\n▪ reference" ;;
+  status)   vals=$(paste -sd'\n' "$dir/.schema_status_values") ;;
+  priority)
+    [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 1
+    vals=$(paste -sd'\n' "$dir/.schema_priority_values") ;;
+  type)
+    vals=""
+    while IFS=$'\t' read -r v ic clr desc; do
+      [ -n "$vals" ] && vals="$vals\n"
+      vals="$vals$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
+    done < "$dir/.schema_entities" ;;
   *) exit 1 ;;
 esac
 hdr="Enter apply · Esc cancel"
@@ -465,20 +777,23 @@ while IFS= read -r new_line; do
   [ "$new_type" = "$old_type" ] && [ "$new_status" = "$old_status" ] && \
     [ "$new_pri" = "$old_pri" ] && [ "$new_tags" = "$old_tags" ] && continue
   # Validate type
-  case "$new_type" in
-    task|idea|reference) ;;
-    *) errors="${errors}Invalid type '$new_type' for $(basename "$path")\n"; continue ;;
-  esac
+  valid=false
+  while IFS= read -r vt; do [ "$new_type" = "$vt" ] && valid=true && break; done < "$dir/.schema_entity_values"
+  $valid || { errors="${errors}Invalid type '$new_type' for $(basename "$path")\n"; continue; }
   # Validate status
-  case "$new_status" in
-    new|active|blocked|done|removed|"") ;;
-    *) errors="${errors}Invalid status '$new_status' for $(basename "$path")\n"; continue ;;
-  esac
+  if [ -n "$new_status" ]; then
+    valid=false
+    while IFS= read -r vs; do [ "$new_status" = "$vs" ] && valid=true && break; done < "$dir/.schema_status_values"
+    $valid || { errors="${errors}Invalid status '$new_status' for $(basename "$path")\n"; continue; }
+  fi
   # Validate priority
-  case "$new_pri" in
-    1|2|3|4|"") ;;
-    *) errors="${errors}Invalid priority '$new_pri' for $(basename "$path")\n"; continue ;;
-  esac
+  if [ -n "$new_pri" ]; then
+    if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
+      valid=false
+      while IFS= read -r vp; do [ "$new_pri" = "$vp" ] && valid=true && break; done < "$dir/.schema_priority_values"
+      $valid || { errors="${errors}Invalid priority '$new_pri' for $(basename "$path")\n"; continue; }
+    fi
+  fi
   # Build update args for changed fields only
   update_args=()
   [ "$new_type" != "$old_type" ] && update_args+=("type=$new_type")
@@ -510,10 +825,12 @@ while IFS=$'\t' read -r fpath _rest; do
   [ -z "$fpath" ] && continue
   awk -F'\t' -v p="$fpath" '$6 == p { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6 }' "$dir/.raw" >> "$tmpfile"
 done < <(tac "$dir/.current")
-# Footer with valid values
-printf '\n# type: task, idea, reference\n' >> "$tmpfile"
-printf '# status: new, active, blocked, done, removed (or empty)\n' >> "$tmpfile"
-printf '# priority: 1, 2, 3, 4 (or empty)\n' >> "$tmpfile"
+# Footer with valid values from schema
+printf '\n# type: %s\n' "$(paste -sd', ' "$dir/.schema_entity_values")" >> "$tmpfile"
+printf '# status: %s (or empty)\n' "$(paste -sd', ' "$dir/.schema_status_values")" >> "$tmpfile"
+if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
+  printf '# priority: %s (or empty)\n' "$(paste -sd', ' "$dir/.schema_priority_values")" >> "$tmpfile"
+fi
 printf '# tags: space-separated\n' >> "$tmpfile"
 # Save original for diffing
 cp "$tmpfile" "$origfile"
@@ -530,17 +847,22 @@ ENDBE
 dir="$1"
 # Pick type (default to current type filter)
 cur_type=$(cat "$dir/.f_type")
-types=$'\033[36m◆ task\033[0m\t\033[90m  scoped, ready to implement\033[0m\n\033[35m✦ idea\033[0m\t\033[90m  needs exploration/research\033[0m\n\033[33m▪ reference\033[0m\t\033[90m  living documentation\033[0m'
-selected=$(printf "$types" | fzf --reverse --prompt "type: " \
+types=""
+while IFS=$'\t' read -r v ic clr desc; do
+  [ -n "$types" ] && types="$types"$'\n'
+  types="$types$(printf '\033[%sm%s %s\033[0m\t\033[90m  %s\033[0m' "$clr" "$ic" "$v" "$desc")"
+done < "$dir/.schema_entities"
+selected=$(printf '%s' "$types" | fzf --reverse --prompt "type: " \
   --ansi --border --border-label ' New Note ' --delimiter '\t' --with-nth '1,2' \
   --header $'Select note type\n\033[36mEnter\033[0m confirm \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
   --bind "j:down,k:up" \
   --query "${cur_type}" | awk '{print $2}')
 [ -z "$selected" ] && exit 0
-# Styled title prompt
-case "$selected" in
-  task) tc=$'\033[36m'; icon="◆" ;; idea) tc=$'\033[35m'; icon="✦" ;; reference) tc=$'\033[33m'; icon="▪" ;;
-esac
+# Styled title prompt — look up icon and color from schema
+tc=""; icon=""
+while IFS=$'\t' read -r v ic clr desc; do
+  [ "$v" = "$selected" ] && tc=$(printf '\033[%sm' "$clr") && icon="$ic" && break
+done < "$dir/.schema_entities"
 printf '\n' > /dev/tty
 inner=41
 pad=$((inner - 7 - ${#selected}))
@@ -585,18 +907,11 @@ dir="$1"; file="$2"; direction="${3:-fwd}"
 [ ! -f "$file" ] && exit 0
 cur=$(awk -F'\t' -v p="$file" '$6 == p {print $2; exit}' "$dir/.raw")
 if [ "$direction" = "rev" ]; then
-  case "$cur" in
-    done) next=active ;; active) next=new ;; new) next=done ;;
-    blocked) next=new ;;
-    *) next=new ;;
-  esac
+  next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_status_rev")
 else
-  case "$cur" in
-    new) next=active ;; active) next=done ;; done) next=new ;;
-    blocked) next=active ;;
-    *) next=new ;;
-  esac
+  next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_status_fwd")
 fi
+[ -z "$next" ] && next="$cur"
 "$dir/action.sh" "$dir" status "$next" "$file"
 ENDCS
     chmod +x "$_nn_dir/cyclestatus.sh"
@@ -606,11 +921,13 @@ ENDCS
 #!/bin/bash
 dir="$1"; file="$2"; direction="$3"
 [ ! -f "$file" ] && exit 0
+[ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
 cur=$(awk -F'\t' -v p="$file" '$6 == p {print $3; exit}' "$dir/.raw")
 case "$direction" in
-  up)   case "$cur" in "") next=4;; 4) next=3;; 3) next=2;; 2) next=1;; *) exit 0;; esac ;;
-  down) case "$cur" in 1) next=2;; 2) next=3;; 3) next=4;; *) exit 0;; esac ;;
+  up)   next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_up") ;;
+  down) next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_down") ;;
 esac
+[ -z "$next" ] && exit 0
 "$dir/action.sh" "$dir" priority "$next" "$file"
 ENDBP
     chmod +x "$_nn_dir/bumppri.sh"
@@ -686,9 +1003,12 @@ cycle() {
   local dim="$1" direction="$2" cur="$3"
   local -a vals
   case "$dim" in
-    type)     vals=("" "task" "idea" "reference") ;;
-    status)   vals=("" "new" "active" "blocked" "done") ;;
-    priority) vals=("" "1" "2" "3" "4") ;;
+    type)     mapfile -t vals < "$dir/.schema_entity_values"; vals=("" "${vals[@]}") ;;
+    status)   mapfile -t vals < "$dir/.schema_status_filter_cycle"; vals=("" "${vals[@]}") ;;
+    priority)
+      if [ "$(cat "$dir/.schema_priority_enabled")" = "false" ]; then vals=(""); else
+        mapfile -t vals < "$dir/.schema_priority_filter_cycle"; vals=("" "${vals[@]}")
+      fi ;;
     sort)     vals=("created" "modified" "title" "priority") ;;
     group)    vals=("" "type" "status") ;;
   esac
@@ -765,7 +1085,9 @@ case "$action" in
     fi ;;
   sq*) apply_sq "${action#sq}" ;;
   pick) [ -f "$dir/.f_pick" ] && apply_sq "$(cat "$dir/.f_pick")" && rm -f "$dir/.f_pick" ;;
-  reset) ft=""; fs=""; fp=""; fmatch=""; fgroup="type"; farchive=""; fsort="created"; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths" ;;
+  reset) ft=""; fs=""; fp=""; fmatch=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
+    { IFS= read -r fsort; IFS= read -r fgroup; IFS= read -r _a; } < "$dir/.schema_defaults"
+    [ "$_a" = "true" ] && farchive="show" || farchive="" ;;
   clear-tags) : > "$dir/.f_tags" ;;
   clear-match) fmatch=""; : > "$dir/.f_match"; : > "$dir/.f_match_paths" ;;
   group) fgroup=$(cycle group next "$fgroup") ;;
@@ -783,7 +1105,8 @@ cond='length($1) > 0'
 [ -n "$ft" ] && cond="$cond && \$1==\"$ft\""
 [ -n "$fs" ] && cond="$cond && \$2==\"$fs\""
 # Hide archived statuses unless archive toggle is on or status is explicitly filtered
-[ -z "$farchive" ] && [ -z "$fs" ] && cond="$cond && \$2!=\"done\" && \$2!=\"removed\""
+archive_cond=$(cat "$dir/.schema_archive_cond")
+[ -z "$farchive" ] && [ -z "$fs" ] && cond="$cond$archive_cond"
 if [ "$fp" = "none" ]; then
   cond="$cond && \$3==\"\""
 elif [ -n "$fp" ]; then
@@ -819,62 +1142,19 @@ if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
   awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw" > "$dir/.raw_matched"
   _raw_input="$dir/.raw_matched"
 fi
-do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "$cond"' {
-  tc = "\033[36m"; ic = "◆"; pc = "\033[33m"; sc = "\033[90m"; r = "\033[0m"
-  if ($1 == "idea") { tc = "\033[35m"; ic = "✦" }
-  if ($1 == "reference") { tc = "\033[33m"; ic = "▪" }
-  if ($3+0 == 1) pc = "\033[31;1m"
-  if ($3+0 == 2) pc = "\033[33m"
-  if ($2 == "active") sc = "\033[32m"
-  if ($2 == "blocked") sc = "\033[31m"
-  # Relative age from modified ($7): "YYYY-MM-DD HH:MM:SS..."
-  age = ""
-  if ($7 != "") {
-    split($7, dt, /[-: ]/)
-    ts = mktime(dt[1] " " dt[2] " " dt[3] " " dt[4] " " dt[5] " " int(dt[6]))
-    if (ts > 0) {
-      diff = now - ts
-      if (diff < 0) diff = 0
-      if (diff < 3600) age = int(diff/60) "m"
-      else if (diff < 86400) age = int(diff/3600) "h"
-      else if (diff < 604800) age = int(diff/86400) "d"
-      else if (diff < 2592000) age = int(diff/604800) "w"
-      else if (diff < 31536000) age = int(diff/2592000) "mo"
-      else age = int(diff/31536000) "y"
-    }
-  }
-  age_s = (age != "") ? " \033[90m" age r : ""
-  printf "%s\t%s%s %s%s %sP%s%s %s%s%s %s%s\n", $6, tc, ic, $1, r, pc, $3, r, sc, $2, r, $5, age_s
-}' > "$dir/.current"
+awk_body=$(cat "$dir/.awk_color_body")
+do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
 # Count filtered items (before pinning/grouping adds extra lines)
 count=$(wc -l < "$dir/.current")
 # Prepend pinned items (from actions) that got filtered out
 if [ -s "$dir/.pinned" ]; then
   pinned_lines=""
+  pinned_awk=$(cat "$dir/.awk_color_pinned")
   while IFS= read -r pin; do
     [ -z "$pin" ] && continue
     grep -qF "$pin" "$dir/.current" && continue
     # Render the pinned item from .raw with a dim marker
-    line=$(TZ=UTC awk -F'\t' -v p="$pin" -v now="$now" '$6 == p {
-      tc = "\033[90m"; ic = "◆"; pc = "\033[90m"; sc = "\033[90m"; r = "\033[0m"
-      if ($1 == "idea") ic = "✦"
-      if ($1 == "reference") ic = "▪"
-      age = ""
-      if ($7 != "") {
-        split($7, dt, /[-: ]/)
-        ts = mktime(dt[1] " " dt[2] " " dt[3] " " dt[4] " " dt[5] " " int(dt[6]))
-        if (ts > 0) { diff = now - ts; if (diff < 0) diff = 0
-          if (diff < 3600) age = int(diff/60) "m"
-          else if (diff < 86400) age = int(diff/3600) "h"
-          else if (diff < 604800) age = int(diff/86400) "d"
-          else if (diff < 2592000) age = int(diff/604800) "w"
-          else if (diff < 31536000) age = int(diff/2592000) "mo"
-          else age = int(diff/31536000) "y"
-        }
-      }
-      age_s = (age != "") ? " \033[90m" age r : ""
-      printf "%s\t%s%s %s%s %sP%s%s %s%s%s %s%s \033[90m(temporarily pinned)\033[0m\n", $6, tc, ic, $1, r, pc, $3, r, sc, $2, r, $5, age_s
-    }' "$dir/.raw")
+    line=$(TZ=UTC awk -F'\t' -v p="$pin" -v now="$now" "\$6 == p { ${pinned_awk} }" "$dir/.raw")
     [ -n "$line" ] && pinned_lines="${pinned_lines}${line}\n"
   done < "$dir/.pinned"
   if [ -n "$pinned_lines" ]; then
@@ -889,16 +1169,17 @@ if [ -n "$fgroup" ]; then
     { path=$1; gk=key[path]; print gk "\t" $0 }
   ' "$dir/.raw" "$dir/.current" \
   | sort -t'	' -k1,1 -s \
-  | awk -F'\t' -v gmode="$fgroup" '
+  | awk -F'\t' -v gmode="$fgroup" \
+    -v entity_order="$(cat "$dir/.schema_entity_order")" \
+    -v status_order="$(cat "$dir/.schema_status_order")" '
     { gk=$1; sub(/^[^\t]*\t/, "")
       counts[gk]++; lines[gk] = lines[gk] $0 "\n"
     } END {
       if (gmode == "status")
-        n = split("active blocked new done removed", order, " ")
+        n = split(status_order, order, " ")
       else
-        n = split("task idea reference", order, " ")
-      # Icon lookup for type groups
-      icon["task"] = "◆"; icon["idea"] = "✦"; icon["reference"] = "▪"
+        n = split(entity_order, order, " ")
+      '"$(cat "$dir/.schema_icon_setup")"'
       for (i=1; i<=n; i++) {
         g = order[i]
         if (!(g in counts)) continue
@@ -909,44 +1190,16 @@ if [ -n "$fgroup" ]; then
     }' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
 fi
 # Compute inline stats from filtered set
-stats_s=$(awk -F'\t' "$cond"'{
-  types[$1]++; combos[$1, $2]++
-} END {
-  split("task idea reference", order, " ")
-  first = 1
-  for (o = 1; o <= 3; o++) {
-    t = order[o]
-    if (!(t in types)) continue
-    if (!first) printf " \033[90m·\033[0m "
-    first = 0
-    tc = "\033[36m"; ic = "◆"
-    if (t == "idea") { tc = "\033[35m"; ic = "✦" }
-    if (t == "reference") { tc = "\033[33m"; ic = "▪" }
-    tl = t; if (types[t] != 1) tl = t "s"
-    printf "%s%s %d %s\033[0m", tc, ic, types[t], tl
-    printf " ("
-    split("new active blocked done", statuses, " ")
-    sfirst = 1
-    for (si = 1; si <= 4; si++) {
-      s = statuses[si]
-      key = t SUBSEP s
-      if (!(key in combos)) continue
-      if (!sfirst) printf ", "
-      sfirst = 0
-      sc = "\033[90m"
-      if (s == "active") sc = "\033[32m"
-      if (s == "blocked") sc = "\033[31m"
-      printf "%s%d %s\033[0m", sc, combos[key], s
-    }
-    printf ")"
-  }
-}' "$dir/.raw")
+awk_stats=$(cat "$dir/.awk_color_stats")
+stats_s=$(awk -F'\t' "${cond}${awk_stats}" "$dir/.raw")
 # Header line 1: filter state
 fmt_dim() {
   local key="$1" val="$2" is_active="$3" label suffix ic=""
-  if [ "$key" = "p" ] && [ -n "$val" ]; then label="P$val"
+  if [ "$key" = "p" ] && [ -n "$val" ]; then
+    label=$(awk -F'\t' -v v="$val" '$1 == v {print $2; exit}' "$dir/.schema_priority_labels")
+    [ -z "$label" ] && label="P$val"
   elif [ "$key" = "e" ] && [ -n "$val" ]; then
-    case "$val" in task) ic="◆ ";; idea) ic="✦ ";; reference) ic="▪ ";; esac
+    ic=$(awk -F'\t' -v v="$val" '$1 == v {printf "%s ", $2; exit}' "$dir/.schema_entity_icons")
     label="${ic}${val}"
   else label="${val:-all}"; fi
   case "$key" in e) suffix="ntity";; s) suffix="tatus";; p) suffix="riority";; *) suffix="";; esac
@@ -970,7 +1223,8 @@ else
   g_s=$(printf '\033[36m[g]\033[0mroup-by: \033[90mn/a\033[0m')
 fi
 a_s=""
-[ -n "$farchive" ] && a_s=$(printf ' \033[1mshowing done/removed\033[0m') || a_s=$(printf ' \033[90mhiding done/removed\033[0m')
+archive_label=$(cat "$dir/.schema_archive_label")
+[ -n "$farchive" ] && a_s=$(printf ' \033[1mshowing %s\033[0m' "$archive_label") || a_s=$(printf ' \033[90mhiding %s\033[0m' "$archive_label")
 c_s=$(printf '\033[90m── %d\033[0m' "$count")
 sort_s=$(printf '\033[36m[o]\033[0mrder: \033[1m⇅ %s\033[0m' "$fsort")
 # Show active tags in header if any
@@ -984,7 +1238,7 @@ active_sq=$(cat "$dir/.f_sq" 2>/dev/null)
 cols=$(tput cols 2>/dev/null || echo 80)
 # Count matches for "all" (respects archive toggle)
 all_cond='length($1) > 0'
-[ -z "$farchive" ] && all_cond="$all_cond && \$2!=\"done\" && \$2!=\"removed\""
+[ -z "$farchive" ] && all_cond="$all_cond$archive_cond"
 all_count=$(awk -F'\t' "$all_cond"'{n++} END{print n+0}' "$dir/.raw")
 # 0:all highlights only when no filters, no tags, no saved query, defaults
 has_tags=false; [ -s "$dir/.f_tags" ] && has_tags=true
@@ -1000,7 +1254,7 @@ if [ -f "$dir/.queries" ]; then
     n=$((n + 1))
     # Build awk condition for this query
     sq_cond='length($1) > 0'
-    [ -z "$farchive" ] && sq_cond="$sq_cond && \$2!=\"done\" && \$2!=\"removed\""
+    [ -z "$farchive" ] && sq_cond="$sq_cond$archive_cond"
     for a in $qargs; do
       case "$a" in
         type=*) sq_cond="$sq_cond && \$1==\"${a#*=}\"" ;;
