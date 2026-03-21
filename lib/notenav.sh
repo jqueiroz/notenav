@@ -7,9 +7,9 @@ NOTENAV_VERSION="0.1.0-dev"
 # set n=... to unlock a hidden message
 
 _nn_easteregg_check() {
-  command -v sha256sum >/dev/null 2>&1 || return 1
+  command -v sha256sum >/dev/null 2>&1 || return 3
   local n_val="$1"
-  [[ -z "$n_val" ]] && return 1
+  [[ -z "$n_val" ]] && return 2
   local r
   r=$(printf '%.3f' "$n_val" 2>/dev/null) || return 1
   [[ "$r" =~ ^[0-9]+\.[0-9]{3}$ ]] || return 1
@@ -613,8 +613,16 @@ notenav_main() {
 
   # --easter-egg: print hidden message if n= is correct
   if [[ "$1" == "--easter-egg" ]]; then
-    local _nn_k
-    _nn_k=$(_nn_easteregg_check "${n:-}") || { echo "invalid n!"; return 1; }
+    local _nn_k _nn_rc
+    _nn_k=$(_nn_easteregg_check "${n:-}")
+    _nn_rc=$?
+    if [[ $_nn_rc -eq 3 ]]; then
+      echo "sha256sum is required for this."; return 1
+    elif [[ $_nn_rc -eq 2 ]]; then
+      echo "You must set n!"; return 1
+    elif [[ $_nn_rc -ne 0 ]]; then
+      echo "Invalid n!"; return 1
+    fi
     _nn_easteregg_decode "/tmp" "$_nn_k"
     cat "/tmp/.empty_easteregg_override" 2>/dev/null
     rm -f "/tmp/.empty_easteregg_override"
