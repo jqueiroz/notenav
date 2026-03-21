@@ -6,7 +6,7 @@ The default notenav schema. A simple three-way categorization that covers most p
 
 ```toml
 # ~/.config/notenav/config.toml
-# Use compass (this is the default -- no config needed)
+# Use compass (this is the default – no config needed)
 default_schema = "compass"
 ```
 
@@ -14,9 +14,9 @@ default_schema = "compass"
 
 Every note is one of three things:
 
-- A **task** -- something concrete you need to do
-- An **idea** -- something you're exploring that isn't actionable yet
-- A **reference** -- living documentation you maintain over time
+- A **task** – something concrete you need to do
+- An **idea** – something you're exploring that isn't actionable yet
+- A **reference** – living documentation you maintain over time
 
 This maps naturally to how most people think about their notes. Ideas may evolve into tasks as they become clearer. Tasks get done. References grow and change as understanding deepens.
 
@@ -36,7 +36,7 @@ This maps naturally to how most people think about their notes. Ideas may evolve
 | active | Currently being worked on | green |
 | blocked | Waiting on something external | red |
 | done | Completed (archived by default) | dim |
-| removed | Tombstone -- only reachable via bulk edit | dim |
+| removed | Tombstone – only reachable via bulk edit | dim |
 
 ### Lifecycle
 
@@ -53,7 +53,7 @@ Press `a` to advance, `A` to reverse:
 - **Forward (a):** new → active → done → new (loop). blocked → active.
 - **Reverse (A):** done → active → new → done (loop). blocked → new.
 
-The `removed` status has no lifecycle transitions -- it's a tombstone, reachable only through bulk edit or manual frontmatter changes.
+The `removed` status has no lifecycle transitions – it's a tombstone, reachable only through bulk edit or manual frontmatter changes.
 
 ## Priority
 

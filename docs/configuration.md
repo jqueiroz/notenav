@@ -6,8 +6,8 @@
 
 All configuration is TOML, across two scopes:
 
-- **Project** (`.nn/`) -- defines the schema (`.nn/schema.toml`) and saved queries (`.nn/queries.toml`) for the project.
-- **User** (`~/.config/notenav/config.toml`) -- personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback schema, used in directories without project-level configuration.
+- **Project** (`.nn/`) – defines the schema (`.nn/schema.toml`) and saved queries (`.nn/queries.toml`) for the project.
+- **User** (`~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback schema, used in directories without project-level configuration.
 
 Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions.
 
@@ -17,9 +17,9 @@ Both scopes are layered on top of notenav's base defaults, so you only need to s
 
 At startup, two things happen:
 
-1. **Schema resolution** -- if `.nn/schema.toml` exists, it defines the project's schema. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/schema.toml` exists, the user config's `default_schema` is used, falling back to `"compass"`.
+1. **Schema resolution** – if `.nn/schema.toml` exists, it defines the project's schema. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/schema.toml` exists, the user config's `default_schema` is used, falling back to `"compass"`.
 
-2. **Preference merge** -- preferences are assembled by deep-merging these files in order (later values win):
+2. **Preference merge** – preferences are assembled by deep-merging these files in order (later values win):
 
    | Source | Path |
    |--------|------|
@@ -38,7 +38,7 @@ Schemas define what entity types, statuses, and priorities are available and how
 
 `.nn/schema.toml` can work in four ways:
 
-**1. Extend a built-in schema** -- use a built-in as a base and override specific values:
+**1. Extend a built-in schema** – use a built-in as a base and override specific values:
 ```toml
 extends = "gtd"
 
@@ -46,12 +46,12 @@ extends = "gtd"
 next = "32;1"       # bold green instead of default
 ```
 
-**2. Use a built-in as-is** -- just the `extends` key, nothing else:
+**2. Use a built-in as-is** – just the `extends` key, nothing else:
 ```toml
 extends = "ado"
 ```
 
-**3. Extend a remote schema (GitHub gist)** -- use a gist URL as the base:
+**3. Extend a remote schema (GitHub gist)** – use a gist URL as the base:
 ```toml
 extends = "https://gist.githubusercontent.com/user/abc123/raw/schema.toml"
 
@@ -61,7 +61,7 @@ extends = "https://gist.githubusercontent.com/user/abc123/raw/schema.toml"
 
 Remote schemas must be explicitly allow-listed in your user config (see [Remote schemas](#remote-schemas) below). By default, no remote URLs are allowed.
 
-**4. Full custom definition** -- no `extends` key, define everything from scratch:
+**4. Full custom definition** – no `extends` key, define everything from scratch:
 ```toml
 [meta]
 name = "My Workflow"
@@ -72,7 +72,7 @@ name = "My Workflow"
 
 If no `.nn/schema.toml` exists, the user config's `default_schema` is used (defaults to `"compass"`).
 
-By design, there is no support for a user-global schemas directory -- projects are self-contained.
+By design, there is no support for a user-global schemas directory – projects are self-contained.
 
 ## Schema reference
 
@@ -161,7 +161,7 @@ blocked = "new"
 | `[status.lifecycle.forward]` | table | Transition map for `a` key (advance status) |
 | `[status.lifecycle.reverse]` | table | Transition map for `A` key (reverse status) |
 
-**Tombstone pattern:** A status can be in `values` but omitted from `filter_cycle` and `lifecycle`. This makes it reachable only via bulk edit or manual frontmatter change -- useful for "removed" or "dropped" statuses that shouldn't appear in normal workflow.
+**Tombstone pattern:** A status can be in `values` but omitted from `filter_cycle` and `lifecycle`. This makes it reachable only via bulk edit or manual frontmatter change – useful for "removed" or "dropped" statuses that shouldn't appear in normal workflow.
 
 ### `[priority]`
 
@@ -208,7 +208,7 @@ default_color = "33"
 | `[priority.lifecycle.up]` | table | Transition map for `+` key; `""` key = bump from unset |
 | `[priority.lifecycle.down]` | table | Transition map for `-` key |
 
-Values can be numeric (`"1"`, `"2"`, `"3"`) or named (`"critical"`, `"high"`, `"low"`). To disable priority entirely, set `enabled = false` -- this hides priority from the TUI and disables the `+`/`-` keybindings.
+Values can be numeric (`"1"`, `"2"`, `"3"`) or named (`"critical"`, `"high"`, `"low"`). To disable priority entirely, set `enabled = false` – this hides priority from the TUI and disables the `+`/`-` keybindings.
 
 ## Built-in schemas
 
@@ -246,13 +246,13 @@ Then edit `.nn/schema.toml` to define your entity types, statuses, priorities, a
 
 ## Remote schemas
 
-`.nn/schema.toml` can extend a schema hosted on GitHub (gists) or GitLab (snippets). This lets teams share schemas without copying files between projects. Only these two hosts are accepted -- arbitrary URLs are not supported.
+`.nn/schema.toml` can extend a schema hosted on GitHub (gists) or GitLab (snippets). This lets teams share schemas without copying files between projects. Only these two hosts are accepted – arbitrary URLs are not supported.
 
 ```toml
-# .nn/schema.toml -- GitHub gist
+# .nn/schema.toml – GitHub gist
 extends = "https://gist.githubusercontent.com/user/abc123/raw/schema.toml"
 
-# .nn/schema.toml -- GitLab snippet
+# .nn/schema.toml – GitLab snippet
 extends = "https://gitlab.com/-/snippets/12345/raw"
 ```
 
@@ -330,7 +330,7 @@ active = "32;1"       # bold green for active
 1 = "31"              # non-bold red for P1
 ```
 
-User config can also override colors -- these merge on top of the schema values:
+User config can also override colors – these merge on top of the schema values:
 
 ```toml
 # ~/.config/notenav/config.toml
