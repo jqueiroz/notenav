@@ -37,7 +37,7 @@ nn --version                    # version info
 
 ## Configuration
 
-All configuration is TOML. There are two levels:
+All configuration is TOML, across two scopes:
 
 - **Project** (`.nn/config.toml`) — selects the schema, defines saved queries and preset filters for the project.
 - **User** (`~/.config/notenav/config.toml`) — personal defaults for visualization, editor, sorting, and grouping. Also sets the default schema for directories without project-level configuration.
