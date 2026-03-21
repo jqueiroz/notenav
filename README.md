@@ -24,22 +24,22 @@ nix profile install github:jqueiroz/notenav
 
 This command uses Nix's imperative interface (`nix profile`). If you prefer a fully declarative setup, see the NixOS or Home Manager instructions in [docs/install.md](docs/install.md).
 
-**Option 2: Manual installation**
+**Option 2: One-liner**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/curl/install.sh | sh
+```
+
+Requires bash 4+, [zk](https://github.com/zk-org/zk), [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq) (yq-go, **not** yq-python), and [jq](https://github.com/jqlang/jq). See [docs/install.md](docs/install.md) for more details.
+
+**Option 3: Manual installation**
 
 ```bash
 git clone https://github.com/jqueiroz/notenav.git ~/.local/share/notenav
 ln -s ~/.local/share/notenav/bin/nn ~/.local/bin/nn
 ```
 
-Requires bash 4+, [zk](https://github.com/zk-org/zk), [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq) (yq-go, **not** yq-python), and [jq](https://github.com/jqlang/jq). See [docs/install.md](docs/install.md) for more details.
-
-**Option 3: One-liner**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/curl/install.sh | sh
-```
-
-Same dependencies as manual installation. See [docs/install.md](docs/install.md) for details.
+Same dependencies as the one-liner. See [docs/install.md](docs/install.md) for details.
 
 ## Getting started: the Compass workflow
 
