@@ -6,9 +6,9 @@
 default_schema = "compass"
 
 [defaults]
-sort = "modified"       # created | modified | title | priority
-group = "type"          # "" | type | status
-archive = false         # true to show done/removed by default
+sort_by = "modified"       # created | modified | title | priority
+group_by = "type"          # "" | type | status
+show_archive = false       # true to show done/removed by default
 
 [ui]
 editor = "nvim"         # editor for opening notes

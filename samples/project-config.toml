@@ -5,8 +5,8 @@
 schema = "ado"
 
 [defaults]
-sort = "priority"
-group = "status"
+sort_by = "priority"
+group_by = "status"
 
 # Override colors for this project only
 # [status.colors]

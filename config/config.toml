@@ -6,9 +6,9 @@
 default_schema = "compass"
 
 [defaults]
-sort = "created"
-group = "type"
-archive = false
+sort_by = "created"
+group_by = "type"
+show_archive = false
 
 [ui]
 editor = ""            # empty = $EDITOR or nvim
