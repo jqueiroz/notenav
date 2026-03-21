@@ -32,7 +32,7 @@ At startup, two things happen:
 
 The `.nn/` directory is found by walking up from the current directory.
 
-See [`samples/profiles/user-config.toml`](../samples/profiles/user-config.toml) and [`samples/profiles/project-workflow.toml`](../samples/profiles/project-workflow.toml) for annotated examples.
+See [`samples/user-config.toml`](../samples/user-config.toml) and [`samples/workflows/project-workflow.toml`](../samples/workflows/project-workflow.toml) for annotated examples.
 
 ## Workflow files
 

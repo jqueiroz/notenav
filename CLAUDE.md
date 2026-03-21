@@ -22,11 +22,10 @@ docs/
   install.md          # Full install instructions (requirements, all methods)
   configuration.md    # Config system + workflow reference
 samples/
-  profiles/
-    user-config.toml    # Example ~/.config/notenav/config.toml
-    project-workflow.toml # Example .nn/workflow.toml
+  user-config.toml      # Example ~/.config/notenav/config.toml
   workflows/
-    custom-workflow.toml  # Example custom workflow
+    project-workflow.toml # Example .nn/workflow.toml (extends a built-in)
+    custom-workflow.toml  # Example .nn/workflow.toml (full custom definition)
 CLAUDE.md           # This file
 README.md           # Public-facing README
 LICENSE             # MIT
