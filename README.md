@@ -32,7 +32,7 @@ Requires bash 4+, [zk](https://github.com/zk-org/zk), [fzf](https://github.com/j
 ```bash
 nn                              # faceted browser
 nn type=task status=active      # ad-hoc query
-nn backlog                      # saved query (from .nn/queries/)
+nn backlog                      # saved query (from config)
 nn type=task -i                 # interactive (fzf) ad-hoc query
 nn --version                    # version info
 ```
@@ -41,7 +41,7 @@ nn --version                    # version info
 
 All configuration is TOML. Project and user configuration are orthogonal – neither inherits from or overrides the other:
 
-- **Project configuration** (`.nn/`) – defines the schema (`.nn/schema.toml`, built-in or custom) and saved queries (`.nn/queries.toml`) for the project.
+- **Project configuration** (`.nn/`) – defines the schema (`.nn/schema.toml`, built-in or custom) and project-specific settings including saved queries (`.nn/config.toml`).
 - **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback schema (used only when `nn` is invoked in directories without project configuration).
 
 Schemas define your workflow vocabulary: entity types, statuses, priorities, colors, and lifecycle transitions. Ships with built-in schemas: **compass** (default – our favorite), **ado**, **gtd**, **zettelkasten**. Use a built-in preset or write your own – the built-in schema files ([compass](config/schemas/compass.toml), [gtd](config/schemas/gtd.toml), [zettelkasten](config/schemas/zettelkasten.toml)) are good starting points and serve as reference for the format. See [docs/configuration.md](docs/configuration.md) for the full config and schema reference.
