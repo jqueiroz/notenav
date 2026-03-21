@@ -121,3 +121,7 @@ args = "type=idea priority=1"
 order = 40
 args = "type=reference priority=1"
 
+[queries.all-active]
+order = 50
+args = "status=active"
+
