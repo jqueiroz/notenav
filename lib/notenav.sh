@@ -637,7 +637,7 @@ EOF
     _nn_k=$(_nn_easteregg_check "${n:-}")
     _nn_rc=$?
     if [[ $_nn_rc -eq 3 ]]; then
-      echo "sha256sum is required for this."; return 1
+      echo "Sorry, you need sha256sum installed and on the PATH." >&2; return 1
     elif [[ $_nn_rc -eq 2 ]]; then
       echo "You must set n!"; return 1
     elif [[ $_nn_rc -ne 0 ]]; then
