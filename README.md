@@ -1,4 +1,4 @@
-# notenav
+# notenav (`nn`)
 
 Your notes deserve a proper interface. Not a browser tab, not an Electron app – a fast, keyboard-driven TUI that feels like editing code. Finally, task and note management that's seamless and, dare we say, _fun_!
 
@@ -16,7 +16,7 @@ Currently works on **Linux** and **macOS**. Windows support is planned – in th
 
 **Option 1: via [Nix](https://nixos.org/)** (recommended path – handles all dependencies)
 
-Nix installs packages in isolated, immutable environments, avoiding conflicts with system dependencies and ensuring reproducibility. If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables [flakes](https://wiki.nixos.org/wiki/Flakes) by default). Then, install notenav by running:
+Nix installs packages in isolated, immutable environments, avoiding conflicts with system dependencies and ensuring reproducibility. If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables [flakes](https://wiki.nixos.org/wiki/Flakes) by default). Then, install `nn` by running:
 
 ```bash
 nix profile install github:jqueiroz/notenav
@@ -31,7 +31,7 @@ git clone https://github.com/jqueiroz/notenav.git ~/.local/share/notenav
 ln -s ~/.local/share/notenav/bin/nn ~/.local/bin/nn
 ```
 
-Requires bash 4+, [zk](https://github.com/zk-org/zk), [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq) (yq-go, **not** yq-python), and [jq](https://github.com/jqlang/jq). See [docs/install.md](docs/install.md) for full dependency details.
+Requires bash 4+, [zk](https://github.com/zk-org/zk), [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq) (yq-go, **not** yq-python), and [jq](https://github.com/jqlang/jq). See [docs/install.md](docs/install.md) for more details.
 
 **Option 3: One-liner**
 
