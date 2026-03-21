@@ -1,6 +1,8 @@
 # notenav
 
-High-productivity TUI for navigating and viewing markdown files with frontmatter annotations. Filter by any frontmatter field (type, status, priority, tags), search body content, save and recall queries, and perform inline actions — all without leaving the terminal.
+TUI for navigating markdown notes with frontmatter annotations. Filter by type, status, priority, and tags; search body content; save and recall queries; perform inline actions — all without leaving the terminal.
+
+For creating, searching, and managing notes from the command line, use [zk](https://github.com/zk-org/zk) directly — notenav builds on top of it as a visual layer.
 
 Schemas are fully customizable — define your own entity types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows (GTD, Azure DevOps, Zettelkasten) or write your own.
 
