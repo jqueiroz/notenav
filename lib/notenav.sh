@@ -21,7 +21,7 @@ nn_load_config() {
   fi
 
   # Step 1: Load config files to determine schema name
-  local default_cfg="$notenav_root/config/base.toml"
+  local base_cfg="$notenav_root/config/base.toml"
   local user_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
 
   # Find closest .nn directory (walk from cwd up to filesystem root)
@@ -38,9 +38,9 @@ nn_load_config() {
   local project_cfg="${project_nn_dir:+$project_nn_dir/config.toml}"
 
   # Parse each config to JSON (empty object if missing)
-  local default_json="{}" user_json="{}" project_json="{}"
-  if [[ -f "$default_cfg" ]]; then
-    default_json=$(yq -p=toml -o=json -I=0 '.' "$default_cfg" 2>/dev/null) || default_json="{}"
+  local base_json="{}" user_json="{}" project_json="{}"
+  if [[ -f "$base_cfg" ]]; then
+    base_json=$(yq -p=toml -o=json -I=0 '.' "$base_cfg" 2>/dev/null) || base_json="{}"
   fi
   if [[ -f "$user_cfg" ]]; then
     user_json=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null) || user_json="{}"
@@ -56,7 +56,7 @@ nn_load_config() {
     schema_name=$(printf '%s' "$user_json" | jq -r '.default_schema // empty' 2>/dev/null)
   fi
   if [[ -z "$schema_name" ]]; then
-    schema_name=$(printf '%s' "$default_json" | jq -r '.default_schema // empty' 2>/dev/null)
+    schema_name=$(printf '%s' "$base_json" | jq -r '.default_schema // empty' 2>/dev/null)
   fi
   schema_name="${schema_name:-compass}"
 
@@ -80,7 +80,7 @@ nn_load_config() {
     return 1
   fi
 
-  # Step 3: Parse schema and merge (schema → default config → user config → project config)
+  # Step 3: Parse schema and merge (schema → base config → user config → project config)
   local schema_json
   schema_json=$(yq -p=toml -o=json -I=0 '.' "$schema_file" 2>/dev/null)
   if [[ -z "$schema_json" || "$schema_json" == "null" ]]; then
@@ -89,7 +89,7 @@ nn_load_config() {
   fi
 
   # Deep merge: jq * is recursive merge, later values win
-  NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$schema_json" "$default_json" "$user_json" "$project_json" \
+  NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$schema_json" "$base_json" "$user_json" "$project_json" \
     | jq -s '.[0] * .[1] * .[2] * .[3]' 2>/dev/null)
 
   if [[ -z "$NN_CFG_JSON" || "$NN_CFG_JSON" == "null" ]]; then
