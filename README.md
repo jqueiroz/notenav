@@ -40,7 +40,7 @@ nn --version                    # version info
 Configuration has two layers, both TOML:
 
 - **Schemas** — define your workflow: entity types, statuses, priorities, colors, and lifecycle transitions. Use a built-in preset or write your own.
-- **Config files** — control preferences and select which schema to use. User config (`~/.config/notenav/config.toml`) for personal defaults, project config (`.nn/config.toml`) for per-project overrides.
+- **User preferences** — select which schema to use, set defaults for sorting and grouping, choose your editor. Personal (`~/.config/notenav/config.toml`) or per-project (`.nn/config.toml`).
 
 Ships with built-in schemas: [**compass**](docs/schemas/compass.md) (default — our favorite), [**ado**](docs/schemas/ado.md), [**gtd**](docs/schemas/gtd.md), [**zettelkasten**](docs/schemas/zettelkasten.md). See [docs/configuration.md](docs/configuration.md) for the full config and schema reference.
 
