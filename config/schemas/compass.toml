@@ -1,8 +1,8 @@
-# Default notenav schema
+# Compass — the default notenav schema
 # Simple task/idea/reference workflow with priority and status tracking
 
 [meta]
-name = "Default"
+name = "Compass"
 description = "Simple task/idea/reference workflow"
 
 [entity.task]

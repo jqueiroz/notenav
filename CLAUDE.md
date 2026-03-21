@@ -14,7 +14,7 @@ lib/notenav.sh      # Full implementation (~1100 LOC)
 config/
   config.toml       # Default config (ships with notenav)
   schemas/
-    default.toml    # Default schema (task/idea/reference)
+    compass.toml    # Default schema (task/idea/reference)
     ado.toml        # Azure DevOps preset
     gtd.toml        # Getting Things Done preset
     zettelkasten.toml # Zettelkasten preset
@@ -168,7 +168,7 @@ Schema and preferences are loaded from TOML files at startup via `nn_load_config
 
 The merged config is stored in `NN_CFG_JSON` and queried via `nn_cfg '.path.to.value'`.
 
-Built-in schemas: `default`, `ado`, `gtd`, `zettelkasten`.
+Built-in schemas: `compass` (default), `ado`, `gtd`, `zettelkasten`.
 
 ## Conventions
 

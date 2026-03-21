@@ -49,7 +49,7 @@ nn_load_config() {
     project_json=$(yq -p=toml -o=json -I=0 '.' "$project_cfg" 2>/dev/null) || project_json="{}"
   fi
 
-  # Determine schema name: project "schema" > user "default_schema" > default "default_schema" > "default"
+  # Determine schema name: project "schema" > user "default_schema" > default "default_schema" > "compass"
   local schema_name
   schema_name=$(printf '%s' "$project_json" | jq -r '.schema // empty' 2>/dev/null)
   if [[ -z "$schema_name" ]]; then
@@ -58,7 +58,7 @@ nn_load_config() {
   if [[ -z "$schema_name" ]]; then
     schema_name=$(printf '%s' "$default_json" | jq -r '.default_schema // empty' 2>/dev/null)
   fi
-  schema_name="${schema_name:-default}"
+  schema_name="${schema_name:-compass}"
 
   # Step 2: Resolve schema file (most specific wins)
   local schema_file=""
@@ -71,8 +71,8 @@ nn_load_config() {
   fi
 
   if [[ -z "$schema_file" ]]; then
-    echo "notenav: schema '$schema_name' not found, falling back to default" >&2
-    schema_file="$notenav_root/config/schemas/default.toml"
+    echo "notenav: schema '$schema_name' not found, falling back to compass" >&2
+    schema_file="$notenav_root/config/schemas/compass.toml"
   fi
 
   if [[ ! -f "$schema_file" ]]; then

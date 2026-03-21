@@ -3,7 +3,7 @@
 
 # Choose a built-in schema: default, ado, gtd, zettelkasten
 # Or point to a custom schema file in ~/.config/notenav/schemas/
-default_schema = "default"
+default_schema = "compass"
 
 [defaults]
 sort = "modified"       # created | modified | title | priority

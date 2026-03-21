@@ -3,7 +3,7 @@
 # User overrides: ~/.config/notenav/config.toml
 # Project overrides: .nn/config.toml
 
-default_schema = "default"
+default_schema = "compass"
 
 [defaults]
 sort = "created"
