@@ -33,6 +33,7 @@ samples/
   commands/           # Claude Code slash commands (best-practices, review-config, etc.)
 flake.nix           # Nix package definition
 CLAUDE.md           # This file
+GUIDELINES.md       # Development guidelines
 README.md           # Public-facing README
 LICENSE             # MIT
 .gitignore
@@ -183,8 +184,4 @@ Built-in workflows: `compass` (default), `ado`, `gtd`, `zettelkasten`.
 
 ## Conventions
 
-- Entry point (`bin/nn`) stays minimal – all logic in `lib/notenav.sh`
-- Internal temp files use per-session `mktemp -d` directories (cleaned up via EXIT trap)
-- Query Presets: `[queries]` section in workflow/user config
-- Version string in `NOTENAV_VERSION` variable at top of `lib/notenav.sh`
-- Use en-dashes (–), not em-dashes (–), in prose
+See [GUIDELINES.md](GUIDELINES.md) for development guidelines (architecture, shell scripting, keybindings, config, docs, standards).
