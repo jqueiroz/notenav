@@ -17,7 +17,7 @@ Both scopes are layered on top of notenav's base defaults, so you only need to s
 
 At startup, two things happen:
 
-1. **Schema resolution** — the schema is determined from the project config (`schema`), falling back to the user config (`default_schema`), falling back to `"compass"`. The schema file is then located by searching project (`.nn/schemas/`), user (`~/.config/notenav/schemas/`), and built-in (`$NOTENAV_ROOT/config/schemas/`) directories, in that order (first match wins).
+1. **Schema resolution** — the schema is determined from the project config (`schema`), falling back to the user config (`default_schema`), falling back to `"compass"`. The schema file is then located by searching the project directory (`.nn/schemas/`) first, then the built-in directory (`$NOTENAV_ROOT/config/schemas/`). Projects are self-contained — there is no user-level schemas directory.
 
 2. **Preference merge** — preferences are assembled by deep-merging these files in order (later values win):
 
@@ -42,8 +42,9 @@ Schemas define what entity types, statuses, and priorities are available and how
 | Priority | Path |
 |----------|------|
 | 1. Project | `.nn/schemas/<name>.toml` |
-| 2. User | `~/.config/notenav/schemas/<name>.toml` |
-| 3. Built-in | `$NOTENAV_ROOT/config/schemas/<name>.toml` |
+| 2. Built-in | `$NOTENAV_ROOT/config/schemas/<name>.toml` |
+
+By design, there is no support for a user-global schemas directory — projects are self-contained, and custom schemas live in `.nn/schemas/`.
 
 **Defining which schema to use:**
 
@@ -199,26 +200,20 @@ notenav ships with four schemas. Define `schema` in your project config or `defa
 
 ## Creating a custom schema
 
+Custom schemas live in the project's `.nn/schemas/` directory, keeping the project self-contained — everything needed to work with the project is checked into the repo.
+
 1. Copy an existing schema as a starting point:
    ```bash
-   cp samples/schemas/custom-schema.toml ~/.config/notenav/schemas/myworkflow.toml
+   cp samples/schemas/custom-schema.toml .nn/schemas/myworkflow.toml
    ```
 
 2. Edit the file to define your entity types, statuses, priorities, and lifecycle transitions.
 
-3. Define it in your config:
+3. Reference it in your project config:
    ```toml
-   # .nn/config.toml (project)
+   # .nn/config.toml
    schema = "myworkflow"
    ```
-
-   Or as a user-level fallback:
-   ```toml
-   # ~/.config/notenav/config.toml
-   default_schema = "myworkflow"
-   ```
-
-For a project-local schema, place it in `.nn/schemas/` instead — it will be found first.
 
 See [`samples/schemas/custom-schema.toml`](../samples/schemas/custom-schema.toml) for a fully annotated example.
 

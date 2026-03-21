@@ -168,8 +168,9 @@ Schema and preferences are loaded from TOML files at startup via `nn_load_config
 
 **Schema resolution** (first match wins):
 1. `.nn/schemas/<name>.toml` — project-local
-2. `~/.config/notenav/schemas/<name>.toml` — user-global
-3. `$NOTENAV_ROOT/config/schemas/<name>.toml` — built-in
+2. `$NOTENAV_ROOT/config/schemas/<name>.toml` — built-in
+
+Projects are self-contained — custom schemas live in `.nn/schemas/`, never in a user-global directory.
 
 The merged config is stored in `NN_CFG_JSON` and queried via `nn_cfg '.path.to.value'`.
 
