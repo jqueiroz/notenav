@@ -332,6 +332,7 @@ _nn_gen_awk_bodies() {
 }
 
 nn_precompute_workflow() {
+  local _v
   # Entity types
   mapfile -t NN_ENTITY_VALUES < <(nn_cfg '.entity.values[]')
   if [[ ${#NN_ENTITY_VALUES[@]} -eq 0 ]]; then
@@ -425,7 +426,7 @@ nn_precompute_workflow() {
 }
 
 nn_write_workflow_files() {
-  local dir="$1"
+  local dir="$1" _v
   printf '%s\n' "${NN_ENTITY_VALUES[@]}" > "$dir/.schema_entity_values"
   printf '%s\n' "${NN_STATUS_VALUES[@]}" > "$dir/.schema_status_values"
   if [[ ${#NN_PRIORITY_VALUES[@]} -gt 0 ]]; then
@@ -554,7 +555,7 @@ notenav_main() {
   _gr=$(git rev-parse --show-toplevel 2>/dev/null)
   [[ -n "$_gr" && "$PWD" != "$_gr" ]] && _zk_path=("$(pwd)")
 
-  # Resolve editor: config > $EDITOR > nvim
+  # Resolve editor: config > $EDITOR > vi
   local _nn_editor="${NN_UI_EDITOR:-${EDITOR:-vi}}"
 
   # ---- FACETED BROWSER (no args) ----
