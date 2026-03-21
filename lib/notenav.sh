@@ -67,6 +67,7 @@ _nn_easteregg_decode() {
 
 # --- Editor resolution ---
 # Fallback chain: config ui.editor > $EDITOR > nvim > vim > vi > nano > emacs
+# All in good spirit – emacs users, you know you can set $EDITOR.
 _nn_resolve_editor() {
   local cfg_editor="$1"
   if [[ -n "$cfg_editor" ]]; then
