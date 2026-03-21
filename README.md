@@ -94,7 +94,7 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 
 These keybindings apply to all workflows, including custom ones. With the default configuration, every keybinding is displayed on-screen.
 
-Editor defaults to `$EDITOR`, with fallbacks: nvim → vim → vi → nano → emacs[^1].
+Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi → nano → emacs[^1].
 
 ## Configuration
 
