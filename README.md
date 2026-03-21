@@ -23,7 +23,7 @@
 > *How many notes must a man write down,*
 > *before vim hits a wall?*
 >
-> ***The answer, my friend, lies in nn.***
+> ***The answer is nn, after all.***
 
 Your notes deserve a proper interface. Not a browser tab, not an Electron app – a fast, keyboard-driven TUI that feels like editing code. Finally, task and note management that's seamless and, dare we say, _fun_!
 
