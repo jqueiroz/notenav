@@ -17,6 +17,16 @@
 > *before vim starts to crawl?*
 >
 > ***The answer, my friend, lies in nn.***
+>
+> ---
+>
+> *How many notes must a man write down,*
+> *before we call vim unprepared?*
+>
+> *How many thoughts can a man jot down,*
+> *before he's left impaired?*
+>
+> ***The answer, my friend, is n².***
 
 Your notes deserve a proper interface. Not a browser tab, not an Electron app – a fast, keyboard-driven TUI that feels like editing code. Finally, task and note management that's seamless and, dare we say, _fun_!
 
