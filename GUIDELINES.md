@@ -29,6 +29,23 @@ Rules and conventions for contributing to notenav.
 - Lifecycle transitions (`forward`/`reverse`) must only reference values that exist in `status.values` or `priority.values`.
 - Query preset `args` must only reference valid entity types, statuses, and priority values from the same workflow.
 
+## Naming convention: `nn` vs `notenav`
+
+Two names coexist by design – each is used where it fits best:
+
+| Name | Scope | Used for |
+|------|-------|----------|
+| `nn` | Project-local, command-line | The CLI command (`bin/nn`), the project config directory (`.nn/`), and temp file prefixes |
+| `notenav` | User-global, package identity | The XDG config directory (`~/.config/notenav/`), the Nix package name, the repo name, and all documentation/branding |
+
+**Rationale:** `.nn/` is short and unobtrusive alongside `.git/`, `.vscode/`, etc. – users see it constantly and may type it. But `nn` is too terse and collision-prone for `~/.config/`, where the full name `notenav` is discoverable and unambiguous. This mirrors how many CLI tools use a short command name with a longer package/config name (e.g. `rg` → `ripgrep`).
+
+**Rules:**
+- New project-local paths (config, state, cache under the project root) use `.nn/`.
+- New user-global paths (XDG config, data, cache) use `notenav/`.
+- Documentation, error messages, and branding use "notenav" as the product name.
+- The CLI command is always `nn`.
+
 ## Config system
 
 - Project config (`.nn/workflow.toml`) and user config (`~/.config/notenav/config.toml`) are orthogonal – project defines the workflow, user defines personal preferences. Neither inherits from nor overrides the other.

@@ -28,6 +28,7 @@ Files to review: `README.md`, `docs/install.md`, `docs/configuration.md`, `docs/
 - Entity type names, status names, and priority values are spelled the same everywhere
 - The same feature isn't described differently in README vs configuration.md vs workflow docs
 - Formatting conventions are consistent (table style, heading levels, code block usage)
+- **Naming convention**: `.nn/` for project-local paths, `notenav` for user-global paths – verify no doc uses `.notenav/` or `~/.config/nn/` (see `GUIDELINES.md`)
 
 ### 5. Writing quality
 - Concise, no unnecessary repetition

@@ -24,6 +24,14 @@ Read all source files (`bin/nn`, `lib/notenav.sh`, `curl/install.sh`, `flake.nix
 - **TERM=dumb**: degrade gracefully when terminal capabilities are limited
 - **POSIX editor**: fallback chain should end with `vi` (POSIX-guaranteed), not `nvim`
 
+### Naming convention (`nn` vs `notenav`)
+- **Project-local paths** must use `nn` (e.g. `.nn/`, temp file prefixes `.nn-*`)
+- **User-global paths** must use `notenav` (e.g. `~/.config/notenav/`, `~/.local/share/notenav/`)
+- **Documentation and branding** must use "notenav" as the product name
+- **CLI command** is always `nn`
+- No mixed usage: never `.notenav/` in a project root, never `~/.config/nn/`
+- See `GUIDELINES.md` for rationale
+
 ### CLI conventions
 - **`--help` / `-h`**: standard help flag
 - **Exit codes**: meaningful codes (0 success, 1 general error, 2 usage error)
