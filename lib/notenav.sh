@@ -968,6 +968,10 @@ nn_doctor() {
     # Check filter_cycle values exist in values
     local _fc_values _fc_issues="" _fcv
     mapfile -t _fc_values < <(nn_cfg '.status.filter_cycle // [] | .[]')
+    if [[ ${#_fc_values[@]} -eq 0 && $_sta_count -gt 0 ]]; then
+      _fc_issues+="filter_cycle is empty; "
+      _sta_ok=false
+    fi
     for _fcv in "${_fc_values[@]}"; do
       local _found=false _sv
       for _sv in "${_sta_values[@]}"; do
@@ -1045,6 +1049,10 @@ nn_doctor() {
 
       local _pri_fc_values _pri_fc_issues="" _pfcv
       mapfile -t _pri_fc_values < <(nn_cfg '.priority.filter_cycle // [] | .[]')
+      if [[ ${#_pri_fc_values[@]} -eq 0 && $_pri_count -gt 0 ]]; then
+        _pri_fc_issues+="filter_cycle is empty; "
+        _pri_ok=false
+      fi
       for _pfcv in "${_pri_fc_values[@]}"; do
         local _found=false _pv
         for _pv in "${_pri_values[@]}"; do
@@ -1074,19 +1082,82 @@ nn_doctor() {
         fi
       done
 
+      # Check unset_position is valid
+      local _pri_unset_issues="" _pri_unset_pos
+      _pri_unset_pos=$(nn_cfg '.priority.unset_position // empty')
+      if [[ -n "$_pri_unset_pos" && "$_pri_unset_pos" != "first" && "$_pri_unset_pos" != "last" ]]; then
+        _pri_unset_issues+="unset_position '$_pri_unset_pos' invalid (must be 'first' or 'last'); "
+        _pri_ok=false
+      fi
+
       if [[ "$_pri_ok" == "true" && $_pri_count -gt 0 ]]; then
         _pass "Priority: $_pri_count levels, lifecycle valid"
       elif [[ $_pri_count -eq 0 ]]; then
         _fail "Priority: enabled but no values defined"
       else
-        _fail "Priority: ${_pri_color_issues}${_pri_fc_issues}${_pri_lc_issues}"
+        _fail "Priority: ${_pri_color_issues}${_pri_fc_issues}${_pri_lc_issues}${_pri_unset_issues}"
       fi
     else
       _pass "Priority: disabled"
     fi
 
+    # Defaults validation
+    local _def_sort
+    _def_sort=$(nn_cfg '.defaults.sort_by // empty')
+    if [[ -n "$_def_sort" ]]; then
+      case "$_def_sort" in
+        created|modified|title|priority) ;;
+        *) _warn "defaults.sort_by '$_def_sort' invalid (must be created, modified, title, or priority)" ;;
+      esac
+    fi
+    local _def_group
+    _def_group=$(nn_cfg '.defaults.group_by // empty')
+    if [[ -n "$_def_group" ]]; then
+      case "$_def_group" in
+        type|status) ;;
+        *) _warn "defaults.group_by '$_def_group' invalid (must be type or status)" ;;
+      esac
+    fi
+
+    # UI validation
+    local _ui_exit
+    _ui_exit=$(nn_cfg '.ui.exit_message // empty')
+    if [[ -n "$_ui_exit" ]]; then
+      case "$_ui_exit" in
+        none|fortune) ;;
+        *) _warn "ui.exit_message '$_ui_exit' invalid (must be 'none' or 'fortune')" ;;
+      esac
+    fi
+    local _ui_pp
+    _ui_pp=$(nn_cfg '.ui.priority_plus // empty')
+    if [[ -n "$_ui_pp" ]]; then
+      case "$_ui_pp" in
+        demote|promote) ;;
+        *) _warn "ui.priority_plus '$_ui_pp' invalid (must be 'demote' or 'promote')" ;;
+      esac
+    fi
+    local _ui_ac
+    _ui_ac=$(nn_cfg '.ui.after_create // empty')
+    if [[ -n "$_ui_ac" ]]; then
+      case "$_ui_ac" in
+        edit|none) ;;
+        *) _warn "ui.after_create '$_ui_ac' invalid (must be 'edit' or 'none')" ;;
+      esac
+    fi
+
     # Query preset validation (warnings only)
     local _qp_count=0 _qp_warns=""
+
+    # Check for unrecognized keys in query presets
+    local _qp_name _qp_key
+    while IFS=$'\t' read -r _qp_name _qp_key; do
+      [[ -z "$_qp_name" ]] && continue
+      case "$_qp_key" in
+        args|order) ;;
+        *) _qp_warns+="$_qp_name: unknown key '$_qp_key'; " ;;
+      esac
+    done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | .key as $n | (.value | keys[]) as $k | "\($n)\t\($k)"')
+
     while IFS=$'\t' read -r _qname _qargs; do
       [[ -z "$_qname" ]] && continue
       (( _qp_count++ ))
