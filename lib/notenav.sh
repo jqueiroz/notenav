@@ -2653,7 +2653,7 @@ c_s=$(printf '\033[90m── %d\033[0m' "$count")
 tag_s=""
 if [ -s "$dir/.f_tags" ]; then
   tag_list=$(tr '\n' ' ' < "$dir/.f_tags" | sed 's/ $//')
-  tag_s=$(printf ' \033[35mtags:%s\033[0m' "$tag_list")
+  tag_s=$(printf ' \033[35m%s\033[0m' "$tag_list")
 fi
 # Header line 2+: numbered query presets with count badges, wrapped to terminal width
 active_sq=$(cat "$dir/.f_sq" 2>/dev/null)
@@ -2742,11 +2742,11 @@ else
 fi
 archive_label=$(cat "$dir/.schema_archive_label")
 if [ -n "$farchive" ]; then
-  zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0m: \033[1mshowing %s\033[0m' "$archive_label")
-  zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[0m: \033[1mshowing %s\033[0m' "$archive_label")
+  zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0midden: \033[1mshowing %s\033[0m' "$archive_label")
+  zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[1mshowing %s\033[0m' "$archive_label")
 else
-  zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0m: \033[90mhiding %s\033[0m' "$archive_label")
-  zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[0m: \033[90mhiding %s\033[0m' "$archive_label")
+  zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0midden: \033[90mhiding %s\033[0m' "$archive_label")
+  zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[90mhiding %s\033[0m' "$archive_label")
 fi
 zwrap_s=$(printf '       \033[36m[z]\033[0m then \033[36m[w]\033[0mrap preview')
 zwrap_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[w]\033[1;37mrap preview\033[0m')
