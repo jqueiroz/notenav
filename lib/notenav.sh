@@ -2342,14 +2342,18 @@ _nn_read_title() {
       $'\033')
         IFS= read -rsn2 -t 0.05 rest < /dev/tty
         if [ -z "$rest" ]; then
-          title=""; break   # plain Esc → cancel
-        fi ;;               # arrow key sequence → ignore
-      $'\177'|$'\010')      # Backspace / DEL
+          title=""
+          printf '\n' > /dev/tty  # advance line (cursor math expects it)
+          break                   # plain Esc → cancel
+        fi ;;                     # arrow key sequence → ignore
+      $'\177'|$'\010')            # Backspace / DEL
         if [ -n "$title" ]; then
           title="${title%?}"
           printf '\b \b' > /dev/tty
         fi ;;
-      '') break ;;          # Enter → accept
+      '')
+        printf '\n' > /dev/tty   # advance line (cursor math expects it)
+        break ;;                  # Enter → accept
       *)
         title="${title}${ch}"
         printf '%s' "$ch" > /dev/tty ;;
