@@ -511,9 +511,8 @@ nn_precompute_workflow() {
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
 
-  # ZK format
-  NN_ZK_FMT=$(nn_cfg '.zk.format // empty')
-  [[ -z "$NN_ZK_FMT" ]] && NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
+  # ZK format (hardcoded – the entire pipeline assumes this exact column layout)
+  NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
 
   # Generate AWK bodies
   _nn_gen_awk_bodies
@@ -850,7 +849,7 @@ nn_doctor() {
     fi
 
     # Unrecognized top-level keys
-    local _known_keys="meta type status priority queries defaults ui zk extends default_workflow"
+    local _known_keys="meta type status priority queries defaults ui extends default_workflow"
     local _check_files=()
     [[ -f "$user_cfg" ]] && _check_files+=("$user_cfg")
     [[ -n "$project_wf_file" && -f "$project_wf_file" ]] && _check_files+=("$project_wf_file")
@@ -1009,15 +1008,6 @@ nn_doctor() {
       fi
     done < <(nn_cfg '.meta // {} | keys[]' 2>/dev/null)
 
-    # Zk sub-key validation
-    local _known_zk_keys="format"
-    local _zkk
-    while IFS= read -r _zkk; do
-      [[ -z "$_zkk" ]] && continue
-      if ! _in_array "$_zkk" $_known_zk_keys; then
-        _warn "zk: unrecognized key '$_zkk'"
-      fi
-    done < <(nn_cfg '.zk // {} | keys[]' 2>/dev/null)
 
     # Status checks
     local _sta_values _sta_ok=true _sta_count=0

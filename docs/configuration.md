@@ -389,22 +389,6 @@ The `+`/`-` keys (and their `>`/`<` aliases) bump a note's priority. The `priori
 
 Both values use the same lifecycle tables (`[priority.lifecycle.up]` and `[priority.lifecycle.down]`) – the setting only controls which table the `+`/`-` and `>`/`<` keys map to.
 
-### `[zk]`
-
-Internal settings for the [zk](https://github.com/zk-org/zk) integration. You should not normally need to change these.
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `format` | string | *(see below)* | `zk list` format template – defines the TSV columns notenav reads |
-
-The default format is:
-
-```
-{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}
-```
-
-> **Warning:** notenav's entire display and filtering pipeline assumes exactly these eight columns in this order. Changing the format will break the TUI.
-
 ### Overriding workflow colors
 
 You can override individual colors without writing a full custom workflow. In `.nn/workflow.toml`, use `extends` and override what you need:
