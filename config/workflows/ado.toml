@@ -74,7 +74,6 @@ default_color = "33"           # yellow
 4 = "90"               # dim — low
 
 [priority.lifecycle.up]
-"" = "4"
 4 = "3"
 3 = "2"
 2 = "1"

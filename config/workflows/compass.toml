@@ -89,10 +89,8 @@ default_color = "33"           # yellow
 4 = "33"               # yellow (default)
 
 # Lifecycle for '+' (up) and '-' (down) keybindings.
-# "" = no priority set; bumping up from unset starts at the lowest level.
 
 [priority.lifecycle.up]
-"" = "4"
 4 = "3"
 3 = "2"
 2 = "1"

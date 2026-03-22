@@ -172,6 +172,7 @@ Priority levels for ranking notes. Can be disabled entirely.
 ```toml
 [priority]
 values = ["1", "2", "3", "4"]
+initial = "4"
 filter_cycle = ["1", "2", "3", "4"]
 unset_position = "last"
 default_color = "33"
@@ -187,7 +188,6 @@ default_color = "33"
 2 = "P+"
 
 [priority.lifecycle.up]
-"" = "4"         # bumping from unset starts at lowest
 4 = "3"
 3 = "2"
 2 = "1"
@@ -207,7 +207,7 @@ default_color = "33"
 | `default_color` | string | Fallback ANSI color for priorities not in `[priority.colors]` |
 | `[priority.colors]` | table | ANSI color per priority level |
 | `[priority.labels]` | table | Optional short display labels; omit to show `P{value}` (e.g. "P1") |
-| `[priority.lifecycle.up]` | table | Transition map: move toward higher urgency (lower number); `""` key = bump from unset |
+| `[priority.lifecycle.up]` | table | Transition map: move toward higher urgency (lower number) |
 | `[priority.lifecycle.down]` | table | Transition map: move toward lower urgency (higher number) |
 
 Values can be numeric (`"1"`, `"2"`, `"3"`) or named (`"critical"`, `"high"`, `"low"`). To disable priority entirely, set `enabled = false` – this hides priority from the TUI and disables the `+`/`-` keybindings.

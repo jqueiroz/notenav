@@ -465,9 +465,6 @@ nn_precompute_workflow() {
       local _label; _label=$(nn_cfg ".priority.labels.\"$_v\" // empty")
       NN_PRIORITY_LABELS[$_v]="${_label:-P$_v}"
     done
-    # Empty-string key ("unset priority") can't be stored in bash assoc arrays
-    NN_PRIORITY_UP_UNSET=$(nn_cfg '.priority.lifecycle.up."" // empty')
-    NN_PRIORITY_DOWN_UNSET=$(nn_cfg '.priority.lifecycle.down."" // empty')
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
       local _up; _up=$(nn_cfg ".priority.lifecycle.up.\"$_v\" // empty")
       [[ -n "$_up" ]] && NN_PRIORITY_UP[$_v]=$_up
@@ -559,18 +556,14 @@ nn_write_workflow_files() {
     [[ -n "${NN_STATUS_REV[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_STATUS_REV[$_v]}"
   done > "$dir/.schema_status_rev"
 
-  # Priority lifecycle (TSV: from\tto; empty first field = unset priority)
+  # Priority lifecycle (TSV: from\tto)
   if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
-    { [[ -n "$NN_PRIORITY_UP_UNSET" ]] && printf '\t%s\n' "$NN_PRIORITY_UP_UNSET"
-      for _v in "${NN_PRIORITY_VALUES[@]}"; do
-        [[ -n "${NN_PRIORITY_UP[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_PRIORITY_UP[$_v]}"
-      done
-    } > "$dir/.schema_priority_up"
-    { [[ -n "$NN_PRIORITY_DOWN_UNSET" ]] && printf '\t%s\n' "$NN_PRIORITY_DOWN_UNSET"
-      for _v in "${NN_PRIORITY_VALUES[@]}"; do
-        [[ -n "${NN_PRIORITY_DOWN[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_PRIORITY_DOWN[$_v]}"
-      done
-    } > "$dir/.schema_priority_down"
+    for _v in "${NN_PRIORITY_VALUES[@]}"; do
+      [[ -n "${NN_PRIORITY_UP[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_PRIORITY_UP[$_v]}"
+    done > "$dir/.schema_priority_up"
+    for _v in "${NN_PRIORITY_VALUES[@]}"; do
+      [[ -n "${NN_PRIORITY_DOWN[$_v]+x}" ]] && printf '%s\t%s\n' "$_v" "${NN_PRIORITY_DOWN[$_v]}"
+    done > "$dir/.schema_priority_down"
   else
     : > "$dir/.schema_priority_up"
     : > "$dir/.schema_priority_down"
@@ -1133,11 +1126,17 @@ dir="$1"; file="$2"; direction="$3"
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
 cur=$(awk -F'\t' -v p="$file" '$6 == p {print $3; exit}' "$dir/.raw")
-case "$direction" in
-  up)   next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_up") ;;
-  down) next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_down") ;;
-esac
-[ -z "$next" ] && exit 0
+if [ -z "$cur" ]; then
+  # No priority set – enter at lowest priority
+  next=$(tail -1 "$dir/.schema_priority_values")
+  [ -z "$next" ] && exit 0
+else
+  case "$direction" in
+    up)   next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_up") ;;
+    down) next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_down") ;;
+  esac
+  [ -z "$next" ] && exit 0
+fi
 "$dir/action.sh" "$dir" priority "$next" "$file"
 ENDBP
     chmod +x "$_nn_dir/bumppri.sh"
