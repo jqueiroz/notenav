@@ -2309,7 +2309,10 @@ ENDBE
     cat > "$_nn_dir/newnote.sh" << 'ENDNN'
 #!/usr/bin/env bash
 dir="$1"
-inner=60
+cols=$(tput cols 2>/dev/null || printf '80')
+inner=$(( cols - 6 ))
+[ "$inner" -gt 80 ] && inner=80
+[ "$inner" -lt 40 ] && inner=40
 
 # Clear screen so previous execute() output doesn't stack
 printf '\033[H\033[J' > /dev/tty
@@ -2333,44 +2336,83 @@ else
   mode=pick
 fi
 
-# ── Read title with Esc-to-cancel support ──
-# Char-by-char input: echoes typed text, handles backspace, Enter accepts,
-# plain Esc clears title and returns (caller checks empty → cancel).
+# ── Read title with cursor movement and Esc-to-cancel ──
+# Uses current value of $title (caller sets it before calling).
+# Supports: left/right arrows, Home/End, Ctrl+A/E, Ctrl+U, backspace.
+# On Esc: clears title and returns. On Enter: returns with current title.
 _nn_read_title() {
-  title=""
-  local ch rest len
+  local ch rest pos tail_len after
+  pos=${#title}
+  [ "$pos" -gt 0 ] && printf '%s' "$title" > /dev/tty
   while true; do
     IFS= read -rsn1 ch < /dev/tty
     case "$ch" in
       $'\033')
         IFS= read -rsn2 -t 0.05 rest < /dev/tty
-        if [ -z "$rest" ]; then
-          # Erase typed text so the box looks clean on cancel
-          len=${#title}
-          if [ "$len" -gt 0 ]; then
-            printf '\033[%dD%*s\033[%dD' "$len" "$len" "" "$len" > /dev/tty
-          fi
-          title=""
-          printf '\n' > /dev/tty  # advance line (cursor math expects it)
-          break                   # plain Esc → cancel
-        fi ;;                     # arrow key sequence → ignore
-      $'\025')                    # Ctrl+U: kill line
-        len=${#title}
-        if [ "$len" -gt 0 ]; then
-          printf '\033[%dD%*s\033[%dD' "$len" "$len" "" "$len" > /dev/tty
-          title=""
+        case "$rest" in
+          '[C')  # Right
+            if [ "$pos" -lt "${#title}" ]; then
+              pos=$((pos + 1)); printf '\033[C' > /dev/tty
+            fi ;;
+          '[D')  # Left
+            if [ "$pos" -gt 0 ]; then
+              pos=$((pos - 1)); printf '\033[D' > /dev/tty
+            fi ;;
+          '[H'|OH)  # Home
+            if [ "$pos" -gt 0 ]; then
+              printf '\033[%dD' "$pos" > /dev/tty; pos=0
+            fi ;;
+          '[F'|OF)  # End
+            tail_len=$(( ${#title} - pos ))
+            if [ "$tail_len" -gt 0 ]; then
+              printf '\033[%dC' "$tail_len" > /dev/tty; pos=${#title}
+            fi ;;
+          '')  # Plain Esc → cancel
+            tail_len=$(( ${#title} - pos ))
+            [ "$tail_len" -gt 0 ] && printf '\033[%dC' "$tail_len" > /dev/tty
+            if [ "${#title}" -gt 0 ]; then
+              printf '\033[%dD%*s\033[%dD' "${#title}" "${#title}" "" "${#title}" > /dev/tty
+            fi
+            title=""
+            printf '\n' > /dev/tty
+            break ;;
+          *) ;;  # Ignore other sequences
+        esac ;;
+      $'\001')  # Ctrl+A → Home
+        if [ "$pos" -gt 0 ]; then
+          printf '\033[%dD' "$pos" > /dev/tty; pos=0
         fi ;;
-      $'\177'|$'\010')            # Backspace / DEL
-        if [ -n "$title" ]; then
-          title="${title%?}"
-          printf '\b \b' > /dev/tty
+      $'\005')  # Ctrl+E → End
+        tail_len=$(( ${#title} - pos ))
+        if [ "$tail_len" -gt 0 ]; then
+          printf '\033[%dC' "$tail_len" > /dev/tty; pos=${#title}
         fi ;;
-      '')
-        printf '\n' > /dev/tty   # advance line (cursor math expects it)
-        break ;;                  # Enter → accept
-      *)
-        title="${title}${ch}"
-        printf '%s' "$ch" > /dev/tty ;;
+      $'\025')  # Ctrl+U → Kill to beginning of line
+        if [ "$pos" -gt 0 ]; then
+          after="${title:pos}"
+          printf '\033[%dD' "$pos" > /dev/tty
+          printf '%s%*s' "$after" "$pos" "" > /dev/tty
+          printf '\033[%dD' "$(( ${#after} + pos ))" > /dev/tty
+          title="$after"
+          pos=0
+        fi ;;
+      $'\177'|$'\010')  # Backspace / DEL
+        if [ "$pos" -gt 0 ]; then
+          after="${title:pos}"
+          title="${title:0:pos-1}${after}"
+          pos=$((pos - 1))
+          printf '\033[D%s ' "$after" > /dev/tty
+          printf '\033[%dD' "$(( ${#after} + 1 ))" > /dev/tty
+        fi ;;
+      '')  # Enter → accept
+        printf '\n' > /dev/tty
+        break ;;
+      *)  # Regular character → insert at cursor
+        after="${title:pos}"
+        title="${title:0:pos}${ch}${after}"
+        pos=$((pos + 1))
+        printf '%s' "${ch}${after}" > /dev/tty
+        [ "${#after}" -gt 0 ] && printf '\033[%dD' "${#after}" > /dev/tty ;;
     esac
   done
 }
@@ -2396,6 +2438,7 @@ if [ "$mode" = "auto" ]; then
   printf '  \033[%sm╰%s╯\033[0m\n' "$c" "$bot_dashes" > /dev/tty
   # Cursor: up 4 to title line, column 13 (after "  │  Title: ")
   printf '\033[4A\033[13G' > /dev/tty
+  title=""
   _nn_read_title
   if [ -z "$title" ]; then
     # Move past box bottom (3 lines down from title+1)
@@ -2420,6 +2463,74 @@ else
   hint="Enter to continue · Esc cancels"
   hint_pad=$((inner - ${#hint} - 2))
 
+  # Load types into arrays (constant across loop iterations)
+  t_vals=(); t_icons=(); t_colors=(); t_descs=()
+  max_name=0
+  while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
+    t_vals+=("$v"); t_icons+=("$ic"); t_colors+=("$clr"); t_descs+=("$desc")
+    [ ${#v} -gt "$max_name" ] && max_name=${#v}
+  done < "$dir/.schema_types"
+  max_type_width=$((inner - 11))
+  [ "$max_name" -gt "$max_type_width" ] && max_name="$max_type_width"
+  desc_avail=$((max_type_width - max_name))
+
+  # Precompute truncated descriptions
+  t_tdescs=()
+  for ((i = 0; i < type_count; i++)); do
+    d="${t_descs[$i]}"
+    if [ "$desc_avail" -gt 3 ] && [ -n "$d" ]; then
+      [ ${#d} -gt "$desc_avail" ] && d="${d:0:$((desc_avail - 3))}..."
+    elif [ "$desc_avail" -le 3 ]; then
+      d=""
+    fi
+    t_tdescs+=("$d")
+  done
+
+  hint2="j/k · Enter · Esc back"
+  hint2_pad=$((inner - ${#hint2} - 2))
+
+  # Helper: draw a single type line (no trailing newline)
+  _nn_draw_type_line() {
+    local i="$1" sel="$2" bc="${3:-36}"
+    local name="${t_vals[$i]}" ic="${t_icons[$i]}" clr="${t_colors[$i]}"
+    local d="${t_tdescs[$i]}"
+    local name_pad=$((max_name - ${#name}))
+    local d_pad=$((desc_avail - ${#d}))
+    [ "$d_pad" -lt 0 ] && d_pad=0
+    if [ "$i" -eq "$sel" ]; then
+      printf '  \033[%sm│\033[0m     \033[1;%sm▸ %s %s\033[0m%*s  \033[90m%s\033[0m%*s\033[%sm│\033[0m' \
+        "$bc" "$clr" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$bc"
+    else
+      printf '  \033[%sm│\033[0m     \033[90m  %s %s%*s  %s\033[0m%*s\033[%sm│\033[0m' \
+        "$bc" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$bc"
+    fi
+  }
+
+  # Helper: draw entire step-2 box
+  _nn_draw_step2() {
+    local sel="$1" bc="$2" i
+    printf '  \033[%sm╭─ New Note %s %s╮\033[0m\n' "$bc" "${t_icons[$sel]}" "$step2_dashes"
+    printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$bc" "$inner" "" "$bc"
+    printf '  \033[%sm│\033[0m  \033[32m✓\033[0m %s%*s\033[%sm│\033[0m\n' \
+      "$bc" "$disp_title" "$((inner - 4 - ${#disp_title}))" "" "$bc"
+    printf '  \033[%sm│\033[0m  \033[1m2. Type:\033[0m%*s\033[%sm│\033[0m\n' \
+      "$bc" "$((inner - 10))" "" "$bc"
+    for ((i = 0; i < type_count; i++)); do
+      _nn_draw_type_line "$i" "$sel" "$bc"
+      printf '\n'
+    done
+    printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$bc" "$inner" "" "$bc"
+    printf '  \033[%sm│\033[0m  \033[90m%s\033[0m%*s\033[%sm│\033[0m\n' \
+      "$bc" "$hint2" "$hint2_pad" "" "$bc"
+    printf '  \033[%sm╰%s╯\033[0m\n' "$bc" "$bot_dashes"
+  }
+
+  # ── Step 1 ↔ Step 2 loop (Esc in step 2 goes back to step 1) ──
+  title=""
+  selected=""
+  while true; do
+  printf '\033[H\033[J' > /dev/tty
+
   # Step 1: title prompt
   printf '\n' > /dev/tty
   printf '  \033[36m╭─ New Note %s╮\033[0m\n' "$top_dashes" > /dev/tty
@@ -2439,86 +2550,19 @@ else
     exit 0
   fi
 
-  # Transition: move to box start, clear, draw step 2
+  # Transition to step 2
   printf '\033[4A\033[J' > /dev/tty
 
-  # Load types into arrays
-  t_vals=(); t_icons=(); t_colors=(); t_descs=()
-  max_name=0
-  while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
-    t_vals+=("$v"); t_icons+=("$ic"); t_colors+=("$clr"); t_descs+=("$desc")
-    [ ${#v} -gt "$max_name" ] && max_name=${#v}
-  done < "$dir/.schema_types"
-  max_type_width=$((inner - 11))
-  [ "$max_name" -gt "$max_type_width" ] && max_name="$max_type_width"
-  desc_avail=$((max_type_width - max_name))
-
-  # Truncate title for ✓ display
   disp_title="$title"
   max_disp=$((inner - 4))
   if [ ${#disp_title} -gt "$max_disp" ]; then
     disp_title="${disp_title:0:$((max_disp - 3))}..."
   fi
 
-  # Precompute truncated descriptions
-  t_tdescs=()
-  for ((i = 0; i < type_count; i++)); do
-    d="${t_descs[$i]}"
-    if [ "$desc_avail" -gt 3 ] && [ -n "$d" ]; then
-      [ ${#d} -gt "$desc_avail" ] && d="${d:0:$((desc_avail - 3))}..."
-    elif [ "$desc_avail" -le 3 ]; then
-      d=""
-    fi
-    t_tdescs+=("$d")
-  done
-
-  hint2="j/k · Enter · Esc cancel"
-  hint2_pad=$((inner - ${#hint2} - 2))
-
-  # Helper: draw a single type line (no trailing newline)
-  # Args: $1=index $2=selected_index $3=border_color (default 36)
-  _nn_draw_type_line() {
-    local i="$1" sel="$2" bc="${3:-36}"
-    local name="${t_vals[$i]}" ic="${t_icons[$i]}" clr="${t_colors[$i]}"
-    local d="${t_tdescs[$i]}"
-    local name_pad=$((max_name - ${#name}))
-    local d_pad=$((desc_avail - ${#d}))
-    [ "$d_pad" -lt 0 ] && d_pad=0
-    if [ "$i" -eq "$sel" ]; then
-      printf '  \033[%sm│\033[0m     \033[1;%sm▸ %s %s\033[0m%*s  \033[90m%s\033[0m%*s\033[%sm│\033[0m' \
-        "$bc" "$clr" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$bc"
-    else
-      printf '  \033[%sm│\033[0m     \033[90m  %s %s%*s  %s\033[0m%*s\033[%sm│\033[0m' \
-        "$bc" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$bc"
-    fi
-  }
-
-  # Helper: draw entire step-2 box (top border through bottom border)
-  # Args: $1=selected_index $2=border_color_code
-  _nn_draw_step2() {
-    local sel="$1" bc="$2" i
-    printf '  \033[%sm╭─ New Note %s %s╮\033[0m\n' "$bc" "${t_icons[$sel]}" "$step2_dashes"
-    printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$bc" "$inner" "" "$bc"
-    printf '  \033[%sm│\033[0m  \033[32m✓\033[0m %s%*s\033[%sm│\033[0m\n' \
-      "$bc" "$disp_title" "$((inner - 4 - ${#disp_title}))" "" "$bc"
-    printf '  \033[%sm│\033[0m  \033[1m2. Type:\033[0m%*s\033[%sm│\033[0m\n' \
-      "$bc" "$((inner - 10))" "" "$bc"
-    for ((i = 0; i < type_count; i++)); do
-      _nn_draw_type_line "$i" "$sel" "$bc"
-      printf '\n'
-    done
-    printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$bc" "$inner" "" "$bc"
-    printf '  \033[%sm│\033[0m  \033[90m%s\033[0m%*s\033[%sm│\033[0m\n' \
-      "$bc" "$hint2" "$hint2_pad" "" "$bc"
-    printf '  \033[%sm╰%s╯\033[0m\n' "$bc" "$bot_dashes"
-  }
-
-  # Draw step-2 box (border color = first type's color)
   sel=0
   bc="${t_colors[0]}"
   printf '\n' > /dev/tty
   _nn_draw_step2 "$sel" "$bc" > /dev/tty
-  # Move cursor to top border (7+tc lines up)
   printf '\033[%dA' "$((type_count + 7))" > /dev/tty
 
   # Hide cursor; restore on exit/interrupt
@@ -2560,10 +2604,9 @@ else
   # Move past box bottom
   printf '\033[%dB' "$((type_count + 7))" > /dev/tty
 
-  if [ -z "$selected" ]; then
-    printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
-    exit 0
-  fi
+  [ -n "$selected" ] && break
+  # Esc in step 2 → back to step 1 (title preserved)
+  done
 
   # Look up icon and color for result message
   tc=""; icon=""
@@ -2587,10 +2630,11 @@ if [ -z "$new_path" ]; then
 fi
 rm -f "$_zk_err"
 after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)
+rel_path="${new_path#$PWD/}"
 if [ "$after_create" = "edit" ]; then
-  printf '\n  %s%s %s · %s – Created!\033[0m Opening in editor...\n\n' "$tc" "$icon" "$selected" "$title" > /dev/tty
+  printf '\n  %s%s %s · %s – Created!\033[0m Opening in editor...\n  \033[90m%s\033[0m\n\n' "$tc" "$icon" "$selected" "$title" "$rel_path" > /dev/tty
 else
-  printf '\n  %s%s %s · %s – Created!\033[0m\n\n' "$tc" "$icon" "$selected" "$title" > /dev/tty
+  printf '\n  %s%s %s · %s – Created!\033[0m\n  \033[90m%s\033[0m\n\n' "$tc" "$icon" "$selected" "$title" "$rel_path" > /dev/tty
 fi
 # Regenerate raw
 fmt=$(cat "$dir/.zk_fmt")
