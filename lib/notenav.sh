@@ -2317,7 +2317,7 @@ printf '  \033[36m│\033[0m  \033[90m2. Type\033[0m%*s\033[36m│\033[0m\n' "$(
 printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
 bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
 printf '  \033[36m╰%s╯\033[0m\n' "$bot_dashes" > /dev/tty
-# Move cursor to Title input (up 4 lines, column 16 – after "  │  1. Title: ")
+# Move cursor to Title input (up 4 lines, column 16 – one space after colon)
 printf '\033[4A\033[16G' > /dev/tty
 read -r title < /dev/tty
 # After Enter, cursor is on the "2. Type" line; move past box bottom
