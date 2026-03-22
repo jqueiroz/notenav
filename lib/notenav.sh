@@ -1894,7 +1894,11 @@ EOF
 
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
-    local _nn_dir; _nn_dir=$(mktemp -d)
+    if [[ "${TERM:-dumb}" == "dumb" ]]; then
+      echo "notenav: interactive TUI requires a terminal (TERM is 'dumb')" >&2
+      return 1
+    fi
+    local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX")
     trap "rm -rf '${_nn_dir}'" EXIT
     nn_write_workflow_files "$_nn_dir"
 
