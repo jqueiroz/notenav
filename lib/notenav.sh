@@ -1569,15 +1569,16 @@ _nn_init_project() {
   fi
 
   # Create .nn/ directory and workflow.toml
+  # Writes workflow_name via printf %s to avoid shell expansion of $ in URLs.
   mkdir -p "$project_nn_dir"
-  cat > "$wf_file" <<EOF
-# Project workflow – see https://github.com/jqueiroz/notenav/blob/main/docs/configuration.md
-extends = "$workflow_name"
-
-# Add project-specific query presets below.
-# [queries.backlog]
-# args = "tag=backlog"
-EOF
+  {
+    echo '# Project workflow – see https://github.com/jqueiroz/notenav/blob/main/docs/configuration.md'
+    printf 'extends = "%s"\n' "$workflow_name"
+    echo ''
+    echo '# Add project-specific query presets below.'
+    echo '# [queries.backlog]'
+    echo '# args = "tag=backlog"'
+  } > "$wf_file"
 
   echo "Created $wf_file (extends $workflow_name)"
   if [[ "$workflow_name" != https://* ]]; then
