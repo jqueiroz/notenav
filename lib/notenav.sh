@@ -2734,7 +2734,7 @@ else
 fi
 filters_lbl=$(printf '%s\n%s\n%s\n%s' "$filters_top" "$ftags_s" "$fmatch_s" "$fname_s")
 filters_lbl_f=$(printf '%s\n%s\n%s\n%s' "$filters_top" "$ftags_s_active" "$fmatch_s_active" "$fname_s_active")
-# View section: per-line [z] options with current value
+# Display section: per-line [z] options with current value
 default_sort=$(head -1 "$dir/.schema_defaults")
 sort_hint="$fsort"; [ "$fsort" = "$default_sort" ] && sort_hint="$fsort (default)"
 zorder_s=$(printf '       \033[36m[z]\033[0m then \033[36m[o]\033[0mrder: \033[1m⇅ %s\033[0m' "$sort_hint")
@@ -2761,8 +2761,8 @@ else
   zwrap_s=$(printf '       \033[36m[z]\033[0m then \033[36m[w]\033[0mrap preview: \033[90moff\033[0m')
   zwrap_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[w]\033[1;37mrap preview: \033[90moff\033[0m')
 fi
-view_lbl=$(printf '\033[1;90m View:\033[0m\n%s\n%s\n%s\n%s' "$zorder_s" "$zgroup_s" "$zarchive_s" "$zwrap_s")
-view_lbl_z=$(printf '\033[1;90m View:\033[0m\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
+view_lbl=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s' "$zorder_s" "$zgroup_s" "$zarchive_s" "$zwrap_s")
+view_lbl_z=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
 presets_hint=$(printf '\033[90m          \033[36mh\033[90m/\033[36ml\033[90m ←→  \033[36m0\033[90m-\033[36m9\033[90m/\033[36mg\033[90m jump\033[0m')
 actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
