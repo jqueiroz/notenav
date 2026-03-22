@@ -30,7 +30,7 @@ This command uses Nix's imperative interface (`nix profile`). If you prefer a fu
 curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/curl/install.sh | sh
 ```
 
-Requires bash 4+, [zk](https://github.com/zk-org/zk), [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq) (yq-go, **not** yq-python), and [jq](https://github.com/jqlang/jq) to be on the PATH.
+Requires bash 4+, [zk](https://github.com/zk-org/zk), [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq) (yq-go, **not** yq-python), and [jq](https://github.com/jqlang/jq) to be installed and available on the PATH.
 See [docs/install.md](docs/install.md) for more details.
 
 **Option 3: Manual installation**
