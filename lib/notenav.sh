@@ -2312,7 +2312,7 @@ top_pad=$((inner - 11))
 top_dashes=$(printf '%*s' "$top_pad" '' | sed 's/ /─/g')
 printf '  \033[36m╭─ New Note %s╮\033[0m\n' "$top_dashes" > /dev/tty
 printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
-printf '  \033[36m│\033[0m  \033[1m1. Title:\033[0m%*s\033[36m│\033[0m\n' "$((inner - 12))" "" > /dev/tty
+printf '  \033[36m│\033[0m  \033[1m1. Title:\033[0m%*s\033[36m│\033[0m\n' "$((inner - 11))" "" > /dev/tty
 printf '  \033[36m│\033[0m  \033[90m2. Type\033[0m%*s\033[36m│\033[0m\n' "$((inner - 9))" "" > /dev/tty
 printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
 bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
