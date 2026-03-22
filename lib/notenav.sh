@@ -1223,6 +1223,7 @@ _nn_init_project() {
       fi
     fi
     echo "notenav: project config already exists: $wf_file" >&2
+    echo "notenav: edit it directly, or remove it and re-run nn init" >&2
     return 1
   fi
 
@@ -1260,6 +1261,7 @@ _nn_init_user() {
 
   if [[ -f "$target" ]]; then
     echo "notenav: user config already exists: $target" >&2
+    echo "notenav: edit it directly, or remove it and re-run nn init" >&2
     return 1
   fi
 
