@@ -854,11 +854,7 @@ nn_doctor() {
       local _unknown=""
       while IFS= read -r _key; do
         [[ -z "$_key" ]] && continue
-        local _found=false _k
-        for _k in $_known_keys; do
-          [[ "$_key" == "$_k" ]] && _found=true && break
-        done
-        if [[ "$_found" == "false" ]]; then
+        if ! _in_array "$_key" $_known_keys; then
           [[ -n "$_unknown" ]] && _unknown+=", "
           _unknown+="$_key"
         fi
@@ -870,12 +866,14 @@ nn_doctor() {
     done
 
     # Full config merge check
-    local _merge_err
-    if _merge_err=$(nn_load_config "$notenav_root" 2>&1); then
+    # Run in current shell (not command substitution) so NN_CFG_JSON survives
+    local _merge_tmpf="${TMPDIR:-/tmp}/nn-doctor-merge.$$"
+    if nn_load_config "$notenav_root" 2>"$_merge_tmpf"; then
       _pass "Config merge OK"
     else
-      _fail "Config merge failed: $_merge_err"
+      _fail "Config merge failed: $(< "$_merge_tmpf")"
     fi
+    rm -f "$_merge_tmpf"
   fi
 
   # ── Phase 3: Trusted sources ──
