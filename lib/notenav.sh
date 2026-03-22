@@ -886,6 +886,19 @@ nn_doctor() {
     mapfile -t _sta_values < <(nn_cfg '.status.values // [] | .[]')
     _sta_count=${#_sta_values[@]}
 
+    # Check each status has a color (explicit or via default_color)
+    local _sta_color_issues="" _sta_default_color
+    _sta_default_color=$(nn_cfg '.status.default_color // empty')
+    local _stv
+    for _stv in "${_sta_values[@]}"; do
+      local _scolor
+      _scolor=$(nn_cfg ".status.colors.\"$_stv\" // empty")
+      if [[ -z "$_scolor" && -z "$_sta_default_color" ]]; then
+        _sta_color_issues+="$_stv missing color; "
+        _sta_ok=false
+      fi
+    done
+
     # Check filter_cycle values exist in values
     local _fc_values _fc_issues="" _fcv
     mapfile -t _fc_values < <(nn_cfg '.status.filter_cycle // [] | .[]')
@@ -940,7 +953,7 @@ nn_doctor() {
     elif [[ $_sta_count -eq 0 ]]; then
       _fail "Statuses: none defined"
     else
-      _fail "Statuses: ${_fc_issues}${_lc_issues}"
+      _fail "Statuses: ${_sta_color_issues}${_fc_issues}${_lc_issues}"
     fi
 
     # Priority checks
