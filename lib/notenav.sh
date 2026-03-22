@@ -1008,7 +1008,6 @@ nn_doctor() {
       fi
     done < <(nn_cfg '.meta // {} | keys[]' 2>/dev/null)
 
-
     # Status checks
     local _sta_values _sta_ok=true _sta_count=0
     mapfile -t _sta_values < <(nn_cfg '.status.values // [] | .[]')
