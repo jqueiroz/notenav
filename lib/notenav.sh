@@ -1788,7 +1788,12 @@ fi
 case "$file" in *.empty_placeholder) cat "$file"; exit 0 ;; esac
 
 # Show file content
-$(command -v bat || command -v batcat) -p --color always "$file" 2>/dev/null || cat "$file"
+_bat=$(command -v bat || command -v batcat || true)
+if [ -n "$_bat" ]; then
+  "$_bat" -p --color always "$file" 2>/dev/null || cat "$file"
+else
+  cat "$file"
+fi
 
 # Collect links in parallel
 tmp_links=$(mktemp); tmp_back=$(mktemp)
@@ -2515,11 +2520,19 @@ else
 fi
 
 # ── Create note ──
-new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>/dev/null)
+_zk_err=$(mktemp)
+new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>"$_zk_err")
 if [ -z "$new_path" ]; then
-  printf '\n  \033[31mFailed to create note\033[0m\n\n' > /dev/tty
+  _zk_msg=$(cat "$_zk_err")
+  rm -f "$_zk_err"
+  if [ -n "$_zk_msg" ]; then
+    printf '\n  \033[31m%s\033[0m\n\n' "$_zk_msg" > /dev/tty
+  else
+    printf '\n  \033[31mFailed to create note\033[0m\n\n' > /dev/tty
+  fi
   exit 0
 fi
+rm -f "$_zk_err"
 after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)
 if [ "$after_create" = "edit" ]; then
   printf '\n  %s%s Created!\033[0m Opening in editor...\n\n' "$tc" "$icon" > /dev/tty
@@ -3159,6 +3172,10 @@ ENDEDIT
   [[ -n "${filters[tag]}" ]] && awk_cond="$awk_cond && index(\" \" \$4 \" \", \" $(_nn_awk_esc "${filters[tag]}") \") > 0"
 
   if $interactive; then
+    if [[ "${TERM:-dumb}" == "dumb" ]]; then
+      echo "notenav: interactive mode requires a terminal (TERM is 'dumb')" >&2
+      return 1
+    fi
     local nn_tmp; nn_tmp=$(mktemp)
     local _nn_prev; _nn_prev=$(mktemp)
     local _nn_edit; _nn_edit=$(mktemp)

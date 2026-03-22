@@ -22,6 +22,7 @@
         git
         yq-go
         jq
+        curl
       ];
     in
     {

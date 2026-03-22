@@ -149,6 +149,7 @@ nn doctor
    - gawk (GNU awk – required for `mktime()` and `strtonum()`)
    - sort, sed, git
    - bat or batcat (optional – enables syntax-highlighted preview)
+   - curl (optional – required for remote workflows)
 
 2. **Config** – validates configuration files:
    - User config (`~/.config/notenav/config.toml`) – TOML parse check

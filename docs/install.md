@@ -16,6 +16,7 @@
 Not required, but progressively enhance the experience when installed.
 
 - **[bat](https://github.com/sharkdp/bat)** – syntax-highlighted preview (called `batcat` on Debian/Ubuntu)
+- **curl** – required for [remote workflows](configuration.md#extending-a-remote-workflow) (`nn init https://...`). Pre-installed on most systems
 
 ## Install
 
