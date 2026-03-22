@@ -2335,17 +2335,28 @@ fi
 # plain Esc clears title and returns (caller checks empty → cancel).
 _nn_read_title() {
   title=""
-  local ch rest
+  local ch rest len
   while true; do
     IFS= read -rsn1 ch < /dev/tty
     case "$ch" in
       $'\033')
         IFS= read -rsn2 -t 0.05 rest < /dev/tty
         if [ -z "$rest" ]; then
+          # Erase typed text so the box looks clean on cancel
+          len=${#title}
+          if [ "$len" -gt 0 ]; then
+            printf '\033[%dD%*s\033[%dD' "$len" "$len" "" "$len" > /dev/tty
+          fi
           title=""
           printf '\n' > /dev/tty  # advance line (cursor math expects it)
           break                   # plain Esc → cancel
         fi ;;                     # arrow key sequence → ignore
+      $'\025')                    # Ctrl+U: kill line
+        len=${#title}
+        if [ "$len" -gt 0 ]; then
+          printf '\033[%dD%*s\033[%dD' "$len" "$len" "" "$len" > /dev/tty
+          title=""
+        fi ;;
       $'\177'|$'\010')            # Backspace / DEL
         if [ -n "$title" ]; then
           title="${title%?}"
