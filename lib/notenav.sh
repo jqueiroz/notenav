@@ -2864,6 +2864,13 @@ fi
 ENDWK
     chmod +x "$_nn_dir/wrapkey.sh"
 
+    # Editor helper: isolates editor command from fzf binding syntax
+    cat > "$_nn_dir/edit.sh" << ENDEDIT
+#!/usr/bin/env bash
+[ -f "\$1" ] && $_nn_editor "\$1"
+ENDEDIT
+    chmod +x "$_nn_dir/edit.sh"
+
     fzf --ansi --delimiter $'\t' --with-nth 2.. < "$_nn_dir/.current" \
       --header '' --header-first \
       --border rounded \
@@ -2899,7 +2906,7 @@ ENDWK
       --bind "<:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
       --bind "n:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/namefilt.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; else echo 'execute($_nn_dir/newnote.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)'; fi]" \
       --bind "c:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/match.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; else echo c > $_nn_dir/.nn-mode; echo 'change-prompt(c )+transform-header(cat $_nn_dir/.header-c)'; fi]" \
-      --bind "e:execute[test -f {1} && $_nn_editor {1}]" \
+      --bind "e:execute[$_nn_dir/edit.sh {1}]" \
       --bind "f:transform[echo f > $_nn_dir/.nn-mode; echo 'change-prompt(f )+transform-header(cat $_nn_dir/.header-f)']" \
       --bind "z:transform[echo z > $_nn_dir/.nn-mode; echo 'change-prompt(z )+transform-header(cat $_nn_dir/.header-z)']" \
       --bind "o:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort; fi]" \
@@ -2911,7 +2918,7 @@ ENDWK
       --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,q:abort,change:clear-query' \
       --bind "esc:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; else echo clear-query; fi]" \
       --bind 'J:preview-page-down,K:preview-page-up' \
-      --bind "enter:execute[test -f {1} && $_nn_editor {1}]"
+      --bind "enter:execute[$_nn_dir/edit.sh {1}]"
     rm -rf "$_nn_dir"
     trap - EXIT
     shopt -u nullglob
@@ -2968,9 +2975,12 @@ ENDWK
   if $interactive; then
     local nn_tmp; nn_tmp=$(mktemp)
     local _nn_prev; _nn_prev=$(mktemp)
+    local _nn_edit; _nn_edit=$(mktemp)
     local _nn_sflag="${nn_tmp}.sflag"
-    trap "rm -f '${nn_tmp}' '${_nn_prev}' '${_nn_sflag}'" EXIT
+    trap "rm -f '${nn_tmp}' '${_nn_prev}' '${_nn_edit}' '${_nn_sflag}'" EXIT
     _nn_write_preview "$_nn_prev"
+    printf '#!/usr/bin/env bash\n[ -f "$1" ] && %s "$1"\n' "$_nn_editor" > "$_nn_edit"
+    chmod +x "$_nn_edit"
     zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
       | awk -F'\t' "$awk_cond && length(\$1) > 0 $_awk_color" > "$nn_tmp"
     fzf --ansi --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
@@ -2983,8 +2993,8 @@ ENDWK
           --bind "::rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_sflag)" \
           --bind 'J:preview-page-down,K:preview-page-up' \
           --bind 'H:toggle-wrap' \
-          --bind "enter:execute($_nn_editor {1})"
-    rm -f "$nn_tmp" "$_nn_prev" "$_nn_sflag"
+          --bind "enter:execute($_nn_edit {1})"
+    rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_sflag"
     trap - EXIT
   else
     local _adhoc_fmt
