@@ -1477,6 +1477,18 @@ _nn_url_trust_add() {
 nn_init() {
   local notenav_root="$1"; shift
 
+  # Intercept --help/-h
+  if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    cat <<'EOF'
+Usage: nn init [workflow]        create project config (.nn/workflow.toml)
+       nn init --user [workflow] create user config (~/.config/notenav/config.toml)
+
+Workflow can be a built-in name (compass, ado, gtd, zettelkasten) or a URL.
+If omitted, defaults to compass.
+EOF
+    return 0
+  fi
+
   # Parse args
   local user_mode=false workflow_arg=""
   while [[ $# -gt 0 ]]; do
@@ -1516,10 +1528,12 @@ _nn_init_project() {
     if [[ "$workflow_name" == https://* ]]; then
       # Check if the existing file extends this exact URL – if so, refresh cache
       local _existing_extends=""
-      if command -v yq >/dev/null 2>&1; then
-        _existing_extends=$(yq -p=toml -o=json -I=0 '.' "$wf_file" 2>/dev/null \
-          | jq -r '.extends // empty' 2>/dev/null)
+      if ! command -v yq >/dev/null 2>&1; then
+        echo "notenav: yq is required to check existing config for refresh" >&2
+        return 1
       fi
+      _existing_extends=$(yq -p=toml -o=json -I=0 '.' "$wf_file" 2>/dev/null \
+        | jq -r '.extends // empty' 2>/dev/null)
       if [[ "$_existing_extends" == "$workflow_name" ]]; then
         _nn_fetch_remote "$workflow_name" || return 1
         echo "Refreshed cache for $workflow_name"
@@ -1620,9 +1634,18 @@ _nn_list_workflows() {
       names+=("${name%.toml}")
     done
   fi
-  if [[ ${#names[@]} -gt 0 ]]; then
+  # Deduplicate (user workflows may shadow built-in names)
+  local -A _seen
+  local unique=()
+  local n
+  for n in "${names[@]}"; do
+    [[ -n "${_seen[$n]+x}" ]] && continue
+    _seen[$n]=1
+    unique+=("$n")
+  done
+  if [[ ${#unique[@]} -gt 0 ]]; then
     local list
-    printf -v list '%s, ' "${names[@]}"
+    printf -v list '%s, ' "${unique[@]}"
     echo "Available workflows: ${list%, }"
   fi
 }
