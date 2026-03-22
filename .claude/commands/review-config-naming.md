@@ -5,7 +5,7 @@ Read all relevant files and evaluate every config key against the criteria below
 ## Files to read
 
 - `config/base.toml` – all default config keys
-- `lib/notenav.sh` – grep for `nn_cfg` calls to find every key used in code, including fallback defaults
+- `lib/notenav.sh` – grep for `nn_cfg` calls to find every key used in code
 - `docs/configuration.md` – documented keys and their descriptions
 - `config/workflows/*.toml` – workflow-specific keys (entity, status, priority, lifecycle, queries)
 - `GUIDELINES.md` – config key naming guidelines (the authoritative rules)
@@ -46,13 +46,7 @@ For each key, consider:
 - Are there keys that belong together but are in different tables?
 - Are there top-level keys that should be nested, or nested keys that should be top-level?
 
-### 5. Defaults
-
-- Is the default value sensible for a new user?
-- Does the default match what's documented?
-- Are defaults consistent between `config/base.toml` and the `// "value"` fallbacks in code?
-
-### 6. Missing or redundant keys
+### 5. Missing or redundant keys
 
 - Are there behaviors controlled by hardcoded values in the code that should be configurable?
 - Are there config keys that aren't used anywhere in the code?
@@ -62,7 +56,7 @@ For each key, consider:
 
 For each finding:
 1. **Key name** and current value/type
-2. **Category** (1–6 above)
+2. **Category** (1–5 above)
 3. **Issue** – what's wrong or what could be improved
 4. **Recommendation** – specific suggestion (rename, change type, move table, etc.)
 5. **Risk** – low (cosmetic), medium (could cause confusion), high (future breaking change)
