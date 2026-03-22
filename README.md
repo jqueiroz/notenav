@@ -86,7 +86,7 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 | `t` | Filter by [**t**]ype |
 | `s` | Filter by [**s**]tatus |
 | `p` | Filter by [**p**]riority |
-| `h` / `l` | Previous / next query preset |
+| `[` / `]` | Previous / next query preset |
 | `g` | [**g**]o-to query preset |
 | `c` then `s`/`p`/`t` | [**c**]hange status, priority, or type |
 | `f` then `t`/`c`/`n` | [**f**]ilter-by tags, contents, or name |

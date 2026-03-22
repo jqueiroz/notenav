@@ -221,8 +221,8 @@ The faceted browser uses a modal system with four modes: **command** (default), 
 | `S` | Clear status filter |
 | `p` | Filter by priority (cycles through `filter_cycle`, then `none`) |
 | `P` | Clear priority filter |
-| `h` | Previous query preset |
-| `l` | Next query preset |
+| `[` | Previous query preset |
+| `]` | Next query preset |
 | `g` | Go-to query preset (opens picker) |
 | `0` / `R` | Reset all filters and display settings to defaults |
 | `1`–`9` | Jump to query preset by number |

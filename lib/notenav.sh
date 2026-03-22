@@ -2519,7 +2519,7 @@ case "$action" in
   clear-status) fs=""; : > "$dir/.f_sq" ;;
   clear-priority) fp=""; : > "$dir/.f_sq" ;;
   clear-sort) IFS= read -r fsort < "$dir/.schema_defaults"; fsort_rev="" ;;
-  next|prev)  # h/l: cycle through query presets
+  next|prev)  # [/]: cycle through query presets
     if [ -f "$dir/.queries" ]; then
       total=$(wc -l < "$dir/.queries")
       if [ "$total" -gt 0 ]; then
@@ -2823,7 +2823,7 @@ fi
 display_lbl=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s" "$zrev_s" "$zgroup_s" "$zarchive_s" "$zwrap_s")
 display_lbl_z=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zrev_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
-presets_hint=$(printf '\033[90m          \033[36m[h]\033[90m/\033[36m[l]\033[90m ←→ prev/next  \033[36m[0-9]\033[90m jump to preset \033[90m·\033[0m \033[36m[g]\033[90m pick preset\033[0m')
+presets_hint=$(printf '\033[90m          \033[36m[[]\033[90m/\033[36m[]]\033[90m ←→ prev/next  \033[36m[0-9]\033[90m jump to preset \033[90m·\033[0m \033[36m[g]\033[90m pick preset\033[0m')
 actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
 change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
@@ -2902,8 +2902,9 @@ ENDEDIT
       --bind "S:transform[$_nn_dir/filter.sh $_nn_dir clear-status]" \
       --bind "p:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all'; else $_nn_dir/filter.sh $_nn_dir priority; fi]" \
       --bind "P:transform[$_nn_dir/filter.sh $_nn_dir clear-priority]" \
-      --bind "l:transform[$_nn_dir/filter.sh $_nn_dir next]" \
-      --bind "h:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir archive; else $_nn_dir/filter.sh $_nn_dir prev; fi]" \
+      --bind "]:transform[$_nn_dir/filter.sh $_nn_dir next]" \
+      --bind "[:transform[$_nn_dir/filter.sh $_nn_dir prev]" \
+      --bind "h:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir archive; fi]" \
       --bind "1:transform[$_nn_dir/filter.sh $_nn_dir sq1]" \
       --bind "2:transform[$_nn_dir/filter.sh $_nn_dir sq2]" \
       --bind "3:transform[$_nn_dir/filter.sh $_nn_dir sq3]" \
