@@ -1648,17 +1648,17 @@ _nn_workflow_exists() {
 _nn_list_workflows() {
   local notenav_root="$1"
   local names=()
-  local f
+  local f name
   for f in "$notenav_root"/config/workflows/*.toml; do
     [[ -f "$f" ]] || continue
-    local name="${f##*/}"
+    name="${f##*/}"
     names+=("${name%.toml}")
   done
   local user_wf_dir="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows"
   if [[ -d "$user_wf_dir" ]]; then
     for f in "$user_wf_dir"/*.toml; do
       [[ -f "$f" ]] || continue
-      local name="${f##*/}"
+      name="${f##*/}"
       names+=("${name%.toml}")
     done
   fi
