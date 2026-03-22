@@ -1493,8 +1493,8 @@ _nn_url_is_trusted() {
 _nn_url_trust_add() {
   local url="$1"
   local ts_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources"
-  mkdir -p "$(dirname "$ts_file")"
-  echo "$url" >> "$ts_file"
+  mkdir -p "$(dirname "$ts_file")" || { echo "notenav: cannot create directory for trusted-sources" >&2; return 1; }
+  echo "$url" >> "$ts_file" || { echo "notenav: cannot write to $ts_file" >&2; return 1; }
 }
 
 # --- nn init ---
