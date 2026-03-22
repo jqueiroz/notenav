@@ -1278,6 +1278,9 @@ nn_doctor() {
         created|modified|title|priority) ;;
         *) _warn "defaults.sort_by '$_def_sort' invalid (must be created, modified, title, or priority)" ;;
       esac
+      if [[ "$_def_sort" == "priority" && "$_pri_enabled" == "false" ]]; then
+        _warn "defaults.sort_by is 'priority' but priority is disabled"
+      fi
     fi
     local _def_group
     _def_group=$(nn_cfg '.defaults.group_by // empty')
