@@ -1972,7 +1972,7 @@ result=$(: | fzf --ansi --disabled --query "$cur" \
 rc=$?
 query=$(printf '%s' "$result" | head -1)
 if [ $rc -ne 130 ]; then
-  echo "$query" > "$dir/.f_name"
+  printf '%s\n' "$query" > "$dir/.f_name"
 fi
 ENDNAMEFILT
     chmod +x "$_nn_dir/namefilt.sh"
@@ -2519,7 +2519,7 @@ echo "$fp" > "$dir/.f_priority"; echo "$fa" > "$dir/.f_active"
 echo "$fsort" > "$dir/.f_sort"; echo "$fgroup" > "$dir/.f_group"
 echo "$farchive" > "$dir/.f_archive"
 echo "$fmatch" > "$dir/.f_match"
-echo "$fname" > "$dir/.f_name"
+printf '%s\n' "$fname" > "$dir/.f_name"
 # Build awk condition
 # Sanitize values for safe interpolation into awk expressions
 awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }

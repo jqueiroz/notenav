@@ -363,7 +363,7 @@ TUI preferences.
 [ui]
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano
 command_prompt = ": "    # prompt in normal (command) mode
-search_prompt = "/ "     # prompt in search mode
+search_prompt = "/ "     # prompt in ad-hoc interactive mode
 exit_message = "none"    # "none" or "fortune"
 priority_plus = "demote" # what the + key does to priority
 after_create = "edit"    # "edit" or "none"
@@ -373,7 +373,7 @@ after_create = "edit"    # "edit" or "none"
 |-----|------|---------|-------------|
 | `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR`, then falls back to nvim → vim → vi → nano |
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
-| `search_prompt` | string | `"/ "` | fzf prompt string in search mode |
+| `search_prompt` | string | `"/ "` | fzf prompt string in ad-hoc interactive mode (`nn ... -i`) |
 | `exit_message` | string | `"none"` | What to show on exit: `"none"` or `"fortune"` (a fun quote) |
 | `priority_plus` | string | `"demote"` | What the `+` key does to priority (see below) |
 | `after_create` | string | `"edit"` | What to do after creating a note: `"edit"` (open in editor) or `"none"` |

@@ -12,7 +12,7 @@ show_archive = false       # true to show done/removed by default
 [ui]
 editor = "nvim"            # editor for opening notes
 # command_prompt = ": "   # prompt in normal (command) mode
-# search_prompt = "/ "    # prompt in search mode
+# search_prompt = "/ "    # prompt in ad-hoc interactive mode
 # exit_message = "fortune"   # "none" (default) or "fortune" (fun quote on exit)
 # priority_plus = "demote"   # "demote": + lowers urgency (P1→P2)
                               # "promote": + raises urgency (P2→P1)
