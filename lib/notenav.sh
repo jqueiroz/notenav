@@ -870,10 +870,11 @@ nn_doctor() {
     done
 
     # Full config merge check
-    if nn_load_config "$notenav_root" 2>/dev/null; then
+    local _merge_err
+    if _merge_err=$(nn_load_config "$notenav_root" 2>&1); then
       _pass "Config merge OK"
     else
-      _fail "Config merge failed"
+      _fail "Config merge failed: $_merge_err"
     fi
   fi
 
@@ -1020,19 +1021,20 @@ nn_doctor() {
       fi
     done
 
-    # Check lifecycle transitions reference valid values
-    local _lc_issues="" _lcv _lc_target
-    for _lcv in "${_sta_values[@]}"; do
-      _lc_target=$(nn_cfg ".status.lifecycle.forward.\"$_lcv\" // empty")
-      if [[ -n "$_lc_target" ]] && ! _in_array "$_lc_target" "${_sta_values[@]}"; then
-        _lc_issues+="forward '$_lcv' → '$_lc_target' invalid; "
-        _sta_ok=false
-      fi
-      _lc_target=$(nn_cfg ".status.lifecycle.reverse.\"$_lcv\" // empty")
-      if [[ -n "$_lc_target" ]] && ! _in_array "$_lc_target" "${_sta_values[@]}"; then
-        _lc_issues+="reverse '$_lcv' → '$_lc_target' invalid; "
-        _sta_ok=false
-      fi
+    # Check lifecycle transitions reference valid values (both source keys and targets)
+    local _lc_issues="" _lcv _lc_target _lc_dir
+    for _lc_dir in forward reverse; do
+      while IFS=$'\t' read -r _lcv _lc_target; do
+        [[ -z "$_lcv" ]] && continue
+        if ! _in_array "$_lcv" "${_sta_values[@]}"; then
+          _lc_issues+="$_lc_dir key '$_lcv' not in values; "
+          _sta_ok=false
+        fi
+        if [[ -n "$_lc_target" ]] && ! _in_array "$_lc_target" "${_sta_values[@]}"; then
+          _lc_issues+="$_lc_dir '$_lcv' → '$_lc_target' invalid; "
+          _sta_ok=false
+        fi
+      done < <(nn_cfg ".status.lifecycle.$_lc_dir // {} | to_entries[] | \"\(.key)\t\(.value)\"" 2>/dev/null)
     done
 
     if [[ "$_sta_ok" == "true" && $_sta_count -gt 0 ]]; then
@@ -1053,6 +1055,14 @@ nn_doctor() {
         _warn "status.colors.$_stv '$_scolor' is not a valid ANSI code"
       fi
     done
+    # Validate status.colors keys reference valid values
+    local _sck
+    while IFS= read -r _sck; do
+      [[ -z "$_sck" ]] && continue
+      if ! _in_array "$_sck" "${_sta_values[@]}"; then
+        _warn "status.colors.$_sck not in status.values"
+      fi
+    done < <(nn_cfg '.status.colors // {} | keys[]' 2>/dev/null)
     # Validate status display_order
     local _sta_do_values
     mapfile -t _sta_do_values < <(nn_cfg '.status.display_order // [] | .[]')
@@ -1098,18 +1108,19 @@ nn_doctor() {
       done
 
       # Priority lifecycle
-      local _pri_lc_issues="" _plcv _plc_target
-      for _plcv in "${_pri_values[@]}"; do
-        _plc_target=$(nn_cfg ".priority.lifecycle.up.\"$_plcv\" // empty")
-        if [[ -n "$_plc_target" ]] && ! _in_array "$_plc_target" "${_pri_values[@]}"; then
-          _pri_lc_issues+="up '$_plcv' → '$_plc_target' invalid; "
-          _pri_ok=false
-        fi
-        _plc_target=$(nn_cfg ".priority.lifecycle.down.\"$_plcv\" // empty")
-        if [[ -n "$_plc_target" ]] && ! _in_array "$_plc_target" "${_pri_values[@]}"; then
-          _pri_lc_issues+="down '$_plcv' → '$_plc_target' invalid; "
-          _pri_ok=false
-        fi
+      local _pri_lc_issues="" _plcv _plc_target _plc_dir
+      for _plc_dir in up down; do
+        while IFS=$'\t' read -r _plcv _plc_target; do
+          [[ -z "$_plcv" ]] && continue
+          if ! _in_array "$_plcv" "${_pri_values[@]}"; then
+            _pri_lc_issues+="$_plc_dir key '$_plcv' not in values; "
+            _pri_ok=false
+          fi
+          if [[ -n "$_plc_target" ]] && ! _in_array "$_plc_target" "${_pri_values[@]}"; then
+            _pri_lc_issues+="$_plc_dir '$_plcv' → '$_plc_target' invalid; "
+            _pri_ok=false
+          fi
+        done < <(nn_cfg ".priority.lifecycle.$_plc_dir // {} | to_entries[] | \"\(.key)\t\(.value)\"" 2>/dev/null)
       done
 
       # Check unset_position is valid
@@ -1131,7 +1142,6 @@ nn_doctor() {
       if [[ -n "$_pri_default_color" ]] && ! _valid_color "$_pri_default_color"; then
         _warn "priority.default_color '$_pri_default_color' is not a valid ANSI code"
       fi
-      local _pcv
       for _pcv in "${_pri_values[@]}"; do
         local _pcolor
         _pcolor=$(nn_cfg ".priority.colors.\"$_pcv\" // empty")
@@ -1139,6 +1149,14 @@ nn_doctor() {
           _warn "priority.colors.$_pcv '$_pcolor' is not a valid ANSI code"
         fi
       done
+      # Validate priority.colors keys reference valid values
+      local _prck
+      while IFS= read -r _prck; do
+        [[ -z "$_prck" ]] && continue
+        if ! _in_array "$_prck" "${_pri_values[@]}"; then
+          _warn "priority.colors.$_prck not in priority.values"
+        fi
+      done < <(nn_cfg '.priority.colors // {} | keys[]' 2>/dev/null)
       # Validate priority label keys reference valid values
       local _plk
       while IFS= read -r _plk; do
