@@ -494,7 +494,7 @@ nn_precompute_workflow() {
   NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // ": "')
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
   NN_UI_FORTUNE=$(nn_cfg '.ui.fortune // false')
-  NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "number"')
+  NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
 
   # ZK format
   NN_ZK_FMT=$(nn_cfg '.zk.format // empty')
@@ -1538,9 +1538,9 @@ ENDFILTER
     # Generate initial results, stats, and header via filter.sh
     "$_nn_dir/filter.sh" "$_nn_dir" refresh > /dev/null
 
-    # Priority key direction: "number" = + raises number (lowers urgency), "importance" = + raises urgency
+    # Priority key direction: "demote" = + lowers urgency, "promote" = + raises urgency
     local _nn_plus_dir="down" _nn_minus_dir="up"
-    if [[ "$NN_UI_PRIORITY_PLUS" == "importance" ]]; then
+    if [[ "$NN_UI_PRIORITY_PLUS" == "promote" ]]; then
       _nn_plus_dir="up"
       _nn_minus_dir="down"
     fi

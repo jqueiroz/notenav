@@ -328,7 +328,7 @@ editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode
 fortune = false          # show a fun quote on exit
-priority_plus = "number" # what the + key does to priority
+priority_plus = "demote" # what the + key does to priority
 ```
 
 | Key | Type | Default | Description |
@@ -337,16 +337,16 @@ priority_plus = "number" # what the + key does to priority
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode |
 | `fortune` | boolean | `false` | Show a fun quote on exit |
-| `priority_plus` | string | `"number"` | What the `+` key does to priority (see below) |
+| `priority_plus` | string | `"demote"` | What the `+` key does to priority (see below) |
 
 #### Priority key direction
 
 The `+`/`-` keys (and their `>`/`<` aliases) bump a note's priority. The `priority_plus` setting controls which direction `+` moves:
 
-| Value | `+` / `>` does | `-` / `<` does | Mental model |
-|-------|----------------|----------------|--------------|
-| `"number"` (default) | Increase priority number (P1→P2, less urgent) | Decrease priority number (P2→P1, more urgent) | `+` adds to the number |
-| `"importance"` | Increase urgency (P2→P1, more important) | Decrease urgency (P1→P2, less important) | `+` means "more important" |
+| Value | `+` / `>` does | `-` / `<` does |
+|-------|----------------|----------------|
+| `"demote"` (default) | Lower urgency (e.g. P1→P2) | Raise urgency (e.g. P2→P1) |
+| `"promote"` | Raise urgency (e.g. P2→P1) | Lower urgency (e.g. P1→P2) |
 
 Both values use the same lifecycle tables (`[priority.lifecycle.up]` and `[priority.lifecycle.down]`) – the setting only controls which table the `+`/`-` and `>`/`<` keys map to.
 
