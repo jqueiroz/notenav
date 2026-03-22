@@ -495,6 +495,7 @@ nn_precompute_workflow() {
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
   NN_UI_FORTUNE=$(nn_cfg '.ui.fortune // false')
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
+  NN_UI_OPEN_AFTER_CREATE=$(nn_cfg '.ui.open_after_create // true')
 
   # ZK format
   NN_ZK_FMT=$(nn_cfg '.zk.format // empty')
@@ -596,6 +597,7 @@ nn_write_workflow_files() {
 
   # UI preferences
   printf '%s' "$(_nn_resolve_editor "$NN_UI_EDITOR")" > "$dir/.schema_editor"
+  printf '%s' "$NN_UI_OPEN_AFTER_CREATE" > "$dir/.schema_open_after_create"
 
   # Archive label (slash-separated status names for header display)
   local _archive_label=""
@@ -1084,7 +1086,12 @@ if [ -z "$new_path" ]; then
   printf '\r  %s└─ \033[31mFailed to create note\033[0m\033[K\n\n' "$tc" > /dev/tty
   exit 0
 fi
-printf '\r  %s└─ \033[32m%s Created!\033[0m Opening in editor...\033[K\n\n' "$tc" "$icon" > /dev/tty
+open_after=$(cat "$dir/.schema_open_after_create" 2>/dev/null)
+if [ "$open_after" = "true" ]; then
+  printf '\r  %s└─ \033[32m%s Created!\033[0m Opening in editor...\033[K\n\n' "$tc" "$icon" > /dev/tty
+else
+  printf '\r  %s└─ \033[32m%s Created!\033[0m\033[K\n\n' "$tc" "$icon" > /dev/tty
+fi
 # Regenerate raw
 fmt=$(cat "$dir/.zk_fmt")
 zk_path=()
@@ -1092,8 +1099,10 @@ while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
 zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 # Open in editor
-nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
-${nn_editor:-vi} "$new_path" < /dev/tty > /dev/tty
+if [ "$open_after" = "true" ]; then
+  nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
+  ${nn_editor:-vi} "$new_path" < /dev/tty > /dev/tty
+fi
 ENDNN
     chmod +x "$_nn_dir/newnote.sh"
 

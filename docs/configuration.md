@@ -331,6 +331,7 @@ command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode
 fortune = false          # show a fun quote on exit
 priority_plus = "demote" # what the + key does to priority
+open_after_create = true # open note in editor after creating it
 ```
 
 | Key | Type | Default | Description |
@@ -340,6 +341,7 @@ priority_plus = "demote" # what the + key does to priority
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode |
 | `fortune` | boolean | `false` | Show a fun quote on exit |
 | `priority_plus` | string | `"demote"` | What the `+` key does to priority (see below) |
+| `open_after_create` | boolean | `true` | Open note in editor immediately after creating it |
 
 #### Priority key direction
 
