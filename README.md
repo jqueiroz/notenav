@@ -135,7 +135,7 @@ nn --help                       # show usage
 
 ### `nn init`
 
-Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name – one of the built-in workflows (`compass`, `ado`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `compass` when no workflow is specified.
+Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name: one of the built-in workflows (`compass`, `ado`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `compass` when no workflow is specified.
 
 ```bash
 nn init                 # .nn/workflow.toml extending compass

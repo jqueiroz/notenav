@@ -4,10 +4,10 @@ Read all relevant files and cross-reference them against each other. Report ever
 
 ## Files to read
 
-- `config/workflows/*.toml` – built-in workflow definitions
-- `samples/workflows/*.toml` – sample workflow files (may use `extends`)
-- `config/base.toml` – base config with default values
-- `lib/notenav.sh` – grep for `nn_cfg` calls to find fallback defaults
+- `config/workflows/*.toml`: built-in workflow definitions
+- `samples/workflows/*.toml`: sample workflow files (may use `extends`)
+- `config/base.toml`: base config with default values
+- `lib/notenav.sh`: grep for `nn_cfg` calls to find fallback defaults
 
 ## Categories to check
 

@@ -19,9 +19,9 @@ nn --help                           show usage
 
 notenav has three primary modes of operation:
 
-1. **Faceted browser** (`nn` with no arguments) – full interactive TUI with filters, query presets, inline actions, and a live preview pane.
-2. **Named query** (`nn <name>`) – runs a query preset defined in config and outputs matching notes.
-3. **Ad-hoc query** (`nn key=value ...`) – filters notes by frontmatter fields; add `-i` for an interactive fzf picker.
+1. **Faceted browser** (`nn` with no arguments): full interactive TUI with filters, query presets, inline actions, and a live preview pane.
+2. **Named query** (`nn <name>`): runs a query preset defined in config and outputs matching notes.
+3. **Ad-hoc query** (`nn key=value ...`): filters notes by frontmatter fields; add `-i` for an interactive fzf picker.
 
 ---
 

@@ -4,11 +4,11 @@ Read all relevant files and evaluate every config key against the criteria below
 
 ## Files to read
 
-- `config/base.toml` – all default config keys
-- `lib/notenav.sh` – grep for `nn_cfg` calls to find every key used in code
-- `docs/configuration.md` – documented keys and their descriptions
-- `config/workflows/*.toml` – workflow-specific keys (type, status, priority, lifecycle, queries)
-- `GUIDELINES.md` – config key naming guidelines (the authoritative rules)
+- `config/base.toml`: all default config keys
+- `lib/notenav.sh`: grep for `nn_cfg` calls to find every key used in code
+- `docs/configuration.md`: documented keys and their descriptions
+- `config/workflows/*.toml`: workflow-specific keys (type, status, priority, lifecycle, queries)
+- `GUIDELINES.md`: config key naming guidelines (the authoritative rules)
 
 ## Evaluation criteria
 
@@ -19,7 +19,7 @@ For each config key, evaluate:
 - **Clarity:** does the name unambiguously describe what the setting controls? Could a new user guess what it does from the name alone?
 - **Consistency:** does it follow the same patterns as other keys? (e.g., `sort_by` / `group_by` are consistent; `sort_by` / `grouping` would not be)
 - **Positive framing:** is the name positive? (`show_archive` good, `hide_archive` / `no_archive` bad)
-- **snake_case** – all keys must be snake_case, no exceptions
+- **snake_case:** all keys must be snake_case, no exceptions
 
 ### 2. Booleans vs enums
 

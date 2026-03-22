@@ -31,9 +31,9 @@ LICENSE             # MIT
 
 ## Three Operating Modes
 
-1. **Faceted browser** (`nn` with no args) – full TUI with filters, query presets, inline actions
-2. **Named query** (`nn <name>`) – runs a query preset by name
-3. **Ad-hoc query** (`nn key=value ...`) – filters notes by frontmatter fields; `-i` for interactive mode
+1. **Faceted browser** (`nn` with no args): full TUI with filters, query presets, inline actions
+2. **Named query** (`nn <name>`): runs a query preset by name
+3. **Ad-hoc query** (`nn key=value ...`): filters notes by frontmatter fields; `-i` for interactive mode
 
 ## Data Flow
 
@@ -66,12 +66,12 @@ nn type=task -i                               # interactive ad-hoc
 
 ## Key References
 
-- [GUIDELINES.md](GUIDELINES.md) – development conventions (architecture, shell scripting, keybindings, naming, config, docs, standards, **audit command inventory**)
-- [docs/cli.md](docs/cli.md) – full CLI reference (commands, flags, keybindings, environment)
-- [docs/configuration.md](docs/configuration.md) – config system, workflow reference, and preferences
-- [docs/faq.md](docs/faq.md) – directory discovery, note scoping, config file locations
-- [docs/install.md](docs/install.md) – requirements and installation methods
-- [README.md](README.md) – user-facing overview, getting started, keybindings
+- [GUIDELINES.md](GUIDELINES.md): development conventions (architecture, shell scripting, keybindings, naming, config, docs, standards, **audit command inventory**)
+- [docs/cli.md](docs/cli.md): full CLI reference (commands, flags, keybindings, environment)
+- [docs/configuration.md](docs/configuration.md): config system, workflow reference, and preferences
+- [docs/faq.md](docs/faq.md): directory discovery, note scoping, config file locations
+- [docs/install.md](docs/install.md): requirements and installation methods
+- [README.md](README.md): user-facing overview, getting started, keybindings
 
 **Before adding or renaming config keys**, read the "Config key naming" section in [GUIDELINES.md](GUIDELINES.md#config-key-naming) – it covers enum-vs-boolean, naming direction, and structural conventions. New config keys must be added in ~5 places: `config/base.toml`, the `nn_cfg` call with `//` fallback, `nn_doctor()` known-key list + validation, `docs/configuration.md`, and `samples/user-config.toml`.
 
