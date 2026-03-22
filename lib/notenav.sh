@@ -2477,12 +2477,12 @@ case "$action" in
   type)     ft=$(cycle type next "$ft"); : > "$dir/.f_sq" ;;
   status)   fs=$(cycle status next "$fs"); : > "$dir/.f_sq" ;;
   priority) fp=$(cycle priority next "$fp"); : > "$dir/.f_sq" ;;
-  sort)     fsort=$(cycle sort next "$fsort") ;;
+  sort)     fsort=$(cycle sort next "$fsort"); fsort_rev="" ;;
   sort-reverse) [ -n "$fsort_rev" ] && fsort_rev="" || fsort_rev="rev" ;;
   clear-type) ft=""; : > "$dir/.f_sq" ;;
   clear-status) fs=""; : > "$dir/.f_sq" ;;
   clear-priority) fp=""; : > "$dir/.f_sq" ;;
-  clear-sort) IFS= read -r fsort < "$dir/.schema_defaults" ;;
+  clear-sort) IFS= read -r fsort < "$dir/.schema_defaults"; fsort_rev="" ;;
   next|prev)  # h/l: cycle through query presets
     if [ -f "$dir/.queries" ]; then
       total=$(wc -l < "$dir/.queries")
@@ -2743,9 +2743,16 @@ filters_lbl_f=$(printf '%s\n%s\n%s\n%s' "$filters_top" "$ftags_s_active" "$fmatc
 # Display section: per-line [z] options with current value
 default_sort=$(head -1 "$dir/.schema_defaults")
 sort_hint="$fsort"; [ "$fsort" = "$default_sort" ] && sort_hint="$fsort (default)"
-sort_arrow="↓"; [ -n "$fsort_rev" ] && sort_arrow="↑"
-zorder_s=$(printf '       \033[36m[z]\033[0m then \033[36m[o]\033[0mrder-by: \033[1m%s %s\033[0m' "$sort_arrow" "$sort_hint")
-zorder_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder-by: \033[1m%s %s\033[0m' "$sort_arrow" "$sort_hint")
+# Field-aware sort direction description
+case "$fsort" in
+  modified|created) if [ -n "$fsort_rev" ]; then sort_dir="oldest first"; else sort_dir="newest first"; fi ;;
+  title)            if [ -n "$fsort_rev" ]; then sort_dir="Z–A"; else sort_dir="A–Z"; fi ;;
+  priority)         if [ -n "$fsort_rev" ]; then sort_dir="lowest first"; else sort_dir="highest first"; fi ;;
+  *)                sort_dir="" ;;
+esac
+sort_desc="$sort_hint"; [ -n "$sort_dir" ] && sort_desc="$sort_hint, $sort_dir"
+zorder_s=$(printf '       \033[36m[z]\033[0m then \033[36m[o]\033[0mrder-by: \033[1m%s\033[0m' "$sort_desc")
+zorder_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder-by: \033[1m%s\033[0m' "$sort_desc")
 zrev_s=$(printf '       \033[36m[z]\033[0m then \033[36m[r]\033[0meverse sort direction')
 zrev_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[r]\033[1;37meverse sort direction\033[0m')
 if [ -n "$fgroup" ]; then
