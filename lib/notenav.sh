@@ -2731,8 +2731,10 @@ fi
 filters_lbl=$(printf '%s\n%s\n%s\n%s' "$filters_top" "$ftags_s" "$fmatch_s" "$fname_s")
 filters_lbl_f=$(printf '%s\n%s\n%s\n%s' "$filters_top" "$ftags_s_active" "$fmatch_s_active" "$fname_s_active")
 # View section: per-line [z] options with current value
-zorder_s=$(printf '       \033[36m[z]\033[0m then \033[36m[o]\033[0mrder: \033[1m⇅ %s\033[0m' "$fsort")
-zorder_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder: \033[1m⇅ %s\033[0m' "$fsort")
+default_sort=$(head -1 "$dir/.schema_defaults")
+sort_hint="$fsort"; [ "$fsort" = "$default_sort" ] && sort_hint="$fsort (default)"
+zorder_s=$(printf '       \033[36m[z]\033[0m then \033[36m[o]\033[0mrder: \033[1m⇅ %s\033[0m' "$sort_hint")
+zorder_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder: \033[1m⇅ %s\033[0m' "$sort_hint")
 if [ -n "$fgroup" ]; then
   zgroup_s=$(printf '       \033[36m[z]\033[0m then \033[36m[g]\033[0mroup: \033[1m%s\033[0m' "$fgroup")
   zgroup_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[g]\033[1;37mroup: \033[1m%s\033[0m' "$fgroup")
