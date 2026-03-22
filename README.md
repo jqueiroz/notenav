@@ -90,7 +90,7 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 | `g` | [**g**]o-to query preset |
 | `c` then `s`/`p`/`t` | [**c**]hange status, priority, or type |
 | `f` then `t`/`c`/`n` | [**f**]ilter-by tags, contents, or name |
-| `z` then `o`/`g`/`h`/`w` | View mode: order, group, hide/show archive, wrap |
+| `z` then `o`/`g`/`h`/`w` | View mode: order, group, toggle archived, wrap |
 | `b` | [**b**]ulk edit (via your preferred editor) |
 | `q` | Quit |
 

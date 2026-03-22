@@ -2742,11 +2742,11 @@ else
 fi
 archive_label=$(cat "$dir/.schema_archive_label")
 if [ -n "$farchive" ]; then
-  zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0mide/show: \033[1mshowing %s\033[0m' "$archive_label")
-  zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37mide/show: \033[1mshowing %s\033[0m' "$archive_label")
+  zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0m: \033[1mshowing %s\033[0m' "$archive_label")
+  zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[0m: \033[1mshowing %s\033[0m' "$archive_label")
 else
-  zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0mide/show: \033[90mhiding %s\033[0m' "$archive_label")
-  zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37mide/show: \033[90mhiding %s\033[0m' "$archive_label")
+  zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0m: \033[90mhiding %s\033[0m' "$archive_label")
+  zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[0m: \033[90mhiding %s\033[0m' "$archive_label")
 fi
 zwrap_s=$(printf '       \033[36m[z]\033[0m then \033[36m[w]\033[0mrap preview')
 zwrap_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[w]\033[1;37mrap preview\033[0m')
