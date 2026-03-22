@@ -4,8 +4,13 @@ Based on David Allen's [Getting Things Done](https://gettingthingsdone.com/) met
 
 **Workflow file:** [`config/workflows/gtd.toml`](../../config/workflows/gtd.toml)
 
-```bash
-# In ~/.config/notenav/config.toml or .nn/workflow.toml
+```toml
+# Per-project — .nn/workflow.toml
+extends = "gtd"
+```
+
+```toml
+# As default for all projects — ~/.config/notenav/config.toml
 default_workflow = "gtd"
 ```
 

@@ -624,6 +624,10 @@ Options:
 
 Filter keys: type, status, priority, tag
 Example: nn type=task status=active
+
+Config:
+  Project:  .nn/workflow.toml
+  User:     ~/.config/notenav/config.toml
 EOF
     return 0
   fi

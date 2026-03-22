@@ -4,8 +4,13 @@ Based on Niklas Luhmann's [Zettelkasten](https://en.wikipedia.org/wiki/Zettelkas
 
 **Workflow file:** [`config/workflows/zettelkasten.toml`](../../config/workflows/zettelkasten.toml)
 
-```bash
-# In ~/.config/notenav/config.toml or .nn/workflow.toml
+```toml
+# Per-project — .nn/workflow.toml
+extends = "zettelkasten"
+```
+
+```toml
+# As default for all projects — ~/.config/notenav/config.toml
 default_workflow = "zettelkasten"
 ```
 

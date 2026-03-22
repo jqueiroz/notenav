@@ -75,3 +75,18 @@ ln -s ~/.local/share/notenav/bin/nn ~/.local/bin/nn
 ```
 
 Make sure `~/.local/bin` is on your `PATH`.
+
+## Next steps
+
+Verify the installation:
+
+```bash
+nn --version
+```
+
+notenav works out of the box with the default [Compass](workflows/compass.md) workflow. To customize:
+
+- **Project workflow** – create `.nn/workflow.toml` in your project directory (see [samples/workflows/](../samples/workflows/))
+- **User preferences** – create `~/.config/notenav/config.toml` (see [samples/user-config.toml](../samples/user-config.toml))
+
+See [docs/configuration.md](configuration.md) for the full reference.

@@ -4,8 +4,13 @@ Inspired by [Azure DevOps](https://azure.microsoft.com/en-us/products/devops/) w
 
 **Workflow file:** [`config/workflows/ado.toml`](../../config/workflows/ado.toml)
 
-```bash
-# In ~/.config/notenav/config.toml or .nn/workflow.toml
+```toml
+# Per-project — .nn/workflow.toml
+extends = "ado"
+```
+
+```toml
+# As default for all projects — ~/.config/notenav/config.toml
 default_workflow = "ado"
 ```
 

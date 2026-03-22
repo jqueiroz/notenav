@@ -4,9 +4,15 @@ The default notenav workflow. A simple workflow built around three note types, f
 
 **Workflow file:** [`config/workflows/compass.toml`](../../config/workflows/compass.toml)
 
+Compass is the default – no setup needed. To use it explicitly:
+
 ```toml
-# ~/.config/notenav/config.toml
-# Use compass (this is the default – no config needed)
+# Per-project — .nn/workflow.toml
+extends = "compass"
+```
+
+```toml
+# As default for all projects — ~/.config/notenav/config.toml
 default_workflow = "compass"
 ```
 
