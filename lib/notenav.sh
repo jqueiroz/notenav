@@ -2352,12 +2352,14 @@ if [ "$mode" = "auto" ]; then
   # Cursor: up 4 to title line, column 13 (after "  │  Title: ")
   printf '\033[4A\033[13G' > /dev/tty
   read -r title < /dev/tty
-  # Move past box bottom (3 lines down from title+1)
-  printf '\033[3B' > /dev/tty
   if [ -z "$title" ]; then
+    # Move past box bottom (3 lines down from title+1)
+    printf '\033[3B' > /dev/tty
     printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
     exit 0
   fi
+  # Move past box bottom (3 lines down from title+1)
+  printf '\033[3B' > /dev/tty
   selected="$auto_type"
   tc=$(printf '\033[%sm' "$auto_color")
   icon="$auto_icon"
