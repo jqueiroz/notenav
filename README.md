@@ -164,16 +164,6 @@ Validates your entire setup in one pass. Run it whenever something seems off: it
 nn doctor
 ```
 
-**What it checks:**
-
-- **Dependencies** – bash 4+, fzf 0.44+, zk, yq (yq-go), jq, gawk, sort, sed, git; optional bat for syntax-highlighted preview
-- **Config** – TOML parse validity, `extends` resolution, `default_workflow` lookup, unrecognized keys
-- **Trusted sources** – lists cached remote workflows and their fetch dates
-- **Workflow integrity** – type definitions (icon + color), status lifecycle transitions, priority levels, filter cycles, query preset args
-- **Notebook** – zk reachability and indexed note count
-
-Output is color-coded: `[✓]` pass, `[!]` warning (non-fatal), `[✗]` failure. Exits 0 when all critical checks pass.
-
 See [docs/cli.md](docs/cli.md) for the full CLI reference.
 
 ## License
