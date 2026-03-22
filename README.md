@@ -92,6 +92,7 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 | `f` then `t`/`c`/`n` | [**f**]ilter-by tags, contents, or name |
 | `z` then `o`/`r`/`g`/`h`/`w` | Display: order-by, reverse sort, group-by, toggle archived, wrap |
 | `b` | [**b**]ulk edit (via your preferred editor) |
+| `J` / `K` | Scroll preview down / up |
 | `q` | Quit |
 
 These keybindings apply to all workflows, including custom ones. With the default configuration, every keybinding is displayed on-screen.
