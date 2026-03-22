@@ -345,15 +345,19 @@ Default view settings.
 ```toml
 [defaults]
 sort_by = "created"       # created | modified | title | priority
+sort_reverse = false      # true to reverse the default sort direction
 group_by = ""             # "" (none) | type | status
 show_archive = false      # true to show archived statuses by default
+wrap_preview = false      # true to wrap the preview pane by default
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `sort_by` | string | `"created"` | Sort order for notes |
+| `sort_reverse` | boolean | `false` | Whether to reverse the default sort direction |
 | `group_by` | string | `""` | Grouping in the list; `""` for no grouping |
 | `show_archive` | boolean | `false` | Whether archived statuses are visible on launch |
+| `wrap_preview` | boolean | `false` | Whether the preview pane wraps long lines on launch |
 
 ### `[ui]`
 

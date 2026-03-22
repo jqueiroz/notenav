@@ -7,8 +7,10 @@ default_workflow = "compass"
 
 [defaults]
 sort_by = "created"
+sort_reverse = false
 group_by = ""
 show_archive = false
+wrap_preview = false
 
 [ui]
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs

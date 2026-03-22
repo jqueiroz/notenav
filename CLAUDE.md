@@ -73,4 +73,6 @@ nn type=task -i                               # interactive ad-hoc
 - [docs/install.md](docs/install.md) – requirements and installation methods
 - [README.md](README.md) – user-facing overview, getting started, keybindings
 
+**Before adding or renaming config keys**, read the "Config key naming" section in [GUIDELINES.md](GUIDELINES.md#config-key-naming) – it covers enum-vs-boolean, naming direction, and structural conventions.
+
 When adding, renaming, or removing slash commands in `.claude/commands/`, update the audit command table in [GUIDELINES.md](GUIDELINES.md#audit-commands).

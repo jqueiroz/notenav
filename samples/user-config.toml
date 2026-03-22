@@ -6,8 +6,10 @@ default_workflow = "compass"
 
 [defaults]
 sort_by = "modified"       # created | modified | title | priority
+sort_reverse = false       # true to reverse the default sort direction
 group_by = ""              # "" (none) | type | status
 show_archive = false       # true to show done/removed by default
+wrap_preview = false       # true to wrap the preview pane by default
 
 [ui]
 editor = "nvim"            # editor for opening notes

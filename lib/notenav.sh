@@ -509,8 +509,10 @@ nn_precompute_workflow() {
 
   # Defaults
   NN_DEFAULT_SORT=$(nn_cfg '.defaults.sort_by // "created"')
+  NN_DEFAULT_SORT_REV=$(nn_cfg '.defaults.sort_reverse // false')
   NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // ""')
   NN_DEFAULT_ARCHIVE=$(nn_cfg '.defaults.show_archive // false')
+  NN_DEFAULT_WRAP=$(nn_cfg '.defaults.wrap_preview // false')
 
   # UI preferences
   NN_UI_EDITOR=$(nn_cfg '.ui.editor // empty')
@@ -602,8 +604,8 @@ nn_write_workflow_files() {
     printf '%s\t%s\n' "$_v" "${NN_PRIORITY_LABELS[$_v]}"
   done > "$dir/.schema_priority_labels"
 
-  # Defaults (one per line: sort_by, group_by, show_archive)
-  printf '%s\n%s\n%s\n' "$NN_DEFAULT_SORT" "$NN_DEFAULT_GROUP" "$NN_DEFAULT_ARCHIVE" > "$dir/.schema_defaults"
+  # Defaults (one per line: sort_by, group_by, show_archive, sort_reverse, wrap_preview)
+  printf '%s\n%s\n%s\n%s\n%s\n' "$NN_DEFAULT_SORT" "$NN_DEFAULT_GROUP" "$NN_DEFAULT_ARCHIVE" "$NN_DEFAULT_SORT_REV" "$NN_DEFAULT_WRAP" > "$dir/.schema_defaults"
 
   # AWK bodies
   printf '%s' "$NN_AWK_COLOR_BODY" > "$dir/.awk_color_body"
@@ -1313,8 +1315,18 @@ nn_doctor() {
     if [[ -n "$_def_archive" && "$_def_archive" != "true" && "$_def_archive" != "false" ]]; then
       _warn "defaults.show_archive '$_def_archive' invalid (must be true or false)"
     fi
+    local _def_sort_rev
+    _def_sort_rev=$(nn_cfg '.defaults.sort_reverse // empty')
+    if [[ -n "$_def_sort_rev" && "$_def_sort_rev" != "true" && "$_def_sort_rev" != "false" ]]; then
+      _warn "defaults.sort_reverse '$_def_sort_rev' invalid (must be true or false)"
+    fi
+    local _def_wrap
+    _def_wrap=$(nn_cfg '.defaults.wrap_preview // empty')
+    if [[ -n "$_def_wrap" && "$_def_wrap" != "true" && "$_def_wrap" != "false" ]]; then
+      _warn "defaults.wrap_preview '$_def_wrap' invalid (must be true or false)"
+    fi
     # Check for unrecognized keys in [defaults]
-    local _known_defaults="sort_by group_by show_archive"
+    local _known_defaults="sort_by sort_reverse group_by show_archive wrap_preview"
     local _dk
     while IFS= read -r _dk; do
       [[ -z "$_dk" ]] && continue
@@ -1912,12 +1924,12 @@ EOF
     : > "$_nn_dir/.f_tags"
     : > "$_nn_dir/.f_sq"
     echo "$NN_DEFAULT_SORT" > "$_nn_dir/.f_sort"
+    [[ "$NN_DEFAULT_SORT_REV" == "true" ]] && echo "rev" > "$_nn_dir/.f_sort_rev" || : > "$_nn_dir/.f_sort_rev"
     echo "$NN_DEFAULT_GROUP" > "$_nn_dir/.f_group"
-    : > "$_nn_dir/.f_archive"
+    [[ "$NN_DEFAULT_ARCHIVE" == "true" ]] && echo "show" > "$_nn_dir/.f_archive" || : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
     : > "$_nn_dir/.f_name"
-    : > "$_nn_dir/.f_wrap"
-    : > "$_nn_dir/.f_sort_rev"
+    [[ "$NN_DEFAULT_WRAP" == "true" ]] && echo "on" > "$_nn_dir/.f_wrap" || : > "$_nn_dir/.f_wrap"
 
     # set n=... to unlock a hidden message
     local _nn_k
@@ -2537,10 +2549,12 @@ case "$action" in
   sq*) apply_sq "${action#sq}" ;;
   pick) [ -f "$dir/.f_pick" ] && apply_sq "$(cat "$dir/.f_pick")" && rm -f "$dir/.f_pick" ;;
   reset) ft=""; fs=""; fp=""; fmatch=""; fname=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_name"
-    { IFS= read -r fsort; IFS= read -r fgroup; IFS= read -r _a; } < "$dir/.schema_defaults"
+    { IFS= read -r fsort; IFS= read -r fgroup; IFS= read -r _a; IFS= read -r _sr; IFS= read -r _w; } < "$dir/.schema_defaults"
     [ "$_a" = "true" ] && farchive="show" || farchive=""
-    if [ -n "$fwrap" ]; then fwrap=""; : > "$dir/.f_wrap"; fi
-    fsort_rev=""; : > "$dir/.f_sort_rev" ;;
+    [ "$_sr" = "true" ] && fsort_rev="rev" || fsort_rev=""
+    echo "$fsort_rev" > "$dir/.f_sort_rev"
+    [ "$_w" = "true" ] && fwrap="on" || fwrap=""
+    echo "$fwrap" > "$dir/.f_wrap" ;;
   clear-tags) : > "$dir/.f_tags" ;;
   clear-match) fmatch=""; : > "$dir/.f_match"; : > "$dir/.f_match_paths" ;;
   group) fgroup=$(cycle group next "$fgroup") ;;
@@ -2832,7 +2846,7 @@ if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
 fi
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
 printf ' nn · %d/%d ' "$count" "$total" > "$dir/.border"
-[ -n "$fwrap_was" ] && [ -z "$fwrap" ] && printf 'toggle-wrap+'
+[ "$fwrap_was" != "$fwrap" ] && printf 'toggle-wrap+'
 printf 'reload(cat %s/.current)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "$dir" "$(cat "$dir/.border")"
 ENDFILTER
     chmod +x "$_nn_dir/filter.sh"
@@ -2871,6 +2885,9 @@ ENDWK
 ENDEDIT
     chmod +x "$_nn_dir/edit.sh"
 
+    local _nn_fzf_wrap=()
+    [[ "$NN_DEFAULT_WRAP" == "true" ]] && _nn_fzf_wrap=(--wrap)
+
     fzf --ansi --delimiter $'\t' --with-nth 2.. < "$_nn_dir/.current" \
       --header '' --header-first \
       --border rounded \
@@ -2878,6 +2895,7 @@ ENDEDIT
       --border-label-pos bottom \
       --preview "$_nn_dir/preview.sh {1}" \
       --prompt "$NN_UI_COMMAND_PROMPT" \
+      "${_nn_fzf_wrap[@]}" \
       --bind "t:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/tags.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all'; else $_nn_dir/filter.sh $_nn_dir type; fi]" \
       --bind "T:transform[$_nn_dir/filter.sh $_nn_dir clear-type]" \
       --bind "s:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all'; else $_nn_dir/filter.sh $_nn_dir status; fi]" \

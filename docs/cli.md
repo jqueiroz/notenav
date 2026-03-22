@@ -164,7 +164,7 @@ nn doctor
    - **Types**: all types have icon and color, no duplicates, `display_order` references valid types, no unrecognized sub-keys
    - **Statuses**: all statuses have colors, `initial` exists in values, `filter_cycle` and `archive` reference valid values, lifecycle transitions reference valid statuses, no unrecognized sub-keys
    - **Priority**: levels have colors, `filter_cycle` references valid values, lifecycle transitions valid, `unset_position` is `first` or `last`, no unrecognized sub-keys
-   - **Defaults**: `sort_by`, `group_by`, and `show_archive` have valid values
+   - **Defaults**: `sort_by`, `sort_reverse`, `group_by`, `show_archive`, and `wrap_preview` have valid values
    - **UI**: `exit_message`, `priority_plus`, and `after_create` have valid values
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
    - ANSI color codes are syntactically valid throughout
