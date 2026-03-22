@@ -63,6 +63,16 @@ Yes. If there's no `.nn/workflow.toml`, notenav uses your `default_workflow` fro
 
 Yes. notenav works with any markdown files that use YAML frontmatter. It reads `type`, `status`, `priority`, and `tags` fields from the frontmatter – the rest of the file is untouched. notenav and Obsidian (or any other tool) can coexist on the same vault without conflicts.
 
+## How do I troubleshoot setup problems?
+
+Run `nn doctor` – it checks all dependencies (versions, variants), validates your config files, verifies workflow integrity (entities, statuses, lifecycles), and confirms your zk notebook is reachable.
+
+```bash
+nn doctor
+```
+
+If something is wrong, the output tells you exactly what failed and why. Warnings (marked `[!]`) are non-fatal; failures (marked `[✗]`) indicate problems that will prevent `nn` from working correctly.
+
 ## How do I scope `nn` to a subfolder without `cd`-ing into it?
 
 Use a subshell:

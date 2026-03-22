@@ -124,6 +124,7 @@ nn                              # interactive TUI
 nn type=task status=active      # ad-hoc query
 nn backlog                      # query preset (from config)
 nn type=task -i                 # interactive (fzf) ad-hoc query
+nn doctor                       # check setup and diagnose problems
 nn --version                    # version info
 ```
 

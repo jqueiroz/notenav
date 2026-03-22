@@ -53,6 +53,7 @@ The merged config is stored in `NN_CFG_JSON` and queried via `nn_cfg '.path.to.v
 ```bash
 which nn                                      # should show bin/nn path
 nn --version                                  # notenav 0.1.0-dev
+nn doctor                                     # check dependencies, config, notebook
 
 cd ~/Writing/obsidian-johnjq
 nn                                            # interactive TUI

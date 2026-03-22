@@ -82,6 +82,7 @@ Verify the installation:
 
 ```bash
 nn --version
+nn doctor        # check dependencies, config, and notebook
 ```
 
 notenav works out of the box with the default [Compass](workflows/compass.md) workflow. To customize:

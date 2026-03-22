@@ -605,6 +605,475 @@ nn_write_workflow_files() {
   printf '%s' "$_archive_label" > "$dir/.schema_archive_label"
 }
 
+# --- Doctor ---
+# Diagnostic command: checks dependencies, config, workflow integrity, and zk notebook.
+
+# Version comparison: returns 0 if $1 >= $2 (dot-separated numeric)
+_nn_ver_cmp() {
+  local IFS=.
+  local -a a=($1) b=($2)
+  local i
+  for ((i=0; i<${#b[@]}; i++)); do
+    local av="${a[i]:-0}" bv="${b[i]:-0}"
+    (( av > bv )) && return 0
+    (( av < bv )) && return 1
+  done
+  return 0
+}
+
+nn_doctor() {
+  local notenav_root="$1"
+  local fails=0 warns=0
+
+  # Output helpers (respect $NO_COLOR)
+  local _green="" _yellow="" _red="" _dim="" _reset=""
+  if [[ -z "${NO_COLOR:-}" ]]; then
+    _green=$'\033[32m' _yellow=$'\033[33m' _red=$'\033[31m'
+    _dim=$'\033[90m' _reset=$'\033[0m'
+  fi
+  _pass() { echo "${_green}[✓]${_reset} $*"; }
+  _warn() { echo "${_yellow}[!]${_reset} $*"; (( warns++ )); }
+  _fail() { echo "${_red}[✗]${_reset} $*"; (( fails++ )); }
+
+  # ── Phase 1: Dependencies ──
+
+  # bash
+  local bash_ver="${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}"
+  if _nn_ver_cmp "$bash_ver" "4.0"; then
+    _pass "bash $bash_ver"
+  else
+    _fail "bash $bash_ver (requires 4+)"
+  fi
+
+  # fzf
+  if command -v fzf >/dev/null 2>&1; then
+    local fzf_ver
+    fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    if [[ -n "$fzf_ver" ]] && _nn_ver_cmp "$fzf_ver" "0.44"; then
+      _pass "fzf $fzf_ver"
+    else
+      _fail "fzf ${fzf_ver:-unknown} (requires 0.44+)"
+    fi
+  else
+    _fail "fzf not found"
+  fi
+
+  # zk
+  local _has_zk=false
+  if command -v zk >/dev/null 2>&1; then
+    local zk_ver
+    zk_ver=$(zk --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    _pass "zk ${zk_ver:-installed}"
+    _has_zk=true
+  else
+    _fail "zk not found"
+  fi
+
+  # yq
+  local _has_yq=false
+  if command -v yq >/dev/null 2>&1; then
+    local yq_ver
+    yq_ver=$(yq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    # Check if it's yq-go (not yq-python)
+    if yq -p=toml -o=json '.' /dev/null >/dev/null 2>&1 || yq --version 2>&1 | grep -qi 'mikefarah\|https://github.com/mikefarah'; then
+      _pass "yq ${yq_ver:-installed} (yq-go)"
+      _has_yq=true
+    else
+      _fail "yq ${yq_ver:-installed} appears to be yq-python, not yq-go"
+    fi
+  else
+    _fail "yq not found"
+  fi
+
+  # jq
+  local _has_jq=false
+  if command -v jq >/dev/null 2>&1; then
+    local jq_ver
+    jq_ver=$(jq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    _pass "jq ${jq_ver:-installed}"
+    _has_jq=true
+  else
+    _fail "jq not found"
+  fi
+
+  # awk
+  if command -v awk >/dev/null 2>&1; then
+    local awk_variant
+    awk_variant=$(awk --version 2>/dev/null | head -1 || true)
+    if [[ "$awk_variant" == *GNU* || "$awk_variant" == *gawk* ]]; then
+      _pass "awk (gawk)"
+    else
+      local awk_name
+      awk_name=$(awk -W version 2>&1 | head -1 || true)
+      if [[ "$awk_name" == *mawk* ]]; then
+        _warn "awk: gawk recommended (found mawk)"
+      else
+        _warn "awk: gawk recommended"
+      fi
+    fi
+  else
+    _fail "awk not found"
+  fi
+
+  # sort, sed, git
+  local _tool
+  for _tool in sort sed git; do
+    if command -v "$_tool" >/dev/null 2>&1; then
+      _pass "$_tool"
+    else
+      _fail "$_tool not found"
+    fi
+  done
+
+  # bat (optional)
+  if command -v bat >/dev/null 2>&1; then
+    local bat_ver
+    bat_ver=$(bat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    _pass "bat ${bat_ver:-installed}"
+  elif command -v batcat >/dev/null 2>&1; then
+    local batcat_ver
+    batcat_ver=$(batcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    _pass "bat ${batcat_ver:-installed} (as batcat)"
+  else
+    _warn "bat not found (optional – enables syntax-highlighted preview)"
+  fi
+
+  # ── Phase 2: Config validation ──
+
+  if [[ "$_has_yq" == "true" && "$_has_jq" == "true" ]]; then
+    echo ""
+
+    local user_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
+    local project_nn_dir="" _search_dir="$PWD"
+    while true; do
+      if [[ -d "$_search_dir/.nn" ]]; then
+        project_nn_dir="$_search_dir/.nn"
+        break
+      fi
+      [[ "$_search_dir" == "/" ]] && break
+      _search_dir="$(dirname "$_search_dir")"
+    done
+    local project_wf_file="${project_nn_dir:+$project_nn_dir/workflow.toml}"
+
+    # User config
+    if [[ -f "$user_cfg" ]]; then
+      if yq -p=toml -o=json '.' "$user_cfg" >/dev/null 2>&1; then
+        _pass "User config: $user_cfg"
+      else
+        _fail "User config: $user_cfg (parse error)"
+      fi
+    else
+      _pass "User config: not present ${_dim}(using defaults)${_reset}"
+    fi
+
+    # Project config
+    local _extends_name=""
+    if [[ -n "$project_wf_file" && -f "$project_wf_file" ]]; then
+      local _proj_json
+      if _proj_json=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>/dev/null); then
+        _extends_name=$(printf '%s' "$_proj_json" | jq -r '.extends // empty' 2>/dev/null)
+        if [[ -n "$_extends_name" ]]; then
+          _pass "Project config: .nn/workflow.toml ${_dim}(extends $_extends_name)${_reset}"
+        else
+          _pass "Project config: .nn/workflow.toml"
+        fi
+      else
+        _fail "Project config: .nn/workflow.toml (parse error)"
+      fi
+    else
+      _pass "Project config: not present ${_dim}(using default workflow)${_reset}"
+    fi
+
+    # Resolve extends reference
+    if [[ -n "$_extends_name" ]]; then
+      local _wf_found=false
+      if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_extends_name.toml" ]]; then
+        _wf_found=true
+      elif [[ -f "$notenav_root/config/workflows/$_extends_name.toml" ]]; then
+        _wf_found=true
+      fi
+      if [[ "$_wf_found" == "false" ]]; then
+        _fail "extends '$_extends_name' – workflow not found"
+      fi
+    fi
+
+    # Check default_workflow resolves (from user config)
+    if [[ -f "$user_cfg" ]]; then
+      local _dw
+      _dw=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null | jq -r '.default_workflow // empty' 2>/dev/null)
+      if [[ -n "$_dw" ]]; then
+        local _dw_found=false
+        if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_dw.toml" ]]; then
+          _dw_found=true
+        elif [[ -f "$notenav_root/config/workflows/$_dw.toml" ]]; then
+          _dw_found=true
+        fi
+        if [[ "$_dw_found" == "false" ]]; then
+          _warn "default_workflow '$_dw' – workflow not found"
+        fi
+      fi
+    fi
+
+    # Unrecognized top-level keys
+    local _known_keys="meta entity status priority queries defaults ui zk extends default_workflow"
+    local _check_files=()
+    [[ -f "$user_cfg" ]] && _check_files+=("$user_cfg")
+    [[ -n "$project_wf_file" && -f "$project_wf_file" ]] && _check_files+=("$project_wf_file")
+    local _cfg_file
+    for _cfg_file in "${_check_files[@]}"; do
+      local _unknown=""
+      while IFS= read -r _key; do
+        [[ -z "$_key" ]] && continue
+        local _found=false _k
+        for _k in $_known_keys; do
+          [[ "$_key" == "$_k" ]] && _found=true && break
+        done
+        if [[ "$_found" == "false" ]]; then
+          [[ -n "$_unknown" ]] && _unknown+=", "
+          _unknown+="$_key"
+        fi
+      done < <(yq -p=toml -o=json '.' "$_cfg_file" 2>/dev/null | jq -r 'keys[]' 2>/dev/null)
+      if [[ -n "$_unknown" ]]; then
+        local _short="${_cfg_file##*/}"
+        _warn "Unrecognized keys in $_short: $_unknown"
+      fi
+    done
+
+    # Full config merge check
+    if nn_load_config "$notenav_root" 2>/dev/null; then
+      _pass "Config merge OK"
+    else
+      _fail "Config merge failed"
+    fi
+  fi
+
+  # ── Phase 3: Workflow integrity ──
+
+  if [[ -n "${NN_CFG_JSON:-}" ]]; then
+    echo ""
+
+    # Entity checks
+    local _ent_values _ent_ok=true _ent_count=0 _ent_issues=""
+    mapfile -t _ent_values < <(nn_cfg '.entity.values // [] | .[]')
+    _ent_count=${#_ent_values[@]}
+    local _ev
+    for _ev in "${_ent_values[@]}"; do
+      local _icon _color
+      _icon=$(nn_cfg ".entity.\"$_ev\".icon // empty")
+      _color=$(nn_cfg ".entity.\"$_ev\".color // empty")
+      if [[ -z "$_icon" ]]; then
+        _ent_issues+="$_ev missing icon; "
+        _ent_ok=false
+      fi
+      if [[ -z "$_color" ]]; then
+        _ent_issues+="$_ev missing color; "
+        _ent_ok=false
+      fi
+    done
+    if [[ "$_ent_ok" == "true" && $_ent_count -gt 0 ]]; then
+      local _ent_names
+      printf -v _ent_names '%s, ' "${_ent_values[@]}"
+      _ent_names="${_ent_names%, }"
+      _pass "Entities: $_ent_names – all have icon + color"
+    elif [[ $_ent_count -eq 0 ]]; then
+      _fail "Entities: none defined"
+    else
+      _fail "Entities: $_ent_issues"
+    fi
+
+    # Status checks
+    local _sta_values _sta_ok=true _sta_count=0
+    mapfile -t _sta_values < <(nn_cfg '.status.values // [] | .[]')
+    _sta_count=${#_sta_values[@]}
+
+    # Check filter_cycle values exist in values
+    local _fc_values _fc_issues="" _fcv
+    mapfile -t _fc_values < <(nn_cfg '.status.filter_cycle // [] | .[]')
+    for _fcv in "${_fc_values[@]}"; do
+      local _found=false _sv
+      for _sv in "${_sta_values[@]}"; do
+        [[ "$_fcv" == "$_sv" ]] && _found=true && break
+      done
+      if [[ "$_found" == "false" ]]; then
+        _fc_issues+="filter_cycle '$_fcv' not in values; "
+        _sta_ok=false
+      fi
+    done
+
+    # Check archive values exist in values
+    local _arc_values _arcv
+    mapfile -t _arc_values < <(nn_cfg '.status.archive // [] | .[]')
+    for _arcv in "${_arc_values[@]}"; do
+      local _found=false _sv
+      for _sv in "${_sta_values[@]}"; do
+        [[ "$_arcv" == "$_sv" ]] && _found=true && break
+      done
+      if [[ "$_found" == "false" ]]; then
+        _fc_issues+="archive '$_arcv' not in values; "
+        _sta_ok=false
+      fi
+    done
+
+    # Check lifecycle transitions reference valid values
+    local _lc_issues="" _lcv _lc_target
+    for _lcv in "${_sta_values[@]}"; do
+      _lc_target=$(nn_cfg ".status.lifecycle.forward.\"$_lcv\" // empty")
+      if [[ -n "$_lc_target" ]]; then
+        local _found=false _sv
+        for _sv in "${_sta_values[@]}"; do
+          [[ "$_lc_target" == "$_sv" ]] && _found=true && break
+        done
+        [[ "$_found" == "false" ]] && _lc_issues+="forward '$_lcv' → '$_lc_target' invalid; " && _sta_ok=false
+      fi
+      _lc_target=$(nn_cfg ".status.lifecycle.reverse.\"$_lcv\" // empty")
+      if [[ -n "$_lc_target" ]]; then
+        local _found=false _sv
+        for _sv in "${_sta_values[@]}"; do
+          [[ "$_lc_target" == "$_sv" ]] && _found=true && break
+        done
+        [[ "$_found" == "false" ]] && _lc_issues+="reverse '$_lcv' → '$_lc_target' invalid; " && _sta_ok=false
+      fi
+    done
+
+    if [[ "$_sta_ok" == "true" && $_sta_count -gt 0 ]]; then
+      _pass "Statuses: $_sta_count values, lifecycle valid"
+    elif [[ $_sta_count -eq 0 ]]; then
+      _fail "Statuses: none defined"
+    else
+      _fail "Statuses: ${_fc_issues}${_lc_issues}"
+    fi
+
+    # Priority checks
+    local _pri_enabled
+    _pri_enabled=$(nn_cfg '.priority.enabled // true')
+    if [[ "$_pri_enabled" != "false" ]]; then
+      local _pri_values _pri_ok=true _pri_count=0
+      mapfile -t _pri_values < <(nn_cfg '.priority.values // [] | .[]')
+      _pri_count=${#_pri_values[@]}
+
+      local _pri_fc_values _pri_fc_issues="" _pfcv
+      mapfile -t _pri_fc_values < <(nn_cfg '.priority.filter_cycle // [] | .[]')
+      for _pfcv in "${_pri_fc_values[@]}"; do
+        local _found=false _pv
+        for _pv in "${_pri_values[@]}"; do
+          [[ "$_pfcv" == "$_pv" ]] && _found=true && break
+        done
+        [[ "$_found" == "false" ]] && _pri_fc_issues+="filter_cycle '$_pfcv' not in values; " && _pri_ok=false
+      done
+
+      # Priority lifecycle
+      local _pri_lc_issues="" _plcv _plc_target
+      for _plcv in "${_pri_values[@]}"; do
+        _plc_target=$(nn_cfg ".priority.lifecycle.up.\"$_plcv\" // empty")
+        if [[ -n "$_plc_target" ]]; then
+          local _found=false _pv
+          for _pv in "${_pri_values[@]}"; do
+            [[ "$_plc_target" == "$_pv" ]] && _found=true && break
+          done
+          [[ "$_found" == "false" ]] && _pri_lc_issues+="up '$_plcv' → '$_plc_target' invalid; " && _pri_ok=false
+        fi
+        _plc_target=$(nn_cfg ".priority.lifecycle.down.\"$_plcv\" // empty")
+        if [[ -n "$_plc_target" ]]; then
+          local _found=false _pv
+          for _pv in "${_pri_values[@]}"; do
+            [[ "$_plc_target" == "$_pv" ]] && _found=true && break
+          done
+          [[ "$_found" == "false" ]] && _pri_lc_issues+="down '$_plcv' → '$_plc_target' invalid; " && _pri_ok=false
+        fi
+      done
+
+      if [[ "$_pri_ok" == "true" && $_pri_count -gt 0 ]]; then
+        _pass "Priority: $_pri_count levels, lifecycle valid"
+      elif [[ $_pri_count -eq 0 ]]; then
+        _fail "Priority: enabled but no values defined"
+      else
+        _fail "Priority: ${_pri_fc_issues}${_pri_lc_issues}"
+      fi
+    else
+      _pass "Priority: disabled"
+    fi
+
+    # Query preset validation (warnings only)
+    local _qp_count=0 _qp_warns=""
+    while IFS=$'\t' read -r _qname _qargs; do
+      [[ -z "$_qname" ]] && continue
+      (( _qp_count++ ))
+      local _arg
+      for _arg in $_qargs; do
+        local _key="${_arg%%=*}" _val="${_arg#*=}"
+        case "$_key" in
+          type)
+            if [[ "$_val" != "none" ]]; then
+              local _found=false _ev
+              for _ev in "${_ent_values[@]}"; do
+                [[ "$_val" == "$_ev" ]] && _found=true && break
+              done
+              [[ "$_found" == "false" ]] && _qp_warns+="$_qname: type=$_val unknown; "
+            fi
+            ;;
+          status)
+            if [[ "$_val" != "none" ]]; then
+              local _found=false _sv
+              for _sv in "${_sta_values[@]}"; do
+                [[ "$_val" == "$_sv" ]] && _found=true && break
+              done
+              [[ "$_found" == "false" ]] && _qp_warns+="$_qname: status=$_val unknown; "
+            fi
+            ;;
+          priority)
+            if [[ "$_val" != "none" && "$_pri_enabled" != "false" ]]; then
+              local _found=false _pv
+              for _pv in "${_pri_values[@]}"; do
+                [[ "$_val" == "$_pv" ]] && _found=true && break
+              done
+              [[ "$_found" == "false" ]] && _qp_warns+="$_qname: priority=$_val unknown; "
+            fi
+            ;;
+        esac
+      done
+    done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.args // "")"')
+
+    if [[ -n "$_qp_warns" ]]; then
+      _warn "Query presets: $_qp_count presets – $_qp_warns"
+    elif [[ $_qp_count -gt 0 ]]; then
+      _pass "Query presets: $_qp_count presets, all args valid"
+    else
+      _pass "Query presets: none defined"
+    fi
+  fi
+
+  # ── Phase 4: zk notebook ──
+
+  if [[ "$_has_zk" == "true" ]]; then
+    echo ""
+    if zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
+      _pass "zk notebook found"
+      local _note_count
+      _note_count=$(zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
+      if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
+        _pass "$_note_count notes indexed"
+      else
+        _warn "0 notes indexed"
+      fi
+    else
+      _warn "No zk notebook found from current directory"
+    fi
+  fi
+
+  # Summary
+  echo ""
+  if [[ $fails -eq 0 && $warns -eq 0 ]]; then
+    echo "All checks passed."
+  elif [[ $fails -eq 0 ]]; then
+    echo "All checks passed ($warns warning(s))."
+  else
+    echo "$fails check(s) failed, $warns warning(s)."
+  fi
+
+  [[ $fails -gt 0 ]] && return 1
+  return 0
+}
+
 notenav_main() {
   # --version / --help
   if [[ "$1" == "--version" || "$1" == "-V" ]]; then
@@ -617,6 +1086,7 @@ Usage: nn                        interactive TUI
        nn <query-name>           run a saved query preset
        nn key=value ...          ad-hoc filter (plain output)
        nn key=value ... -i       ad-hoc filter (interactive)
+       nn doctor                 check setup and diagnose problems
 
 Options:
   -h, --help       Show this help
@@ -648,6 +1118,12 @@ EOF
     cat "/tmp/.empty_easteregg_override" 2>/dev/null && echo
     rm -f "/tmp/.empty_easteregg_override"
     return 0
+  fi
+
+  # nn doctor: diagnostic checks (dispatched before config loading)
+  if [[ "$1" == "doctor" ]]; then
+    nn_doctor "$NOTENAV_ROOT"
+    return $?
   fi
 
   # Load config (workflow + user preferences)
