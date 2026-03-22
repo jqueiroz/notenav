@@ -285,13 +285,13 @@ _nn_gen_awk_bodies() {
   # for group ordering and stats display. Falls back to NN_*_VALUES if unset.
 
   # Type color+icon assignments
-  local _ent_awk="" _first=true
+  local _typ_awk="" _first=true
   for _v in "${NN_TYPE_VALUES[@]}"; do
     if $_first; then
-      _ent_awk="tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${NN_TYPE_ICONS[$_v]}\""
+      _typ_awk="tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${NN_TYPE_ICONS[$_v]}\""
       _first=false
     else
-      _ent_awk+=$'\n'"  if (\$1 == \"$_v\") { tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${NN_TYPE_ICONS[$_v]}\" }"
+      _typ_awk+=$'\n'"  if (\$1 == \"$_v\") { tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${NN_TYPE_ICONS[$_v]}\" }"
     fi
   done
 
@@ -340,7 +340,7 @@ _nn_gen_awk_bodies() {
   age_s = (age != "") ? " \033[90m" age r : ""'
 
   # Ad-hoc mode AWK body (no age)
-  local _simple="$_ent_awk"
+  local _simple="$_typ_awk"
   [[ -n "$_pri_awk" ]] && _simple+=$'\n'"  $_pri_awk"
   _simple+=$'\n'"  $_sta_awk"
   _simple+=$'\n''  r = "\033[0m"'
@@ -352,7 +352,7 @@ _nn_gen_awk_bodies() {
   NN_AWK_COLOR="{ $_simple }"
 
   # Filter.sh main display AWK body (with age)
-  local _full="$_ent_awk"
+  local _full="$_typ_awk"
   [[ -n "$_pri_awk" ]] && _full+=$'\n'"  $_pri_awk"
   _full+=$'\n'"  $_sta_awk"
   _full+=$'\n''  r = "\033[0m"'
@@ -365,7 +365,7 @@ _nn_gen_awk_bodies() {
   NN_AWK_COLOR_BODY="$_full"
 
   # Pinned items AWK body (bold line + yellow-highlighted marker)
-  local _pinned="$_ent_awk"
+  local _pinned="$_typ_awk"
   [[ -n "$_pri_awk" ]] && _pinned+=$'\n'"  $_pri_awk"
   _pinned+=$'\n'"  $_sta_awk"
   _pinned+=$'\n''  r = "\033[0m\033[1m"'
@@ -917,46 +917,46 @@ nn_doctor() {
     echo "Workflow:"
 
     # Type checks
-    local _ent_values _ent_ok=true _ent_count=0 _ent_issues=""
-    mapfile -t _ent_values < <(nn_cfg '.type.values // [] | .[]')
-    _ent_count=${#_ent_values[@]}
-    if _in_array "" "${_ent_values[@]}"; then
+    local _typ_values _typ_ok=true _typ_count=0 _typ_issues=""
+    mapfile -t _typ_values < <(nn_cfg '.type.values // [] | .[]')
+    _typ_count=${#_typ_values[@]}
+    if _in_array "" "${_typ_values[@]}"; then
       _warn "type.values contains an empty string"
     fi
-    local _ent_dups
-    _ent_dups=$(_dupes "${_ent_values[@]}")
-    [[ -n "$_ent_dups" ]] && _warn "type.values has duplicates: $_ent_dups"
-    local _ent_default_color
-    _ent_default_color=$(nn_cfg '.type.default_color // empty')
+    local _typ_dups
+    _typ_dups=$(_dupes "${_typ_values[@]}")
+    [[ -n "$_typ_dups" ]] && _warn "type.values has duplicates: $_typ_dups"
+    local _typ_default_color
+    _typ_default_color=$(nn_cfg '.type.default_color // empty')
     local _ev
-    for _ev in "${_ent_values[@]}"; do
+    for _ev in "${_typ_values[@]}"; do
       local _icon _color
       _icon=$(nn_cfg ".type.\"$_ev\".icon // empty")
       _color=$(nn_cfg ".type.\"$_ev\".color // empty")
       if [[ -z "$_icon" ]]; then
-        _ent_issues+="$_ev missing icon; "
-        _ent_ok=false
+        _typ_issues+="$_ev missing icon; "
+        _typ_ok=false
       fi
-      if [[ -z "$_color" && -z "$_ent_default_color" ]]; then
-        _ent_issues+="$_ev missing color; "
-        _ent_ok=false
+      if [[ -z "$_color" && -z "$_typ_default_color" ]]; then
+        _typ_issues+="$_ev missing color; "
+        _typ_ok=false
       fi
     done
-    if [[ "$_ent_ok" == "true" && $_ent_count -gt 0 ]]; then
-      local _ent_names
-      printf -v _ent_names '%s, ' "${_ent_values[@]}"
-      _ent_names="${_ent_names%, }"
-      _pass "Types: $_ent_names – all have icon + color"
-    elif [[ $_ent_count -eq 0 ]]; then
+    if [[ "$_typ_ok" == "true" && $_typ_count -gt 0 ]]; then
+      local _typ_names
+      printf -v _typ_names '%s, ' "${_typ_values[@]}"
+      _typ_names="${_typ_names%, }"
+      _pass "Types: $_typ_names – all have icon + color"
+    elif [[ $_typ_count -eq 0 ]]; then
       _fail "Types: none defined"
     else
-      _fail "Types: ${_ent_issues%"; "}"
+      _fail "Types: ${_typ_issues%"; "}"
     fi
     # Warn on invalid color formats
-    if [[ -n "$_ent_default_color" ]] && ! _valid_color "$_ent_default_color"; then
-      _warn "type.default_color '$_ent_default_color' is not a valid ANSI code"
+    if [[ -n "$_typ_default_color" ]] && ! _valid_color "$_typ_default_color"; then
+      _warn "type.default_color '$_typ_default_color' is not a valid ANSI code"
     fi
-    for _ev in "${_ent_values[@]}"; do
+    for _ev in "${_typ_values[@]}"; do
       local _color
       _color=$(nn_cfg ".type.\"$_ev\".color // empty")
       if [[ -n "$_color" ]] && ! _valid_color "$_color"; then
@@ -964,34 +964,34 @@ nn_doctor() {
       fi
     done
     # Validate type display_order
-    local _ent_do_values
-    mapfile -t _ent_do_values < <(nn_cfg '.type.display_order // [] | .[]')
+    local _typ_do_values
+    mapfile -t _typ_do_values < <(nn_cfg '.type.display_order // [] | .[]')
     local _edo_dups
-    _edo_dups=$(_dupes "${_ent_do_values[@]}")
+    _edo_dups=$(_dupes "${_typ_do_values[@]}")
     [[ -n "$_edo_dups" ]] && _warn "type.display_order has duplicates: $_edo_dups"
     local _edov
-    for _edov in "${_ent_do_values[@]}"; do
-      if ! _in_array "$_edov" "${_ent_values[@]}"; then
+    for _edov in "${_typ_do_values[@]}"; do
+      if ! _in_array "$_edov" "${_typ_values[@]}"; then
         _warn "type.display_order '$_edov' not in type.values"
       fi
     done
     # Validate type sub-table keys
-    local _ent_known_subkeys="icon color description"
-    for _ev in "${_ent_values[@]}"; do
+    local _typ_known_subkeys="icon color description"
+    for _ev in "${_typ_values[@]}"; do
       local _esk
       while IFS= read -r _esk; do
         [[ -z "$_esk" ]] && continue
-        if ! _in_array "$_esk" $_ent_known_subkeys; then
+        if ! _in_array "$_esk" $_typ_known_subkeys; then
           _warn "type.$_ev: unrecognized key '$_esk'"
         fi
       done < <(nn_cfg ".type.\"$_ev\" // {} | keys[]" 2>/dev/null)
     done
     # Warn on type-level keys that aren't in values or known top-level keys
-    local _ent_known_toplevel="values default_color display_order"
+    local _typ_known_toplevel="values default_color display_order"
     local _ek
     while IFS= read -r _ek; do
       [[ -z "$_ek" ]] && continue
-      if ! _in_array "$_ek" $_ent_known_toplevel && ! _in_array "$_ek" "${_ent_values[@]}"; then
+      if ! _in_array "$_ek" $_typ_known_toplevel && ! _in_array "$_ek" "${_typ_values[@]}"; then
         _warn "type.$_ek is not in type.values (typo?)"
       fi
     done < <(nn_cfg '.type // {} | keys[]' 2>/dev/null)
@@ -1391,7 +1391,7 @@ nn_doctor() {
         local _key="${_arg%%=*}" _val="${_arg#*=}"
         case "$_key" in
           type)
-            if [[ "$_val" != "none" ]] && ! _in_array "$_val" "${_ent_values[@]}"; then
+            if [[ "$_val" != "none" ]] && ! _in_array "$_val" "${_typ_values[@]}"; then
               _qp_warns+="$_qname: type=$_val unknown; "
             fi
             ;;
@@ -1861,6 +1861,7 @@ EOF
     echo "$NN_DEFAULT_GROUP" > "$_nn_dir/.f_group"
     : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
+    : > "$_nn_dir/.f_name"
 
     # set n=... to unlock a hidden message
     local _nn_k
@@ -2439,7 +2440,7 @@ apply_sq() {
   [ -z "$line" ] && return
   name="${line%%	*}"; args="${line#*	}"
   # Reset filters then apply query preset's key=value pairs
-  ft=""; fs=""; fp=""; : > "$dir/.f_tags"
+  ft=""; fs=""; fp=""; fname=""; : > "$dir/.f_tags"; : > "$dir/.f_name"
   for a in $args; do
     case "$a" in
       type=*) ft="${a#*=}";; status=*) fs="${a#*=}";;
@@ -2490,7 +2491,7 @@ case "$action" in
           cur_idx=$(( (cur_idx - 1 + positions) % positions ))
         fi
         if [ "$cur_idx" -eq 0 ]; then
-          ft=""; fs=""; fp=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"
+          ft=""; fs=""; fp=""; fname=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_name"
         else
           apply_sq "$cur_idx"
         fi
@@ -2513,6 +2514,7 @@ echo "$fp" > "$dir/.f_priority"; echo "$fa" > "$dir/.f_active"
 echo "$fsort" > "$dir/.f_sort"; echo "$fgroup" > "$dir/.f_group"
 echo "$farchive" > "$dir/.f_archive"
 echo "$fmatch" > "$dir/.f_match"
+echo "$fname" > "$dir/.f_name"
 # Build awk condition
 # Sanitize values for safe interpolation into awk expressions
 awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
