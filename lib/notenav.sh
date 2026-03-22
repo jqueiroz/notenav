@@ -1294,7 +1294,8 @@ _nn_init_user() {
     local _tmp
     _tmp=$(mktemp)
     sed "s/^default_workflow = .*/default_workflow = \"$workflow_arg\"/" "$target" > "$_tmp" \
-      && mv "$_tmp" "$target"
+      && mv "$_tmp" "$target" \
+      || rm -f "$_tmp"
   fi
 
   echo "Created $target"
