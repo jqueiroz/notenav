@@ -911,6 +911,9 @@ nn_doctor() {
   fi
 
   # ── Phase 4: Workflow integrity ──
+  # NOTE: This phase hardcodes known config keys, valid enum values, and filter
+  # keys. When adding/removing properties, update the corresponding lists here.
+  # See GUIDELINES.md § Config system.
 
   if [[ -n "${NN_CFG_JSON:-}" ]]; then
     echo ""
@@ -1405,6 +1408,8 @@ nn_doctor() {
               _qp_warns+="$_qname: priority=$_val unknown; "
             fi
             ;;
+          tag) ;;
+          *) _qp_warns+="$_qname: unknown filter key '$_key'; " ;;
         esac
       done
     done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.args // "")"')
