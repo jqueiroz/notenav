@@ -1892,7 +1892,11 @@ dir="$1"
 tags=$(awk -F'\t' 'length($4) > 0 {
   n=split($4, arr, " "); for(i=1;i<=n;i++) t[arr[i]]=1
 } END { for(k in t) print k }' "$dir/.raw" | sort)
-[ -z "$tags" ] && exit 0
+if [ -z "$tags" ]; then
+  printf '\n  \033[33mNo tags found in notebook.\033[0m\n\n' > /dev/tty
+  sleep 1
+  exit 0
+fi
 cur_tags=""
 [ -s "$dir/.f_tags" ] && cur_tags=$(cat "$dir/.f_tags")
 n_cur=$(echo "$cur_tags" | grep -c . 2>/dev/null || echo 0)
