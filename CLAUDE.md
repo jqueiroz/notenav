@@ -61,6 +61,10 @@ nn backlog                                    # query preset
 nn type=task -i                               # interactive ad-hoc
 ```
 
-## Conventions
+## Key References
 
-See [GUIDELINES.md](GUIDELINES.md) for development guidelines (architecture, shell scripting, keybindings, config, docs, standards).
+- [GUIDELINES.md](GUIDELINES.md) – development conventions (architecture, shell scripting, keybindings, naming, config, docs, standards)
+- [docs/configuration.md](docs/configuration.md) – config system, workflow reference, and preferences
+- [docs/faq.md](docs/faq.md) – directory discovery, note scoping, config file locations
+- [docs/install.md](docs/install.md) – requirements and installation methods
+- [README.md](README.md) – user-facing overview, getting started, keybindings
