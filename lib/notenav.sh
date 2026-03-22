@@ -157,7 +157,16 @@ nn_load_config() {
   # Step 4: Load base workflow and resolve extends chain
   if [[ -n "$workflow_name" ]]; then
     local workflow_file=""
-    if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$workflow_name.toml" ]]; then
+    if [[ "$workflow_name" == https://* ]]; then
+      local _cache_path
+      _cache_path=$(_nn_url_cache_path "$workflow_name")
+      if [[ ! -f "$_cache_path" ]]; then
+        echo "notenav: remote workflow not cached: $workflow_name" >&2
+        echo "notenav: run 'nn init $workflow_name' to fetch it" >&2
+        return 1
+      fi
+      workflow_file="$_cache_path"
+    elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$workflow_name.toml" ]]; then
       workflow_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$workflow_name.toml"
     elif [[ -f "$notenav_root/config/workflows/$workflow_name.toml" ]]; then
       workflow_file="$notenav_root/config/workflows/$workflow_name.toml"
@@ -183,11 +192,17 @@ nn_load_config() {
     local _extends _depth=0
     _extends=$(printf '%s' "$workflow_json" | jq -r '.extends // empty' 2>/dev/null)
     while [[ -n "$_extends" && $_depth -lt 5 ]]; do
+      local _base_file=""
       if [[ "$_extends" == https://* ]]; then
-        echo "notenav: remote workflow extends not yet supported: $_extends" >&2
-        return 1
+        _base_file=$(_nn_url_cache_path "$_extends")
+        if [[ ! -f "$_base_file" ]]; then
+          echo "notenav: remote workflow not cached: $_extends" >&2
+          echo "notenav: run 'nn init $_extends' to fetch it" >&2
+          return 1
+        fi
+      else
+        _base_file="$notenav_root/config/workflows/$_extends.toml"
       fi
-      local _base_file="$notenav_root/config/workflows/$_extends.toml"
       if [[ ! -f "$_base_file" ]]; then
         echo "notenav: extended workflow '$_extends' not found" >&2
         return 1
@@ -787,13 +802,23 @@ nn_doctor() {
     # Resolve extends reference
     if [[ -n "$_extends_name" ]]; then
       local _wf_found=false
-      if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_extends_name.toml" ]]; then
+      if [[ "$_extends_name" == https://* ]]; then
+        local _ext_cache
+        _ext_cache=$(_nn_url_cache_path "$_extends_name")
+        if [[ -f "$_ext_cache" ]]; then
+          _wf_found=true
+        fi
+      elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_extends_name.toml" ]]; then
         _wf_found=true
       elif [[ -f "$notenav_root/config/workflows/$_extends_name.toml" ]]; then
         _wf_found=true
       fi
       if [[ "$_wf_found" == "false" ]]; then
-        _fail "extends '$_extends_name' – workflow not found"
+        if [[ "$_extends_name" == https://* ]]; then
+          _fail "extends remote workflow – not cached (run 'nn init $_extends_name')"
+        else
+          _fail "extends '$_extends_name' – workflow not found"
+        fi
       fi
     fi
 
@@ -844,6 +869,31 @@ nn_doctor() {
       _pass "Config merge OK"
     else
       _fail "Config merge failed"
+    fi
+  fi
+
+  # ── Trusted sources ──
+
+  local _ts_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources"
+  if [[ -f "$_ts_file" ]]; then
+    echo ""
+    local _ts_count=0 _ts_url
+    while IFS= read -r _ts_url; do
+      [[ -z "$_ts_url" || "$_ts_url" == \#* ]] && continue
+      (( _ts_count++ ))
+      local _cache_path
+      _cache_path=$(_nn_url_cache_path "$_ts_url")
+      if [[ -f "$_cache_path" ]]; then
+        local _fetch_date
+        _fetch_date=$(date -r "$_cache_path" '+%Y-%m-%d' 2>/dev/null \
+          || stat -c '%y' "$_cache_path" 2>/dev/null | cut -d' ' -f1)
+        _pass "$_ts_url ${_dim}(cached $_fetch_date)${_reset}"
+      else
+        _warn "$_ts_url ${_dim}(not cached)${_reset}"
+      fi
+    done < "$_ts_file"
+    if [[ $_ts_count -eq 0 ]]; then
+      _pass "Trusted sources: none configured"
     fi
   fi
 
@@ -1087,6 +1137,248 @@ nn_doctor() {
   return 0
 }
 
+# --- Remote workflow helpers ---
+
+# Returns the cache file path for a remote workflow URL.
+_nn_url_cache_path() {
+  local url="$1"
+  local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/notenav/workflows"
+  local hash
+  hash=$(printf '%s' "$url" | sha256sum | cut -c1-16)
+  printf '%s/%s.toml' "$cache_dir" "$hash"
+}
+
+# Returns 0 if URL is in the trusted-sources allow-list.
+_nn_url_is_trusted() {
+  local url="$1"
+  local ts_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources"
+  [[ -f "$ts_file" ]] || return 1
+  local line
+  while IFS= read -r line; do
+    [[ "$line" == "$url" ]] && return 0
+  done < "$ts_file"
+  return 1
+}
+
+# Appends a URL to the trusted-sources allow-list.
+_nn_url_trust_add() {
+  local url="$1"
+  local ts_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources"
+  mkdir -p "$(dirname "$ts_file")"
+  echo "$url" >> "$ts_file"
+}
+
+# --- nn init ---
+
+nn_init() {
+  local notenav_root="$1"; shift
+
+  # Parse args
+  local user_mode=false workflow_arg=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --user) user_mode=true; shift ;;
+      *)      workflow_arg="$1"; shift ;;
+    esac
+  done
+
+  if [[ "$user_mode" == "true" ]]; then
+    _nn_init_user "$notenav_root" "$workflow_arg"
+  else
+    _nn_init_project "$notenav_root" "$workflow_arg"
+  fi
+}
+
+_nn_init_project() {
+  local notenav_root="$1" workflow_arg="$2"
+  local workflow_name="${workflow_arg:-compass}"
+
+  # Resolve .nn/ directory (walk up from cwd, same as nn_load_config)
+  local project_nn_dir="" _search_dir="$PWD"
+  while true; do
+    if [[ -d "$_search_dir/.nn" ]]; then
+      project_nn_dir="$_search_dir/.nn"
+      break
+    fi
+    [[ "$_search_dir" == "/" ]] && break
+    _search_dir="$(dirname "$_search_dir")"
+  done
+  [[ -z "$project_nn_dir" ]] && project_nn_dir="$PWD/.nn"
+
+  local wf_file="$project_nn_dir/workflow.toml"
+
+  # If file exists, check for URL refresh case
+  if [[ -f "$wf_file" ]]; then
+    if [[ "$workflow_name" == https://* ]]; then
+      # Check if the existing file extends this exact URL – if so, refresh cache
+      local _existing_extends=""
+      if command -v yq >/dev/null 2>&1; then
+        _existing_extends=$(yq -p=toml -o=json -I=0 '.' "$wf_file" 2>/dev/null \
+          | jq -r '.extends // empty' 2>/dev/null)
+      fi
+      if [[ "$_existing_extends" == "$workflow_name" ]]; then
+        _nn_fetch_remote "$workflow_name" || return 1
+        echo "Refreshed cache for $workflow_name"
+        return 0
+      fi
+    fi
+    echo "notenav: project config already exists: $wf_file" >&2
+    return 1
+  fi
+
+  # Validate workflow name/URL
+  if [[ "$workflow_name" == https://* ]]; then
+    _nn_fetch_remote "$workflow_name" || return 1
+  else
+    if ! _nn_workflow_exists "$notenav_root" "$workflow_name"; then
+      echo "notenav: workflow '$workflow_name' not found" >&2
+      _nn_list_workflows "$notenav_root"
+      return 1
+    fi
+  fi
+
+  # Create .nn/ directory and workflow.toml
+  mkdir -p "$project_nn_dir"
+  cat > "$wf_file" <<EOF
+# Project workflow – see https://github.com/jqueiroz/notenav/blob/main/docs/configuration.md
+extends = "$workflow_name"
+
+# Add project-specific query presets below.
+# [queries.backlog]
+# args = "tag=backlog"
+EOF
+
+  echo "Created $wf_file (extends $workflow_name)"
+  if [[ "$workflow_name" != https://* ]]; then
+    _nn_list_workflows "$notenav_root"
+  fi
+}
+
+_nn_init_user() {
+  local notenav_root="$1" workflow_arg="$2"
+  local target="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
+
+  if [[ -f "$target" ]]; then
+    echo "notenav: user config already exists: $target" >&2
+    return 1
+  fi
+
+  # Validate workflow name if given
+  if [[ -n "$workflow_arg" ]]; then
+    if ! _nn_workflow_exists "$notenav_root" "$workflow_arg"; then
+      echo "notenav: workflow '$workflow_arg' not found" >&2
+      _nn_list_workflows "$notenav_root"
+      return 1
+    fi
+  fi
+
+  mkdir -p "$(dirname "$target")"
+  cp "$notenav_root/samples/user-config.toml" "$target"
+
+  # Replace default_workflow if a name was given
+  if [[ -n "$workflow_arg" ]]; then
+    sed -i "s/^default_workflow = .*/default_workflow = \"$workflow_arg\"/" "$target"
+  fi
+
+  echo "Created $target"
+  echo "Edit it to customize your preferences."
+}
+
+# Checks if a workflow name exists in built-in or user workflow directories.
+_nn_workflow_exists() {
+  local notenav_root="$1" name="$2"
+  [[ -f "$notenav_root/config/workflows/$name.toml" ]] && return 0
+  [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$name.toml" ]] && return 0
+  return 1
+}
+
+# Lists available workflows.
+_nn_list_workflows() {
+  local notenav_root="$1"
+  local names=()
+  local f
+  for f in "$notenav_root"/config/workflows/*.toml; do
+    [[ -f "$f" ]] || continue
+    local name="${f##*/}"
+    names+=("${name%.toml}")
+  done
+  local user_wf_dir="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows"
+  if [[ -d "$user_wf_dir" ]]; then
+    for f in "$user_wf_dir"/*.toml; do
+      [[ -f "$f" ]] || continue
+      local name="${f##*/}"
+      names+=("${name%.toml}")
+    done
+  fi
+  if [[ ${#names[@]} -gt 0 ]]; then
+    local list
+    printf -v list '%s, ' "${names[@]}"
+    echo "Available workflows: ${list%, }"
+  fi
+}
+
+# Downloads, validates, and caches a remote workflow URL.
+_nn_fetch_remote() {
+  local url="$1"
+
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "notenav: curl is required for remote workflows" >&2
+    return 1
+  fi
+  if ! command -v yq >/dev/null 2>&1; then
+    echo "notenav: yq is required for remote workflows" >&2
+    return 1
+  fi
+
+  # Trust check
+  if ! _nn_url_is_trusted "$url"; then
+    if [[ -t 0 ]]; then
+      printf 'Trust %s?\nThis adds it to %s/notenav/trusted-sources. [y/N] ' \
+        "$url" "${XDG_CONFIG_HOME:-$HOME/.config}"
+      local reply
+      read -r reply
+      case "$reply" in
+        [yY]|[yY][eE][sS]) ;;
+        *) echo "Aborted."; return 1 ;;
+      esac
+    else
+      echo "notenav: URL not trusted: $url" >&2
+      echo "notenav: run interactively or add to ${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources" >&2
+      return 1
+    fi
+  fi
+
+  # Download to temp file
+  local tmpfile
+  tmpfile=$(mktemp)
+  trap "rm -f '$tmpfile'" RETURN
+  if ! curl -fsSL "$url" -o "$tmpfile"; then
+    echo "notenav: failed to download $url" >&2
+    return 1
+  fi
+
+  # Validate TOML
+  if ! yq -p=toml -o=json '.' "$tmpfile" >/dev/null 2>&1; then
+    echo "notenav: downloaded file is not valid TOML" >&2
+    return 1
+  fi
+
+  # Write to cache with header
+  local cache_path
+  cache_path=$(_nn_url_cache_path "$url")
+  mkdir -p "$(dirname "$cache_path")"
+  {
+    printf '# Cached from: %s\n' "$url"
+    printf '# Fetched: %s\n' "$(date '+%Y-%m-%d')"
+    cat "$tmpfile"
+  } > "$cache_path"
+
+  # Add to allow-list if not already trusted
+  if ! _nn_url_is_trusted "$url"; then
+    _nn_url_trust_add "$url"
+  fi
+}
+
 notenav_main() {
   # --version / --help
   if [[ "$1" == "--version" || "$1" == "-V" ]]; then
@@ -1099,6 +1391,8 @@ Usage: nn                        interactive TUI
        nn <query-name>           run a saved query preset
        nn key=value ...          ad-hoc filter (plain output)
        nn key=value ... -i       ad-hoc filter (interactive)
+       nn init [workflow]        create project config (.nn/workflow.toml)
+       nn init --user [workflow] create user config
        nn doctor                 check setup and diagnose problems
 
 Options:
@@ -1136,6 +1430,13 @@ EOF
   # nn doctor: diagnostic checks (dispatched before config loading)
   if [[ "$1" == "doctor" ]]; then
     nn_doctor "$NOTENAV_ROOT"
+    return $?
+  fi
+
+  # nn init: bootstrap config files (dispatched before config loading)
+  if [[ "$1" == "init" ]]; then
+    shift
+    nn_init "$NOTENAV_ROOT" "$@"
     return $?
   fi
 

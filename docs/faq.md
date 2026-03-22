@@ -49,7 +49,14 @@ Two locations, serving different purposes:
 
 These are orthogonal – project config defines *what the workflow looks like*, user config defines *how you prefer to use it*.
 
-If you're unsure where to start, see the annotated examples: [`samples/user-config.toml`](../samples/user-config.toml) and [`samples/workflows/project-workflow.toml`](../samples/workflows/project-workflow.toml).
+Use `nn init` to scaffold these files:
+
+```bash
+nn init                    # create .nn/workflow.toml
+nn init --user             # create ~/.config/notenav/config.toml
+```
+
+Or start from the annotated examples: [`samples/user-config.toml`](../samples/user-config.toml) and [`samples/workflows/project-workflow.toml`](../samples/workflows/project-workflow.toml).
 
 ## Why is the project directory called `.nn/` but the user config is under `notenav/`?
 

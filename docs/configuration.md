@@ -30,7 +30,15 @@ At startup, two things happen:
 
 The `.nn/` directory is found by walking up from the current directory.
 
-See [`samples/user-config.toml`](../samples/user-config.toml) and [`samples/workflows/project-workflow.toml`](../samples/workflows/project-workflow.toml) for annotated examples.
+The quickest way to get started is `nn init`:
+
+```bash
+nn init                    # create .nn/workflow.toml (extends compass)
+nn init gtd                # create .nn/workflow.toml (extends gtd)
+nn init --user             # create ~/.config/notenav/config.toml
+```
+
+Or start from the annotated examples: [`samples/user-config.toml`](../samples/user-config.toml) and [`samples/workflows/project-workflow.toml`](../samples/workflows/project-workflow.toml).
 
 ## Workflow files
 
@@ -51,7 +59,7 @@ next = "32;1"       # bold green instead of default
 extends = "ado"
 ```
 
-**3. Extend a remote workflow (GitHub gist)** *(planned – not yet implemented)*:
+**3. Extend a remote workflow (GitHub gist, raw URL, etc.)**:
 ```toml
 extends = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"
 
@@ -59,7 +67,7 @@ extends = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"
 1 = "31"            # override on top of the remote workflow
 ```
 
-Remote workflows will require explicit allow-listing in your user config (see [Remote workflows](#remote-workflows) below) and will use a local cache to avoid network fetches on every startup.
+Remote workflows require explicit trust via an allow-list and use a local cache – see [Remote workflows](#remote-workflows) below. Use `nn init <url>` to fetch and cache a remote workflow.
 
 **4. Full custom definition** – no `extends` key, define everything from scratch:
 ```toml
@@ -288,9 +296,32 @@ cp samples/workflows/custom-workflow.toml .nn/workflow.toml
 
 Then edit `.nn/workflow.toml` to define your entity types, statuses, priorities, and lifecycle transitions. See [`samples/workflows/custom-workflow.toml`](../samples/workflows/custom-workflow.toml) for a fully annotated example.
 
-## Remote workflows *(planned)*
+## Remote workflows
 
-Remote workflow extends (`extends = "https://..."`) is not yet implemented. When available, `.nn/workflow.toml` will be able to extend workflows hosted on GitHub gists or GitLab snippets, with a local cache and explicit URL allow-listing for security.
+`.nn/workflow.toml` can extend workflows hosted at any HTTPS URL (GitHub gists, GitLab snippets, raw URLs, etc.):
+
+```toml
+extends = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"
+```
+
+**Security model:** notenav never fetches URLs at runtime. Downloads happen only via `nn init`:
+
+```bash
+nn init https://gist.githubusercontent.com/user/abc123/raw/workflow.toml
+```
+
+On first use, you'll be prompted to trust the URL. Trusted URLs are stored in `~/.config/notenav/trusted-sources` (one per line). The downloaded file is validated as TOML and cached under `~/.cache/notenav/workflows/`.
+
+To refresh the cache, run `nn init <url>` again – if `.nn/workflow.toml` already extends the same URL, the cache is refreshed without overwriting your project config.
+
+**Paths:**
+
+| File | Path |
+|------|------|
+| Allow-list | `$XDG_CONFIG_HOME/notenav/trusted-sources` |
+| Cache | `$XDG_CACHE_HOME/notenav/workflows/` |
+
+`nn doctor` reports on trusted sources and cache status.
 
 ## Preferences reference
 

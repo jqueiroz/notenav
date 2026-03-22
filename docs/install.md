@@ -85,9 +85,14 @@ nn --version
 nn doctor        # check dependencies, config, and notebook
 ```
 
-notenav works out of the box with the default [Compass](workflows/compass.md) workflow. To customize:
+notenav works out of the box with the default [Compass](workflows/compass.md) workflow. To customize, use `nn init` to scaffold config files:
 
-- **Project workflow** – create `.nn/workflow.toml` in your project directory (see [samples/workflows/](../samples/workflows/))
-- **User preferences** – create `~/.config/notenav/config.toml` (see [samples/user-config.toml](../samples/user-config.toml))
+```bash
+nn init                    # create .nn/workflow.toml (extends compass)
+nn init ado                # create .nn/workflow.toml (extends ado)
+nn init --user             # create ~/.config/notenav/config.toml
+```
+
+Or create them manually from the annotated examples: [`samples/user-config.toml`](../samples/user-config.toml) and [`samples/workflows/`](../samples/workflows/).
 
 See [docs/configuration.md](configuration.md) for the full reference.
