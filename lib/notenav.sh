@@ -733,7 +733,7 @@ else
 fi
 selected=$(echo "$ordered" | fzf --multi --reverse --prompt 'tags: ' \
   --ansi --header $'Select tags for filtering (\033[36mSpace\033[0m/\033[36mTab\033[0m toggle \033[90m·\033[0m \033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel)' \
-  --bind 'j:down,k:up,space:toggle' ${start_bind:+--bind "$start_bind"})
+  --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,space:toggle' ${start_bind:+--bind "$start_bind"})
 if [ $? -eq 0 ]; then
   if [ -n "$selected" ]; then echo "$selected" > "$dir/.f_tags"
   else : > "$dir/.f_tags"; fi
@@ -768,7 +768,7 @@ result=$(: | fzf --ansi --disabled --query "$cur" \
   --preview "$dir/preview.sh {1}" \
   --delimiter $'\t' --with-nth 2 \
   --print-query \
-  --bind 'j:down,k:up' \
+  --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up' \
   --reverse)
 rc=$?
 query=$(printf '%s' "$result" | head -1)
@@ -852,7 +852,7 @@ hdr="Enter apply · Esc cancel"
 selected=$(printf '%b' "$vals" | fzf --ansi --reverse --prompt "set $field: " \
   --border --border-label " Set $field " \
   --header "$hdr" \
-  --bind 'j:down,k:up')
+  --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
 [ -z "$selected" ] && exit 1
 # Strip icon prefix (e.g. "◆ task" → "task")
 selected=$(echo "$selected" | sed 's/^[^ ]* //')
@@ -1052,7 +1052,7 @@ done < "$dir/.schema_entities"
 selected=$(printf '%s' "$types" | fzf --reverse --prompt "type: " \
   --ansi --border --border-label ' New Note ' --delimiter '\t' --with-nth '1,2' \
   --header $'Select note type\n\033[36mEnter\033[0m confirm \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
-  --bind "j:down,k:up" | awk '{print $2}')
+  --bind "j:down,k:up,ctrl-j:page-down,ctrl-k:page-up" | awk '{print $2}')
 [ -z "$selected" ] && exit 0
 # Styled title prompt — look up icon and color from workflow
 tc=""; icon=""
@@ -1166,7 +1166,7 @@ done < "$dir/.queries"
 selected=$(printf '%s' "$list" | fzf --reverse --prompt 'query: ' \
   --delimiter '\t' --with-nth '1,2' \
   --header 'Enter apply · Esc cancel' \
-  --bind 'j:down,k:up')
+  --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
 [ -z "$selected" ] && exit 0
 num=$(echo "$selected" | cut -f1)
 echo "$num" > "$dir/.f_pick"
@@ -1600,7 +1600,7 @@ ENDFILTER
       --multi \
       --bind "b:execute($_nn_dir/bulkedit.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']+deselect-all" \
       --bind "start:transform-header(cat $_nn_dir/.header)+execute-silent(rm -f $_nn_dir/.nn-s $_nn_dir/.nn-c)" \
-      --bind 'j:down,k:up,q:abort,change:clear-query' \
+      --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,q:abort,change:clear-query' \
       --bind "/:unbind(j,k,q,change,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch $_nn_dir/.nn-s)" \
       --bind "esc:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)' || { test -f $_nn_dir/.nn-s && rm $_nn_dir/.nn-s && printf 'rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)'; }]" \
       --bind "::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_dir/.nn-s)" \
@@ -1684,7 +1684,7 @@ ENDPREVIEW
           --preview "$_nn_prev {1}" \
           --prompt "$NN_UI_COMMAND_PROMPT" \
           --bind "start:execute-silent(rm -f $_nn_sflag)" \
-          --bind 'j:down,k:up,q:abort,change:clear-query' \
+          --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,q:abort,change:clear-query' \
           --bind "/:unbind(j,k,q,change)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch $_nn_sflag)" \
           --bind "esc:transform[test -f $_nn_sflag && rm $_nn_sflag && printf 'rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)']" \
           --bind "::rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_sflag)" \
