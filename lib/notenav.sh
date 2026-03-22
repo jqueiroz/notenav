@@ -1966,7 +1966,7 @@ result=$(: | fzf --ansi --disabled --query "$cur" \
   --reverse --border --color 'border:yellow')
 rc=$?
 query=$(printf '%s' "$result" | head -1)
-if [ $rc -eq 0 ]; then
+if [ $rc -ne 130 ]; then
   echo "$query" > "$dir/.f_name"
 fi
 ENDNAMEFILT
