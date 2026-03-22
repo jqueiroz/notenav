@@ -63,8 +63,10 @@ nn type=task -i                               # interactive ad-hoc
 
 ## Key References
 
-- [GUIDELINES.md](GUIDELINES.md) – development conventions (architecture, shell scripting, keybindings, naming, config, docs, standards)
+- [GUIDELINES.md](GUIDELINES.md) – development conventions (architecture, shell scripting, keybindings, naming, config, docs, standards, **audit command inventory**)
 - [docs/configuration.md](docs/configuration.md) – config system, workflow reference, and preferences
 - [docs/faq.md](docs/faq.md) – directory discovery, note scoping, config file locations
 - [docs/install.md](docs/install.md) – requirements and installation methods
 - [README.md](README.md) – user-facing overview, getting started, keybindings
+
+When adding, renaming, or removing slash commands in `.claude/commands/`, update the audit command table in [GUIDELINES.md](GUIDELINES.md#audit-commands).

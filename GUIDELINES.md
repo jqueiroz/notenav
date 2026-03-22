@@ -74,6 +74,20 @@ Two names coexist by design – each is used where it fits best:
 - Respect `$NO_COLOR` ([no-color.org](https://no-color.org)).
 - Error and warning messages go to stderr, not stdout.
 
+## Audit commands
+
+Slash commands in `.claude/commands/` for validating and reviewing the codebase. Convention: `check-*` = mechanical pass/fail validation, `review-*` = subjective quality judgment.
+
+**Keep this table in sync when adding, renaming, or removing commands.**
+
+| Command | Type | Scope |
+|---------|------|-------|
+| `/check-links` | check | Validate all markdown relative and anchor links resolve |
+| `/check-workflows` | check | Validate TOML integrity (values, lifecycle, extends) and config defaults match code |
+| `/review-docs` | review | Doc quality, accuracy, and consistency across `.md` files and TOML comments |
+| `/review-config-naming` | review | Config key names, types (bool vs enum), table structure, future-proofing |
+| `/best-practices` | review | Code quality: shell scripting, security, standards, CLI conventions |
+
 ## Versioning
 
 - Version string lives in `NOTENAV_VERSION` at the top of `lib/notenav.sh` and must match the version in `flake.nix`.

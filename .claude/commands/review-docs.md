@@ -1,6 +1,6 @@
 Review all documentation for quality, accuracy, and consistency. Read every doc and cross-reference against the actual codebase.
 
-Files to review: `README.md`, `docs/install.md`, `docs/configuration.md`, `docs/workflows/*.md`, `samples/` (including inline comments), and `CLAUDE.md`.
+Files to review: `README.md`, `docs/install.md`, `docs/configuration.md`, `docs/faq.md`, `docs/workflows/*.md`, `config/base.toml`, `config/workflows/*.toml`, `samples/`, and `CLAUDE.md`. This includes TOML file comments — they are documentation too.
 
 ## What to check
 
@@ -16,6 +16,16 @@ Files to review: `README.md`, `docs/install.md`, `docs/configuration.md`, `docs/
 - Workflow doc pages (`docs/workflows/*.md`) match their corresponding `config/workflows/*.toml`
 - Sample files (`samples/`) match the documented config format and use valid keys
 - `docs/configuration.md` covers all config keys used in the codebase
+
+### 2b. TOML files as documentation
+
+TOML files with comments are documentation artifacts — often the first thing a user reads or copies. Review them as such:
+
+- **`config/base.toml`**: every key has a comment explaining what it does and what values are valid. Comments stay in sync with `docs/configuration.md`.
+- **`config/workflows/*.toml`**: each major section has a comment block explaining what it configures. Non-obvious keys have inline comments. ANSI color codes have a color name comment (e.g. `# bold red`). Tombstone/omission patterns are explained.
+- **`samples/user-config.toml`**: header comment explains where to put the file. Commented-out keys show useful customizations with clear explanations. No stale keys or wrong defaults.
+- **`samples/workflows/*.toml`**: header comments explain purpose and placement. Inline comments guide a user building their first workflow. All keys, values, and extends references are valid.
+- Across all TOML files: comments match actual behavior — no outdated value lists, no wrong defaults, no references to renamed keys.
 
 ### 3. Completeness
 - Are any features, keybindings, or config options missing from the docs?
