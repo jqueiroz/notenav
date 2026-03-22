@@ -1580,7 +1580,7 @@ _nn_init_project() {
 
   # Create .nn/ directory and workflow.toml
   # Writes workflow_name via printf %s to avoid shell expansion of $ in URLs.
-  mkdir -p "$project_nn_dir"
+  mkdir -p "$project_nn_dir" || { echo "notenav: cannot create directory: $project_nn_dir" >&2; return 1; }
   {
     echo '# Project workflow – see https://github.com/jqueiroz/notenav/blob/main/docs/configuration.md'
     printf 'extends = "%s"\n' "$workflow_name"
@@ -1617,7 +1617,7 @@ _nn_init_user() {
     fi
   fi
 
-  mkdir -p "$(dirname "$target")"
+  mkdir -p "$(dirname "$target")" || { echo "notenav: cannot create directory: $(dirname "$target")" >&2; return 1; }
   cp "$notenav_root/samples/user-config.toml" "$target"
 
   # Replace default_workflow if a name/URL was given.
