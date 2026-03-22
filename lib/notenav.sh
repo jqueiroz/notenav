@@ -2826,8 +2826,8 @@ ENDFILTER
       --bind "n:transform[if test -f $_nn_dir/.nn-f; then rm -f $_nn_dir/.nn-f; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/namefilt.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; else echo 'execute($_nn_dir/newnote.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)'; fi]" \
       --bind "c:transform[if test -f $_nn_dir/.nn-f; then rm -f $_nn_dir/.nn-f; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/match.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; else rm -f $_nn_dir/.nn-z; echo 'execute-silent(touch $_nn_dir/.nn-c)+change-prompt(c )+transform-header(cat $_nn_dir/.header-c)'; fi]" \
       --bind "e:execute[test -f {1} && $_nn_editor {1}]" \
-      --bind "f:execute-silent(rm -f $_nn_dir/.nn-c $_nn_dir/.nn-z; touch $_nn_dir/.nn-f)+change-prompt(f )+transform-header(cat $_nn_dir/.header-f)" \
-      --bind "z:execute-silent(rm -f $_nn_dir/.nn-c $_nn_dir/.nn-f; touch $_nn_dir/.nn-z)+change-prompt(z )+transform-header(cat $_nn_dir/.header-z)" \
+      --bind "f:transform[rm -f $_nn_dir/.nn-c $_nn_dir/.nn-z; touch $_nn_dir/.nn-f; echo 'change-prompt(f )+transform-header(cat $_nn_dir/.header-f)']" \
+      --bind "z:transform[rm -f $_nn_dir/.nn-c $_nn_dir/.nn-f; touch $_nn_dir/.nn-z; echo 'change-prompt(z )+transform-header(cat $_nn_dir/.header-z)']" \
       --bind "o:transform[test -f $_nn_dir/.nn-z && rm -f $_nn_dir/.nn-z && { printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort; }]" \
       --bind "w:transform[test -f $_nn_dir/.nn-z && rm -f $_nn_dir/.nn-z && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+toggle-wrap+transform-header(cat $_nn_dir/.header)']" \
       --multi \
