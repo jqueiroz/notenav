@@ -2300,11 +2300,34 @@ ${nn_editor:-vi} "$tmpfile" </dev/tty >/dev/tty
 ENDBE
     chmod +x "$_nn_dir/bulkedit.sh"
 
-    # Quick note creation: type picker → title prompt → zk new → editor
+    # Quick note creation: title prompt → type picker → zk new → editor
     cat > "$_nn_dir/newnote.sh" << 'ENDNN'
 #!/usr/bin/env bash
 dir="$1"
-# Pick type (default to current type filter)
+
+# ── Step 1: Title prompt (with step list so user knows what's coming) ──
+printf '\n' > /dev/tty
+inner=41
+top_pad=$((inner - 11))
+top_dashes=$(printf '%*s' "$top_pad" '' | sed 's/ /─/g')
+printf '  \033[36m╭─ New Note %s╮\033[0m\n' "$top_dashes" > /dev/tty
+printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
+printf '  \033[36m│\033[0m  \033[1m1. Title:\033[0m%*s\033[36m│\033[0m\n' "$((inner - 12))" "" > /dev/tty
+printf '  \033[36m│\033[0m  \033[90m2. Type\033[0m%*s\033[36m│\033[0m\n' "$((inner - 9))" "" > /dev/tty
+printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
+bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
+printf '  \033[36m╰%s╯\033[0m\n' "$bot_dashes" > /dev/tty
+# Move cursor to Title input (up 4 lines, column 16 – after "  │  1. Title: ")
+printf '\033[4A\033[16G' > /dev/tty
+read -r title < /dev/tty
+# After Enter, cursor is on the "2. Type" line; move past box bottom
+printf '\033[3B' > /dev/tty
+if [ -z "$title" ]; then
+  printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
+  exit 0
+fi
+
+# ── Step 2: Type picker ──
 cur_type=$(cat "$dir/.f_type")
 types="" cur_line=""
 while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
@@ -2318,46 +2341,31 @@ while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
 done < "$dir/.schema_types"
 # Put filtered type first so fzf pre-selects it
 [ -n "$cur_line" ] && types="$cur_line${types:+$'\n'$types}"
+# Truncate title for border label if needed
+label_title="$title"
+[ ${#title} -gt 30 ] && label_title="${title:0:27}..."
 selected=$(printf '%s' "$types" | fzf --reverse --prompt "type: " \
-  --ansi --border --border-label ' New Note ' --delimiter '\t' --with-nth '1,2' \
-  --header $'Select note type\n\033[36mEnter\033[0m confirm \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
+  --ansi --border --border-label " New: $label_title " --delimiter '\t' --with-nth '1,2' \
+  --header $'Step 2/2 – Select note type\n\033[36mEnter\033[0m confirm \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
   --bind "j:down,k:up,ctrl-j:page-down,ctrl-k:page-up" | awk '{print $2}')
 [ -z "$selected" ] && exit 0
-# Styled title prompt — look up icon and color from workflow
+
+# Look up icon and color for result message
 tc=""; icon=""
 while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
   [ "$v" = "$selected" ] && tc=$(printf '\033[%sm' "$clr") && icon="$ic" && break
 done < "$dir/.schema_types"
-printf '\n' > /dev/tty
-inner=41
-pad=$((inner - 7 - ${#selected}))
-top_dashes=$(printf '%*s' "$pad" '' | sed 's/ /─/g')
-printf '  %s╭─ New %s %s╮\033[0m\n' "$tc" "$selected" "$top_dashes" > /dev/tty
-printf '  %s│\033[0m%*s%s│\033[0m\n' "$tc" "$inner" "" "$tc" > /dev/tty
-printf '  %s│\033[0m  \033[1mTitle:\033[0m%*s%s│\033[0m\n' "$tc" "$((inner - 8))" "" "$tc" > /dev/tty
-printf '  %s│\033[0m%*s%s│\033[0m\n' "$tc" "$inner" "" "$tc" > /dev/tty
-bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
-printf '  %s╰%s╯\033[0m\n' "$tc" "$bot_dashes" > /dev/tty
-# Move cursor up 3 lines, to column 13 (after "Title: ")
-printf '\033[3A\033[13G' > /dev/tty
-read -r title < /dev/tty
-# Move to the bottom border line to overwrite with result
-printf '\033[1B' > /dev/tty
-if [ -z "$title" ]; then
-  printf '\r  %s└─ \033[0m\033[90mCancelled\033[0m\033[K\n\n' "$tc" > /dev/tty
-  exit 0
-fi
 # Create note
 new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>/dev/null)
 if [ -z "$new_path" ]; then
-  printf '\r  %s└─ \033[31mFailed to create note\033[0m\033[K\n\n' "$tc" > /dev/tty
+  printf '\n  \033[31mFailed to create note\033[0m\n\n' > /dev/tty
   exit 0
 fi
 after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)
 if [ "$after_create" = "edit" ]; then
-  printf '\r  %s└─ \033[32m%s Created!\033[0m Opening in editor...\033[K\n\n' "$tc" "$icon" > /dev/tty
+  printf '\n  %s%s Created!\033[0m Opening in editor...\n\n' "$tc" "$icon" > /dev/tty
 else
-  printf '\r  %s└─ \033[32m%s Created!\033[0m\033[K\n\n' "$tc" "$icon" > /dev/tty
+  printf '\n  %s%s Created!\033[0m\n\n' "$tc" "$icon" > /dev/tty
 fi
 # Regenerate raw
 fmt=$(cat "$dir/.zk_fmt")
