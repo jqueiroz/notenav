@@ -1426,8 +1426,11 @@ stats_s=$(awk -F'\t' "${cond}${awk_stats}" "$dir/.raw")
 fmt_dim() {
   local key="$1" val="$2" is_active="$3" label suffix ic=""
   if [ "$key" = "p" ] && [ -n "$val" ]; then
-    label=$(awk -F'\t' -v v="$val" '$1 == v {print $2; exit}' "$dir/.schema_priority_labels")
-    [ -z "$label" ] && label="P$val"
+    if [ "$val" = "none" ]; then label="none"
+    else
+      label=$(awk -F'\t' -v v="$val" '$1 == v {print $2; exit}' "$dir/.schema_priority_labels")
+      [ -z "$label" ] && label="P$val"
+    fi
   elif [ "$key" = "e" ] && [ -n "$val" ]; then
     ic=$(awk -F'\t' -v v="$val" '$1 == v {printf "%s ", $2; exit}' "$dir/.schema_entity_icons")
     label="${ic}${val}"
