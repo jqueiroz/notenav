@@ -27,7 +27,7 @@ Rules and conventions for contributing to notenav.
 - **No modifier keys.** Do not use Ctrl, Alt, or Meta keybindings in fzf. Users run notenav inside tmux, terminal emulators, and window managers that may claim these combos, causing keys to be silently eaten.
 - **Plain keys only.** Stick to letters, digits, symbols, and Shift variants (uppercase letters).
 - **Use the modal pattern.** notenav has four input modes: command mode (plain keys), change mode (`c` prefix), filter-by mode (`f` prefix), and view mode (`z` prefix). Fit new bindings into this structure.
-- **Create mode flag files inside `transform`, not via `execute-silent`.** When a binding needs to create a flag file (`.nn-c`, `.nn-f`, `.nn-z`) that a subsequent key checks with `test -f`, run `touch` as a side effect inside the `transform[...]` shell before echoing the fzf action string. Do not use `execute-silent(touch ...)+action` at the top level – the flag file may not exist when the next key's `transform` checks for it. Pattern: `transform[touch .nn-x; echo 'change-prompt(...)+...']`.
+- **Use `.nn-mode` for mode state, not separate flag files.** Mode state is stored in a single file `.nn-mode` (empty = command mode, `c`/`f`/`z` = prefix mode). Bindings read it with `m=$(cat .nn-mode)` and check with `[ "$m" = z ]`. Mode entry writes the letter (`echo z > .nn-mode`), mode exit clears it (`: > .nn-mode`). All mode state operations must happen inside `transform[...]` as side effects before the `echo` that produces the fzf action string – never via `execute-silent` at the top level.
 
 ## Workflow definitions
 
