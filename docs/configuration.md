@@ -11,8 +11,6 @@ All configuration is TOML. Project and user configuration are orthogonal – nei
 
 Both scopes are layered on top of notenav's base defaults, so you only need to specify what you want to change.
 
-> **Why `.nn/` and `notenav/`?** The project config directory uses the short command name (`.nn/`) because it sits alongside `.git/`, `.vscode/`, etc. and users may type it frequently. The user config directory uses the full product name (`notenav/`) because two-letter names in `~/.config/` are collision-prone and hard to find. See [GUIDELINES.md](../GUIDELINES.md#naming-convention-nn-vs-notenav) for the full convention.
-
 ## Config resolution
 
 At startup, two things happen:
