@@ -52,7 +52,7 @@ For every `.md` file in the repo: verify all relative links (`[text](path)`) res
 - Workflow names in README prose match actual filenames (e.g. "compass" matches `compass.toml`)
 - Any links to workflow files or docs resolve correctly
 
-### 5b. Naming convention (`nn` vs `notenav`)
+### 6. Naming convention (`nn` vs `notenav`)
 
 Verify that all config path references follow the naming convention defined in `GUIDELINES.md`:
 - Project-local config directory is always `.nn/` (never `.notenav/`)
@@ -60,7 +60,7 @@ Verify that all config path references follow the naming convention defined in `
 - Check code (`lib/notenav.sh`, `bin/nn`), docs, samples, and config file comments
 - Temp file prefixes use `nn` (e.g. `.nn-c`, `.nn-s`), not `notenav`
 
-### 6. Workflow doc pages vs TOML
+### 7. Workflow doc pages vs TOML
 
 For each file in `docs/workflows/`:
 - Entity types table matches `entity.values` + icons from the corresponding TOML
