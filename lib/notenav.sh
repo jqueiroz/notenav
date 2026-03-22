@@ -650,8 +650,8 @@ nn_doctor() {
     _dim=$'\033[90m' _reset=$'\033[0m'
   fi
   _pass() { echo "${_green}[✓]${_reset} $*"; }
-  _warn() { echo "${_yellow}[!]${_reset} $*"; (( warns++ )); }
-  _fail() { echo "${_red}[✗]${_reset} $*"; (( fails++ )); }
+  _warn() { echo "${_yellow}[!]${_reset} $*"; (( warns++ )) || true; }
+  _fail() { echo "${_red}[✗]${_reset} $*"; (( fails++ )) || true; }
   _valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
   _in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
   _dupes() { local -A _seen; local _d="" _v; for _v; do [[ -n "${_seen[$_v]+x}" ]] && _d+="$_v, "; _seen[$_v]=1; done; printf '%s' "${_d%, }"; }
