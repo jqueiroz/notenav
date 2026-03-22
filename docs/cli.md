@@ -118,8 +118,7 @@ nn init --help
 - **Project mode** (default): creates `.nn/workflow.toml` with `extends = "<workflow>"` and a commented-out sample query preset.
 - **User mode** (`--user`): copies the annotated sample to `~/.config/notenav/config.toml` (respects `$XDG_CONFIG_HOME`). If a workflow argument is given, sets `default_workflow` in the created file.
 - **Remote workflows**: when the argument is an HTTPS URL, the workflow is fetched, validated as TOML, and cached under `~/.cache/notenav/workflows/`. On first use, you'll be prompted to trust the URL. Trusted URLs are stored in `~/.config/notenav/trusted-sources`.
-- **Existing file**: if the target config file already exists, `nn init` refuses to overwrite it. Edit the file directly or remove it and re-run.
-- **Cache refresh**: if `.nn/workflow.toml` already extends the same remote URL, `nn init <url>` refreshes the cache without touching the project config.
+- **Existing file**: if the target config file already exists, `nn init` refuses to overwrite it. Edit the file directly or remove it and re-run. As a special case, if `.nn/workflow.toml` already extends the same remote URL, `nn init <url>` refreshes the cache without touching the project config.
 
 **Examples:**
 
