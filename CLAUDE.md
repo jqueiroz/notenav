@@ -73,6 +73,10 @@ nn type=task -i                               # interactive ad-hoc
 - [docs/install.md](docs/install.md) – requirements and installation methods
 - [README.md](README.md) – user-facing overview, getting started, keybindings
 
-**Before adding or renaming config keys**, read the "Config key naming" section in [GUIDELINES.md](GUIDELINES.md#config-key-naming) – it covers enum-vs-boolean, naming direction, and structural conventions.
+**Before adding or renaming config keys**, read the "Config key naming" section in [GUIDELINES.md](GUIDELINES.md#config-key-naming) – it covers enum-vs-boolean, naming direction, and structural conventions. New config keys must be added in ~5 places: `config/base.toml`, the `nn_cfg` call with `//` fallback, `nn_doctor()` known-key list + validation, `docs/configuration.md`, and `samples/user-config.toml`.
+
+**Before adding or changing keybindings**, read the keybinding rules in [GUIDELINES.md](GUIDELINES.md#keybindings) – no modifier keys (except `ctrl-j`/`ctrl-k`), never use `[ ]` inside `transform[...]` (use `test` instead), and fit new bindings into the modal pattern (`c`/`f`/`z` prefixes). Update both the `--bind` strings in `lib/notenav.sh` and the keybinding table in `README.md`.
+
+**Shell portability (Linux + macOS):** Never use `sed -i` – write to a temp file and `mv`. See [GUIDELINES.md](GUIDELINES.md#portability-linux--macos) for other portability traps.
 
 When adding, renaming, or removing slash commands in `.claude/commands/`, update the audit command table in [GUIDELINES.md](GUIDELINES.md#audit-commands).
