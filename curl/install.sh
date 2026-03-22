@@ -20,9 +20,18 @@ check_dep() {
 
 # --- dependency check ---
 missing=""
-for dep in bash fzf awk sort sed git yq jq; do
+for dep in bash fzf gawk sort sed git yq jq; do
   if ! check_dep "$dep"; then
-    missing="$missing $dep"
+    # Accept awk as fallback for gawk, but warn if it's not GNU awk
+    if [ "$dep" = "gawk" ] && check_dep awk; then
+      awk_impl=$(awk --version 2>/dev/null | head -1)
+      case "$awk_impl" in
+        *GNU*|*gawk*) ;;
+        *) warn "awk found but notenav requires gawk (GNU awk)" ;;
+      esac
+    else
+      missing="$missing $dep"
+    fi
   fi
 done
 

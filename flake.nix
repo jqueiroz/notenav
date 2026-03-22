@@ -11,22 +11,22 @@
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f {
         pkgs = nixpkgs.legacyPackages.${system};
       });
+      runtimeDepsFor = pkgs: with pkgs; [
+        bash
+        zk
+        fzf
+        bat
+        gawk
+        gnused
+        coreutils
+        git
+        yq-go
+        jq
+      ];
     in
     {
       packages = forAllSystems ({ pkgs }:
-        let
-          runtimeDeps = with pkgs; [
-            bash
-            zk
-            fzf
-            bat
-            gawk
-            gnused
-            coreutils
-            git
-            yq-go
-            jq
-          ];
+        let runtimeDeps = runtimeDepsFor pkgs;
         in {
           default = pkgs.stdenv.mkDerivation {
             pname = "notenav";
@@ -61,19 +61,7 @@
       );
 
       devShells = forAllSystems ({ pkgs }:
-        let
-          runtimeDeps = with pkgs; [
-            bash
-            zk
-            fzf
-            bat
-            gawk
-            gnused
-            coreutils
-            git
-            yq-go
-            jq
-          ];
+        let runtimeDeps = runtimeDepsFor pkgs;
         in {
           default = pkgs.mkShell {
             packages = runtimeDeps;

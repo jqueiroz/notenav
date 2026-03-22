@@ -1780,6 +1780,7 @@ $(command -v bat || command -v batcat) -p --color always "$file" 2>/dev/null || 
 
 # Collect links in parallel
 tmp_links=$(mktemp); tmp_back=$(mktemp)
+trap 'rm -f "$tmp_links" "$tmp_back"' EXIT
 zk list --linked-by "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_links" &
 zk list --link-to "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_back" &
 wait
@@ -1888,7 +1889,8 @@ EOF
   [[ -n "$_gr" && "$PWD" != "$_gr" ]] && _zk_path=("$(pwd)")
 
   # Resolve editor
-  local _nn_editor="$(_nn_resolve_editor "$NN_UI_EDITOR")"
+  local _nn_editor
+  _nn_editor="$(_nn_resolve_editor "$NN_UI_EDITOR")"
 
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
@@ -2946,17 +2948,15 @@ ENDWK
 
   [[ ${#zk_args[@]} -eq 0 ]] && zk_args=("${_zk_path[@]}")
 
-  # Sanitize values for safe interpolation into awk expressions
-  _awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
   local awk_cond="1"
-  [[ -n "${filters[type]}" ]] && awk_cond="$awk_cond && \$1==\"$(_awk_esc "${filters[type]}")\""
-  [[ -n "${filters[status]}" ]] && awk_cond="$awk_cond && \$2==\"$(_awk_esc "${filters[status]}")\""
+  [[ -n "${filters[type]}" ]] && awk_cond="$awk_cond && \$1==\"$(_nn_awk_esc "${filters[type]}")\""
+  [[ -n "${filters[status]}" ]] && awk_cond="$awk_cond && \$2==\"$(_nn_awk_esc "${filters[status]}")\""
   if [[ "${filters[priority]}" == "none" ]]; then
     awk_cond="$awk_cond && \$3==\"\""
   elif [[ -n "${filters[priority]}" ]]; then
-    awk_cond="$awk_cond && \$3==\"$(_awk_esc "${filters[priority]}")\""
+    awk_cond="$awk_cond && \$3==\"$(_nn_awk_esc "${filters[priority]}")\""
   fi
-  [[ -n "${filters[tag]}" ]] && awk_cond="$awk_cond && index(\" \" \$4 \" \", \" $(_awk_esc "${filters[tag]}") \") > 0"
+  [[ -n "${filters[tag]}" ]] && awk_cond="$awk_cond && index(\" \" \$4 \" \", \" $(_nn_awk_esc "${filters[tag]}") \") > 0"
 
   if $interactive; then
     local nn_tmp; nn_tmp=$(mktemp)
