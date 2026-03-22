@@ -2311,6 +2311,9 @@ ENDBE
 dir="$1"
 inner=60
 
+# Clear screen so previous execute() output doesn't stack
+printf '\033[H\033[J' > /dev/tty
+
 # ── Determine mode: auto (single type or filter active) vs pick ──
 type_count=$(wc -l < "$dir/.schema_types")
 cur_type=$(cat "$dir/.f_type" 2>/dev/null)
@@ -2469,46 +2472,51 @@ else
   hint2="j/k · Enter · Esc cancel"
   hint2_pad=$((inner - ${#hint2} - 2))
 
-  # Helper: draw a single type line
-  # Args: $1=index $2=selected_index
+  # Helper: draw a single type line (no trailing newline)
+  # Args: $1=index $2=selected_index $3=border_color (default 36)
   _nn_draw_type_line() {
-    local i="$1" sel="$2"
+    local i="$1" sel="$2" bc="${3:-36}"
     local name="${t_vals[$i]}" ic="${t_icons[$i]}" clr="${t_colors[$i]}"
     local d="${t_tdescs[$i]}"
     local name_pad=$((max_name - ${#name}))
     local d_pad=$((desc_avail - ${#d}))
     [ "$d_pad" -lt 0 ] && d_pad=0
     if [ "$i" -eq "$sel" ]; then
-      printf '  \033[36m│\033[0m     \033[1;%sm▸ %s %s\033[0m%*s  \033[90m%s\033[0m%*s\033[36m│\033[0m' \
-        "$clr" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" ""
+      printf '  \033[%sm│\033[0m     \033[1;%sm▸ %s %s\033[0m%*s  \033[90m%s\033[0m%*s\033[%sm│\033[0m' \
+        "$bc" "$clr" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$bc"
     else
-      printf '  \033[36m│\033[0m     \033[90m  %s %s%*s  %s\033[0m%*s\033[36m│\033[0m' \
-        "$ic" "$name" "$name_pad" "" "$d" "$d_pad" ""
+      printf '  \033[%sm│\033[0m     \033[90m  %s %s%*s  %s\033[0m%*s\033[%sm│\033[0m' \
+        "$bc" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$bc"
     fi
   }
 
-  # Draw step-2 box
-  printf '\n' > /dev/tty
-  printf '  \033[36m╭─ New Note %s╮\033[0m\n' "$top_dashes" > /dev/tty
-  printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
-  printf '  \033[36m│\033[0m  \033[32m✓\033[0m %s%*s\033[36m│\033[0m\n' \
-    "$disp_title" "$((inner - 4 - ${#disp_title}))" "" > /dev/tty
-  printf '  \033[36m│\033[0m  \033[1m2. Type:\033[0m%*s\033[36m│\033[0m\n' \
-    "$((inner - 10))" "" > /dev/tty
+  # Helper: draw entire step-2 box (top border through bottom border)
+  # Args: $1=selected_index $2=border_color_code
+  _nn_draw_step2() {
+    local sel="$1" bc="$2" i
+    printf '  \033[%sm╭─ New Note %s╮\033[0m\n' "$bc" "$top_dashes"
+    printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$bc" "$inner" "" "$bc"
+    printf '  \033[%sm│\033[0m  \033[32m✓\033[0m %s%*s\033[%sm│\033[0m\n' \
+      "$bc" "$disp_title" "$((inner - 4 - ${#disp_title}))" "" "$bc"
+    printf '  \033[%sm│\033[0m  \033[1m2. Type:\033[0m%*s\033[%sm│\033[0m\n' \
+      "$bc" "$((inner - 10))" "" "$bc"
+    for ((i = 0; i < type_count; i++)); do
+      _nn_draw_type_line "$i" "$sel" "$bc"
+      printf '\n'
+    done
+    printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$bc" "$inner" "" "$bc"
+    printf '  \033[%sm│\033[0m  \033[90m%s\033[0m%*s\033[%sm│\033[0m\n' \
+      "$bc" "$hint2" "$hint2_pad" "" "$bc"
+    printf '  \033[%sm╰%s╯\033[0m\n' "$bc" "$bot_dashes"
+  }
 
+  # Draw step-2 box (border color = first type's color)
   sel=0
-  for ((i = 0; i < type_count; i++)); do
-    _nn_draw_type_line "$i" "$sel" > /dev/tty
-    printf '\n' > /dev/tty
-  done
-
-  printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
-  printf '  \033[36m│\033[0m  \033[90m%s\033[0m%*s\033[36m│\033[0m\n' \
-    "$hint2" "$hint2_pad" "" > /dev/tty
-  printf '  \033[36m╰%s╯\033[0m\n' "$bot_dashes" > /dev/tty
-
-  # Move cursor to first type line
-  printf '\033[%dA' "$((type_count + 3))" > /dev/tty
+  bc="${t_colors[0]}"
+  printf '\n' > /dev/tty
+  _nn_draw_step2 "$sel" "$bc" > /dev/tty
+  # Move cursor to top border (7+tc lines up)
+  printf '\033[%dA' "$((type_count + 7))" > /dev/tty
 
   # Hide cursor; restore on exit/interrupt
   trap 'printf "\033[?25h" > /dev/tty' EXIT
@@ -2530,19 +2538,16 @@ else
       '') key=enter ;; *) continue ;;
     esac
     case "$key" in
-      up)    [ "$sel" -gt 0 ] && sel=$((sel - 1)) ;;
-      down)  [ "$sel" -lt $((type_count - 1)) ] && sel=$((sel + 1)) ;;
+      up)    sel=$(( sel > 0 ? sel - 1 : type_count - 1 )) ;;
+      down)  sel=$(( sel < type_count - 1 ? sel + 1 : 0 )) ;;
       enter) selected="${t_vals[$sel]}"; break ;;
       esc)   break ;;
     esac
 
-    # Redraw type lines in place
-    for ((i = 0; i < type_count; i++)); do
-      printf '\r' > /dev/tty
-      _nn_draw_type_line "$i" "$sel" > /dev/tty
-      printf '\n' > /dev/tty
-    done
-    printf '\033[%dA' "$type_count" > /dev/tty
+    # Redraw entire box with updated border color
+    bc="${t_colors[$sel]}"
+    _nn_draw_step2 "$sel" "$bc" > /dev/tty
+    printf '\033[%dA' "$((type_count + 7))" > /dev/tty
   done
 
   # Show cursor
@@ -2550,7 +2555,7 @@ else
   trap - EXIT
 
   # Move past box bottom
-  printf '\033[%dB' "$((type_count + 3))" > /dev/tty
+  printf '\033[%dB' "$((type_count + 7))" > /dev/tty
 
   if [ -z "$selected" ]; then
     printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
