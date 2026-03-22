@@ -88,7 +88,8 @@ default_color = "33"           # yellow
 3 = "33"               # yellow (default)
 4 = "33"               # yellow (default)
 
-# Lifecycle for '+' (up) and '-' (down) keybindings.
+# Lifecycle for priority up (raise urgency) and down (lower urgency).
+# Which key (+/-) maps to which direction depends on ui.priority_plus.
 
 [priority.lifecycle.up]
 4 = "3"

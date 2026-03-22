@@ -120,7 +120,7 @@ description = "Concrete, actionable unit of work"
 |-----|------|-------------|
 | `values` | array | Valid note types; array order is used as the default display order |
 | `default_color` | string | ANSI color code used for types not explicitly listed |
-| `display_order` | array | *(optional)* Override group header order; defaults to `values` order |
+| `display_order` | array | *(optional)* Override display order (group headers and stats bar); defaults to `values` order |
 | `[type.<name>].icon` | string | Single character displayed in the list |
 | `[type.<name>].color` | string | ANSI color code (e.g. `"31"` = red, `"32"` = green) |
 | `[type.<name>].description` | string | What this type represents |
@@ -163,7 +163,7 @@ blocked = "new"
 |-----|------|-------------|
 | `values` | array | All valid statuses; array order is used as the default display order |
 | `initial` | string | Starting status assigned when pressing `a` on a note that has no status |
-| `display_order` | array | *(optional)* Override group header order; defaults to `values` order |
+| `display_order` | array | *(optional)* Override display order (group headers); defaults to `values` order |
 | `archive` | array | Statuses hidden by default; press `zh` to toggle visibility |
 | `filter_cycle` | array | Order when pressing `s` to cycle the filter (`"all"` is auto-prepended) |
 | `default_color` | string | Fallback ANSI color for statuses not in `[status.colors]` |
@@ -244,7 +244,7 @@ args = "type=task status=active"
 
 Same-name queries at a later layer fully replace the earlier one. For example, defining `[queries.inbox]` in your project config overrides the workflow's `inbox` preset.
 
-**Clearing workflow presets:** If you want to start fresh without the workflow's built-in queries, set `inherit = false`:
+**Clearing workflow presets:** If you want to start fresh without the workflow's built-in queries, set `inherit = false` in your project or user config:
 
 ```toml
 # .nn/workflow.toml — clear workflow presets, define only your own
@@ -255,7 +255,7 @@ inherit = false
 args = "type=task status=active"
 ```
 
-This removes all workflow-level queries before merging. Queries defined in the same file (or higher layers) still apply. The `inherit` key itself is stripped from the final config.
+This removes all workflow-level queries before merging. Queries defined in the same file (or higher layers) still apply. The `inherit` key itself is stripped from the final config. Setting `inherit = false` in user config (`~/.config/notenav/config.toml`) strips workflow queries globally across all projects.
 
 ## Built-in workflows
 
@@ -361,7 +361,7 @@ TUI preferences.
 
 ```toml
 [ui]
-editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano
+editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in ad-hoc interactive mode
 exit_message = "none"    # "none" or "fortune"
@@ -371,7 +371,7 @@ after_create = "edit"    # "edit" or "none"
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR`, then falls back to nvim → vim → vi → nano |
+| `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR`, then falls back to nvim → vim → vi → nano → emacs |
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
 | `search_prompt` | string | `"/ "` | fzf prompt string in ad-hoc interactive mode (`nn ... -i`) |
 | `exit_message` | string | `"none"` | What to show on exit: `"none"` or `"fortune"` (a fun quote) |

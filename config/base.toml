@@ -11,7 +11,7 @@ group_by = ""
 show_archive = false
 
 [ui]
-editor = ""              # empty = $EDITOR or vi
+editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in ad-hoc interactive mode
 exit_message = "none"    # "none" or "fortune" (show a fun quote on exit)

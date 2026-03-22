@@ -2977,7 +2977,13 @@ ENDPREVIEW
   else
     local _adhoc_fmt
     if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
-      _adhoc_fmt='{printf "[%s] [P%s] [%s] %s\n", $1, $3, $2, $5}'
+      local _adhoc_pl='pl = "P" $3'
+      local _v
+      for _v in "${NN_PRIORITY_VALUES[@]}"; do
+        [[ "${NN_PRIORITY_LABELS[$_v]}" == "P$_v" ]] && continue
+        _adhoc_pl+="; if (\$3 == \"$_v\") pl = \"${NN_PRIORITY_LABELS[$_v]}\""
+      done
+      _adhoc_fmt="{ $_adhoc_pl; "'printf "[%s] [%s] [%s] %s\n", $1, pl, $2, $5 }'
     else
       _adhoc_fmt='{printf "[%s] [%s] %s\n", $1, $2, $5}'
     fi
