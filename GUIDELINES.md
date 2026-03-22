@@ -27,7 +27,8 @@ Rules and conventions for contributing to notenav.
 - **No modifier keys.** Do not use Ctrl, Alt, or Meta keybindings in fzf. Users run notenav inside tmux, terminal emulators, and window managers that may claim these combos, causing keys to be silently eaten.
 - **Plain keys only.** Stick to letters, digits, symbols, and Shift variants (uppercase letters).
 - **Use the modal pattern.** notenav has four input modes: command mode (plain keys), change mode (`c` prefix), filter-by mode (`f` prefix), and display mode (`z` prefix). Fit new bindings into this structure.
-- **Use `.nn-mode` for mode state, not separate flag files.** Mode state is stored in a single file `.nn-mode` (empty = command mode, `c`/`f`/`z` = prefix mode). Bindings read it with `m=$(cat .nn-mode)` and check with `[ "$m" = z ]`. Mode entry writes the letter (`echo z > .nn-mode`), mode exit clears it (`: > .nn-mode`). All mode state operations must happen inside `transform[...]` as side effects before the `echo` that produces the fzf action string – never via `execute-silent` at the top level.
+- **Use `.nn-mode` for mode state, not separate flag files.** Mode state is stored in a single file `.nn-mode` (empty = command mode, `c`/`f`/`z` = prefix mode). Bindings read it with `m=$(cat .nn-mode)` and check with `test "$m" = z`. Mode entry writes the letter (`echo z > .nn-mode`), mode exit clears it (`: > .nn-mode`). All mode state operations must happen inside `transform[...]` as side effects before the `echo` that produces the fzf action string – never via `execute-silent` at the top level.
+- **Never use `[ ]` inside `transform[...]`.** fzf's `transform[CMD]` uses bracket depth counting to find the closing `]`. Shell test syntax `[ expr ]` introduces extra brackets that confuse fzf's parsing, silently truncating the command. Use `test expr` instead – it is identical POSIX behavior without brackets. For complex logic, extract to a helper script.
 
 ## Workflow definitions
 
