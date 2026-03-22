@@ -872,6 +872,7 @@ nn_doctor() {
 
     # Full config merge check
     # Run in current shell (not command substitution) so NN_CFG_JSON survives
+    unset NN_CFG_JSON
     local _merge_tmpf
     _merge_tmpf=$(mktemp "${TMPDIR:-/tmp}/nn-doctor-merge.XXXXXX")
     if nn_load_config "$notenav_root" 2>"$_merge_tmpf"; then
@@ -946,7 +947,7 @@ nn_doctor() {
     elif [[ $_ent_count -eq 0 ]]; then
       _fail "Entities: none defined"
     else
-      _fail "Entities: $_ent_issues"
+      _fail "Entities: ${_ent_issues%"; "}"
     fi
     # Warn on invalid color formats
     if [[ -n "$_ent_default_color" ]] && ! _valid_color "$_ent_default_color"; then
@@ -1106,7 +1107,8 @@ nn_doctor() {
     elif [[ $_sta_count -eq 0 ]]; then
       _fail "Statuses: none defined"
     else
-      _fail "Statuses: ${_sta_color_issues}${_sta_init_issues}${_fc_issues}${_arc_issues}${_lc_issues}"
+      local _sta_all_issues="${_sta_color_issues}${_sta_init_issues}${_fc_issues}${_arc_issues}${_lc_issues}"
+      _fail "Statuses: ${_sta_all_issues%"; "}"
     fi
     # Warn on invalid color formats
     if [[ -n "$_sta_default_color" ]] && ! _valid_color "$_sta_default_color"; then
@@ -1230,7 +1232,8 @@ nn_doctor() {
       elif [[ $_pri_count -eq 0 ]]; then
         _fail "Priority: enabled but no values defined"
       else
-        _fail "Priority: ${_pri_color_issues}${_pri_fc_issues}${_pri_lc_issues}${_pri_unset_issues}"
+        local _pri_all_issues="${_pri_color_issues}${_pri_fc_issues}${_pri_lc_issues}${_pri_unset_issues}"
+        _fail "Priority: ${_pri_all_issues%"; "}"
       fi
       # Warn on invalid color formats
       if [[ -n "$_pri_default_color" ]] && ! _valid_color "$_pri_default_color"; then
@@ -1398,7 +1401,7 @@ nn_doctor() {
     done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.args // "")"')
 
     if [[ -n "$_qp_warns" ]]; then
-      _warn "Query presets: $_qp_count presets – $_qp_warns"
+      _warn "Query presets: $_qp_count presets – ${_qp_warns%"; "}"
     elif [[ $_qp_count -gt 0 ]]; then
       _pass "Query presets: $_qp_count presets, all args valid"
     else
