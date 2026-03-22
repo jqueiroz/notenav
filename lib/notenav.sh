@@ -1144,8 +1144,20 @@ _nn_url_cache_path() {
   local url="$1"
   local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/notenav/workflows"
   local hash
-  hash=$(printf '%s' "$url" | sha256sum | cut -c1-16)
+  hash=$(printf '%s' "$url" | _nn_sha256 | cut -c1-16)
   printf '%s/%s.toml' "$cache_dir" "$hash"
+}
+
+# Portable sha256 – outputs hex digest on stdout.
+_nn_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | cut -d' ' -f1
+  else
+    echo "notenav: no sha256 tool found (need sha256sum or shasum)" >&2
+    return 1
+  fi
 }
 
 # Returns 0 if URL is in the trusted-sources allow-list.
@@ -1233,7 +1245,7 @@ _nn_init_project() {
   else
     if ! _nn_workflow_exists "$notenav_root" "$workflow_name"; then
       echo "notenav: workflow '$workflow_name' not found" >&2
-      _nn_list_workflows "$notenav_root"
+      _nn_list_workflows "$notenav_root" >&2
       return 1
     fi
   fi
@@ -1269,7 +1281,7 @@ _nn_init_user() {
   if [[ -n "$workflow_arg" ]]; then
     if ! _nn_workflow_exists "$notenav_root" "$workflow_arg"; then
       echo "notenav: workflow '$workflow_arg' not found" >&2
-      _nn_list_workflows "$notenav_root"
+      _nn_list_workflows "$notenav_root" >&2
       return 1
     fi
   fi
