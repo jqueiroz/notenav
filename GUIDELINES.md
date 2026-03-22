@@ -16,6 +16,12 @@ Rules and conventions for contributing to notenav.
 - Sanitize user-supplied or config-derived values before interpolating into AWK/sed expressions (escape `\` and `"`).
 - Use `mv "$file.tmp" "$file"` for atomic writes.
 
+### Portability (Linux + macOS)
+
+- **Never use `sed -i`** – GNU sed requires `sed -i 's/…'`, BSD/macOS sed requires `sed -i '' 's/…'`. Instead, write to a temp file and `mv`: `sed 's/…' "$file" > "$tmp" && mv "$tmp" "$file"`.
+- **`while read` and missing trailing newlines** – `while IFS= read -r line` silently skips the last line if the file has no trailing newline. Use `while IFS= read -r line || [[ -n "$line" ]]` when reading files that users may hand-edit.
+- **`date -r` vs `stat -c`** – macOS has `date -r <file>` but no `stat -c`. GNU/Linux has `stat -c '%y'` but `date -r` expects a timestamp, not a file. Use a fallback chain: `date -r "$file" '+%F' 2>/dev/null || stat -c '%y' "$file" 2>/dev/null | cut -d' ' -f1`.
+
 ## Keybindings
 
 - **No modifier keys.** Do not use Ctrl, Alt, or Meta keybindings in fzf. Users run notenav inside tmux, terminal emulators, and window managers that may claim these combos, causing keys to be silently eaten.

@@ -32,6 +32,13 @@ Read all source files (`bin/nn`, `lib/notenav.sh`, `curl/install.sh`, `flake.nix
 - No mixed usage: never `.notenav/` in a project root, never `~/.config/nn/`
 - See `GUIDELINES.md` for rationale
 
+### Portability (Linux + macOS)
+- **`sed -i`**: must never appear — GNU and BSD/macOS `sed -i` have incompatible syntax. Use `sed 's/…' "$file" > "$tmp" && mv "$tmp" "$file"` instead
+- **`while read` trailing newlines**: `while IFS= read -r line` skips the last line if the file has no trailing newline. Use `|| [[ -n "$line" ]]` when reading user-editable files
+- **`date` vs `stat`**: `date -r <file>` works on macOS but not GNU/Linux (where `-r` expects a timestamp). `stat -c` is GNU-only. Use a fallback chain
+- **`readlink -f`**: not available on macOS stock `readlink`. The codebase already has a `_realpath` fallback — verify all usages go through it
+- **GNU-only flags**: watch for `grep -P`, `sort -V`, `mktemp --suffix`, and similar GNU extensions
+
 ### CLI conventions
 - **`--help` / `-h`**: standard help flag
 - **Exit codes**: meaningful codes (0 success, 1 general error, 2 usage error)
