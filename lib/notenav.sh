@@ -920,6 +920,9 @@ nn_doctor() {
     local _ent_values _ent_ok=true _ent_count=0 _ent_issues=""
     mapfile -t _ent_values < <(nn_cfg '.entity.values // [] | .[]')
     _ent_count=${#_ent_values[@]}
+    if _in_array "" "${_ent_values[@]}"; then
+      _warn "entity.values contains an empty string"
+    fi
     local _ent_dups
     _ent_dups=$(_dupes "${_ent_values[@]}")
     [[ -n "$_ent_dups" ]] && _warn "entity.values has duplicates: $_ent_dups"
@@ -1017,6 +1020,9 @@ nn_doctor() {
     local _sta_values _sta_ok=true _sta_count=0
     mapfile -t _sta_values < <(nn_cfg '.status.values // [] | .[]')
     _sta_count=${#_sta_values[@]}
+    if _in_array "" "${_sta_values[@]}"; then
+      _warn "status.values contains an empty string"
+    fi
     local _sta_dups
     _sta_dups=$(_dupes "${_sta_values[@]}")
     [[ -n "$_sta_dups" ]] && _warn "status.values has duplicates: $_sta_dups"
@@ -1161,6 +1167,9 @@ nn_doctor() {
       local _pri_values _pri_ok=true _pri_count=0
       mapfile -t _pri_values < <(nn_cfg '.priority.values // [] | .[]')
       _pri_count=${#_pri_values[@]}
+      if _in_array "" "${_pri_values[@]}"; then
+        _warn "priority.values contains an empty string"
+      fi
       local _pri_dups
       _pri_dups=$(_dupes "${_pri_values[@]}")
       [[ -n "$_pri_dups" ]] && _warn "priority.values has duplicates: $_pri_dups"
