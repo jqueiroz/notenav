@@ -1394,12 +1394,12 @@ nn_doctor() {
         local _key="${_arg%%=*}" _val="${_arg#*=}"
         case "$_key" in
           type)
-            if [[ "$_val" != "none" ]] && ! _in_array "$_val" "${_typ_values[@]}"; then
+            if ! _in_array "$_val" "${_typ_values[@]}"; then
               _qp_warns+="$_qname: type=$_val unknown; "
             fi
             ;;
           status)
-            if [[ "$_val" != "none" ]] && ! _in_array "$_val" "${_sta_values[@]}"; then
+            if ! _in_array "$_val" "${_sta_values[@]}"; then
               _qp_warns+="$_qname: status=$_val unknown; "
             fi
             ;;
