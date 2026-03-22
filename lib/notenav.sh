@@ -654,6 +654,7 @@ nn_doctor() {
   _fail() { echo "${_red}[✗]${_reset} $*"; (( fails++ )); }
   _valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
   _in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
+  _dupes() { local -A _seen; local _d="" _v; for _v; do [[ -n "${_seen[$_v]+x}" ]] && _d+="$_v, "; _seen[$_v]=1; done; printf '%s' "${_d%, }"; }
 
   # ── Phase 1: Dependencies ──
 
@@ -911,6 +912,9 @@ nn_doctor() {
     local _ent_values _ent_ok=true _ent_count=0 _ent_issues=""
     mapfile -t _ent_values < <(nn_cfg '.entity.values // [] | .[]')
     _ent_count=${#_ent_values[@]}
+    local _ent_dups
+    _ent_dups=$(_dupes "${_ent_values[@]}")
+    [[ -n "$_ent_dups" ]] && _warn "entity.values has duplicates: $_ent_dups"
     local _ent_default_color
     _ent_default_color=$(nn_cfg '.entity.default_color // empty')
     local _ev
@@ -978,10 +982,33 @@ nn_doctor() {
       fi
     done < <(nn_cfg '.entity // {} | keys[]' 2>/dev/null)
 
+    # Meta sub-key validation
+    local _known_meta_keys="name description"
+    local _mmk
+    while IFS= read -r _mmk; do
+      [[ -z "$_mmk" ]] && continue
+      if ! _in_array "$_mmk" $_known_meta_keys; then
+        _warn "meta: unrecognized key '$_mmk'"
+      fi
+    done < <(nn_cfg '.meta // {} | keys[]' 2>/dev/null)
+
+    # Zk sub-key validation
+    local _known_zk_keys="format"
+    local _zkk
+    while IFS= read -r _zkk; do
+      [[ -z "$_zkk" ]] && continue
+      if ! _in_array "$_zkk" $_known_zk_keys; then
+        _warn "zk: unrecognized key '$_zkk'"
+      fi
+    done < <(nn_cfg '.zk // {} | keys[]' 2>/dev/null)
+
     # Status checks
     local _sta_values _sta_ok=true _sta_count=0
     mapfile -t _sta_values < <(nn_cfg '.status.values // [] | .[]')
     _sta_count=${#_sta_values[@]}
+    local _sta_dups
+    _sta_dups=$(_dupes "${_sta_values[@]}")
+    [[ -n "$_sta_dups" ]] && _warn "status.values has duplicates: $_sta_dups"
 
     # Check each status has a color (explicit or via default_color)
     local _sta_color_issues="" _sta_default_color
@@ -1017,6 +1044,9 @@ nn_doctor() {
         _sta_ok=false
       fi
     done
+    local _fc_dups
+    _fc_dups=$(_dupes "${_fc_values[@]}")
+    [[ -n "$_fc_dups" ]] && _warn "status.filter_cycle has duplicates: $_fc_dups"
 
     # Check archive values exist in values
     local _arc_values _arc_issues="" _arcv
@@ -1027,6 +1057,11 @@ nn_doctor() {
         _sta_ok=false
       fi
     done
+
+    # Check initial is not in archive
+    if [[ -n "$_sta_initial" ]] && _in_array "$_sta_initial" "${_arc_values[@]}"; then
+      _warn "status.initial '$_sta_initial' is in status.archive (new notes would be hidden)"
+    fi
 
     # Check lifecycle transitions reference valid values (both source keys and targets)
     local _lc_issues="" _lcv _lc_target _lc_dir
@@ -1043,6 +1078,15 @@ nn_doctor() {
         fi
       done < <(nn_cfg ".status.lifecycle.$_lc_dir // {} | to_entries[] | \"\(.key)\t\(.value)\"" 2>/dev/null)
     done
+    # Validate status.lifecycle sub-keys
+    local _known_lc_keys="forward reverse"
+    local _slck
+    while IFS= read -r _slck; do
+      [[ -z "$_slck" ]] && continue
+      if ! _in_array "$_slck" $_known_lc_keys; then
+        _warn "status.lifecycle: unrecognized key '$_slck'"
+      fi
+    done < <(nn_cfg '.status.lifecycle // {} | keys[]' 2>/dev/null)
 
     if [[ "$_sta_ok" == "true" && $_sta_count -gt 0 ]]; then
       _pass "Statuses: $_sta_count values, lifecycle valid"
@@ -1096,6 +1140,9 @@ nn_doctor() {
       local _pri_values _pri_ok=true _pri_count=0
       mapfile -t _pri_values < <(nn_cfg '.priority.values // [] | .[]')
       _pri_count=${#_pri_values[@]}
+      local _pri_dups
+      _pri_dups=$(_dupes "${_pri_values[@]}")
+      [[ -n "$_pri_dups" ]] && _warn "priority.values has duplicates: $_pri_dups"
 
       # Check each priority has a color (explicit or via default_color)
       local _pri_color_issues="" _pri_default_color
@@ -1122,6 +1169,9 @@ nn_doctor() {
           _pri_ok=false
         fi
       done
+      local _pfc_dups
+      _pfc_dups=$(_dupes "${_pri_fc_values[@]}")
+      [[ -n "$_pfc_dups" ]] && _warn "priority.filter_cycle has duplicates: $_pfc_dups"
 
       # Priority lifecycle
       local _pri_lc_issues="" _plcv _plc_target _plc_dir
@@ -1138,6 +1188,15 @@ nn_doctor() {
           fi
         done < <(nn_cfg ".priority.lifecycle.$_plc_dir // {} | to_entries[] | \"\(.key)\t\(.value)\"" 2>/dev/null)
       done
+      # Validate priority.lifecycle sub-keys
+      local _known_plc_keys="up down"
+      local _plck
+      while IFS= read -r _plck; do
+        [[ -z "$_plck" ]] && continue
+        if ! _in_array "$_plck" $_known_plc_keys; then
+          _warn "priority.lifecycle: unrecognized key '$_plck'"
+        fi
+      done < <(nn_cfg '.priority.lifecycle // {} | keys[]' 2>/dev/null)
 
       # Check unset_position is valid
       local _pri_unset_issues="" _pri_unset_pos
@@ -1323,6 +1382,9 @@ nn_doctor() {
     else
       _pass "Query presets: none defined"
     fi
+  else
+    echo ""
+    echo "${_dim}Skipping workflow checks (config not loaded)${_reset}"
   fi
 
   # ── Phase 5: zk notebook ──
