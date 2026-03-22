@@ -2309,7 +2309,7 @@ ENDBE
     cat > "$_nn_dir/newnote.sh" << 'ENDNN'
 #!/usr/bin/env bash
 dir="$1"
-inner=41
+inner=60
 
 # ── Determine mode: auto (single type or filter active) vs pick ──
 type_count=$(wc -l < "$dir/.schema_types")
@@ -2330,6 +2330,33 @@ else
   mode=pick
 fi
 
+# ── Read title with Esc-to-cancel support ──
+# Char-by-char input: echoes typed text, handles backspace, Enter accepts,
+# plain Esc clears title and returns (caller checks empty → cancel).
+_nn_read_title() {
+  title=""
+  local ch rest
+  while true; do
+    IFS= read -rsn1 ch < /dev/tty
+    case "$ch" in
+      $'\033')
+        IFS= read -rsn2 -t 0.05 rest < /dev/tty
+        if [ -z "$rest" ]; then
+          title=""; break   # plain Esc → cancel
+        fi ;;               # arrow key sequence → ignore
+      $'\177'|$'\010')      # Backspace / DEL
+        if [ -n "$title" ]; then
+          title="${title%?}"
+          printf '\b \b' > /dev/tty
+        fi ;;
+      '') break ;;          # Enter → accept
+      *)
+        title="${title}${ch}"
+        printf '%s' "$ch" > /dev/tty ;;
+    esac
+  done
+}
+
 if [ "$mode" = "auto" ]; then
   # ── Auto: type-colored single-step box ──
   label="New ${auto_type} ${auto_icon} "
@@ -2338,7 +2365,7 @@ if [ "$mode" = "auto" ]; then
   [ "$top_pad" -lt 1 ] && top_pad=1
   top_dashes=$(printf '%*s' "$top_pad" '' | sed 's/ /─/g')
   bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
-  hint="Enter to create · empty cancels"
+  hint="Enter to create · Esc cancels"
   hint_pad=$((inner - ${#hint} - 2))
   c="$auto_color"
 
@@ -2351,7 +2378,7 @@ if [ "$mode" = "auto" ]; then
   printf '  \033[%sm╰%s╯\033[0m\n' "$c" "$bot_dashes" > /dev/tty
   # Cursor: up 4 to title line, column 13 (after "  │  Title: ")
   printf '\033[4A\033[13G' > /dev/tty
-  read -r title < /dev/tty
+  _nn_read_title
   if [ -z "$title" ]; then
     # Move past box bottom (3 lines down from title+1)
     printf '\033[3B' > /dev/tty
@@ -2369,7 +2396,7 @@ else
   top_pad=$((inner - 11))
   top_dashes=$(printf '%*s' "$top_pad" '' | sed 's/ /─/g')
   bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
-  hint="Enter to continue · empty cancels"
+  hint="Enter to continue · Esc cancels"
   hint_pad=$((inner - ${#hint} - 2))
 
   # Step 1: title prompt
@@ -2383,7 +2410,7 @@ else
   printf '  \033[36m╰%s╯\033[0m\n' "$bot_dashes" > /dev/tty
   # Cursor: up 5 to title line, column 16 (after "  │  1. Title: ")
   printf '\033[5A\033[16G' > /dev/tty
-  read -r title < /dev/tty
+  _nn_read_title
   if [ -z "$title" ]; then
     # Move past box bottom (4 lines down from type line)
     printf '\033[4B' > /dev/tty
@@ -2401,8 +2428,9 @@ else
     t_vals+=("$v"); t_icons+=("$ic"); t_colors+=("$clr"); t_descs+=("$desc")
     [ ${#v} -gt "$max_name" ] && max_name=${#v}
   done < "$dir/.schema_types"
-  [ "$max_name" -gt 30 ] && max_name=30
-  desc_avail=$((30 - max_name))
+  max_type_width=$((inner - 11))
+  [ "$max_name" -gt "$max_type_width" ] && max_name="$max_type_width"
+  desc_avail=$((max_type_width - max_name))
 
   # Truncate title for ✓ display
   disp_title="$title"
