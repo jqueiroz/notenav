@@ -154,7 +154,7 @@ nn init --user          # create user config (default workflow: compass)
 nn init --user gtd      # create user config with gtd as the default workflow
 ```
 
-User config defines personal preferences – editor, prompts, sorting, grouping – and a fallback workflow for directories without `.nn/workflow.toml`. See [docs/configuration.md](docs/configuration.md) for the full preferences reference.
+User config defines personal preferences – editor, prompts, sorting, grouping, and a fallback workflow for directories without `.nn/workflow.toml`. See [docs/configuration.md](docs/configuration.md) for the full preferences reference.
 
 ### `nn doctor`
 
