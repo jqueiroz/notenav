@@ -2464,6 +2464,7 @@ fsort=$(cat "$dir/.f_sort"); fgroup=$(cat "$dir/.f_group")
 farchive=$(cat "$dir/.f_archive"); fmatch=$(cat "$dir/.f_match")
 fname=$(cat "$dir/.f_name" 2>/dev/null)
 fwrap=$(cat "$dir/.f_wrap" 2>/dev/null)
+fwrap_was="$fwrap"
 # Pinned items: when an action (priority bump, status cycle) causes an item
 # to no longer match active filters, it stays visible at the top of the list
 # (marked "pinned" in bold red). Pins are cleared on any filter change
@@ -2511,7 +2512,8 @@ case "$action" in
   pick) [ -f "$dir/.f_pick" ] && apply_sq "$(cat "$dir/.f_pick")" && rm -f "$dir/.f_pick" ;;
   reset) ft=""; fs=""; fp=""; fmatch=""; fname=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_name"
     { IFS= read -r fsort; IFS= read -r fgroup; IFS= read -r _a; } < "$dir/.schema_defaults"
-    [ "$_a" = "true" ] && farchive="show" || farchive="" ;;
+    [ "$_a" = "true" ] && farchive="show" || farchive=""
+    if [ -n "$fwrap" ]; then fwrap=""; : > "$dir/.f_wrap"; fi ;;
   clear-tags) : > "$dir/.f_tags" ;;
   clear-match) fmatch=""; : > "$dir/.f_match"; : > "$dir/.f_match_paths" ;;
   group) fgroup=$(cycle group next "$fgroup") ;;
@@ -2785,6 +2787,7 @@ if [ "$count" -eq 0 ]; then
 fi
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
 printf ' nn · %d/%d ' "$count" "$total" > "$dir/.border"
+[ -n "$fwrap_was" ] && [ -z "$fwrap" ] && printf 'toggle-wrap+'
 printf 'reload(cat %s/.current)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "$dir" "$(cat "$dir/.border")"
 ENDFILTER
     chmod +x "$_nn_dir/filter.sh"
