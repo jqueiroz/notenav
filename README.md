@@ -46,20 +46,20 @@ Same dependencies as the one-liner. See [docs/install.md](docs/install.md) for d
 
 Out of the box, `nn` uses **Compass** – a simple workflow built around three note types, four statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
 
-**Note types** – every note is one of:
-- **task** – concrete, actionable unit of work
-- **idea** – captures an early insight; enriched over time, may evolve into one or more tasks  <!-- alt: "needs exploration" -->
-- **reference** – living documentation, continually updated as understanding grows
+**Note types:** every note is one of:
+- **task:** concrete, actionable unit of work
+- **idea:** captures an early insight; enriched over time, may evolve into one or more tasks  <!-- alt: "needs exploration" -->
+- **reference:** living documentation, continually updated as understanding grows
 
-**Status** – every note moves through a lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (soft-deleted, i.e. the note stays on disk but it's hidden from normal views).
+**Status:** every note moves through a lifecycle: **new** → **active** → **done**. Notes can also be **blocked** (stuck on something external) or **removed** (soft-deleted, i.e. the note stays on disk but it's hidden from normal views).
 
-**Priority** – four levels (P1–P4).
+**Priority:** four levels (P1–P4).
 
-**Inbox and triage** – borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views, where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
+**Inbox and triage:** borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views, where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
 
-**Built-in query presets** – Compass ships with `inbox`, `p1-tasks`, `p1-ideas`, `p1-references`, and `all-active`. You can add your own presets in project or user config.
+**Built-in query presets:** Compass ships with `inbox`, `p1-tasks`, `p1-ideas`, `p1-references`, and `all-active`. You can add your own presets in project or user config.
 
-**Frontmatter** – notes are plain markdown with YAML frontmatter:
+**Frontmatter:** notes are plain markdown with YAML frontmatter:
 
 ```yaml
 ---
@@ -103,8 +103,8 @@ Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi →
 
 All configuration is TOML. Project and user configuration are entirely orthogonal – neither inherits from or overrides the other:
 
-- **Project configuration** (`.nn/workflow.toml`) – defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
-- **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback workflow (used only when `nn` is invoked in directories lacking project configuration).
+- **Project configuration** (`.nn/workflow.toml`): defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
+- **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`): personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback workflow (used only when `nn` is invoked in directories lacking project configuration).
 
 The `.nn/` directory is found by walking up from your current directory (like `.git/`), so `nn` works from any subdirectory. Notes are discovered recursively: at the notebook root you see everything, from a subdirectory you see only that subtree.
 
