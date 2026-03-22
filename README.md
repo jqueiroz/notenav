@@ -158,7 +158,7 @@ User config defines personal preferences – editor, prompts, sorting, grouping,
 
 ### `nn doctor`
 
-Validates your entire setup in one pass. Run it whenever something seems off – it checks dependencies, config files, workflow integrity, and your zk notebook.
+Validates your entire setup in one pass. Run it whenever something seems off: it checks dependencies, config files, workflow integrity, and your zk notebook.
 
 ```bash
 nn doctor

@@ -2823,7 +2823,7 @@ fi
 display_lbl=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s" "$zrev_s" "$zgroup_s" "$zarchive_s" "$zwrap_s")
 display_lbl_z=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zrev_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
-presets_hint=$(printf '\033[90m          \033[36m[[]\033[90m/\033[36m[]]\033[90m ←→ prev/next  \033[36m[0-9]\033[90m jump to preset \033[90m·\033[0m \033[36m[g]\033[90m pick preset\033[0m')
+presets_hint=$(printf '\033[90m          \033[36m[\033[90m/\033[36m]\033[90m ←→ prev/next  \033[36m[0-9]\033[90m jump to preset \033[90m·\033[0m \033[36m[g]\033[90m pick preset\033[0m')
 actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
 change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
