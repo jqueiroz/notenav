@@ -15,6 +15,7 @@ curl/
 docs/
   install.md          # Full install instructions (requirements, all methods)
   configuration.md    # Config system + workflow reference
+  faq.md              # Frequently asked questions
   workflows/          # Per-workflow documentation (compass.md, ado.md, etc.)
 samples/
   user-config.toml      # Example ~/.config/notenav/config.toml
