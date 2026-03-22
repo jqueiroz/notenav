@@ -180,7 +180,6 @@ Priority levels for ranking notes. Can be disabled entirely.
 ```toml
 [priority]
 values = ["1", "2", "3", "4"]
-initial = "4"
 filter_cycle = ["1", "2", "3", "4"]
 unset_position = "last"
 default_color = "33"

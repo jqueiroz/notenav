@@ -968,6 +968,15 @@ nn_doctor() {
         fi
       done < <(nn_cfg ".entity.\"$_ev\" // {} | keys[]" 2>/dev/null)
     done
+    # Warn on entity-level keys that aren't in values or known top-level keys
+    local _ent_known_toplevel="values default_color display_order"
+    local _ek
+    while IFS= read -r _ek; do
+      [[ -z "$_ek" ]] && continue
+      if ! _in_array "$_ek" $_ent_known_toplevel && ! _in_array "$_ek" "${_ent_values[@]}"; then
+        _warn "entity.$_ek is not in entity.values (typo?)"
+      fi
+    done < <(nn_cfg '.entity // {} | keys[]' 2>/dev/null)
 
     # Status checks
     local _sta_values _sta_ok=true _sta_count=0
@@ -1070,6 +1079,15 @@ nn_doctor() {
         _warn "status.display_order '$_sdov' not in status.values"
       fi
     done
+    # Validate status sub-keys
+    local _known_status_keys="values initial archive filter_cycle default_color colors lifecycle display_order"
+    local _stk
+    while IFS= read -r _stk; do
+      [[ -z "$_stk" ]] && continue
+      if ! _in_array "$_stk" $_known_status_keys; then
+        _warn "status: unrecognized key '$_stk'"
+      fi
+    done < <(nn_cfg '.status // {} | keys[]' 2>/dev/null)
 
     # Priority checks
     local _pri_enabled
@@ -1163,6 +1181,15 @@ nn_doctor() {
           _warn "priority.labels.$_plk not in priority.values"
         fi
       done < <(nn_cfg '.priority.labels // {} | keys[]' 2>/dev/null)
+      # Validate priority sub-keys
+      local _known_priority_keys="enabled values filter_cycle unset_position default_color colors labels lifecycle"
+      local _prk
+      while IFS= read -r _prk; do
+        [[ -z "$_prk" ]] && continue
+        if ! _in_array "$_prk" $_known_priority_keys; then
+          _warn "priority: unrecognized key '$_prk'"
+        fi
+      done < <(nn_cfg '.priority // {} | keys[]' 2>/dev/null)
     else
       _pass "Priority: disabled"
     fi
