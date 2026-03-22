@@ -71,4 +71,4 @@ Use a subshell:
 (cd ~/notes/projects/alpha && nn)
 ```
 
-This scopes results to the subfolder without changing your working directory.
+This scopes results to the subfolder without changing the working directory in your main shell.
