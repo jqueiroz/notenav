@@ -200,6 +200,8 @@ nn_load_config() {
           echo "notenav: run 'nn init $_extends' to fetch it" >&2
           return 1
         fi
+      elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_extends.toml" ]]; then
+        _base_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_extends.toml"
       else
         _base_file="$notenav_root/config/workflows/$_extends.toml"
       fi
@@ -1618,8 +1620,8 @@ _nn_init_user() {
   if [[ -n "$workflow_arg" ]]; then
     local _tmp
     _tmp=$(mktemp)
-    awk -v wf="$workflow_arg" \
-      '/^default_workflow = / { print "default_workflow = \"" wf "\""; next } { print }' \
+    wf="$workflow_arg" awk \
+      '/^default_workflow = / { print "default_workflow = \"" ENVIRON["wf"] "\""; next } { print }' \
       "$target" > "$_tmp" \
       && mv "$_tmp" "$target" \
       || rm -f "$_tmp"
@@ -1717,15 +1719,16 @@ _nn_fetch_remote() {
     return 1
   fi
 
-  # Write to cache with header
-  local cache_path
+  # Write to cache with header (atomic: temp + mv)
+  local cache_path _cache_tmp
   cache_path=$(_nn_url_cache_path "$url")
   mkdir -p "$(dirname "$cache_path")"
+  _cache_tmp=$(mktemp)
   {
     printf '# Cached from: %s\n' "$url"
     printf '# Fetched: %s\n' "$(date '+%Y-%m-%d')"
     cat "$tmpfile"
-  } > "$cache_path"
+  } > "$_cache_tmp" && mv "$_cache_tmp" "$cache_path" || { rm -f "$_cache_tmp"; return 1; }
 
   # Add to allow-list if not already trusted
   if ! _nn_url_is_trusted "$url"; then
