@@ -1862,7 +1862,6 @@ EOF
     : > "$_nn_dir/.f_tags"
     : > "$_nn_dir/.f_sq"
     echo "$NN_DEFAULT_SORT" > "$_nn_dir/.f_sort"
-    echo type > "$_nn_dir/.f_active"
     echo "$NN_DEFAULT_GROUP" > "$_nn_dir/.f_group"
     : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
@@ -2459,7 +2458,7 @@ apply_sq() {
   echo "$name" > "$dir/.f_sq"
 }
 ft=$(cat "$dir/.f_type"); fs=$(cat "$dir/.f_status")
-fp=$(cat "$dir/.f_priority"); fa=$(cat "$dir/.f_active")
+fp=$(cat "$dir/.f_priority")
 fsort=$(cat "$dir/.f_sort"); fgroup=$(cat "$dir/.f_group")
 farchive=$(cat "$dir/.f_archive"); fmatch=$(cat "$dir/.f_match")
 fname=$(cat "$dir/.f_name" 2>/dev/null)
@@ -2471,9 +2470,9 @@ fname=$(cat "$dir/.f_name" 2>/dev/null)
 # acted-on items stay pinned.
 case "$action" in refresh) ;; *) : > "$dir/.pinned" ;; esac
 case "$action" in
-  type)     fa=type;     ft=$(cycle type next "$ft"); : > "$dir/.f_sq" ;;
-  status)   fa=status;   fs=$(cycle status next "$fs"); : > "$dir/.f_sq" ;;
-  priority) fa=priority; fp=$(cycle priority next "$fp"); : > "$dir/.f_sq" ;;
+  type)     ft=$(cycle type next "$ft"); : > "$dir/.f_sq" ;;
+  status)   fs=$(cycle status next "$fs"); : > "$dir/.f_sq" ;;
+  priority) fp=$(cycle priority next "$fp"); : > "$dir/.f_sq" ;;
   sort)     fsort=$(cycle sort next "$fsort") ;;
   clear-type) ft=""; : > "$dir/.f_sq" ;;
   clear-status) fs=""; : > "$dir/.f_sq" ;;
@@ -2519,7 +2518,7 @@ case "$action" in
   refresh) ;;  # just re-apply filters (after tag picker)
 esac
 echo "$ft" > "$dir/.f_type"; echo "$fs" > "$dir/.f_status"
-echo "$fp" > "$dir/.f_priority"; echo "$fa" > "$dir/.f_active"
+echo "$fp" > "$dir/.f_priority"
 echo "$fsort" > "$dir/.f_sort"; echo "$fgroup" > "$dir/.f_group"
 echo "$farchive" > "$dir/.f_archive"
 echo "$fmatch" > "$dir/.f_match"
@@ -2628,7 +2627,7 @@ awk_stats=$(cat "$dir/.awk_color_stats")
 stats_s=$(awk -F'\t' "${cond}${awk_stats}" "$dir/.raw")
 # Header line 1: filter state
 fmt_dim() {
-  local key="$1" val="$2" is_active="$3" label suffix ic=""
+  local key="$1" val="$2" label suffix ic=""
   if [ "$key" = "p" ] && [ -n "$val" ]; then
     if [ "$val" = "none" ]; then label="<unset>"
     else
@@ -2643,17 +2642,12 @@ fmt_dim() {
   if [ -n "$val" ]; then
     # Filter active: cyan key, bold value
     printf ' \033[36m[\033[1;36m%s\033[0;36m]%s:\033[0m \033[1m%s\033[0m' "$key" "$suffix" "$label"
-  elif [ "$is_active" = "1" ]; then
-    # Active dimension, no filter: cyan key, underlined
-    printf ' \033[36m[\033[1;36m%s\033[0;36m]%s:\033[0m \033[4mall\033[0m' "$key" "$suffix"
   else
-    # Inactive, no filter: all dim
+    # No filter: all dim
     printf ' \033[90m[%s]%s: all\033[0m' "$key" "$suffix"
   fi
 }
-ta=0; sa=0; pa=0
-case "$fa" in type) ta=1;; status) sa=1;; priority) pa=1;; esac
-t_s=$(fmt_dim t "$ft" $ta); s_s=$(fmt_dim s "$fs" $sa); p_s=$(fmt_dim p "$fp" $pa)
+t_s=$(fmt_dim t "$ft"); s_s=$(fmt_dim s "$fs"); p_s=$(fmt_dim p "$fp")
 if [ -n "$fgroup" ]; then
   g_s=$(printf '\033[90mgroup:\033[0m \033[1m%s\033[0m' "$fgroup")
 else
