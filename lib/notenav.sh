@@ -1909,7 +1909,7 @@ else
   start_bind=""
 fi
 selected=$(echo "$ordered" | fzf --multi --reverse --prompt 'tags: ' \
-  --ansi --header $'Select tags for filtering (\033[36mSpace\033[0m/\033[36mTab\033[0m toggle \033[90m·\033[0m \033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel)' \
+  --ansi --header $'Filter the view to only include notes matching the selected tags.\n\033[36mSpace\033[0m/\033[36mTab\033[0m toggle \033[90m·\033[0m \033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,space:toggle' ${start_bind:+--bind "$start_bind"})
 if [ $? -eq 0 ]; then
   if [ -n "$selected" ]; then echo "$selected" > "$dir/.f_tags"
@@ -1939,7 +1939,7 @@ cur=""
 [ -s "$dir/.f_match" ] && cur=$(cat "$dir/.f_match")
 result=$(: | fzf --ansi --disabled --query "$cur" \
   --prompt 'search contents: ' \
-  --header $'Body text search · Enter apply · Esc cancel' \
+  --header $'Filter the view to only include notes whose body matches the query.\n\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
   --bind "start:reload:$dir/match_search.sh $dir {q}" \
   --bind "change:reload:$dir/match_search.sh $dir {q}" \
   --preview "$dir/preview.sh {1}" \
@@ -1969,7 +1969,7 @@ cur=""
 [ -s "$dir/.f_name" ] && cur=$(cat "$dir/.f_name")
 result=$(: | fzf --ansi --disabled --query "$cur" \
   --prompt 'filter name: ' \
-  --header $'Title substring filter · Enter apply · Esc cancel' \
+  --header $'Filter the view to only include notes whose title matches the query.\n\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
   --print-query \
   --bind 'j:down,k:up' \
   --reverse --border --color 'border:yellow')
