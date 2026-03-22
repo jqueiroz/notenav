@@ -878,7 +878,7 @@ nn_doctor() {
   if [[ -f "$_ts_file" ]]; then
     echo ""
     local _ts_count=0 _ts_url
-    while IFS= read -r _ts_url; do
+    while IFS= read -r _ts_url || [[ -n "$_ts_url" ]]; do
       [[ -z "$_ts_url" || "$_ts_url" == \#* ]] && continue
       (( _ts_count++ ))
       local _cache_path
@@ -1154,7 +1154,7 @@ _nn_url_is_trusted() {
   local ts_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources"
   [[ -f "$ts_file" ]] || return 1
   local line
-  while IFS= read -r line; do
+  while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" == "$url" ]] && return 0
   done < "$ts_file"
   return 1
@@ -1279,7 +1279,10 @@ _nn_init_user() {
 
   # Replace default_workflow if a name was given
   if [[ -n "$workflow_arg" ]]; then
-    sed -i "s/^default_workflow = .*/default_workflow = \"$workflow_arg\"/" "$target"
+    local _tmp
+    _tmp=$(mktemp)
+    sed "s/^default_workflow = .*/default_workflow = \"$workflow_arg\"/" "$target" > "$_tmp" \
+      && mv "$_tmp" "$target"
   fi
 
   echo "Created $target"
