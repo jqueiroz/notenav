@@ -18,11 +18,11 @@ editor = "nvim"            # editor for opening notes
                               # "promote": + raises urgency (P2→P1)
 # after_create = "edit"      # "edit" (open in editor) or "none" (just create)
 
-# Override individual entity/status/priority colors from the workflow.
+# Override individual type/status/priority colors from the workflow.
 # These merge on top of the workflow, so you only need to specify what you
 # want to change.
 #
-# [entity.task]
+# [type.task]
 # color = "34"          # change tasks from cyan to blue
 #
 # [status.colors]

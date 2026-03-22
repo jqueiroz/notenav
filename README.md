@@ -4,7 +4,7 @@ Your notes deserve a proper interface. Not a browser tab, not an Electron app �
 
 Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions – all without leaving the terminal. Friendly learning curve: with the default configuration, every keybinding is displayed on-screen.
 
-Workflows are fully customizable: define your own entity types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
+Workflows are fully customizable: define your own note types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
 
 Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) – fully compatible with Obsidian, Dendron, Jekyll, and similar tools. Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
 
@@ -79,18 +79,19 @@ If Compass doesn't fit your requirements, explore our other built-in workflows o
 | Key | Action |
 |-----|--------|
 | `enter` | Open note in your preferred editor |
-| `n` | Create new note |
+| `e` | [**e**]dit note |
+| `n` | Create [**n**]ew note |
 | `a` / `A` | Advance / reverse status |
 | `+` / `-` (or `<` / `>`) | Adjust priority up / down |
-| `e` | Filter by [**e**]ntity type |
+| `t` | Filter by [**t**]ype |
 | `s` | Filter by [**s**]tatus |
 | `p` | Filter by [**p**]riority |
-| `t` | Filter by [**t**]ags |
-| `m` | Search note body |
 | `h` / `l` | Previous / next query preset |
-| `f` | Fuzzy-pick query preset |
-| `o` / `g` / `z` | Sort / group / toggle archive |
-| `b` | Bulk edit (via your preferred editor) |
+| `g` | [**g**]o-to query preset |
+| `c` then `s`/`p`/`t` | [**c**]hange status, priority, or type |
+| `f` then `t`/`c`/`n` | [**f**]ilter-by tags, contents, or name |
+| `z` then `o`/`g`/`h`/`w` | View mode: order, group, hide/show archive, wrap |
+| `b` | [**b**]ulk edit (via your preferred editor) |
 | `q` | Quit |
 
 These keybindings apply to all workflows, including custom ones. With the default configuration, every keybinding is displayed on-screen.

@@ -5,23 +5,23 @@
 name = "Azure DevOps"
 description = "Feature/task/bug workflow inspired by Azure DevOps"
 
-# --- Entity types ---
+# --- Note types ---
 
-[entity]
+[type]
 default_color = "36"   # cyan
 values = ["feature", "task", "bug"]
 
-[entity.feature]
+[type.feature]
 icon = "◇"
 color = "35"           # magenta
 description = "Planned capability or improvement"
 
-[entity.task]
+[type.task]
 icon = "◆"
 color = "36"           # cyan
 description = "Discrete unit of work"
 
-[entity.bug]
+[type.bug]
 icon = "✖"
 color = "31"           # red
 description = "Defect to fix"

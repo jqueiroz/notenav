@@ -28,7 +28,7 @@ This maps naturally to how most people think about their notes. Ideas may evolve
 
 **Capture first, organize later** – borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): when you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views, where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
 
-## Entity Types
+## Note Types
 
 | Icon | Type | Description |
 |------|------|-------------|

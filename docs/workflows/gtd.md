@@ -18,9 +18,9 @@ default_workflow = "gtd"
 
 GTD is built on a simple principle: your brain is for having ideas, not holding them. Everything goes into a trusted system, then gets processed into the right bucket.
 
-The key insight in this workflow: **entity = what it is, status = which GTD list it lives on.** A note's entity type describes its nature (action, project, reference), while its status describes where it sits in the GTD workflow.
+The key insight in this workflow: **type = what it is, status = which GTD list it lives on.** A note's type describes its nature (action, project, reference), while its status describes where it sits in the GTD workflow.
 
-## Entity Types
+## Note Types
 
 | Icon | Type | Description |
 |------|------|-------------|

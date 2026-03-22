@@ -5,25 +5,25 @@
 name = "Zettelkasten"
 description = "Slip-box method for knowledge management"
 
-# --- Entity types ---
+# --- Note types ---
 # Follows the classic Zettelkasten note progression:
 # fleeting (quick capture) → literature (source notes) → permanent (atomic ideas)
 
-[entity]
+[type]
 default_color = "36"   # cyan
 values = ["fleeting", "literature", "permanent"]
 
-[entity.fleeting]
+[type.fleeting]
 icon = "◇"
 color = "33"           # yellow
 description = "Quick capture, to be processed"
 
-[entity.literature]
+[type.literature]
 icon = "▪"
 color = "34"           # blue
 description = "Notes from a source"
 
-[entity.permanent]
+[type.permanent]
 icon = "◆"
 color = "36"           # cyan
 description = "Atomic, fully developed idea"

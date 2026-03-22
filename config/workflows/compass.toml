@@ -5,35 +5,35 @@
 name = "Compass"
 description = "Simple task/idea/reference workflow"
 
-# --- Entity types ---
-# Each entity represents a kind of note. Shown as icon + name in the TUI.
-# values: valid entity types; array order = display order in grouped view
+# --- Note types ---
+# Each type represents a kind of note. Shown as icon + name in the TUI.
+# values: valid types; array order = display order in grouped view
 # icon: single character displayed in the list
 # color: ANSI color code (31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan)
-# default_color: fallback for entity types not explicitly listed
+# default_color: fallback for types not explicitly listed
 
-[entity]
+[type]
 default_color = "36"   # cyan
 values = ["task", "idea", "reference"]
 
-[entity.task]
+[type.task]
 icon = "◆"
 color = "36"           # cyan
 description = "Concrete, actionable unit of work"
 
-[entity.idea]
+[type.idea]
 icon = "✦"
 color = "35"           # magenta
 description = "Needs further exploration/research (may subsequently evolve into one or more tasks)"
 
-[entity.reference]
+[type.reference]
 icon = "▪"
 color = "33"           # yellow
 description = "Living documentation; continually updated as understanding grows"
 
 # --- Statuses ---
 # values: all valid statuses; array order = display order in grouped view
-# archive: statuses hidden by default; press 'z' to toggle visibility
+# archive: statuses hidden by default; press 'zh' to toggle visibility
 # filter_cycle: order when pressing 's' to cycle the status filter ("all" is auto-prepended)
 # default_color: fallback for statuses not explicitly listed in [status.colors]
 #

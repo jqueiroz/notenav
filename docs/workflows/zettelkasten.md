@@ -20,11 +20,11 @@ The Zettelkasten method treats notes as atomic, interconnected ideas. Each note 
 
 In this workflow:
 
-- **Entity type** captures where the note is in the knowledge pipeline: fleeting capture → literature notes → permanent ideas.
+- **Note type** captures where the note is in the knowledge pipeline: fleeting capture → literature notes → permanent ideas.
 - **Status** captures the note's maturity: how developed and reviewed it is.
 - **Priority is disabled** – in a Zettelkasten, notes gain importance through their connections, not through explicit ranking.
 
-## Entity Types
+## Note Types
 
 | Icon | Type | Description |
 |------|------|-------------|
@@ -34,7 +34,7 @@ In this workflow:
 
 ### The note progression
 
-Notes typically evolve through entity types:
+Notes typically evolve through types:
 
 1. **Fleeting notes** are captured quickly throughout the day. They're rough, incomplete, and meant to be processed soon.
 2. **Literature notes** summarize ideas from a specific source. They capture what someone else said, in your words, with a citation.

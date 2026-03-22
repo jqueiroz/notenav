@@ -42,7 +42,7 @@ Or start from the annotated examples: [`samples/user-config.toml`](../samples/us
 
 ## Workflow files
 
-Workflows define what entity types, statuses, and priorities are available and how they behave. The project workflow lives at `.nn/workflow.toml`.
+Workflows define what note types, statuses, and priorities are available and how they behave. The project workflow lives at `.nn/workflow.toml`.
 
 `.nn/workflow.toml` can work in four ways:
 
@@ -74,7 +74,7 @@ Remote workflows require explicit trust via an allow-list and use a local cache 
 [meta]
 name = "My Workflow"
 
-[entity]
+[type]
 # ...
 ```
 
@@ -84,7 +84,7 @@ By design, there is no support for a user-global workflows directory – project
 
 ## Workflow reference
 
-A workflow file has four top-level sections: `[meta]`, `[entity]`, `[status]`, and `[priority]`.
+A workflow file has four top-level sections: `[meta]`, `[type]`, `[status]`, and `[priority]`.
 
 ### `[meta]`
 
@@ -101,16 +101,16 @@ description = "Custom workflow for my project"
 | `name` | string | Display name |
 | `description` | string | Short description |
 
-### `[entity]`
+### `[type]`
 
-Entity types are the categories of notes (e.g. task, idea, bug). Each entity type is a sub-table under `[entity]`.
+Note types are the categories of notes (e.g. task, idea, bug). Each type is a sub-table under `[type]`.
 
 ```toml
-[entity]
+[type]
 default_color = "36"                          # fallback ANSI color
 values = ["task", "idea", "reference"]        # valid types; array order = display order
 
-[entity.task]
+[type.task]
 icon = "◆"
 color = "36"           # ANSI color code
 description = "Concrete, actionable unit of work"
@@ -118,12 +118,12 @@ description = "Concrete, actionable unit of work"
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `values` | array | Valid entity types; array order is used as the default display order |
-| `default_color` | string | ANSI color code used for entity types not explicitly listed |
+| `values` | array | Valid note types; array order is used as the default display order |
+| `default_color` | string | ANSI color code used for types not explicitly listed |
 | `display_order` | array | *(optional)* Override group header order; defaults to `values` order |
-| `[entity.<name>].icon` | string | Single character displayed in the list |
-| `[entity.<name>].color` | string | ANSI color code (e.g. `"31"` = red, `"32"` = green) |
-| `[entity.<name>].description` | string | What this entity type represents |
+| `[type.<name>].icon` | string | Single character displayed in the list |
+| `[type.<name>].color` | string | ANSI color code (e.g. `"31"` = red, `"32"` = green) |
+| `[type.<name>].description` | string | What this type represents |
 
 **Common ANSI color codes:** `31` red, `32` green, `33` yellow, `34` blue, `35` magenta, `36` cyan, `90` dim gray. Append `;1` for bold (e.g. `"31;1"` = bold red).
 
@@ -164,7 +164,7 @@ blocked = "new"
 | `values` | array | All valid statuses; array order is used as the default display order |
 | `initial` | string | Starting status assigned when pressing `a` on a note that has no status |
 | `display_order` | array | *(optional)* Override group header order; defaults to `values` order |
-| `archive` | array | Statuses hidden by default; press `z` to toggle visibility |
+| `archive` | array | Statuses hidden by default; press `zh` to toggle visibility |
 | `filter_cycle` | array | Order when pressing `s` to cycle the filter (`"all"` is auto-prepended) |
 | `default_color` | string | Fallback ANSI color for statuses not in `[status.colors]` |
 | `[status.colors]` | table | ANSI color per status |
@@ -261,7 +261,7 @@ This removes all workflow-level queries before merging. Queries defined in the s
 
 notenav ships with four workflows. Use `extends` in `.nn/workflow.toml` or `default_workflow` in your user config to select one.
 
-| Workflow | Entities | Statuses | Priority | Use case |
+| Workflow | Types | Statuses | Priority | Use case |
 |--------|----------|----------|----------|----------|
 | **compass** (default) | task, idea, reference | new, active, blocked, done, removed | 1-4 | General-purpose task/idea tracking |
 | **ado** | feature, task, bug | new, active, resolved, closed, removed | 1-4 | Azure DevOps-style work items |
@@ -279,7 +279,7 @@ The `extends` key is optional. If present, it deep-merges your definitions on to
 extends = "compass"
 
 # Override just what you need
-[entity.bug]
+[type.bug]
 icon = "✖"
 color = "31"
 description = "Defect to fix"
@@ -293,7 +293,7 @@ description = "Defect to fix"
 cp samples/workflows/custom-workflow.toml .nn/workflow.toml
 ```
 
-Then edit `.nn/workflow.toml` to define your entity types, statuses, priorities, and lifecycle transitions. See [`samples/workflows/custom-workflow.toml`](../samples/workflows/custom-workflow.toml) for a fully annotated example.
+Then edit `.nn/workflow.toml` to define your note types, statuses, priorities, and lifecycle transitions. See [`samples/workflows/custom-workflow.toml`](../samples/workflows/custom-workflow.toml) for a fully annotated example.
 
 ## Remote workflows
 
@@ -397,7 +397,7 @@ You can override individual colors without writing a full custom workflow. In `.
 # .nn/workflow.toml
 extends = "compass"
 
-[entity.task]
+[type.task]
 color = "34"          # change tasks from cyan to blue
 
 [status.colors]

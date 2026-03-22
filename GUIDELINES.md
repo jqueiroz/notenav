@@ -26,14 +26,14 @@ Rules and conventions for contributing to notenav.
 
 - **No modifier keys.** Do not use Ctrl, Alt, or Meta keybindings in fzf. Users run notenav inside tmux, terminal emulators, and window managers that may claim these combos, causing keys to be silently eaten.
 - **Plain keys only.** Stick to letters, digits, symbols, and Shift variants (uppercase letters).
-- **Use the modal pattern.** notenav has three input modes: command mode (plain keys), search mode (`/`), and change mode (`c` prefix). Fit new bindings into this structure.
+- **Use the modal pattern.** notenav has four input modes: command mode (plain keys), change mode (`c` prefix), filter-by mode (`f` prefix), and view mode (`z` prefix). Fit new bindings into this structure.
 
 ## Workflow definitions
 
-- Every value in `entity.values` must have a corresponding `[entity.<name>]` section with `icon`, `color`, and `description`.
+- Every value in `type.values` must have a corresponding `[type.<name>]` section with `icon`, `color`, and `description`.
 - Every value in `status.values` must have a color in `[status.colors]` and entries in `filter_cycle` (unless intentionally omitted, like tombstone statuses).
 - Lifecycle transitions (`forward`/`reverse`) must only reference values that exist in `status.values` or `priority.values`.
-- Query preset `args` must only reference valid entity types, statuses, and priority values from the same workflow.
+- Query preset `args` must only reference valid note types, statuses, and priority values from the same workflow.
 
 ## Naming convention: `nn` vs `notenav`
 
@@ -70,8 +70,8 @@ Two names coexist by design – each is used where it fits best:
 ## Documentation
 
 - Use **en-dashes** (–), not em-dashes (—), in prose.
-- Keep workflow doc pages (`docs/workflows/*.md`) in sync with their TOML files – entity tables, status tables, lifecycle diagrams, and query preset tables must match the config.
-- Status/entity table descriptions should state what it *means*, not how to set it (avoid documenting keybinding mechanics in tables).
+- Keep workflow doc pages (`docs/workflows/*.md`) in sync with their TOML files – type tables, status tables, lifecycle diagrams, and query preset tables must match the config.
+- Status/type table descriptions should state what it *means*, not how to set it (avoid documenting keybinding mechanics in tables).
 - All relative links in markdown must resolve to existing files.
 
 ## Standards compliance

@@ -15,8 +15,8 @@ Read all relevant files and cross-reference them against each other. Report ever
 
 For every TOML in `config/workflows/` and `samples/workflows/`:
 
-**Entity section:**
-- Every value in `entity.values` has a corresponding `[entity.<name>]` with `icon` and `color`
+**Type section:**
+- Every value in `type.values` has a corresponding `[type.<name>]` with `icon` and `color`
 
 **Status section:**
 - Every value in `status.values` has a color in `[status.colors]`

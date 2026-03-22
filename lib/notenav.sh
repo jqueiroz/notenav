@@ -269,7 +269,7 @@ nn_load_config() {
   export NN_CFG_JSON
 }
 
-# Query the merged config. Usage: nn_cfg '.entity | keys[]'
+# Query the merged config. Usage: nn_cfg '.type | keys[]'
 nn_cfg() {
   printf '%s' "$NN_CFG_JSON" | jq -r "$1"
 }
@@ -281,17 +281,17 @@ nn_cfg() {
 
 _nn_gen_awk_bodies() {
   local _v _i
-  # Uses NN_ENTITY_DISPLAY_ORDER / NN_STATUS_DISPLAY_ORDER (set by nn_precompute_workflow)
+  # Uses NN_TYPE_DISPLAY_ORDER / NN_STATUS_DISPLAY_ORDER (set by nn_precompute_workflow)
   # for group ordering and stats display. Falls back to NN_*_VALUES if unset.
 
-  # Entity color+icon assignments
+  # Type color+icon assignments
   local _ent_awk="" _first=true
-  for _v in "${NN_ENTITY_VALUES[@]}"; do
+  for _v in "${NN_TYPE_VALUES[@]}"; do
     if $_first; then
-      _ent_awk="tc = \"\\033[${NN_ENTITY_COLORS[$_v]}m\"; ic = \"${NN_ENTITY_ICONS[$_v]}\""
+      _ent_awk="tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${NN_TYPE_ICONS[$_v]}\""
       _first=false
     else
-      _ent_awk+=$'\n'"  if (\$1 == \"$_v\") { tc = \"\\033[${NN_ENTITY_COLORS[$_v]}m\"; ic = \"${NN_ENTITY_ICONS[$_v]}\" }"
+      _ent_awk+=$'\n'"  if (\$1 == \"$_v\") { tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${NN_TYPE_ICONS[$_v]}\" }"
     fi
   done
 
@@ -378,18 +378,18 @@ _nn_gen_awk_bodies() {
   NN_AWK_COLOR_PINNED="$_pinned"
 
   # Stats AWK body
-  local _entity_order_str="${NN_ENTITY_DISPLAY_ORDER[*]:-${NN_ENTITY_VALUES[*]}}"
+  local _type_order_str="${NN_TYPE_DISPLAY_ORDER[*]:-${NN_TYPE_VALUES[*]}}"
   local _status_fc_str="${NN_STATUS_FILTER_CYCLE[*]}"
-  local _stats_entity_lookup="" _stats_status_lookup=""
-  for _v in "${NN_ENTITY_VALUES[@]}"; do
-    _stats_entity_lookup+="icon[\"$_v\"] = \"${NN_ENTITY_ICONS[$_v]}\"; clr[\"$_v\"] = \"\\033[${NN_ENTITY_COLORS[$_v]}m\"; "
+  local _stats_type_lookup="" _stats_status_lookup=""
+  for _v in "${NN_TYPE_VALUES[@]}"; do
+    _stats_type_lookup+="icon[\"$_v\"] = \"${NN_TYPE_ICONS[$_v]}\"; clr[\"$_v\"] = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; "
   done
   for _v in "${NN_STATUS_FILTER_CYCLE[@]}"; do
     _stats_status_lookup+="sc[\"$_v\"] = \"\\033[${NN_STATUS_COLORS[$_v]}m\"; "
   done
   NN_AWK_COLOR_STATS='{ types[$1]++; combos[$1, $2]++ } END {
-  n = split("'"$_entity_order_str"'", order, " ")
-  '"$_stats_entity_lookup"'
+  n = split("'"$_type_order_str"'", order, " ")
+  '"$_stats_type_lookup"'
   '"$_stats_status_lookup"'
   first = 1
   for (o = 1; o <= n; o++) {
@@ -418,30 +418,30 @@ _nn_gen_awk_bodies() {
 }'
 
   # Group ordering strings (use display_order)
-  NN_ENTITY_ORDER_STR="$_entity_order_str"
+  NN_TYPE_ORDER_STR="$_type_order_str"
   NN_STATUS_ORDER_STR="${NN_STATUS_DISPLAY_ORDER[*]:-${NN_STATUS_VALUES[*]}}"
 
-  # Entity icon AWK snippet for grouping
+  # Type icon AWK snippet for grouping
   NN_AWK_ICON_SETUP=""
-  for _v in "${NN_ENTITY_VALUES[@]}"; do
-    NN_AWK_ICON_SETUP+="icon[\"$_v\"] = \"${NN_ENTITY_ICONS[$_v]}\"; "
+  for _v in "${NN_TYPE_VALUES[@]}"; do
+    NN_AWK_ICON_SETUP+="icon[\"$_v\"] = \"${NN_TYPE_ICONS[$_v]}\"; "
   done
 }
 
 nn_precompute_workflow() {
   local _v
-  # Entity types
-  mapfile -t NN_ENTITY_VALUES < <(nn_cfg '.entity.values[]')
-  if [[ ${#NN_ENTITY_VALUES[@]} -eq 0 ]]; then
-    echo "notenav: no entity values in config (is yq-go installed?)" >&2
+  # Note types
+  mapfile -t NN_TYPE_VALUES < <(nn_cfg '.type.values[]')
+  if [[ ${#NN_TYPE_VALUES[@]} -eq 0 ]]; then
+    echo "notenav: no type values in config (is yq-go installed?)" >&2
     return 1
   fi
-  NN_ENTITY_DEFAULT_COLOR=$(nn_cfg '.entity.default_color // "36"')
-  declare -gA NN_ENTITY_ICONS NN_ENTITY_COLORS NN_ENTITY_DESCS
-  for _v in "${NN_ENTITY_VALUES[@]}"; do
-    NN_ENTITY_ICONS[$_v]=$(nn_cfg ".entity.\"$_v\".icon // \"*\"")
-    NN_ENTITY_COLORS[$_v]=$(nn_cfg ".entity.\"$_v\".color // \"$NN_ENTITY_DEFAULT_COLOR\"")
-    NN_ENTITY_DESCS[$_v]=$(nn_cfg ".entity.\"$_v\".description // \"\"")
+  NN_TYPE_DEFAULT_COLOR=$(nn_cfg '.type.default_color // "36"')
+  declare -gA NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS
+  for _v in "${NN_TYPE_VALUES[@]}"; do
+    NN_TYPE_ICONS[$_v]=$(nn_cfg ".type.\"$_v\".icon // \"*\"")
+    NN_TYPE_COLORS[$_v]=$(nn_cfg ".type.\"$_v\".color // \"$NN_TYPE_DEFAULT_COLOR\"")
+    NN_TYPE_DESCS[$_v]=$(nn_cfg ".type.\"$_v\".description // \"\"")
   done
 
   # Statuses
@@ -493,8 +493,8 @@ nn_precompute_workflow() {
   fi
 
   # Display order (falls back to values order if not specified)
-  mapfile -t NN_ENTITY_DISPLAY_ORDER < <(nn_cfg '.entity.display_order // [] | .[]')
-  [[ ${#NN_ENTITY_DISPLAY_ORDER[@]} -eq 0 ]] && NN_ENTITY_DISPLAY_ORDER=("${NN_ENTITY_VALUES[@]}")
+  mapfile -t NN_TYPE_DISPLAY_ORDER < <(nn_cfg '.type.display_order // [] | .[]')
+  [[ ${#NN_TYPE_DISPLAY_ORDER[@]} -eq 0 ]] && NN_TYPE_DISPLAY_ORDER=("${NN_TYPE_VALUES[@]}")
   mapfile -t NN_STATUS_DISPLAY_ORDER < <(nn_cfg '.status.display_order // [] | .[]')
   [[ ${#NN_STATUS_DISPLAY_ORDER[@]} -eq 0 ]] && NN_STATUS_DISPLAY_ORDER=("${NN_STATUS_VALUES[@]}")
 
@@ -527,7 +527,7 @@ nn_precompute_workflow() {
 
 nn_write_workflow_files() {
   local dir="$1" _v
-  printf '%s\n' "${NN_ENTITY_VALUES[@]}" > "$dir/.schema_entity_values"
+  printf '%s\n' "${NN_TYPE_VALUES[@]}" > "$dir/.schema_type_values"
   printf '%s\n' "${NN_STATUS_VALUES[@]}" > "$dir/.schema_status_values"
   printf '%s' "$NN_STATUS_INITIAL" > "$dir/.schema_status_initial"
   if [[ ${#NN_PRIORITY_VALUES[@]} -gt 0 ]]; then
@@ -552,16 +552,16 @@ nn_write_workflow_files() {
   fi
   printf '%s' "$NN_PRIORITY_ENABLED" > "$dir/.schema_priority_enabled"
 
-  # Entity details (TSV: value\ticon\tcolor\tdescription)
+  # Type details (TSV: value\ticon\tcolor\tdescription)
   local _v
-  for _v in "${NN_ENTITY_VALUES[@]}"; do
-    printf '%s\t%s\t%s\t%s\n' "$_v" "${NN_ENTITY_ICONS[$_v]}" "${NN_ENTITY_COLORS[$_v]}" "${NN_ENTITY_DESCS[$_v]}"
-  done > "$dir/.schema_entities"
+  for _v in "${NN_TYPE_VALUES[@]}"; do
+    printf '%s\t%s\t%s\t%s\n' "$_v" "${NN_TYPE_ICONS[$_v]}" "${NN_TYPE_COLORS[$_v]}" "${NN_TYPE_DESCS[$_v]}"
+  done > "$dir/.schema_types"
 
-  # Entity icon map (TSV: value\ticon)
-  for _v in "${NN_ENTITY_VALUES[@]}"; do
-    printf '%s\t%s\n' "$_v" "${NN_ENTITY_ICONS[$_v]}"
-  done > "$dir/.schema_entity_icons"
+  # Type icon map (TSV: value\ticon)
+  for _v in "${NN_TYPE_VALUES[@]}"; do
+    printf '%s\t%s\n' "$_v" "${NN_TYPE_ICONS[$_v]}"
+  done > "$dir/.schema_type_icons"
 
   # Status lifecycle (TSV: from\tto)
   for _v in "${NN_STATUS_VALUES[@]}"; do
@@ -602,8 +602,8 @@ nn_write_workflow_files() {
   # Archive AWK condition
   printf '%s' "$NN_ARCHIVE_COND" > "$dir/.schema_archive_cond"
 
-  # Entity and status order strings (space-separated, for AWK split)
-  printf '%s' "$NN_ENTITY_ORDER_STR" > "$dir/.schema_entity_order"
+  # Type and status order strings (space-separated, for AWK split)
+  printf '%s' "$NN_TYPE_ORDER_STR" > "$dir/.schema_type_order"
   printf '%s' "$NN_STATUS_ORDER_STR" > "$dir/.schema_status_order"
 
   # AWK icon setup for grouping
@@ -850,7 +850,7 @@ nn_doctor() {
     fi
 
     # Unrecognized top-level keys
-    local _known_keys="meta entity status priority queries defaults ui zk extends default_workflow"
+    local _known_keys="meta type status priority queries defaults ui zk extends default_workflow"
     local _check_files=()
     [[ -f "$user_cfg" ]] && _check_files+=("$user_cfg")
     [[ -n "$project_wf_file" && -f "$project_wf_file" ]] && _check_files+=("$project_wf_file")
@@ -916,23 +916,23 @@ nn_doctor() {
     echo ""
     echo "Workflow:"
 
-    # Entity checks
+    # Type checks
     local _ent_values _ent_ok=true _ent_count=0 _ent_issues=""
-    mapfile -t _ent_values < <(nn_cfg '.entity.values // [] | .[]')
+    mapfile -t _ent_values < <(nn_cfg '.type.values // [] | .[]')
     _ent_count=${#_ent_values[@]}
     if _in_array "" "${_ent_values[@]}"; then
-      _warn "entity.values contains an empty string"
+      _warn "type.values contains an empty string"
     fi
     local _ent_dups
     _ent_dups=$(_dupes "${_ent_values[@]}")
-    [[ -n "$_ent_dups" ]] && _warn "entity.values has duplicates: $_ent_dups"
+    [[ -n "$_ent_dups" ]] && _warn "type.values has duplicates: $_ent_dups"
     local _ent_default_color
-    _ent_default_color=$(nn_cfg '.entity.default_color // empty')
+    _ent_default_color=$(nn_cfg '.type.default_color // empty')
     local _ev
     for _ev in "${_ent_values[@]}"; do
       local _icon _color
-      _icon=$(nn_cfg ".entity.\"$_ev\".icon // empty")
-      _color=$(nn_cfg ".entity.\"$_ev\".color // empty")
+      _icon=$(nn_cfg ".type.\"$_ev\".icon // empty")
+      _color=$(nn_cfg ".type.\"$_ev\".color // empty")
       if [[ -z "$_icon" ]]; then
         _ent_issues+="$_ev missing icon; "
         _ent_ok=false
@@ -946,55 +946,55 @@ nn_doctor() {
       local _ent_names
       printf -v _ent_names '%s, ' "${_ent_values[@]}"
       _ent_names="${_ent_names%, }"
-      _pass "Entities: $_ent_names – all have icon + color"
+      _pass "Types: $_ent_names – all have icon + color"
     elif [[ $_ent_count -eq 0 ]]; then
-      _fail "Entities: none defined"
+      _fail "Types: none defined"
     else
-      _fail "Entities: ${_ent_issues%"; "}"
+      _fail "Types: ${_ent_issues%"; "}"
     fi
     # Warn on invalid color formats
     if [[ -n "$_ent_default_color" ]] && ! _valid_color "$_ent_default_color"; then
-      _warn "entity.default_color '$_ent_default_color' is not a valid ANSI code"
+      _warn "type.default_color '$_ent_default_color' is not a valid ANSI code"
     fi
     for _ev in "${_ent_values[@]}"; do
       local _color
-      _color=$(nn_cfg ".entity.\"$_ev\".color // empty")
+      _color=$(nn_cfg ".type.\"$_ev\".color // empty")
       if [[ -n "$_color" ]] && ! _valid_color "$_color"; then
-        _warn "entity.$_ev.color '$_color' is not a valid ANSI code"
+        _warn "type.$_ev.color '$_color' is not a valid ANSI code"
       fi
     done
-    # Validate entity display_order
+    # Validate type display_order
     local _ent_do_values
-    mapfile -t _ent_do_values < <(nn_cfg '.entity.display_order // [] | .[]')
+    mapfile -t _ent_do_values < <(nn_cfg '.type.display_order // [] | .[]')
     local _edo_dups
     _edo_dups=$(_dupes "${_ent_do_values[@]}")
-    [[ -n "$_edo_dups" ]] && _warn "entity.display_order has duplicates: $_edo_dups"
+    [[ -n "$_edo_dups" ]] && _warn "type.display_order has duplicates: $_edo_dups"
     local _edov
     for _edov in "${_ent_do_values[@]}"; do
       if ! _in_array "$_edov" "${_ent_values[@]}"; then
-        _warn "entity.display_order '$_edov' not in entity.values"
+        _warn "type.display_order '$_edov' not in type.values"
       fi
     done
-    # Validate entity sub-table keys
+    # Validate type sub-table keys
     local _ent_known_subkeys="icon color description"
     for _ev in "${_ent_values[@]}"; do
       local _esk
       while IFS= read -r _esk; do
         [[ -z "$_esk" ]] && continue
         if ! _in_array "$_esk" $_ent_known_subkeys; then
-          _warn "entity.$_ev: unrecognized key '$_esk'"
+          _warn "type.$_ev: unrecognized key '$_esk'"
         fi
-      done < <(nn_cfg ".entity.\"$_ev\" // {} | keys[]" 2>/dev/null)
+      done < <(nn_cfg ".type.\"$_ev\" // {} | keys[]" 2>/dev/null)
     done
-    # Warn on entity-level keys that aren't in values or known top-level keys
+    # Warn on type-level keys that aren't in values or known top-level keys
     local _ent_known_toplevel="values default_color display_order"
     local _ek
     while IFS= read -r _ek; do
       [[ -z "$_ek" ]] && continue
       if ! _in_array "$_ek" $_ent_known_toplevel && ! _in_array "$_ek" "${_ent_values[@]}"; then
-        _warn "entity.$_ek is not in entity.values (typo?)"
+        _warn "type.$_ek is not in type.values (typo?)"
       fi
-    done < <(nn_cfg '.entity // {} | keys[]' 2>/dev/null)
+    done < <(nn_cfg '.type // {} | keys[]' 2>/dev/null)
 
     # Meta sub-key validation
     local _known_meta_keys="name description"
@@ -1951,6 +1951,26 @@ fi
 ENDMATCH
     chmod +x "$_nn_dir/match.sh"
 
+    # Name filter: mini fzf popup to capture a title substring
+    cat > "$_nn_dir/namefilt.sh" << 'ENDNAMEFILT'
+#!/usr/bin/env bash
+dir="$1"
+cur=""
+[ -s "$dir/.f_name" ] && cur=$(cat "$dir/.f_name")
+result=$(: | fzf --ansi --disabled --query "$cur" \
+  --prompt 'filter name: ' \
+  --header $'Title substring filter · Enter apply · Esc cancel' \
+  --print-query \
+  --bind 'j:down,k:up' \
+  --reverse --border --color 'border:yellow')
+rc=$?
+query=$(printf '%s' "$result" | head -1)
+if [ $rc -eq 0 ]; then
+  echo "$query" > "$dir/.f_name"
+fi
+ENDNAMEFILT
+    chmod +x "$_nn_dir/namefilt.sh"
+
     # Store zk list args for reload
     printf '%s\n' "${_zk_path[@]}" > "$_nn_dir/.zk_path"
     echo "$_fmt" > "$_nn_dir/.zk_fmt"
@@ -2011,7 +2031,7 @@ case "$field" in
     while IFS=$'\t' read -r v ic clr desc; do
       [ -n "$vals" ] && vals="$vals\n"
       vals="$vals$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
-    done < "$dir/.schema_entities" ;;
+    done < "$dir/.schema_types" ;;
   *) exit 1 ;;
 esac
 hdr="Enter apply · Esc cancel"
@@ -2134,7 +2154,7 @@ while IFS= read -r new_line; do
     [ "$new_pri" = "$old_pri" ] && [ "$new_tags" = "$old_tags" ] && continue
   # Validate type
   valid=false
-  while IFS= read -r vt; do [ "$new_type" = "$vt" ] && valid=true && break; done < "$dir/.schema_entity_values"
+  while IFS= read -r vt; do [ "$new_type" = "$vt" ] && valid=true && break; done < "$dir/.schema_type_values"
   $valid || { errors="${errors}Invalid type '$new_type' for $(basename "$path")\n"; continue; }
   # Validate status
   if [ -n "$new_status" ]; then
@@ -2182,7 +2202,7 @@ while IFS=$'\t' read -r fpath _rest; do
   awk -F'\t' -v p="$fpath" '$6 == p { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6 }' "$dir/.raw" >> "$tmpfile"
 done < <(tac "$dir/.current")
 # Footer with valid values from workflow
-printf '\n# type: %s\n' "$(paste -sd', ' "$dir/.schema_entity_values")" >> "$tmpfile"
+printf '\n# type: %s\n' "$(paste -sd', ' "$dir/.schema_type_values")" >> "$tmpfile"
 printf '# status: %s (or empty)\n' "$(paste -sd', ' "$dir/.schema_status_values")" >> "$tmpfile"
 if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
   printf '# priority: %s (or empty)\n' "$(paste -sd', ' "$dir/.schema_priority_values")" >> "$tmpfile"
@@ -2213,7 +2233,7 @@ while IFS=$'\t' read -r v ic clr desc; do
     [ -n "$types" ] && types="$types"$'\n'
     types="$types$line"
   fi
-done < "$dir/.schema_entities"
+done < "$dir/.schema_types"
 # Put filtered type first so fzf pre-selects it
 [ -n "$cur_line" ] && types="$cur_line${types:+$'\n'$types}"
 selected=$(printf '%s' "$types" | fzf --reverse --prompt "type: " \
@@ -2225,7 +2245,7 @@ selected=$(printf '%s' "$types" | fzf --reverse --prompt "type: " \
 tc=""; icon=""
 while IFS=$'\t' read -r v ic clr desc; do
   [ "$v" = "$selected" ] && tc=$(printf '\033[%sm' "$clr") && icon="$ic" && break
-done < "$dir/.schema_entities"
+done < "$dir/.schema_types"
 printf '\n' > /dev/tty
 inner=41
 pad=$((inner - 7 - ${#selected}))
@@ -2393,7 +2413,7 @@ cycle() {
   local dim="$1" direction="$2" cur="$3"
   local -a vals
   case "$dim" in
-    type)     mapfile -t vals < "$dir/.schema_entity_values"; vals=("" "${vals[@]}") ;;
+    type)     mapfile -t vals < "$dir/.schema_type_values"; vals=("" "${vals[@]}") ;;
     status)   mapfile -t vals < "$dir/.schema_status_filter_cycle"; vals=("" "${vals[@]}") ;;
     priority)
       if [ "$(cat "$dir/.schema_priority_enabled")" = "false" ]; then vals=(""); else
@@ -2432,6 +2452,7 @@ ft=$(cat "$dir/.f_type"); fs=$(cat "$dir/.f_status")
 fp=$(cat "$dir/.f_priority"); fa=$(cat "$dir/.f_active")
 fsort=$(cat "$dir/.f_sort"); fgroup=$(cat "$dir/.f_group")
 farchive=$(cat "$dir/.f_archive"); fmatch=$(cat "$dir/.f_match")
+fname=$(cat "$dir/.f_name" 2>/dev/null)
 # Pinned items: when an action (priority bump, status cycle) causes an item
 # to no longer match active filters, it stays visible at the top of the list
 # (marked "pinned" in bold red). Pins are cleared on any filter change
@@ -2477,7 +2498,7 @@ case "$action" in
     fi ;;
   sq*) apply_sq "${action#sq}" ;;
   pick) [ -f "$dir/.f_pick" ] && apply_sq "$(cat "$dir/.f_pick")" && rm -f "$dir/.f_pick" ;;
-  reset) ft=""; fs=""; fp=""; fmatch=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
+  reset) ft=""; fs=""; fp=""; fmatch=""; fname=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_name"
     { IFS= read -r fsort; IFS= read -r fgroup; IFS= read -r _a; } < "$dir/.schema_defaults"
     [ "$_a" = "true" ] && farchive="show" || farchive="" ;;
   clear-tags) : > "$dir/.f_tags" ;;
@@ -2519,6 +2540,10 @@ if [ -s "$dir/.f_tags" ]; then
     fi
   done < "$dir/.f_tags"
   [ -n "$tag_cond" ] && cond="$cond && ($tag_cond)"
+fi
+# Name filter (case-insensitive title substring match)
+if [ -n "$fname" ]; then
+  cond="$cond && index(tolower(\$5), tolower(\"$(awk_esc "$fname")\"))"
 fi
 # Sort .raw before filtering
 do_sort() {
@@ -2568,7 +2593,7 @@ if [ -n "$fgroup" ]; then
   ' "$dir/.raw" "$dir/.current" \
   | sort -t'	' -k1,1 -s \
   | awk -F'\t' -v gmode="$fgroup" \
-    -v entity_order="$(cat "$dir/.schema_entity_order")" \
+    -v type_order="$(cat "$dir/.schema_type_order")" \
     -v status_order="$(cat "$dir/.schema_status_order")" '
     { gk=$1; sub(/^[^\t]*\t/, "")
       counts[gk]++; lines[gk] = lines[gk] $0 "\n"
@@ -2576,7 +2601,7 @@ if [ -n "$fgroup" ]; then
       if (gmode == "status")
         n = split(status_order, order, " ")
       else
-        n = split(entity_order, order, " ")
+        n = split(type_order, order, " ")
       '"$(cat "$dir/.schema_icon_setup")"'
       for (i=1; i<=n; i++) {
         g = order[i]
@@ -2599,11 +2624,11 @@ fmt_dim() {
       label=$(awk -F'\t' -v v="$val" '$1 == v {print $2; exit}' "$dir/.schema_priority_labels")
       [ -z "$label" ] && label="P$val"
     fi
-  elif [ "$key" = "e" ] && [ -n "$val" ]; then
-    ic=$(awk -F'\t' -v v="$val" '$1 == v {printf "%s ", $2; exit}' "$dir/.schema_entity_icons")
+  elif [ "$key" = "t" ] && [ -n "$val" ]; then
+    ic=$(awk -F'\t' -v v="$val" '$1 == v {printf "%s ", $2; exit}' "$dir/.schema_type_icons")
     label="${ic}${val}"
   else label="${val:-all}"; fi
-  case "$key" in e) suffix="ntity";; s) suffix="tatus";; p) suffix="riority";; *) suffix="";; esac
+  case "$key" in t) suffix="ype";; s) suffix="tatus";; p) suffix="riority";; *) suffix="";; esac
   if [ -n "$val" ]; then
     # Filter active: cyan key, bold value
     printf ' \033[36m[\033[1;36m%s\033[0;36m]%s:\033[0m \033[1m%s\033[0m' "$key" "$suffix" "$label"
@@ -2617,17 +2642,17 @@ fmt_dim() {
 }
 ta=0; sa=0; pa=0
 case "$fa" in type) ta=1;; status) sa=1;; priority) pa=1;; esac
-t_s=$(fmt_dim e "$ft" $ta); s_s=$(fmt_dim s "$fs" $sa); p_s=$(fmt_dim p "$fp" $pa)
+t_s=$(fmt_dim t "$ft" $ta); s_s=$(fmt_dim s "$fs" $sa); p_s=$(fmt_dim p "$fp" $pa)
 if [ -n "$fgroup" ]; then
-  g_s=$(printf '\033[36m[g]\033[0mroup-by: \033[1m%s\033[0m' "$fgroup")
+  g_s=$(printf '\033[90mgroup:\033[0m \033[1m%s\033[0m' "$fgroup")
 else
-  g_s=$(printf '\033[36m[g]\033[0mroup-by: \033[90mn/a\033[0m')
+  g_s=$(printf '\033[90mgroup:\033[0m \033[90mn/a\033[0m')
 fi
 a_s=""
 archive_label=$(cat "$dir/.schema_archive_label")
 [ -n "$farchive" ] && a_s=$(printf ' \033[1mshowing %s\033[0m' "$archive_label") || a_s=$(printf ' \033[90mhiding %s\033[0m' "$archive_label")
 c_s=$(printf '\033[90m── %d\033[0m' "$count")
-sort_s=$(printf '\033[36m[o]\033[0mrder: \033[1m⇅ %s\033[0m' "$fsort")
+sort_s=$(printf '\033[90morder:\033[0m \033[1m⇅ %s\033[0m' "$fsort")
 # Show active tags in header if any
 tag_s=""
 if [ -s "$dir/.f_tags" ]; then
@@ -2685,25 +2710,34 @@ fi
 # Section labels and keybinding help
 filters_lbl=$(printf '\033[1;90m Filters:\033[0m%s%s%s %s' "$t_s" "$s_s" "$p_s" "$c_s")
 if [ -n "$tag_s" ]; then
-  filters_lbl=$(printf '%s\n          \033[36m[t]\033[0mags:%s \033[90m·\033[0m \033[36m[T]\033[0m clear' "$filters_lbl" "$tag_s")
+  filters_lbl=$(printf '%s\n          tags:%s' "$filters_lbl" "$tag_s")
 else
-  filters_lbl=$(printf '%s\n          \033[36m[t]\033[0mags: \033[90mnone\033[0m' "$filters_lbl")
+  filters_lbl=$(printf '%s\n          tags: \033[90mnone\033[0m' "$filters_lbl")
 fi
 if [ -n "$fmatch" ]; then
-  filters_lbl=$(printf '%s\n          \033[36m[m]\033[0match contents: \033[1m"%s"\033[0m \033[90m·\033[0m \033[36m[M]\033[0m clear' "$filters_lbl" "$fmatch")
+  filters_lbl=$(printf '%s\n          match contents: \033[1m"%s"\033[0m' "$filters_lbl" "$fmatch")
 else
-  filters_lbl=$(printf '%s\n          \033[36m[m]\033[0match contents: \033[90mnone\033[0m' "$filters_lbl")
+  filters_lbl=$(printf '%s\n          match contents: \033[90mnone\033[0m' "$filters_lbl")
+fi
+if [ -n "$fname" ]; then
+  filters_lbl=$(printf '%s\n          name: \033[1m"%s"\033[0m' "$filters_lbl" "$fname")
 fi
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
-presets_hint=$(printf '\033[90m          \033[36mh\033[90m/\033[36ml\033[90m ←→  \033[36m0\033[90m-\033[36m9\033[90m/\033[36mf\033[90m jump\033[0m')
-view_lbl=$(printf '\033[1;90m View:\033[0m %s \033[90m·\033[0m %s \033[90m·\033[0m \033[36m[z]\033[0m%s' "$sort_s" "$g_s" "$a_s")
-actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
-change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[e]\033[0mntity type')
-change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[e]\033[1;37mntity type\033[0m')
-keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[R]\033[0meset everything \033[90m·\033[0m \033[36m/\033[0m search \033[90m·\033[0m \033[36mq\033[0muit')
+presets_hint=$(printf '\033[90m          \033[36mh\033[90m/\033[36ml\033[90m ←→  \033[36m0\033[90m-\033[36m9\033[90m/\033[36mg\033[90m jump\033[0m')
+view_lbl=$(printf '\033[1;90m View:\033[0m %s \033[90m·\033[0m %s \033[90m·\033[0m%s' "$sort_s" "$g_s" "$a_s")
+actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
+change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
+change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
+filterby_lbl=$(printf '\033[1;90m Filter-by:\033[0m \033[36m[f]\033[0m then \033[36m[t]\033[0mags \033[90m·\033[0m \033[36m[c]\033[0montents \033[90m·\033[0m \033[36m[n]\033[0mame')
+filterby_lbl_active=$(printf '\033[1;90m Filter-by:\033[0m \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mags \033[90m·\033[0m \033[1;36m[c]\033[1;37montents \033[90m·\033[0m \033[1;36m[n]\033[1;37mame\033[0m')
+viewmode_lbl=$(printf '\033[1;90m View mode:\033[0m \033[36m[z]\033[0m then \033[36m[o]\033[0mrder \033[90m·\033[0m \033[36m[g]\033[0mroup \033[90m·\033[0m \033[36m[h]\033[0mide/show archive \033[90m·\033[0m \033[36m[w]\033[0mrap preview')
+viewmode_lbl_active=$(printf '\033[1;90m View mode:\033[0m \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder \033[90m·\033[0m \033[1;36m[g]\033[1;37mroup \033[90m·\033[0m \033[1;36m[h]\033[1;37mide/show archive \033[90m·\033[0m \033[1;36m[w]\033[1;37mrap preview\033[0m')
+keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[R]\033[0meset everything \033[90m·\033[0m \033[36mq\033[0muit')
 stats_lbl=$(printf '\033[1;90m Stats:\033[0m %s' "$stats_s")
-printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header"
-printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
+printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$filterby_lbl" "$viewmode_lbl" "$keys_lbl" > "$dir/.header"
+printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl_active" "$filterby_lbl" "$viewmode_lbl" "$keys_lbl" > "$dir/.header-c"
+printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$filterby_lbl_active" "$viewmode_lbl" "$keys_lbl" > "$dir/.header-f"
+printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$filterby_lbl" "$viewmode_lbl_active" "$keys_lbl" > "$dir/.header-z"
 # Always write Dylan placeholder for preview when no item is selected
     printf '\n  [34m╭─────────────────────────────────────────────────╮[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                [35m♩[0m [1;36m♪[0m [32m♫[0m [36m♩[0m [35m♪[0m [31m♫[0m [32m♩[0m [1;36m♪[0m [35m♩[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    ───────────────────────────────────────────  [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore vim comes to a crawl?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore they turn to a scrawl?[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, can save us all.[0m      [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore we call vim unprepared?[0m               [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore adrift he'\''s declared?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is simply [1;31mn²[0m[1;33m.[0m         [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore dear vim hits a wall?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is [1;31mnn[0m[1;33m, after all.[0m     [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m            [35m♩[0m                                    [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                      [36m♪[0m                          [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m         [35m♫[0m                                       [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                   [32m♩[0m                             [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
 [ -f "$dir/.empty_easteregg_override" ] && cat "$dir/.empty_easteregg_override" > "$dir/.empty_placeholder"
@@ -2738,14 +2772,14 @@ ENDFILTER
       --border-label-pos bottom \
       --preview "$_nn_dir/preview.sh {1}" \
       --prompt "$NN_UI_COMMAND_PROMPT" \
-      --bind "e:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir type]" \
-      --bind "E:transform[$_nn_dir/filter.sh $_nn_dir clear-type]" \
+      --bind "t:transform[if test -f $_nn_dir/.nn-f; then rm -f $_nn_dir/.nn-f; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/tags.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test -f $_nn_dir/.nn-c; then rm -f $_nn_dir/.nn-c; printf '%s\n' {+1} > $_nn_dir/.c_sel; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all'; else $_nn_dir/filter.sh $_nn_dir type; fi]" \
+      --bind "T:transform[$_nn_dir/filter.sh $_nn_dir clear-type]" \
       --bind "s:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir status]" \
       --bind "S:transform[$_nn_dir/filter.sh $_nn_dir clear-status]" \
       --bind "p:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf '%s\n' {+1} > $_nn_dir/.c_sel && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all' || $_nn_dir/filter.sh $_nn_dir priority]" \
       --bind "P:transform[$_nn_dir/filter.sh $_nn_dir clear-priority]" \
       --bind "l:transform[$_nn_dir/filter.sh $_nn_dir next]" \
-      --bind "h:transform[$_nn_dir/filter.sh $_nn_dir prev]" \
+      --bind "h:transform[if test -f $_nn_dir/.nn-z; then rm -f $_nn_dir/.nn-z; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir archive; else $_nn_dir/filter.sh $_nn_dir prev; fi]" \
       --bind "1:transform[$_nn_dir/filter.sh $_nn_dir sq1]" \
       --bind "2:transform[$_nn_dir/filter.sh $_nn_dir sq2]" \
       --bind "3:transform[$_nn_dir/filter.sh $_nn_dir sq3]" \
@@ -2757,32 +2791,26 @@ ENDFILTER
       --bind "9:transform[$_nn_dir/filter.sh $_nn_dir sq9]" \
       --bind "0:transform[$_nn_dir/filter.sh $_nn_dir reset]" \
       --bind "R:transform[$_nn_dir/filter.sh $_nn_dir reset]" \
-      --bind "f:execute($_nn_dir/querypick.sh $_nn_dir)+transform[$_nn_dir/filter.sh $_nn_dir pick]" \
-      --bind "t:execute($_nn_dir/tags.sh $_nn_dir)+transform[$_nn_dir/filter.sh $_nn_dir refresh]" \
-      --bind "T:transform[$_nn_dir/filter.sh $_nn_dir clear-tags]" \
-      --bind "m:execute($_nn_dir/match.sh $_nn_dir)+transform[$_nn_dir/filter.sh $_nn_dir refresh]" \
-      --bind "M:transform[$_nn_dir/filter.sh $_nn_dir clear-match]" \
-      --bind "o:transform[$_nn_dir/filter.sh $_nn_dir sort]" \
+      --bind "g:transform[if test -f $_nn_dir/.nn-z; then rm -f $_nn_dir/.nn-z; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir group; else echo 'execute($_nn_dir/querypick.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir pick)'; fi]" \
       --bind "a:execute($_nn_dir/cyclestatus.sh $_nn_dir {1} fwd)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
       --bind "A:execute($_nn_dir/cyclestatus.sh $_nn_dir {1} rev)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
       --bind "+:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_plus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
       --bind ">:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_plus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
       --bind "-:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
       --bind "<:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind "g:transform[$_nn_dir/filter.sh $_nn_dir group]" \
-      --bind "z:transform[$_nn_dir/filter.sh $_nn_dir archive]" \
-      --bind "n:execute($_nn_dir/newnote.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']" \
-      --bind "c:execute-silent(touch $_nn_dir/.nn-c)+change-prompt(c )+transform-header(cat $_nn_dir/.header-c)" \
-      --bind "i:execute[test -f {1} && $_nn_editor {1}]" \
+      --bind "n:transform[if test -f $_nn_dir/.nn-f; then rm -f $_nn_dir/.nn-f; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/namefilt.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; else echo 'execute($_nn_dir/newnote.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)'; fi]" \
+      --bind "c:transform[if test -f $_nn_dir/.nn-f; then rm -f $_nn_dir/.nn-f; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/match.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; else rm -f $_nn_dir/.nn-z; echo 'execute-silent(touch $_nn_dir/.nn-c)+change-prompt(c )+transform-header(cat $_nn_dir/.header-c)'; fi]" \
+      --bind "e:execute[test -f {1} && $_nn_editor {1}]" \
+      --bind "f:execute-silent(rm -f $_nn_dir/.nn-c $_nn_dir/.nn-z; touch $_nn_dir/.nn-f)+change-prompt(f )+transform-header(cat $_nn_dir/.header-f)" \
+      --bind "z:execute-silent(rm -f $_nn_dir/.nn-c $_nn_dir/.nn-f; touch $_nn_dir/.nn-z)+change-prompt(z )+transform-header(cat $_nn_dir/.header-z)" \
+      --bind "o:transform[test -f $_nn_dir/.nn-z && rm -f $_nn_dir/.nn-z && { printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort; }]" \
+      --bind "w:transform[test -f $_nn_dir/.nn-z && rm -f $_nn_dir/.nn-z && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+toggle-wrap+transform-header(cat $_nn_dir/.header)']" \
       --multi \
       --bind "b:execute($_nn_dir/bulkedit.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']+deselect-all" \
-      --bind "start:transform-header(cat $_nn_dir/.header)+execute-silent(rm -f $_nn_dir/.nn-s $_nn_dir/.nn-c)" \
+      --bind "start:transform-header(cat $_nn_dir/.header)+execute-silent(rm -f $_nn_dir/.nn-c $_nn_dir/.nn-f $_nn_dir/.nn-z)" \
       --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,q:abort,change:clear-query' \
-      --bind "/:unbind(j,k,q,change,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch $_nn_dir/.nn-s)" \
-      --bind "esc:transform[test -f $_nn_dir/.nn-c && rm -f $_nn_dir/.nn-c && printf 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)' || { test -f $_nn_dir/.nn-s && rm $_nn_dir/.nn-s && printf 'rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)'; }]" \
-      --bind "::rebind(j,k,q,e,E,s,S,p,P,h,l,f,t,T,m,M,R,b,o,n,a,A,c,i,g,z,+,-,<,>,0,1,2,3,4,5,6,7,8,9)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_dir/.nn-s)" \
+      --bind "esc:transform[if test -f $_nn_dir/.nn-c; then rm -f $_nn_dir/.nn-c; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; elif test -f $_nn_dir/.nn-f; then rm -f $_nn_dir/.nn-f; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; elif test -f $_nn_dir/.nn-z; then rm -f $_nn_dir/.nn-z; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; else echo clear-query; fi]" \
       --bind 'J:preview-page-down,K:preview-page-up' \
-      --bind 'H:toggle-wrap' \
       --bind "enter:execute[test -f {1} && $_nn_editor {1}]"
     rm -rf "$_nn_dir"
     trap - EXIT

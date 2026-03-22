@@ -72,7 +72,7 @@ Yes. notenav works with any markdown files that use YAML frontmatter. It reads `
 
 ## How do I troubleshoot setup problems?
 
-Run `nn doctor` – it checks all dependencies (versions, variants), validates your config files, verifies workflow integrity (entities, statuses, lifecycles), and confirms your zk notebook is reachable.
+Run `nn doctor` – it checks all dependencies (versions, variants), validates your config files, verifies workflow integrity (types, statuses, lifecycles), and confirms your zk notebook is reachable.
 
 ```bash
 nn doctor

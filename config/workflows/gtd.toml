@@ -1,27 +1,27 @@
 # Getting Things Done workflow
-# Entities = what it is, statuses = which GTD list it lives on
+# Types = what it is, statuses = which GTD list it lives on
 
 [meta]
 name = "GTD"
 description = "Getting Things Done capture-and-process workflow"
 
-# --- Entity types ---
+# --- Note types ---
 
-[entity]
+[type]
 default_color = "36"   # cyan
 values = ["action", "project", "reference"]
 
-[entity.action]
+[type.action]
 icon = "◆"
 color = "36"           # cyan
 description = "Single concrete action"
 
-[entity.project]
+[type.project]
 icon = "◈"
 color = "35"           # magenta
 description = "Multi-step outcome"
 
-[entity.reference]
+[type.reference]
 icon = "▪"
 color = "33"           # yellow
 description = "Non-actionable reference material"

@@ -7,7 +7,7 @@ Read all relevant files and evaluate every config key against the criteria below
 - `config/base.toml` – all default config keys
 - `lib/notenav.sh` – grep for `nn_cfg` calls to find every key used in code
 - `docs/configuration.md` – documented keys and their descriptions
-- `config/workflows/*.toml` – workflow-specific keys (entity, status, priority, lifecycle, queries)
+- `config/workflows/*.toml` – workflow-specific keys (type, status, priority, lifecycle, queries)
 - `GUIDELINES.md` – config key naming guidelines (the authoritative rules)
 
 ## Evaluation criteria

@@ -35,7 +35,7 @@ TOML files with comments are documentation artifacts — often the first thing a
 
 ### 4. Consistency across docs
 - Terminology is used consistently (e.g. "query preset" vs "saved query" vs "named query")
-- Entity type names, status names, and priority values are spelled the same everywhere
+- Note type names, status names, and priority values are spelled the same everywhere
 - The same feature isn't described differently in README vs configuration.md vs workflow docs
 - Formatting conventions are consistent (table style, heading levels, code block usage)
 - **Naming convention**: `.nn/` for project-local paths, `notenav` for user-global paths – verify no doc uses `.notenav/` or `~/.config/nn/` (see `GUIDELINES.md`)

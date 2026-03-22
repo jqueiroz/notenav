@@ -5,34 +5,34 @@
 name = "My Workflow"
 description = "Custom workflow example"
 
-# Define your entity types (note categories).
+# Define your note types (note categories).
 # values: valid types; array order = display order in grouped view
 # icon: single character shown in the list
 # color: ANSI color code (e.g. 31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan)
-# default_color: used for entity types not listed below
+# default_color: used for types not listed below
 
-[entity]
+[type]
 default_color = "36"
 values = ["feature", "bug", "doc"]
 
-[entity.feature]
+[type.feature]
 icon = "◆"
 color = "36"
 description = "New feature"
 
-[entity.bug]
+[type.bug]
 icon = "✖"
 color = "31"
 description = "Bug fix"
 
-[entity.doc]
+[type.doc]
 icon = "▪"
 color = "33"
 description = "Documentation"
 
 # Status values and their lifecycle transitions.
 # values: all valid statuses; array order = display order in grouped view
-# archive: statuses hidden by default (toggle with 'z')
+# archive: statuses hidden by default
 # filter_cycle: order when pressing 's' to cycle ("all" is auto-prepended)
 
 [status]

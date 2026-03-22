@@ -20,7 +20,7 @@ A software development workflow with three work item types (feature, task, bug) 
 
 This is useful when your notes are primarily about tracking software work items and you want the same mental model you use in your project management tool.
 
-## Entity Types
+## Note Types
 
 | Icon | Type | Description |
 |------|------|-------------|
