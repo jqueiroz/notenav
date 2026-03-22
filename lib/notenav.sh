@@ -1511,7 +1511,12 @@ EOF
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --user) user_mode=true; shift ;;
-      *)      workflow_arg="$1"; shift ;;
+      *)
+        if [[ -n "$workflow_arg" ]]; then
+          echo "notenav: unexpected argument: $1" >&2
+          return 1
+        fi
+        workflow_arg="$1"; shift ;;
     esac
   done
 
