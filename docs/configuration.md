@@ -306,12 +306,16 @@ extends = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"
 **Security model:** notenav never fetches URLs at runtime. Downloads happen only via `nn init`:
 
 ```bash
+# Project: fetch and create .nn/workflow.toml extending the URL
 nn init https://gist.githubusercontent.com/user/abc123/raw/workflow.toml
+
+# User: fetch and set as default_workflow in ~/.config/notenav/config.toml
+nn init --user https://gist.githubusercontent.com/user/abc123/raw/workflow.toml
 ```
 
 On first use, you'll be prompted to trust the URL. Trusted URLs are stored in `~/.config/notenav/trusted-sources` (one per line). The downloaded file is validated as TOML and cached under `~/.cache/notenav/workflows/`.
 
-To refresh the cache, run `nn init <url>` again – if `.nn/workflow.toml` already extends the same URL, the cache is refreshed without overwriting your project config.
+To refresh the project cache, run `nn init <url>` again – if `.nn/workflow.toml` already extends the same URL, the cache is refreshed without overwriting your project config.
 
 **Paths:**
 
@@ -326,11 +330,12 @@ To refresh the cache, run `nn init <url>` again – if `.nn/workflow.toml` alrea
 
 ### `default_workflow`
 
-User config key that defines the fallback workflow for directories without a `.nn/workflow.toml`.
+User config key that defines the fallback workflow for directories without a `.nn/workflow.toml`. Can be a built-in name or a remote URL (fetched via `nn init --user <url>`).
 
 ```toml
 # ~/.config/notenav/config.toml
-default_workflow = "compass"    # this is the default
+default_workflow = "compass"    # built-in name (default)
+default_workflow = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"  # remote URL
 ```
 
 ### `[defaults]`

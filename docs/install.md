@@ -91,6 +91,7 @@ notenav works out of the box with the default [Compass](workflows/compass.md) wo
 nn init                    # create .nn/workflow.toml (extends compass)
 nn init ado                # create .nn/workflow.toml (extends ado)
 nn init --user             # create ~/.config/notenav/config.toml
+nn init --user gtd         # create user config with gtd as default workflow
 ```
 
 Or create them manually from the annotated examples: [`samples/user-config.toml`](../samples/user-config.toml) and [`samples/workflows/`](../samples/workflows/).

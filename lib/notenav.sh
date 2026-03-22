@@ -1483,8 +1483,12 @@ nn_init() {
 Usage: nn init [workflow]        create project config (.nn/workflow.toml)
        nn init --user [workflow] create user config (~/.config/notenav/config.toml)
 
-Workflow can be a built-in name (compass, ado, gtd, zettelkasten) or a URL.
+Workflow can be a built-in name (compass, ado, gtd, zettelkasten),
+a user-defined workflow, or an https:// URL.
 If omitted, defaults to compass.
+
+Remote URLs are fetched, validated, and cached locally. On first use
+you will be prompted to trust the URL.
 EOF
     return 0
   fi
@@ -1583,9 +1587,11 @@ _nn_init_user() {
     return 1
   fi
 
-  # Validate workflow name if given
+  # Validate workflow name/URL if given
   if [[ -n "$workflow_arg" ]]; then
-    if ! _nn_workflow_exists "$notenav_root" "$workflow_arg"; then
+    if [[ "$workflow_arg" == https://* ]]; then
+      _nn_fetch_remote "$workflow_arg" || return 1
+    elif ! _nn_workflow_exists "$notenav_root" "$workflow_arg"; then
       echo "notenav: workflow '$workflow_arg' not found" >&2
       _nn_list_workflows "$notenav_root" >&2
       return 1
@@ -1595,11 +1601,14 @@ _nn_init_user() {
   mkdir -p "$(dirname "$target")"
   cp "$notenav_root/samples/user-config.toml" "$target"
 
-  # Replace default_workflow if a name was given
+  # Replace default_workflow if a name/URL was given.
+  # Uses awk to avoid sed delimiter injection from URLs or special characters.
   if [[ -n "$workflow_arg" ]]; then
     local _tmp
     _tmp=$(mktemp)
-    sed "s/^default_workflow = .*/default_workflow = \"$workflow_arg\"/" "$target" > "$_tmp" \
+    awk -v wf="$workflow_arg" \
+      '/^default_workflow = / { print "default_workflow = \"" wf "\""; next } { print }' \
+      "$target" > "$_tmp" \
       && mv "$_tmp" "$target" \
       || rm -f "$_tmp"
   fi
