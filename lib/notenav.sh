@@ -2715,36 +2715,50 @@ if [ -f "$dir/.queries" ]; then
   done < "$dir/.queries"
 fi
 # Section labels and keybinding help
-filters_lbl=$(printf '\033[1;90m Filters:\033[0m%s%s%s %s' "$t_s" "$s_s" "$p_s" "$c_s")
+# View-mode hints (normal + active/highlighted)
+z_hint=$(printf '\033[36m[z]\033[0m then \033[36m[o]\033[0mrder \033[90m·\033[0m \033[36m[g]\033[0mroup \033[90m·\033[0m \033[36m[h]\033[0mide/show archive \033[90m·\033[0m \033[36m[w]\033[0mrap preview')
+z_hint_active=$(printf '\033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder \033[90m·\033[0m \033[1;36m[g]\033[1;37mroup \033[90m·\033[0m \033[1;36m[h]\033[1;37mide/show archive \033[90m·\033[0m \033[1;36m[w]\033[1;37mrap preview\033[0m')
+# Filters section: type/status/priority + per-line filter-by options with [f] hint + value
+filters_top=$(printf '\033[1;90m Filters:\033[0m%s%s%s %s' "$t_s" "$s_s" "$p_s" "$c_s")
+# Each filter-by option: [f] [key] label: value (normal + active variants)
 if [ -n "$tag_s" ]; then
-  filters_lbl=$(printf '%s\n          tags:%s' "$filters_lbl" "$tag_s")
+  ftags_s=$(printf '       \033[36m[f]\033[0m then \033[36m[t]\033[0mags:%s' "$tag_s")
+  ftags_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mags:%s' "$tag_s")
 else
-  filters_lbl=$(printf '%s\n          tags: \033[90mnone\033[0m' "$filters_lbl")
+  ftags_s=$(printf '       \033[36m[f]\033[0m then \033[36m[t]\033[0mags: \033[90mnone\033[0m')
+  ftags_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mags: \033[90mnone\033[0m')
 fi
 if [ -n "$fmatch" ]; then
-  filters_lbl=$(printf '%s\n          match contents: \033[1m"%s"\033[0m' "$filters_lbl" "$fmatch")
+  fmatch_s=$(printf '       \033[36m[f]\033[0m then \033[36m[c]\033[0montents: \033[1m"%s"\033[0m' "$fmatch")
+  fmatch_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[c]\033[1;37montents: \033[1m"%s"\033[0m' "$fmatch")
 else
-  filters_lbl=$(printf '%s\n          match contents: \033[90mnone\033[0m' "$filters_lbl")
+  fmatch_s=$(printf '       \033[36m[f]\033[0m then \033[36m[c]\033[0montents: \033[90mnone\033[0m')
+  fmatch_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[c]\033[1;37montents: \033[90mnone\033[0m')
 fi
 if [ -n "$fname" ]; then
-  filters_lbl=$(printf '%s\n          name: \033[1m"%s"\033[0m' "$filters_lbl" "$fname")
+  fname_s=$(printf '       \033[36m[f]\033[0m then \033[36m[n]\033[0mame: \033[1m"%s"\033[0m' "$fname")
+  fname_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[n]\033[1;37mame: \033[1m"%s"\033[0m' "$fname")
+else
+  fname_s=$(printf '       \033[36m[f]\033[0m then \033[36m[n]\033[0mame: \033[90mnone\033[0m')
+  fname_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[n]\033[1;37mame: \033[90mnone\033[0m')
 fi
+filters_lbl=$(printf '%s\n%s\n%s\n%s' "$filters_top" "$ftags_s" "$fmatch_s" "$fname_s")
+filters_lbl_f=$(printf '%s\n%s\n%s\n%s' "$filters_top" "$ftags_s_active" "$fmatch_s_active" "$fname_s_active")
+# View section: sort/group/archive state + [z] hint
+view_state=$(printf '\033[1;90m View:\033[0m %s \033[90m·\033[0m %s \033[90m·\033[0m%s' "$sort_s" "$g_s" "$a_s")
+view_lbl=$(printf '%s\n          %s' "$view_state" "$z_hint")
+view_lbl_z=$(printf '%s\n          %s' "$view_state" "$z_hint_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
 presets_hint=$(printf '\033[90m          \033[36mh\033[90m/\033[36ml\033[90m ←→  \033[36m0\033[90m-\033[36m9\033[90m/\033[36mg\033[90m jump\033[0m')
-view_lbl=$(printf '\033[1;90m View:\033[0m %s \033[90m·\033[0m %s \033[90m·\033[0m%s' "$sort_s" "$g_s" "$a_s")
 actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
 change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
-filterby_lbl=$(printf '\033[1;90m Filter-by:\033[0m \033[36m[f]\033[0m then \033[36m[t]\033[0mags \033[90m·\033[0m \033[36m[c]\033[0montents \033[90m·\033[0m \033[36m[n]\033[0mame')
-filterby_lbl_active=$(printf '\033[1;90m Filter-by:\033[0m \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mags \033[90m·\033[0m \033[1;36m[c]\033[1;37montents \033[90m·\033[0m \033[1;36m[n]\033[1;37mame\033[0m')
-viewmode_lbl=$(printf '\033[1;90m View mode:\033[0m \033[36m[z]\033[0m then \033[36m[o]\033[0mrder \033[90m·\033[0m \033[36m[g]\033[0mroup \033[90m·\033[0m \033[36m[h]\033[0mide/show archive \033[90m·\033[0m \033[36m[w]\033[0mrap preview')
-viewmode_lbl_active=$(printf '\033[1;90m View mode:\033[0m \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder \033[90m·\033[0m \033[1;36m[g]\033[1;37mroup \033[90m·\033[0m \033[1;36m[h]\033[1;37mide/show archive \033[90m·\033[0m \033[1;36m[w]\033[1;37mrap preview\033[0m')
 keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[R]\033[0meset everything \033[90m·\033[0m \033[36mq\033[0muit')
 stats_lbl=$(printf '\033[1;90m Stats:\033[0m %s' "$stats_s")
-printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$filterby_lbl" "$viewmode_lbl" "$keys_lbl" > "$dir/.header"
-printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl_active" "$filterby_lbl" "$viewmode_lbl" "$keys_lbl" > "$dir/.header-c"
-printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$filterby_lbl_active" "$viewmode_lbl" "$keys_lbl" > "$dir/.header-f"
-printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$filterby_lbl" "$viewmode_lbl_active" "$keys_lbl" > "$dir/.header-z"
+printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header"
+printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
+printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl_f" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header-f"
+printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$filters_lbl" "$stats_lbl" "$queries_lbl" "$presets_hint" "$view_lbl_z" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header-z"
 # Always write Dylan placeholder for preview when no item is selected
     printf '\n  [34m╭─────────────────────────────────────────────────╮[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                [35m♩[0m [1;36m♪[0m [32m♫[0m [36m♩[0m [35m♪[0m [31m♫[0m [32m♩[0m [1;36m♪[0m [35m♩[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    ───────────────────────────────────────────  [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore vim comes to a crawl?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore they turn to a scrawl?[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, can save us all.[0m      [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore we call vim unprepared?[0m               [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore adrift he'\''s declared?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is simply [1;31mn²[0m[1;33m.[0m         [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore dear vim hits a wall?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is [1;31mnn[0m[1;33m, after all.[0m     [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m            [35m♩[0m                                    [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                      [36m♪[0m                          [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m         [35m♫[0m                                       [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                   [32m♩[0m                             [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
 [ -f "$dir/.empty_easteregg_override" ] && cat "$dir/.empty_easteregg_override" > "$dir/.empty_placeholder"
