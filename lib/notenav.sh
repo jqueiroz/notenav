@@ -2413,6 +2413,9 @@ else
   # ── Pick: two-step with inline type picker ──
   top_pad=$((inner - 11))
   top_dashes=$(printf '%*s' "$top_pad" '' | sed 's/ /─/g')
+  # Step-2 border has icon after "New Note": ╭─ New Note ◆ ───╮
+  step2_pad=$((inner - 13))
+  step2_dashes=$(printf '%*s' "$step2_pad" '' | sed 's/ /─/g')
   bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
   hint="Enter to continue · Esc cancels"
   hint_pad=$((inner - ${#hint} - 2))
@@ -2494,7 +2497,7 @@ else
   # Args: $1=selected_index $2=border_color_code
   _nn_draw_step2() {
     local sel="$1" bc="$2" i
-    printf '  \033[%sm╭─ New Note %s╮\033[0m\n' "$bc" "$top_dashes"
+    printf '  \033[%sm╭─ New Note %s %s╮\033[0m\n' "$bc" "${t_icons[$sel]}" "$step2_dashes"
     printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$bc" "$inner" "" "$bc"
     printf '  \033[%sm│\033[0m  \033[32m✓\033[0m %s%*s\033[%sm│\033[0m\n' \
       "$bc" "$disp_title" "$((inner - 4 - ${#disp_title}))" "" "$bc"
@@ -2585,9 +2588,9 @@ fi
 rm -f "$_zk_err"
 after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)
 if [ "$after_create" = "edit" ]; then
-  printf '\n  %s%s Created!\033[0m Opening in editor...\n\n' "$tc" "$icon" > /dev/tty
+  printf '\n  %s%s %s · %s – Created!\033[0m Opening in editor...\n\n' "$tc" "$icon" "$selected" "$title" > /dev/tty
 else
-  printf '\n  %s%s Created!\033[0m\n\n' "$tc" "$icon" > /dev/tty
+  printf '\n  %s%s %s · %s – Created!\033[0m\n\n' "$tc" "$icon" "$selected" "$title" > /dev/tty
 fi
 # Regenerate raw
 fmt=$(cat "$dir/.zk_fmt")
