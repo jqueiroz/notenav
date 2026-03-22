@@ -625,11 +625,14 @@ nn_write_workflow_files() {
 
 # Version comparison: returns 0 if $1 >= $2 (dot-separated numeric)
 _nn_ver_cmp() {
+  [[ -z "$1" || -z "$2" ]] && return 1
   local IFS=.
   local -a a=($1) b=($2)
   local i
   for ((i=0; i<${#b[@]}; i++)); do
     local av="${a[i]:-0}" bv="${b[i]:-0}"
+    [[ "$av" =~ ^[0-9]+$ ]] || av=0
+    [[ "$bv" =~ ^[0-9]+$ ]] || bv=0
     (( av > bv )) && return 0
     (( av < bv )) && return 1
   done
