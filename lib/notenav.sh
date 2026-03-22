@@ -1866,6 +1866,7 @@ EOF
     : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
     : > "$_nn_dir/.f_name"
+    : > "$_nn_dir/.f_wrap"
 
     # set n=... to unlock a hidden message
     local _nn_k
@@ -2462,6 +2463,7 @@ fp=$(cat "$dir/.f_priority")
 fsort=$(cat "$dir/.f_sort"); fgroup=$(cat "$dir/.f_group")
 farchive=$(cat "$dir/.f_archive"); fmatch=$(cat "$dir/.f_match")
 fname=$(cat "$dir/.f_name" 2>/dev/null)
+fwrap=$(cat "$dir/.f_wrap" 2>/dev/null)
 # Pinned items: when an action (priority bump, status cycle) causes an item
 # to no longer match active filters, it stays visible at the top of the list
 # (marked "pinned" in bold red). Pins are cleared on any filter change
@@ -2750,8 +2752,13 @@ else
   zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0midden: \033[90mhiding %s\033[0m' "$archive_label")
   zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[90mhiding %s\033[0m' "$archive_label")
 fi
-zwrap_s=$(printf '       \033[36m[z]\033[0m then \033[36m[w]\033[0mrap preview')
-zwrap_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[w]\033[1;37mrap preview\033[0m')
+if [ -n "$fwrap" ]; then
+  zwrap_s=$(printf '       \033[36m[z]\033[0m then \033[36m[w]\033[0mrap preview: \033[1mon\033[0m')
+  zwrap_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[w]\033[1;37mrap preview: \033[1mon\033[0m')
+else
+  zwrap_s=$(printf '       \033[36m[z]\033[0m then \033[36m[w]\033[0mrap preview: \033[90moff\033[0m')
+  zwrap_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[w]\033[1;37mrap preview: \033[90moff\033[0m')
+fi
 view_lbl=$(printf '\033[1;90m View:\033[0m\n%s\n%s\n%s\n%s' "$zorder_s" "$zgroup_s" "$zarchive_s" "$zwrap_s")
 view_lbl_z=$(printf '\033[1;90m View:\033[0m\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
@@ -2831,7 +2838,7 @@ ENDFILTER
       --bind "f:transform[rm -f $_nn_dir/.nn-c $_nn_dir/.nn-z; touch $_nn_dir/.nn-f; echo 'change-prompt(f )+transform-header(cat $_nn_dir/.header-f)']" \
       --bind "z:transform[rm -f $_nn_dir/.nn-c $_nn_dir/.nn-f; touch $_nn_dir/.nn-z; echo 'change-prompt(z )+transform-header(cat $_nn_dir/.header-z)']" \
       --bind "o:transform[test -f $_nn_dir/.nn-z && rm -f $_nn_dir/.nn-z && { printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort; }]" \
-      --bind "w:transform[test -f $_nn_dir/.nn-z && rm -f $_nn_dir/.nn-z && echo 'change-prompt($NN_UI_COMMAND_PROMPT)+toggle-wrap+transform-header(cat $_nn_dir/.header)']" \
+      --bind "w:transform[test -f $_nn_dir/.nn-z && rm -f $_nn_dir/.nn-z && { if [ -n \"\$(cat $_nn_dir/.f_wrap 2>/dev/null)\" ]; then : > $_nn_dir/.f_wrap; else echo on > $_nn_dir/.f_wrap; fi; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+toggle-wrap+'; $_nn_dir/filter.sh $_nn_dir refresh; }]" \
       --multi \
       --bind "b:execute($_nn_dir/bulkedit.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']+deselect-all" \
       --bind "start:transform-header(cat $_nn_dir/.header)+execute-silent(rm -f $_nn_dir/.nn-c $_nn_dir/.nn-f $_nn_dir/.nn-z)" \
