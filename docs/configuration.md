@@ -126,6 +126,7 @@ Statuses represent the state of a note (e.g. new, active, done).
 ```toml
 [status]
 values = ["new", "active", "blocked", "done", "removed"]
+initial = "new"
 archive = ["done", "removed"]
 filter_cycle = ["new", "active", "blocked", "done"]
 default_color = "90"
@@ -153,6 +154,7 @@ blocked = "new"
 | Key | Type | Description |
 |-----|------|-------------|
 | `values` | array | All valid statuses; array order is used as the default display order |
+| `initial` | string | Starting status assigned when pressing `a` on a note that has no status |
 | `display_order` | array | *(optional)* Override group header order; defaults to `values` order |
 | `archive` | array | Statuses hidden by default; press `z` to toggle visibility |
 | `filter_cycle` | array | Order when pressing `s` to cycle the filter (`"all"` is auto-prepended) |

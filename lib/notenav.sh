@@ -440,6 +440,9 @@ nn_precompute_workflow() {
     NN_STATUS_COLORS[$_v]=$(nn_cfg ".status.colors.\"$_v\" // \"$NN_STATUS_DEFAULT_COLOR\"")
   done
 
+  # Status initial (starting state for notes without a status)
+  NN_STATUS_INITIAL=$(nn_cfg '.status.initial // empty')
+
   # Status lifecycle
   declare -gA NN_STATUS_FWD NN_STATUS_REV
   for _v in "${NN_STATUS_VALUES[@]}"; do
@@ -514,6 +517,7 @@ nn_write_workflow_files() {
   local dir="$1" _v
   printf '%s\n' "${NN_ENTITY_VALUES[@]}" > "$dir/.schema_entity_values"
   printf '%s\n' "${NN_STATUS_VALUES[@]}" > "$dir/.schema_status_values"
+  printf '%s' "$NN_STATUS_INITIAL" > "$dir/.schema_status_initial"
   if [[ ${#NN_PRIORITY_VALUES[@]} -gt 0 ]]; then
     printf '%s\n' "${NN_PRIORITY_VALUES[@]}" > "$dir/.schema_priority_values"
   else
@@ -1106,12 +1110,18 @@ ENDNN
 dir="$1"; file="$2"; direction="${3:-fwd}"
 [ ! -f "$file" ] && exit 0
 cur=$(awk -F'\t' -v p="$file" '$6 == p {print $2; exit}' "$dir/.raw")
-if [ "$direction" = "rev" ]; then
-  next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_status_rev")
+if [ -z "$cur" ]; then
+  # No status set – assign the workflow's initial status
+  next=$(cat "$dir/.schema_status_initial" 2>/dev/null)
+  [ -z "$next" ] && exit 0
 else
-  next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_status_fwd")
+  if [ "$direction" = "rev" ]; then
+    next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_status_rev")
+  else
+    next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_status_fwd")
+  fi
+  [ -z "$next" ] && next="$cur"
 fi
-[ -z "$next" ] && next="$cur"
 "$dir/action.sh" "$dir" status "$next" "$file"
 ENDCS
     chmod +x "$_nn_dir/cyclestatus.sh"

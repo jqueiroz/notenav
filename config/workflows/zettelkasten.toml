@@ -34,6 +34,7 @@ description = "Atomic, fully developed idea"
 
 [status]
 values = ["review", "draft", "mature", "archived"]
+initial = "draft"
 archive = ["archived"]
 filter_cycle = ["draft", "review", "mature", "archived"]
 default_color = "90"   # dim

@@ -41,6 +41,7 @@ description = "Living documentation; continually updated as understanding grows"
 
 [status]
 values = ["active", "blocked", "new", "done", "removed"]
+initial = "new"
 archive = ["done", "removed"]
 filter_cycle = ["new", "active", "blocked", "done"]
 default_color = "90"   # dim

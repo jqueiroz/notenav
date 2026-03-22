@@ -37,6 +37,7 @@ description = "Documentation"
 
 [status]
 values = ["in-progress", "review", "open", "done"]
+initial = "open"
 archive = ["done"]
 filter_cycle = ["open", "in-progress", "review", "done"]
 default_color = "90"   # used for statuses not listed below

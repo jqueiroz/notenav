@@ -32,6 +32,7 @@ description = "Defect to fix"
 
 [status]
 values = ["active", "new", "resolved", "closed", "removed"]
+initial = "new"
 archive = ["closed", "removed"]
 filter_cycle = ["new", "active", "resolved", "closed"]
 default_color = "90"   # dim

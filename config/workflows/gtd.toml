@@ -33,6 +33,7 @@ description = "Non-actionable reference material"
 
 [status]
 values = ["next", "waiting", "inbox", "someday", "done", "dropped"]
+initial = "inbox"
 archive = ["done", "dropped"]
 filter_cycle = ["inbox", "next", "waiting", "someday", "done"]
 default_color = "90"   # dim
