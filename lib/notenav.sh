@@ -347,19 +347,16 @@ _nn_gen_awk_bodies() {
   fi
   NN_AWK_COLOR_BODY="$_full"
 
-  # Pinned items AWK body (all dim, icon varies by entity)
-  local _pinned='tc = "\033[90m"; pc = "\033[90m"; sc = "\033[90m"; r = "\033[0m"'
-  local _default_icon="${NN_ENTITY_ICONS[${NN_ENTITY_VALUES[0]:-_}]:-*}"
-  _pinned+=$'\n'"  ic = \"$_default_icon\""
-  for (( _i=1; _i<${#NN_ENTITY_VALUES[@]}; _i++ )); do
-    local _v="${NN_ENTITY_VALUES[$_i]}"
-    _pinned+=$'\n'"  if (\$1 == \"$_v\") ic = \"${NN_ENTITY_ICONS[$_v]}\""
-  done
+  # Pinned items AWK body (bold line + yellow-highlighted marker)
+  local _pinned="$_ent_awk"
+  [[ -n "$_pri_awk" ]] && _pinned+=$'\n'"  $_pri_awk"
+  _pinned+=$'\n'"  $_sta_awk"
+  _pinned+=$'\n''  r = "\033[0m\033[1m"'
   _pinned+=$'\n'"  $_age_awk"
   if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
-    _pinned+=$'\n''  printf "%s\t%s%s %s%s %sP%s%s %s%s%s %s%s \033[90m(temporarily pinned)\033[0m\n", $6, tc, ic, $1, r, pc, $3, r, sc, $2, r, $5, age_s'
+    _pinned+=$'\n''  printf "%s\t\033[1m%s%s %s%s %s%s%s %s%s%s %s%s \033[0m\033[30;43m temporarily pinned \033[0m\033[90m (after the next change, will drop from this view)\033[0m\n", $6, tc, ic, $1, r, pc, pl, r, sc, $2, r, $5, age_s'
   else
-    _pinned+=$'\n''  printf "%s\t%s%s %s%s %s%s%s %s%s \033[90m(temporarily pinned)\033[0m\n", $6, tc, ic, $1, r, sc, $2, r, $5, age_s'
+    _pinned+=$'\n''  printf "%s\t\033[1m%s%s %s%s %s%s%s %s%s \033[0m\033[30;43m temporarily pinned \033[0m\033[90m (after the next change, will drop from this view)\033[0m\n", $6, tc, ic, $1, r, sc, $2, r, $5, age_s'
   fi
   NN_AWK_COLOR_PINNED="$_pinned"
 
@@ -1269,7 +1266,7 @@ fsort=$(cat "$dir/.f_sort"); fgroup=$(cat "$dir/.f_group")
 farchive=$(cat "$dir/.f_archive"); fmatch=$(cat "$dir/.f_match")
 # Pinned items: when an action (priority bump, status cycle) causes an item
 # to no longer match active filters, it stays visible at the top of the list
-# (dimmed, marked "temporarily pinned"). Pins are cleared on any filter change
+# (marked "pinned" in bold red). Pins are cleared on any filter change
 # (type/status/priority/tag/query/reset) but kept on refresh (which runs
 # after actions). action.sh overwrites .pinned each time, so only the latest
 # acted-on items stay pinned.
