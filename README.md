@@ -123,14 +123,58 @@ See [docs/configuration.md](docs/configuration.md) for the full config and workf
 
 ```bash
 nn                              # interactive TUI
-nn type=task status=active      # ad-hoc query
-nn backlog                      # query preset (from config)
+nn type=task status=active      # ad-hoc query (plain output)
+nn backlog                      # run a query preset (from config)
 nn type=task -i                 # interactive (fzf) ad-hoc query
 nn init [workflow]              # create project config (.nn/workflow.toml)
 nn init --user [workflow]       # create user config
 nn doctor                       # check setup and diagnose problems
 nn --version                    # version info
+nn --help                       # show usage
 ```
+
+### `nn init`
+
+Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name – one of the built-in workflows (`compass`, `ado`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `compass` when no workflow is specified.
+
+```bash
+nn init                 # .nn/workflow.toml extending compass
+nn init gtd             # .nn/workflow.toml extending gtd
+nn init https://...     # fetch remote workflow, cache it, extend it
+```
+
+If `.nn/workflow.toml` already exists, `nn init` refuses to overwrite it – edit the file directly or remove it first. The one exception: if the file already extends the same remote URL, `nn init <url>` refreshes the local cache without touching the config.
+
+### `nn init --user`
+
+Creates a user preferences file at `~/.config/notenav/config.toml` (respects `$XDG_CONFIG_HOME`), pre-populated from the annotated sample. An optional workflow argument sets the `default_workflow` key:
+
+```bash
+nn init --user          # create user config (default workflow: compass)
+nn init --user gtd      # create user config with gtd as the default workflow
+```
+
+User config defines personal preferences – editor, prompts, sorting, grouping – and a fallback workflow for directories without `.nn/workflow.toml`. See [docs/configuration.md](docs/configuration.md) for the full preferences reference.
+
+### `nn doctor`
+
+Validates your entire setup in one pass. Run it whenever something seems off – it checks dependencies, config files, workflow integrity, and your zk notebook.
+
+```bash
+nn doctor
+```
+
+**What it checks:**
+
+- **Dependencies** – bash 4+, fzf 0.44+, zk, yq (yq-go), jq, gawk, sort, sed, git; optional bat for syntax-highlighted preview
+- **Config** – TOML parse validity, `extends` resolution, `default_workflow` lookup, unrecognized keys
+- **Trusted sources** – lists cached remote workflows and their fetch dates
+- **Workflow integrity** – type definitions (icon + color), status lifecycle transitions, priority levels, filter cycles, query preset args
+- **Notebook** – zk reachability and indexed note count
+
+Output is color-coded: `[✓]` pass, `[!]` warning (non-fatal), `[✗]` failure. Exits 0 when all critical checks pass.
+
+See [docs/cli.md](docs/cli.md) for the full CLI reference.
 
 ## License
 
