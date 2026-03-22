@@ -906,6 +906,8 @@ nn_doctor() {
     local _ent_values _ent_ok=true _ent_count=0 _ent_issues=""
     mapfile -t _ent_values < <(nn_cfg '.entity.values // [] | .[]')
     _ent_count=${#_ent_values[@]}
+    local _ent_default_color
+    _ent_default_color=$(nn_cfg '.entity.default_color // empty')
     local _ev
     for _ev in "${_ent_values[@]}"; do
       local _icon _color
@@ -915,7 +917,7 @@ nn_doctor() {
         _ent_issues+="$_ev missing icon; "
         _ent_ok=false
       fi
-      if [[ -z "$_color" ]]; then
+      if [[ -z "$_color" && -z "$_ent_default_color" ]]; then
         _ent_issues+="$_ev missing color; "
         _ent_ok=false
       fi
@@ -949,6 +951,20 @@ nn_doctor() {
       fi
     done
 
+    # Check initial status exists in values
+    local _sta_init_issues="" _sta_initial
+    _sta_initial=$(nn_cfg '.status.initial // empty')
+    if [[ -n "$_sta_initial" ]]; then
+      local _found=false _sv
+      for _sv in "${_sta_values[@]}"; do
+        [[ "$_sta_initial" == "$_sv" ]] && _found=true && break
+      done
+      if [[ "$_found" == "false" ]]; then
+        _sta_init_issues+="initial '$_sta_initial' not in values; "
+        _sta_ok=false
+      fi
+    fi
+
     # Check filter_cycle values exist in values
     local _fc_values _fc_issues="" _fcv
     mapfile -t _fc_values < <(nn_cfg '.status.filter_cycle // [] | .[]')
@@ -964,7 +980,7 @@ nn_doctor() {
     done
 
     # Check archive values exist in values
-    local _arc_values _arcv
+    local _arc_values _arc_issues="" _arcv
     mapfile -t _arc_values < <(nn_cfg '.status.archive // [] | .[]')
     for _arcv in "${_arc_values[@]}"; do
       local _found=false _sv
@@ -972,7 +988,7 @@ nn_doctor() {
         [[ "$_arcv" == "$_sv" ]] && _found=true && break
       done
       if [[ "$_found" == "false" ]]; then
-        _fc_issues+="archive '$_arcv' not in values; "
+        _arc_issues+="archive '$_arcv' not in values; "
         _sta_ok=false
       fi
     done
@@ -1003,7 +1019,7 @@ nn_doctor() {
     elif [[ $_sta_count -eq 0 ]]; then
       _fail "Statuses: none defined"
     else
-      _fail "Statuses: ${_sta_color_issues}${_fc_issues}${_lc_issues}"
+      _fail "Statuses: ${_sta_color_issues}${_sta_init_issues}${_fc_issues}${_arc_issues}${_lc_issues}"
     fi
 
     # Priority checks
@@ -1013,6 +1029,19 @@ nn_doctor() {
       local _pri_values _pri_ok=true _pri_count=0
       mapfile -t _pri_values < <(nn_cfg '.priority.values // [] | .[]')
       _pri_count=${#_pri_values[@]}
+
+      # Check each priority has a color (explicit or via default_color)
+      local _pri_color_issues="" _pri_default_color
+      _pri_default_color=$(nn_cfg '.priority.default_color // empty')
+      local _pcv
+      for _pcv in "${_pri_values[@]}"; do
+        local _pcolor
+        _pcolor=$(nn_cfg ".priority.colors.\"$_pcv\" // empty")
+        if [[ -z "$_pcolor" && -z "$_pri_default_color" ]]; then
+          _pri_color_issues+="$_pcv missing color; "
+          _pri_ok=false
+        fi
+      done
 
       local _pri_fc_values _pri_fc_issues="" _pfcv
       mapfile -t _pri_fc_values < <(nn_cfg '.priority.filter_cycle // [] | .[]')
@@ -1050,7 +1079,7 @@ nn_doctor() {
       elif [[ $_pri_count -eq 0 ]]; then
         _fail "Priority: enabled but no values defined"
       else
-        _fail "Priority: ${_pri_fc_issues}${_pri_lc_issues}"
+        _fail "Priority: ${_pri_color_issues}${_pri_fc_issues}${_pri_lc_issues}"
       fi
     else
       _pass "Priority: disabled"
