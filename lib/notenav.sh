@@ -1229,7 +1229,7 @@ cycle() {
     status)   mapfile -t vals < "$dir/.schema_status_filter_cycle"; vals=("" "${vals[@]}") ;;
     priority)
       if [ "$(cat "$dir/.schema_priority_enabled")" = "false" ]; then vals=(""); else
-        mapfile -t vals < "$dir/.schema_priority_filter_cycle"; vals=("" "${vals[@]}")
+        mapfile -t vals < "$dir/.schema_priority_filter_cycle"; vals=("" "${vals[@]}" "none")
       fi ;;
     sort)
       vals=("created" "modified" "title")
@@ -1426,7 +1426,7 @@ stats_s=$(awk -F'\t' "${cond}${awk_stats}" "$dir/.raw")
 fmt_dim() {
   local key="$1" val="$2" is_active="$3" label suffix ic=""
   if [ "$key" = "p" ] && [ -n "$val" ]; then
-    if [ "$val" = "none" ]; then label="none"
+    if [ "$val" = "none" ]; then label="<unset>"
     else
       label=$(awk -F'\t' -v v="$val" '$1 == v {print $2; exit}' "$dir/.schema_priority_labels")
       [ -z "$label" ] && label="P$val"
