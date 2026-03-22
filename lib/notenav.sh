@@ -657,6 +657,7 @@ nn_doctor() {
   _dupes() { local -A _seen; local _d="" _v; for _v; do [[ -n "${_seen[$_v]+x}" ]] && _d+="$_v, "; _seen[$_v]=1; done; printf '%s' "${_d%, }"; }
 
   # ── Phase 1: Dependencies ──
+  echo "Dependencies:"
 
   # bash
   local bash_ver="${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}"
@@ -763,6 +764,7 @@ nn_doctor() {
 
   if [[ "$_has_yq" == "true" && "$_has_jq" == "true" ]]; then
     echo ""
+    echo "Config:"
 
     local user_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
     local project_nn_dir="" _search_dir="$PWD"
@@ -883,6 +885,7 @@ nn_doctor() {
   local _ts_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources"
   if [[ -f "$_ts_file" ]]; then
     echo ""
+    echo "Trusted sources:"
     local _ts_count=0 _ts_url
     while IFS= read -r _ts_url || [[ -n "$_ts_url" ]]; do
       [[ -z "$_ts_url" || "$_ts_url" == \#* ]] && continue
@@ -908,6 +911,7 @@ nn_doctor() {
 
   if [[ -n "${NN_CFG_JSON:-}" ]]; then
     echo ""
+    echo "Workflow:"
 
     # Entity checks
     local _ent_values _ent_ok=true _ent_count=0 _ent_issues=""
@@ -1146,6 +1150,9 @@ nn_doctor() {
     # Priority checks
     local _pri_enabled
     _pri_enabled=$(nn_cfg '.priority.enabled // true')
+    if [[ "$_pri_enabled" != "true" && "$_pri_enabled" != "false" ]]; then
+      _warn "priority.enabled '$_pri_enabled' invalid (must be true or false)"
+    fi
     if [[ "$_pri_enabled" != "false" ]]; then
       local _pri_values _pri_ok=true _pri_count=0
       mapfile -t _pri_values < <(nn_cfg '.priority.values // [] | .[]')
@@ -1401,6 +1408,7 @@ nn_doctor() {
 
   if [[ "$_has_zk" == "true" ]]; then
     echo ""
+    echo "Notebook:"
     if zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
       _pass "zk notebook found"
       local _note_count
