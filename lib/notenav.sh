@@ -653,6 +653,7 @@ nn_doctor() {
   _warn() { echo "${_yellow}[!]${_reset} $*"; (( warns++ )); }
   _fail() { echo "${_red}[✗]${_reset} $*"; (( fails++ )); }
   _valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
+  _in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
 
   # ── Phase 1: Dependencies ──
 
@@ -876,7 +877,7 @@ nn_doctor() {
     fi
   fi
 
-  # ── Trusted sources ──
+  # ── Phase 3: Trusted sources ──
 
   local _ts_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources"
   if [[ -f "$_ts_file" ]]; then
@@ -892,7 +893,7 @@ nn_doctor() {
         local _fetch_date
         _fetch_date=$(stat -c '%y' "$_cache_path" 2>/dev/null | cut -d' ' -f1)
         [[ -z "$_fetch_date" ]] && _fetch_date=$(date -r "$_cache_path" '+%Y-%m-%d' 2>/dev/null)
-        _pass "$_ts_url ${_dim}(cached $_fetch_date)${_reset}"
+        _pass "$_ts_url ${_dim}(cached${_fetch_date:+ $_fetch_date})${_reset}"
       else
         _warn "$_ts_url ${_dim}(not cached)${_reset}"
       fi
@@ -902,7 +903,7 @@ nn_doctor() {
     fi
   fi
 
-  # ── Phase 3: Workflow integrity ──
+  # ── Phase 4: Workflow integrity ──
 
   if [[ -n "${NN_CFG_JSON:-}" ]]; then
     echo ""
@@ -948,6 +949,26 @@ nn_doctor() {
         _warn "entity.$_ev.color '$_color' is not a valid ANSI code"
       fi
     done
+    # Validate entity display_order
+    local _ent_do_values
+    mapfile -t _ent_do_values < <(nn_cfg '.entity.display_order // [] | .[]')
+    local _edov
+    for _edov in "${_ent_do_values[@]}"; do
+      if ! _in_array "$_edov" "${_ent_values[@]}"; then
+        _warn "entity.display_order '$_edov' not in entity.values"
+      fi
+    done
+    # Validate entity sub-table keys
+    local _ent_known_subkeys="icon color description"
+    for _ev in "${_ent_values[@]}"; do
+      local _esk
+      while IFS= read -r _esk; do
+        [[ -z "$_esk" ]] && continue
+        if ! _in_array "$_esk" $_ent_known_subkeys; then
+          _warn "entity.$_ev: unrecognized key '$_esk'"
+        fi
+      done < <(nn_cfg ".entity.\"$_ev\" // {} | keys[]" 2>/dev/null)
+    done
 
     # Status checks
     local _sta_values _sta_ok=true _sta_count=0
@@ -970,15 +991,9 @@ nn_doctor() {
     # Check initial status exists in values
     local _sta_init_issues="" _sta_initial
     _sta_initial=$(nn_cfg '.status.initial // empty')
-    if [[ -n "$_sta_initial" ]]; then
-      local _found=false _sv
-      for _sv in "${_sta_values[@]}"; do
-        [[ "$_sta_initial" == "$_sv" ]] && _found=true && break
-      done
-      if [[ "$_found" == "false" ]]; then
-        _sta_init_issues+="initial '$_sta_initial' not in values; "
-        _sta_ok=false
-      fi
+    if [[ -n "$_sta_initial" ]] && ! _in_array "$_sta_initial" "${_sta_values[@]}"; then
+      _sta_init_issues+="initial '$_sta_initial' not in values; "
+      _sta_ok=false
     fi
 
     # Check filter_cycle values exist in values
@@ -989,11 +1004,7 @@ nn_doctor() {
       _sta_ok=false
     fi
     for _fcv in "${_fc_values[@]}"; do
-      local _found=false _sv
-      for _sv in "${_sta_values[@]}"; do
-        [[ "$_fcv" == "$_sv" ]] && _found=true && break
-      done
-      if [[ "$_found" == "false" ]]; then
+      if ! _in_array "$_fcv" "${_sta_values[@]}"; then
         _fc_issues+="filter_cycle '$_fcv' not in values; "
         _sta_ok=false
       fi
@@ -1003,11 +1014,7 @@ nn_doctor() {
     local _arc_values _arc_issues="" _arcv
     mapfile -t _arc_values < <(nn_cfg '.status.archive // [] | .[]')
     for _arcv in "${_arc_values[@]}"; do
-      local _found=false _sv
-      for _sv in "${_sta_values[@]}"; do
-        [[ "$_arcv" == "$_sv" ]] && _found=true && break
-      done
-      if [[ "$_found" == "false" ]]; then
+      if ! _in_array "$_arcv" "${_sta_values[@]}"; then
         _arc_issues+="archive '$_arcv' not in values; "
         _sta_ok=false
       fi
@@ -1017,20 +1024,14 @@ nn_doctor() {
     local _lc_issues="" _lcv _lc_target
     for _lcv in "${_sta_values[@]}"; do
       _lc_target=$(nn_cfg ".status.lifecycle.forward.\"$_lcv\" // empty")
-      if [[ -n "$_lc_target" ]]; then
-        local _found=false _sv
-        for _sv in "${_sta_values[@]}"; do
-          [[ "$_lc_target" == "$_sv" ]] && _found=true && break
-        done
-        [[ "$_found" == "false" ]] && _lc_issues+="forward '$_lcv' → '$_lc_target' invalid; " && _sta_ok=false
+      if [[ -n "$_lc_target" ]] && ! _in_array "$_lc_target" "${_sta_values[@]}"; then
+        _lc_issues+="forward '$_lcv' → '$_lc_target' invalid; "
+        _sta_ok=false
       fi
       _lc_target=$(nn_cfg ".status.lifecycle.reverse.\"$_lcv\" // empty")
-      if [[ -n "$_lc_target" ]]; then
-        local _found=false _sv
-        for _sv in "${_sta_values[@]}"; do
-          [[ "$_lc_target" == "$_sv" ]] && _found=true && break
-        done
-        [[ "$_found" == "false" ]] && _lc_issues+="reverse '$_lcv' → '$_lc_target' invalid; " && _sta_ok=false
+      if [[ -n "$_lc_target" ]] && ! _in_array "$_lc_target" "${_sta_values[@]}"; then
+        _lc_issues+="reverse '$_lcv' → '$_lc_target' invalid; "
+        _sta_ok=false
       fi
     done
 
@@ -1050,6 +1051,15 @@ nn_doctor() {
       _scolor=$(nn_cfg ".status.colors.\"$_stv\" // empty")
       if [[ -n "$_scolor" ]] && ! _valid_color "$_scolor"; then
         _warn "status.colors.$_stv '$_scolor' is not a valid ANSI code"
+      fi
+    done
+    # Validate status display_order
+    local _sta_do_values
+    mapfile -t _sta_do_values < <(nn_cfg '.status.display_order // [] | .[]')
+    local _sdov
+    for _sdov in "${_sta_do_values[@]}"; do
+      if ! _in_array "$_sdov" "${_sta_values[@]}"; then
+        _warn "status.display_order '$_sdov' not in status.values"
       fi
     done
 
@@ -1081,31 +1091,24 @@ nn_doctor() {
         _pri_ok=false
       fi
       for _pfcv in "${_pri_fc_values[@]}"; do
-        local _found=false _pv
-        for _pv in "${_pri_values[@]}"; do
-          [[ "$_pfcv" == "$_pv" ]] && _found=true && break
-        done
-        [[ "$_found" == "false" ]] && _pri_fc_issues+="filter_cycle '$_pfcv' not in values; " && _pri_ok=false
+        if ! _in_array "$_pfcv" "${_pri_values[@]}"; then
+          _pri_fc_issues+="filter_cycle '$_pfcv' not in values; "
+          _pri_ok=false
+        fi
       done
 
       # Priority lifecycle
       local _pri_lc_issues="" _plcv _plc_target
       for _plcv in "${_pri_values[@]}"; do
         _plc_target=$(nn_cfg ".priority.lifecycle.up.\"$_plcv\" // empty")
-        if [[ -n "$_plc_target" ]]; then
-          local _found=false _pv
-          for _pv in "${_pri_values[@]}"; do
-            [[ "$_plc_target" == "$_pv" ]] && _found=true && break
-          done
-          [[ "$_found" == "false" ]] && _pri_lc_issues+="up '$_plcv' → '$_plc_target' invalid; " && _pri_ok=false
+        if [[ -n "$_plc_target" ]] && ! _in_array "$_plc_target" "${_pri_values[@]}"; then
+          _pri_lc_issues+="up '$_plcv' → '$_plc_target' invalid; "
+          _pri_ok=false
         fi
         _plc_target=$(nn_cfg ".priority.lifecycle.down.\"$_plcv\" // empty")
-        if [[ -n "$_plc_target" ]]; then
-          local _found=false _pv
-          for _pv in "${_pri_values[@]}"; do
-            [[ "$_plc_target" == "$_pv" ]] && _found=true && break
-          done
-          [[ "$_found" == "false" ]] && _pri_lc_issues+="down '$_plcv' → '$_plc_target' invalid; " && _pri_ok=false
+        if [[ -n "$_plc_target" ]] && ! _in_array "$_plc_target" "${_pri_values[@]}"; then
+          _pri_lc_issues+="down '$_plcv' → '$_plc_target' invalid; "
+          _pri_ok=false
         fi
       done
 
@@ -1136,6 +1139,14 @@ nn_doctor() {
           _warn "priority.colors.$_pcv '$_pcolor' is not a valid ANSI code"
         fi
       done
+      # Validate priority label keys reference valid values
+      local _plk
+      while IFS= read -r _plk; do
+        [[ -z "$_plk" ]] && continue
+        if ! _in_array "$_plk" "${_pri_values[@]}"; then
+          _warn "priority.labels.$_plk not in priority.values"
+        fi
+      done < <(nn_cfg '.priority.labels // {} | keys[]' 2>/dev/null)
     else
       _pass "Priority: disabled"
     fi
@@ -1157,6 +1168,20 @@ nn_doctor() {
         *) _warn "defaults.group_by '$_def_group' invalid (must be type or status)" ;;
       esac
     fi
+    local _def_archive
+    _def_archive=$(nn_cfg '.defaults.show_archive // empty')
+    if [[ -n "$_def_archive" && "$_def_archive" != "true" && "$_def_archive" != "false" ]]; then
+      _warn "defaults.show_archive '$_def_archive' invalid (must be true or false)"
+    fi
+    # Check for unrecognized keys in [defaults]
+    local _known_defaults="sort_by group_by show_archive"
+    local _dk
+    while IFS= read -r _dk; do
+      [[ -z "$_dk" ]] && continue
+      if ! _in_array "$_dk" $_known_defaults; then
+        _warn "defaults: unrecognized key '$_dk'"
+      fi
+    done < <(nn_cfg '.defaults // {} | keys[]' 2>/dev/null)
 
     # UI validation
     local _ui_exit
@@ -1183,9 +1208,25 @@ nn_doctor() {
         *) _warn "ui.after_create '$_ui_ac' invalid (must be 'edit' or 'none')" ;;
       esac
     fi
+    # Check for unrecognized keys in [ui]
+    local _known_ui="editor command_prompt search_prompt exit_message priority_plus after_create"
+    local _uk
+    while IFS= read -r _uk; do
+      [[ -z "$_uk" ]] && continue
+      if ! _in_array "$_uk" $_known_ui; then
+        _warn "ui: unrecognized key '$_uk'"
+      fi
+    done < <(nn_cfg '.ui // {} | keys[]' 2>/dev/null)
 
     # Query preset validation (warnings only)
     local _qp_count=0 _qp_warns=""
+
+    # Validate queries.inherit if present
+    local _qi
+    _qi=$(nn_cfg '.queries.inherit // empty')
+    if [[ -n "$_qi" && "$_qi" != "true" && "$_qi" != "false" ]]; then
+      _qp_warns+="inherit must be true or false (got '$_qi'); "
+    fi
 
     # Check for unrecognized keys in query presets
     local _qp_name _qp_key
@@ -1197,6 +1238,15 @@ nn_doctor() {
       esac
     done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | .key as $n | (.value | keys[]) as $k | "\($n)\t\($k)"')
 
+    # Validate query order values are numeric
+    local _qo_name _qo_val
+    while IFS=$'\t' read -r _qo_name _qo_val; do
+      [[ -z "$_qo_name" ]] && continue
+      if [[ -n "$_qo_val" && ! "$_qo_val" =~ ^[0-9]+$ ]]; then
+        _qp_warns+="$_qo_name: order '$_qo_val' is not numeric; "
+      fi
+    done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.order // "")"')
+
     while IFS=$'\t' read -r _qname _qargs; do
       [[ -z "$_qname" ]] && continue
       (( _qp_count++ ))
@@ -1205,30 +1255,18 @@ nn_doctor() {
         local _key="${_arg%%=*}" _val="${_arg#*=}"
         case "$_key" in
           type)
-            if [[ "$_val" != "none" ]]; then
-              local _found=false _ev
-              for _ev in "${_ent_values[@]}"; do
-                [[ "$_val" == "$_ev" ]] && _found=true && break
-              done
-              [[ "$_found" == "false" ]] && _qp_warns+="$_qname: type=$_val unknown; "
+            if [[ "$_val" != "none" ]] && ! _in_array "$_val" "${_ent_values[@]}"; then
+              _qp_warns+="$_qname: type=$_val unknown; "
             fi
             ;;
           status)
-            if [[ "$_val" != "none" ]]; then
-              local _found=false _sv
-              for _sv in "${_sta_values[@]}"; do
-                [[ "$_val" == "$_sv" ]] && _found=true && break
-              done
-              [[ "$_found" == "false" ]] && _qp_warns+="$_qname: status=$_val unknown; "
+            if [[ "$_val" != "none" ]] && ! _in_array "$_val" "${_sta_values[@]}"; then
+              _qp_warns+="$_qname: status=$_val unknown; "
             fi
             ;;
           priority)
-            if [[ "$_val" != "none" && "$_pri_enabled" != "false" ]]; then
-              local _found=false _pv
-              for _pv in "${_pri_values[@]}"; do
-                [[ "$_val" == "$_pv" ]] && _found=true && break
-              done
-              [[ "$_found" == "false" ]] && _qp_warns+="$_qname: priority=$_val unknown; "
+            if [[ "$_val" != "none" && "$_pri_enabled" != "false" ]] && ! _in_array "$_val" "${_pri_values[@]}"; then
+              _qp_warns+="$_qname: priority=$_val unknown; "
             fi
             ;;
         esac
@@ -1244,7 +1282,7 @@ nn_doctor() {
     fi
   fi
 
-  # ── Phase 4: zk notebook ──
+  # ── Phase 5: zk notebook ──
 
   if [[ "$_has_zk" == "true" ]]; then
     echo ""
