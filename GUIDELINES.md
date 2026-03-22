@@ -58,6 +58,7 @@ Two names coexist by design – each is used where it fits best:
 - New config keys must have a fallback default in the `nn_cfg` call (the `// "value"` pattern) and a corresponding entry in `config/base.toml` or the workflow file.
 - Document new config keys in `docs/configuration.md`.
 - When adding or removing config properties, filter keys, or enum values, update the validation logic in `nn_doctor()` – it maintains hardcoded known-key lists and valid-value checks that must stay in sync.
+- Filter keys (currently `type`, `status`, `priority`, `tag`) are listed in four places that must stay in sync: `--help` text, ad-hoc query parser, query preset runtime (both `apply_sq` and the header stats builder), and `nn_doctor()` validation.
 
 ### Config key naming
 
@@ -74,6 +75,8 @@ Two names coexist by design – each is used where it fits best:
 - Keep workflow doc pages (`docs/workflows/*.md`) in sync with their TOML files – type tables, status tables, lifecycle diagrams, and query preset tables must match the config.
 - Status/type table descriptions should state what it *means*, not how to set it (avoid documenting keybinding mechanics in tables).
 - All relative links in markdown must resolve to existing files.
+- When adding or changing keybindings, update both the `--bind` strings in the fzf invocation and the keybinding table in `README.md`.
+- When adding CLI subcommands or options, update both the `--help` heredoc in `notenav_main()` and the CLI reference in `README.md`.
 
 ## Standards compliance
 
