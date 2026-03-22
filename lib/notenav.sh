@@ -2753,8 +2753,13 @@ esac
 sort_desc="$sort_hint"; [ -n "$sort_dir" ] && sort_desc="$sort_hint, $sort_dir"
 zorder_s=$(printf '       \033[36m[z]\033[0m then \033[36m[o]\033[0mrder-by: \033[1m%s\033[0m' "$sort_desc")
 zorder_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder-by: \033[1m%s\033[0m' "$sort_desc")
-zrev_s=$(printf '       \033[36m[z]\033[0m then \033[36m[r]\033[0meverse sort direction')
-zrev_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[r]\033[1;37meverse sort direction\033[0m')
+if [ -n "$fsort_rev" ]; then
+  zrev_s=$(printf '       \033[36m[z]\033[0m then \033[36m[r]\033[0meverse: \033[1mon\033[0m')
+  zrev_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[r]\033[1;37meverse: \033[1mon\033[0m')
+else
+  zrev_s=$(printf '       \033[36m[z]\033[0m then \033[36m[r]\033[0meverse: \033[90moff\033[0m')
+  zrev_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[r]\033[1;37meverse: \033[90moff\033[0m')
+fi
 if [ -n "$fgroup" ]; then
   zgroup_s=$(printf '       \033[36m[z]\033[0m then \033[36m[g]\033[0mroup-by: \033[1m%s\033[0m' "$fgroup")
   zgroup_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[g]\033[1;37mroup-by: \033[1m%s\033[0m' "$fgroup")
