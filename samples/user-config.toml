@@ -13,9 +13,10 @@ show_archive = false       # true to show done/removed by default
 editor = "nvim"            # editor for opening notes
 # command_prompt = ": "   # prompt in normal (command) mode
 # search_prompt = "/ "    # prompt in search mode
-# fortune = true          # show a fun quote on exit
-# priority_plus = "demote"  # "demote": + lowers urgency (P1→P2)
-                             # "promote": + raises urgency (P2→P1)
+# exit_message = "fortune"   # "none" (default) or "fortune" (fun quote on exit)
+# priority_plus = "demote"   # "demote": + lowers urgency (P1→P2)
+                              # "promote": + raises urgency (P2→P1)
+# after_create = "edit"      # "edit" (open in editor) or "none" (just create)
 
 # Override individual entity/status/priority colors from the workflow.
 # These merge on top of the workflow, so you only need to specify what you

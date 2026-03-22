@@ -490,9 +490,9 @@ nn_precompute_workflow() {
   NN_UI_EDITOR=$(nn_cfg '.ui.editor // empty')
   NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // ": "')
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
-  NN_UI_FORTUNE=$(nn_cfg '.ui.fortune // false')
+  NN_UI_EXIT_MESSAGE=$(nn_cfg '.ui.exit_message // "none"')
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
-  NN_UI_OPEN_AFTER_CREATE=$(nn_cfg '.ui.open_after_create // true')
+  NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
 
   # ZK format
   NN_ZK_FMT=$(nn_cfg '.zk.format // empty')
@@ -594,7 +594,7 @@ nn_write_workflow_files() {
 
   # UI preferences
   printf '%s' "$(_nn_resolve_editor "$NN_UI_EDITOR")" > "$dir/.schema_editor"
-  printf '%s' "$NN_UI_OPEN_AFTER_CREATE" > "$dir/.schema_open_after_create"
+  printf '%s' "$NN_UI_AFTER_CREATE" > "$dir/.schema_after_create"
 
   # Archive label (slash-separated status names for header display)
   local _archive_label=""
@@ -1087,8 +1087,8 @@ if [ -z "$new_path" ]; then
   printf '\r  %s└─ \033[31mFailed to create note\033[0m\033[K\n\n' "$tc" > /dev/tty
   exit 0
 fi
-open_after=$(cat "$dir/.schema_open_after_create" 2>/dev/null)
-if [ "$open_after" = "true" ]; then
+after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)
+if [ "$after_create" = "edit" ]; then
   printf '\r  %s└─ \033[32m%s Created!\033[0m Opening in editor...\033[K\n\n' "$tc" "$icon" > /dev/tty
 else
   printf '\r  %s└─ \033[32m%s Created!\033[0m\033[K\n\n' "$tc" "$icon" > /dev/tty
@@ -1100,7 +1100,7 @@ while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
 zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 # Open in editor
-if [ "$open_after" = "true" ]; then
+if [ "$after_create" = "edit" ]; then
   nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
   ${nn_editor:-vi} "$new_path" < /dev/tty > /dev/tty
 fi
@@ -1623,7 +1623,7 @@ ENDFILTER
     rm -rf "$_nn_dir"
     trap - EXIT
     shopt -u nullglob
-    [[ "$NN_UI_FORTUNE" == "true" ]] && echo "So long, and thanks for all the notes."
+    [[ "$NN_UI_EXIT_MESSAGE" == "fortune" ]] && echo "So long, and thanks for all the notes."
     return
   fi
 
