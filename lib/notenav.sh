@@ -2924,8 +2924,11 @@ ENDWK
     fi
     _NN_QUERY_DEPTH=$(( _nn_qdepth + 1 ))
     local saved="$1"; shift
+    local _saved_args="${saved_queries[$saved]}"
     shopt -u nullglob
-    notenav_main ${saved_queries[$saved]} "$@"
+    set -f
+    notenav_main $_saved_args "$@"
+    set +f
     return
   fi
 
