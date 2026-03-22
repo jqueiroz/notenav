@@ -2300,62 +2300,221 @@ ${nn_editor:-vi} "$tmpfile" </dev/tty >/dev/tty
 ENDBE
     chmod +x "$_nn_dir/bulkedit.sh"
 
-    # Quick note creation: title prompt → type picker → zk new → editor
+    # Quick note creation: inline title prompt → type selection → zk new → editor
     cat > "$_nn_dir/newnote.sh" << 'ENDNN'
 #!/usr/bin/env bash
 dir="$1"
-
-# ── Step 1: Title prompt (with step list so user knows what's coming) ──
-printf '\n' > /dev/tty
 inner=41
-top_pad=$((inner - 11))
-top_dashes=$(printf '%*s' "$top_pad" '' | sed 's/ /─/g')
-printf '  \033[36m╭─ New Note %s╮\033[0m\n' "$top_dashes" > /dev/tty
-printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
-printf '  \033[36m│\033[0m  \033[1m1. Title:\033[0m%*s\033[36m│\033[0m\n' "$((inner - 11))" "" > /dev/tty
-printf '  \033[36m│\033[0m  \033[90m2. Type\033[0m%*s\033[36m│\033[0m\n' "$((inner - 9))" "" > /dev/tty
-printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
-bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
-printf '  \033[36m╰%s╯\033[0m\n' "$bot_dashes" > /dev/tty
-# Move cursor to Title input (up 4 lines, column 16 – one space after colon)
-printf '\033[4A\033[16G' > /dev/tty
-read -r title < /dev/tty
-# After Enter, cursor is on the "2. Type" line; move past box bottom
-printf '\033[3B' > /dev/tty
-if [ -z "$title" ]; then
-  printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
-  exit 0
+
+# ── Determine mode: auto (single type or filter active) vs pick ──
+type_count=$(wc -l < "$dir/.schema_types")
+cur_type=$(cat "$dir/.f_type" 2>/dev/null)
+if [ "$type_count" -eq 1 ] || [ -n "$cur_type" ]; then
+  mode=auto
+  if [ -n "$cur_type" ]; then
+    auto_type="$cur_type"
+  else
+    auto_type=$(head -1 "$dir/.schema_types" | cut -f1)
+  fi
+  while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
+    if [ "$v" = "$auto_type" ]; then
+      auto_icon="$ic"; auto_color="$clr"; break
+    fi
+  done < "$dir/.schema_types"
+else
+  mode=pick
 fi
 
-# ── Step 2: Type picker ──
-cur_type=$(cat "$dir/.f_type")
-types="" cur_line=""
-while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
-  line=$(printf '\033[%sm%s %s\033[0m\t\033[90m  %s\033[0m' "$clr" "$ic" "$v" "$desc")
-  if [ "$v" = "$cur_type" ]; then
-    cur_line="$line"
-  else
-    [ -n "$types" ] && types="$types"$'\n'
-    types="$types$line"
-  fi
-done < "$dir/.schema_types"
-# Put filtered type first so fzf pre-selects it
-[ -n "$cur_line" ] && types="$cur_line${types:+$'\n'$types}"
-# Truncate title for border label if needed
-label_title="$title"
-[ ${#title} -gt 30 ] && label_title="${title:0:27}..."
-selected=$(printf '%s' "$types" | fzf --reverse --prompt "type: " \
-  --ansi --border --border-label " New: $label_title " --delimiter '\t' --with-nth '1,2' \
-  --header $'Step 2/2 – Select note type\n\033[36mEnter\033[0m confirm \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
-  --bind "j:down,k:up,ctrl-j:page-down,ctrl-k:page-up" | awk '{print $2}')
-[ -z "$selected" ] && exit 0
+if [ "$mode" = "auto" ]; then
+  # ── Auto: type-colored single-step box ──
+  label="New ${auto_type} ${auto_icon} "
+  label_len=${#label}
+  top_pad=$((inner - label_len - 2))
+  [ "$top_pad" -lt 1 ] && top_pad=1
+  top_dashes=$(printf '%*s' "$top_pad" '' | sed 's/ /─/g')
+  bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
+  hint="Enter to create · empty cancels"
+  hint_pad=$((inner - ${#hint} - 2))
+  c="$auto_color"
 
-# Look up icon and color for result message
-tc=""; icon=""
-while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
-  [ "$v" = "$selected" ] && tc=$(printf '\033[%sm' "$clr") && icon="$ic" && break
-done < "$dir/.schema_types"
-# Create note
+  printf '\n' > /dev/tty
+  printf '  \033[%sm╭─ %s%s╮\033[0m\n' "$c" "$label" "$top_dashes" > /dev/tty
+  printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$c" "$inner" "" "$c" > /dev/tty
+  printf '  \033[%sm│\033[0m  Title: %*s\033[%sm│\033[0m\n' "$c" "$((inner - 9))" "" "$c" > /dev/tty
+  printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$c" "$inner" "" "$c" > /dev/tty
+  printf '  \033[%sm│\033[0m  \033[90m%s\033[0m%*s\033[%sm│\033[0m\n' "$c" "$hint" "$hint_pad" "" "$c" > /dev/tty
+  printf '  \033[%sm╰%s╯\033[0m\n' "$c" "$bot_dashes" > /dev/tty
+  # Cursor: up 4 to title line, column 13 (after "  │  Title: ")
+  printf '\033[4A\033[13G' > /dev/tty
+  read -r title < /dev/tty
+  # Move past box bottom (3 lines down from title+1)
+  printf '\033[3B' > /dev/tty
+  if [ -z "$title" ]; then
+    printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
+    exit 0
+  fi
+  selected="$auto_type"
+  tc=$(printf '\033[%sm' "$auto_color")
+  icon="$auto_icon"
+
+else
+  # ── Pick: two-step with inline type picker ──
+  top_pad=$((inner - 11))
+  top_dashes=$(printf '%*s' "$top_pad" '' | sed 's/ /─/g')
+  bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
+  hint="Enter to continue · empty cancels"
+  hint_pad=$((inner - ${#hint} - 2))
+
+  # Step 1: title prompt
+  printf '\n' > /dev/tty
+  printf '  \033[36m╭─ New Note %s╮\033[0m\n' "$top_dashes" > /dev/tty
+  printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
+  printf '  \033[36m│\033[0m  \033[1m1. Title:\033[0m%*s\033[36m│\033[0m\n' "$((inner - 11))" "" > /dev/tty
+  printf '  \033[36m│\033[0m  \033[90m2. Type\033[0m%*s\033[36m│\033[0m\n' "$((inner - 9))" "" > /dev/tty
+  printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
+  printf '  \033[36m│\033[0m  \033[90m%s\033[0m%*s\033[36m│\033[0m\n' "$hint" "$hint_pad" "" > /dev/tty
+  printf '  \033[36m╰%s╯\033[0m\n' "$bot_dashes" > /dev/tty
+  # Cursor: up 5 to title line, column 16 (after "  │  1. Title: ")
+  printf '\033[5A\033[16G' > /dev/tty
+  read -r title < /dev/tty
+  if [ -z "$title" ]; then
+    # Move past box bottom (4 lines down from type line)
+    printf '\033[4B' > /dev/tty
+    printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
+    exit 0
+  fi
+
+  # Transition: move to box start, clear, draw step 2
+  printf '\033[4A\033[J' > /dev/tty
+
+  # Load types into arrays
+  t_vals=(); t_icons=(); t_colors=(); t_descs=()
+  max_name=0
+  while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
+    t_vals+=("$v"); t_icons+=("$ic"); t_colors+=("$clr"); t_descs+=("$desc")
+    [ ${#v} -gt "$max_name" ] && max_name=${#v}
+  done < "$dir/.schema_types"
+  [ "$max_name" -gt 30 ] && max_name=30
+  desc_avail=$((30 - max_name))
+
+  # Truncate title for ✓ display
+  disp_title="$title"
+  max_disp=$((inner - 4))
+  if [ ${#disp_title} -gt "$max_disp" ]; then
+    disp_title="${disp_title:0:$((max_disp - 3))}..."
+  fi
+
+  # Precompute truncated descriptions
+  t_tdescs=()
+  for ((i = 0; i < type_count; i++)); do
+    d="${t_descs[$i]}"
+    if [ "$desc_avail" -gt 3 ] && [ -n "$d" ]; then
+      [ ${#d} -gt "$desc_avail" ] && d="${d:0:$((desc_avail - 3))}..."
+    elif [ "$desc_avail" -le 3 ]; then
+      d=""
+    fi
+    t_tdescs+=("$d")
+  done
+
+  hint2="j/k · Enter · Esc cancel"
+  hint2_pad=$((inner - ${#hint2} - 2))
+
+  # Helper: draw a single type line
+  # Args: $1=index $2=selected_index
+  _nn_draw_type_line() {
+    local i="$1" sel="$2"
+    local name="${t_vals[$i]}" ic="${t_icons[$i]}" clr="${t_colors[$i]}"
+    local d="${t_tdescs[$i]}"
+    local name_pad=$((max_name - ${#name}))
+    local d_pad=$((desc_avail - ${#d}))
+    [ "$d_pad" -lt 0 ] && d_pad=0
+    if [ "$i" -eq "$sel" ]; then
+      printf '  \033[36m│\033[0m     \033[1;%sm▸ %s %s\033[0m%*s  \033[90m%s\033[0m%*s\033[36m│\033[0m' \
+        "$clr" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" ""
+    else
+      printf '  \033[36m│\033[0m     \033[90m  %s %s%*s  %s\033[0m%*s\033[36m│\033[0m' \
+        "$ic" "$name" "$name_pad" "" "$d" "$d_pad" ""
+    fi
+  }
+
+  # Draw step-2 box
+  printf '\n' > /dev/tty
+  printf '  \033[36m╭─ New Note %s╮\033[0m\n' "$top_dashes" > /dev/tty
+  printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
+  printf '  \033[36m│\033[0m  \033[32m✓\033[0m %s%*s\033[36m│\033[0m\n' \
+    "$disp_title" "$((inner - 4 - ${#disp_title}))" "" > /dev/tty
+  printf '  \033[36m│\033[0m  \033[1m2. Type:\033[0m%*s\033[36m│\033[0m\n' \
+    "$((inner - 10))" "" > /dev/tty
+
+  sel=0
+  for ((i = 0; i < type_count; i++)); do
+    _nn_draw_type_line "$i" "$sel" > /dev/tty
+    printf '\n' > /dev/tty
+  done
+
+  printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
+  printf '  \033[36m│\033[0m  \033[90m%s\033[0m%*s\033[36m│\033[0m\n' \
+    "$hint2" "$hint2_pad" "" > /dev/tty
+  printf '  \033[36m╰%s╯\033[0m\n' "$bot_dashes" > /dev/tty
+
+  # Move cursor to first type line
+  printf '\033[%dA' "$((type_count + 3))" > /dev/tty
+
+  # Hide cursor; restore on exit/interrupt
+  trap 'printf "\033[?25h" > /dev/tty' EXIT
+  printf '\033[?25l' > /dev/tty
+
+  # Navigation loop
+  selected=""
+  while true; do
+    IFS= read -rsn1 key < /dev/tty
+    case "$key" in
+      $'\033')
+        IFS= read -rsn2 -t 0.05 rest < /dev/tty
+        case "$rest" in
+          '[A') key=up ;;
+          '[B') key=down ;;
+          *)    key=esc ;;
+        esac ;;
+      j) key=down ;; k) key=up ;;
+      '') key=enter ;; *) continue ;;
+    esac
+    case "$key" in
+      up)    [ "$sel" -gt 0 ] && sel=$((sel - 1)) ;;
+      down)  [ "$sel" -lt $((type_count - 1)) ] && sel=$((sel + 1)) ;;
+      enter) selected="${t_vals[$sel]}"; break ;;
+      esc)   break ;;
+    esac
+
+    # Redraw type lines in place
+    for ((i = 0; i < type_count; i++)); do
+      printf '\r' > /dev/tty
+      _nn_draw_type_line "$i" "$sel" > /dev/tty
+      printf '\n' > /dev/tty
+    done
+    printf '\033[%dA' "$type_count" > /dev/tty
+  done
+
+  # Show cursor
+  printf '\033[?25h' > /dev/tty
+  trap - EXIT
+
+  # Move past box bottom
+  printf '\033[%dB' "$((type_count + 3))" > /dev/tty
+
+  if [ -z "$selected" ]; then
+    printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
+    exit 0
+  fi
+
+  # Look up icon and color for result message
+  tc=""; icon=""
+  while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
+    [ "$v" = "$selected" ] && tc=$(printf '\033[%sm' "$clr") && icon="$ic" && break
+  done < "$dir/.schema_types"
+fi
+
+# ── Create note ──
 new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>/dev/null)
 if [ -z "$new_path" ]; then
   printf '\n  \033[31mFailed to create note\033[0m\n\n' > /dev/tty

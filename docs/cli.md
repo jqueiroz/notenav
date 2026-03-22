@@ -210,7 +210,7 @@ The faceted browser uses a modal system with four modes: **command** (default), 
 |-----|--------|
 | `enter` | Open selected note in editor |
 | `e` | Edit selected note (same as `enter`) |
-| `n` | Create new note (type picker, then title input, then editor) |
+| `n` | Create new note (title input, then type selection, then editor) |
 | `a` | Advance status forward (follows `status.lifecycle.forward`) |
 | `A` | Reverse status (follows `status.lifecycle.reverse`) |
 | `+` / `>` | Bump priority in the `+` direction (see `priority_plus` setting) |
