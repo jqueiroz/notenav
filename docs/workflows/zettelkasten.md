@@ -22,7 +22,7 @@ In this workflow:
 
 - **Note type** captures where the note is in the knowledge pipeline: fleeting capture → literature notes → permanent ideas.
 - **Status** captures the note's maturity: how developed and reviewed it is.
-- **Priority is disabled** – in a Zettelkasten, notes gain importance through their connections, not through explicit ranking.
+- **Priority is disabled:** in a Zettelkasten, notes gain importance through their connections, not through explicit ranking.
 
 ## Note Types
 

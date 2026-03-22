@@ -26,9 +26,9 @@ If no `.nn/` directory is found anywhere in the path, notenav falls back to the 
 
 notenav delegates note discovery to [zk](https://github.com/zk-org/zk), which recursively finds all markdown files with YAML frontmatter.
 
-**At the notebook root** – `nn` shows all notes in the entire notebook.
+**At the notebook root:** `nn` shows all notes in the entire notebook.
 
-**From a subdirectory** – `nn` scopes results to the current directory and everything below it. This is useful for focusing on a subset of notes:
+**From a subdirectory:** `nn` scopes results to the current directory and everything below it. This is useful for focusing on a subset of notes:
 
 ```bash
 cd ~/notes              # shows everything

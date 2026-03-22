@@ -16,9 +16,9 @@ Read all relevant files and evaluate every config key against the criteria below
 
 For each config key, evaluate:
 
-- **Clarity** – does the name unambiguously describe what the setting controls? Could a new user guess what it does from the name alone?
-- **Consistency** – does it follow the same patterns as other keys? (e.g., `sort_by` / `group_by` are consistent; `sort_by` / `grouping` would not be)
-- **Positive framing** – is the name positive? (`show_archive` good, `hide_archive` / `no_archive` bad)
+- **Clarity:** does the name unambiguously describe what the setting controls? Could a new user guess what it does from the name alone?
+- **Consistency:** does it follow the same patterns as other keys? (e.g., `sort_by` / `group_by` are consistent; `sort_by` / `grouping` would not be)
+- **Positive framing:** is the name positive? (`show_archive` good, `hide_archive` / `no_archive` bad)
 - **snake_case** – all keys must be snake_case, no exceptions
 
 ### 2. Booleans vs enums
@@ -57,9 +57,9 @@ For each key, consider:
 For each finding:
 1. **Key name** and current value/type
 2. **Category** (1–5 above)
-3. **Issue** – what's wrong or what could be improved
-4. **Recommendation** – specific suggestion (rename, change type, move table, etc.)
-5. **Risk** – low (cosmetic), medium (could cause confusion), high (future breaking change)
+3. **Issue:** what's wrong or what could be improved
+4. **Recommendation:** specific suggestion (rename, change type, move table, etc.)
+5. **Risk:** low (cosmetic), medium (could cause confusion), high (future breaking change)
 
 At the end, provide:
 - Summary table of all keys with a pass/flag/fail rating

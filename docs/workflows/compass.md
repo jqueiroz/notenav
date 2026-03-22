@@ -20,9 +20,9 @@ default_workflow = "compass"
 
 Every note is one of three things:
 
-- A **task** – something concrete you need to do
-- An **idea** – captures an early insight; enriched over time, may evolve into one or more tasks
-- A **reference** – living documentation you maintain over time
+- A **task:** something concrete you need to do
+- An **idea:** captures an early insight; enriched over time, may evolve into one or more tasks
+- A **reference:** living documentation you maintain over time
 
 This maps naturally to how most people think about their notes. Ideas may evolve into tasks as they become clearer. Tasks get done. References grow and change as understanding deepens.
 

@@ -6,8 +6,8 @@
 
 All configuration is TOML. Project and user configuration are orthogonal – neither inherits from or overrides the other:
 
-- **Project configuration** (`.nn/workflow.toml`) – defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
-- **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`) – personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback workflow, used in directories without project configuration.
+- **Project configuration** (`.nn/workflow.toml`): defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
+- **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`): personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback workflow, used in directories without project configuration.
 
 Both scopes are layered on top of notenav's base defaults, so you only need to specify what you want to change.
 
@@ -15,9 +15,9 @@ Both scopes are layered on top of notenav's base defaults, so you only need to s
 
 At startup, two things happen:
 
-1. **Workflow resolution** – if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"compass"`.
+1. **Workflow resolution:** if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"compass"`.
 
-2. **Preference merge** – preferences are assembled by deep-merging these layers in order (later values win):
+2. **Preference merge:** preferences are assembled by deep-merging these layers in order (later values win):
 
    | Layer | Source | Wins on |
    |-------|--------|---------|
@@ -46,7 +46,7 @@ Workflows define what note types, statuses, and priorities are available and how
 
 `.nn/workflow.toml` can work in four ways:
 
-**1. Extend a built-in workflow** – use a built-in as a base and override specific values:
+**1. Extend a built-in workflow:** use a built-in as a base and override specific values:
 ```toml
 extends = "gtd"
 
@@ -54,7 +54,7 @@ extends = "gtd"
 next = "32;1"       # bold green instead of default
 ```
 
-**2. Use a built-in as-is** – just the `extends` key, nothing else:
+**2. Use a built-in as-is:** just the `extends` key, nothing else:
 ```toml
 extends = "ado"
 ```
@@ -69,7 +69,7 @@ extends = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"
 
 Remote workflows require explicit trust via an allow-list and use a local cache – see [Remote workflows](#remote-workflows) below. Use `nn init <url>` to fetch and cache a remote workflow.
 
-**4. Full custom definition** – no `extends` key, define everything from scratch:
+**4. Full custom definition:** no `extends` key, define everything from scratch:
 ```toml
 [meta]
 name = "My Workflow"
@@ -238,9 +238,9 @@ args = "type=task status=active"
 
 **Merge order** (later wins on name collisions):
 
-1. **Workflow** – built-in presets from the active workflow
-2. **User config** (`~/.config/notenav/config.toml`) – personal queries, available everywhere
-3. **Project config** (`.nn/workflow.toml`) – team-shared, project-specific
+1. **Workflow:** built-in presets from the active workflow
+2. **User config** (`~/.config/notenav/config.toml`): personal queries, available everywhere
+3. **Project config** (`.nn/workflow.toml`): team-shared, project-specific
 
 Same-name queries at a later layer fully replace the earlier one. For example, defining `[queries.inbox]` in your project config overrides the workflow's `inbox` preset.
 

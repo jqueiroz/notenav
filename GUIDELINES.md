@@ -18,9 +18,9 @@ Rules and conventions for contributing to notenav.
 
 ### Portability (Linux + macOS)
 
-- **Never use `sed -i`** – GNU sed requires `sed -i 's/…'`, BSD/macOS sed requires `sed -i '' 's/…'`. Instead, write to a temp file and `mv`: `sed 's/…' "$file" > "$tmp" && mv "$tmp" "$file"`.
-- **`while read` and missing trailing newlines** – `while IFS= read -r line` silently skips the last line if the file has no trailing newline. Use `while IFS= read -r line || [[ -n "$line" ]]` when reading files that users may hand-edit.
-- **`date -r` vs `stat -c`** – macOS has `date -r <file>` but no `stat -c`. GNU/Linux has `stat -c '%y'` but `date -r` expects a timestamp, not a file. Use a fallback chain: `date -r "$file" '+%F' 2>/dev/null || stat -c '%y' "$file" 2>/dev/null | cut -d' ' -f1`.
+- **Never use `sed -i`:** GNU sed requires `sed -i 's/…'`, BSD/macOS sed requires `sed -i '' 's/…'`. Instead, write to a temp file and `mv`: `sed 's/…' "$file" > "$tmp" && mv "$tmp" "$file"`.
+- **`while read` and missing trailing newlines:** `while IFS= read -r line` silently skips the last line if the file has no trailing newline. Use `while IFS= read -r line || [[ -n "$line" ]]` when reading files that users may hand-edit.
+- **`date -r` vs `stat -c`:** macOS has `date -r <file>` but no `stat -c`. GNU/Linux has `stat -c '%y'` but `date -r` expects a timestamp, not a file. Use a fallback chain: `date -r "$file" '+%F' 2>/dev/null || stat -c '%y' "$file" 2>/dev/null | cut -d' ' -f1`.
 
 ## Keybindings
 

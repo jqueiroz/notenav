@@ -140,7 +140,7 @@ nn doctor
 
 **Validation phases:**
 
-1. **Dependencies** – checks that required tools are installed and meet version requirements:
+1. **Dependencies:** checks that required tools are installed and meet version requirements:
    - bash 4+
    - fzf 0.44+
    - zk
@@ -151,16 +151,16 @@ nn doctor
    - bat or batcat (optional – enables syntax-highlighted preview)
    - curl (optional – required for remote workflows)
 
-2. **Config** – validates configuration files:
-   - User config (`~/.config/notenav/config.toml`) – TOML parse check
-   - Project config (`.nn/workflow.toml`) – TOML parse check, `extends` resolution
+2. **Config:** validates configuration files:
+   - User config (`~/.config/notenav/config.toml`): TOML parse check
+   - Project config (`.nn/workflow.toml`): TOML parse check, `extends` resolution
    - `default_workflow` resolution from user config
    - Unrecognized top-level keys in either config file
    - Full config merge (workflow + user + project)
 
-3. **Trusted sources** – lists URLs in the trusted-sources allow-list with cache status and fetch dates.
+3. **Trusted sources:** lists URLs in the trusted-sources allow-list with cache status and fetch dates.
 
-4. **Workflow integrity** – validates the merged workflow definition:
+4. **Workflow integrity:** validates the merged workflow definition:
    - **Types**: all types have icon and color, no duplicates, `display_order` references valid types, no unrecognized sub-keys
    - **Statuses**: all statuses have colors, `initial` exists in values, `filter_cycle` and `archive` reference valid values, lifecycle transitions reference valid statuses, no unrecognized sub-keys
    - **Priority**: levels have colors, `filter_cycle` references valid values, lifecycle transitions valid, `unset_position` is `first` or `last`, no unrecognized sub-keys
@@ -169,7 +169,7 @@ nn doctor
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
    - ANSI color codes are syntactically valid throughout
 
-5. **Notebook** – confirms zk can find a notebook from the current directory and reports the indexed note count.
+5. **Notebook:** confirms zk can find a notebook from the current directory and reports the indexed note count.
 
 **Output markers:**
 
