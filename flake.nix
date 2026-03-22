@@ -70,6 +70,7 @@
             gawk
             gnused
             coreutils
+            git
             yq-go
             jq
           ];

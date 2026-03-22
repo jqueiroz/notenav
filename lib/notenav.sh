@@ -52,6 +52,7 @@ _nn_easteregg_decode() {
     keystream+=$(printf '%s%d' "$seed" "$i" | sha256sum | cut -d' ' -f1)
   done
 
+  # Note: strtonum() and xor() require gawk
   echo "$blob" | awk -v ks="$keystream" '{
     len = length($0) / 2; valid = 1
     for (i = 0; i < len; i++) {
@@ -279,19 +280,24 @@ nn_cfg() {
 # Called once after nn_load_config(). Helper scripts read from temp files
 # written by nn_write_workflow_files().
 
+# Escape a string for safe interpolation into an AWK double-quoted literal.
+# Handles backslash and double-quote (the two characters that break AWK strings).
+_nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
 _nn_gen_awk_bodies() {
-  local _v _i
+  local _v _i _esc
   # Uses NN_TYPE_DISPLAY_ORDER / NN_STATUS_DISPLAY_ORDER (set by nn_precompute_workflow)
   # for group ordering and stats display. Falls back to NN_*_VALUES if unset.
 
   # Type color+icon assignments
   local _typ_awk="" _first=true
   for _v in "${NN_TYPE_VALUES[@]}"; do
+    _esc=$(_nn_awk_esc "${NN_TYPE_ICONS[$_v]}")
     if $_first; then
-      _typ_awk="tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${NN_TYPE_ICONS[$_v]}\""
+      _typ_awk="tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${_esc}\""
       _first=false
     else
-      _typ_awk+=$'\n'"  if (\$1 == \"$_v\") { tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${NN_TYPE_ICONS[$_v]}\" }"
+      _typ_awk+=$'\n'"  if (\$1 == \"$_v\") { tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${_esc}\" }"
     fi
   done
 
@@ -317,7 +323,8 @@ _nn_gen_awk_bodies() {
     _pri_awk+=$'\n''  pl = "P" $3'
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
       [[ "${NN_PRIORITY_LABELS[$_v]}" == "P$_v" ]] && continue
-      _pri_awk+=$'\n'"  if (\$3 == \"$_v\") pl = \"${NN_PRIORITY_LABELS[$_v]}\""
+      _esc=$(_nn_awk_esc "${NN_PRIORITY_LABELS[$_v]}")
+      _pri_awk+=$'\n'"  if (\$3 == \"$_v\") pl = \"${_esc}\""
     done
   fi
 
@@ -382,7 +389,8 @@ _nn_gen_awk_bodies() {
   local _status_fc_str="${NN_STATUS_FILTER_CYCLE[*]}"
   local _stats_type_lookup="" _stats_status_lookup=""
   for _v in "${NN_TYPE_VALUES[@]}"; do
-    _stats_type_lookup+="icon[\"$_v\"] = \"${NN_TYPE_ICONS[$_v]}\"; clr[\"$_v\"] = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; "
+    _esc=$(_nn_awk_esc "${NN_TYPE_ICONS[$_v]}")
+    _stats_type_lookup+="icon[\"$_v\"] = \"${_esc}\"; clr[\"$_v\"] = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; "
   done
   for _v in "${NN_STATUS_FILTER_CYCLE[@]}"; do
     _stats_status_lookup+="sc[\"$_v\"] = \"\\033[${NN_STATUS_COLORS[$_v]}m\"; "
@@ -424,7 +432,8 @@ _nn_gen_awk_bodies() {
   # Type icon AWK snippet for grouping
   NN_AWK_ICON_SETUP=""
   for _v in "${NN_TYPE_VALUES[@]}"; do
-    NN_AWK_ICON_SETUP+="icon[\"$_v\"] = \"${NN_TYPE_ICONS[$_v]}\"; "
+    _esc=$(_nn_awk_esc "${NN_TYPE_ICONS[$_v]}")
+    NN_AWK_ICON_SETUP+="icon[\"$_v\"] = \"${_esc}\"; "
   done
 }
 
@@ -507,6 +516,9 @@ nn_precompute_workflow() {
   NN_UI_EDITOR=$(nn_cfg '.ui.editor // empty')
   NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // ": "')
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
+  # Sanitize prompts: strip chars that break fzf action syntax in change-prompt()
+  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//)/}"
+  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//)/}"
   NN_UI_EXIT_MESSAGE=$(nn_cfg '.ui.exit_message // "none"')
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
@@ -719,7 +731,7 @@ nn_doctor() {
     _fail "jq not found"
   fi
 
-  # awk
+  # awk (gawk required – notenav uses mktime() and strtonum())
   if command -v awk >/dev/null 2>&1; then
     local awk_variant
     awk_variant=$(awk --version 2>/dev/null | head -1 || true)
@@ -729,9 +741,9 @@ nn_doctor() {
       local awk_name
       awk_name=$(awk -W version 2>&1 | head -1 || true)
       if [[ "$awk_name" == *mawk* ]]; then
-        _warn "awk: gawk recommended (found mawk)"
+        _fail "awk: gawk required (found mawk – install gawk)"
       else
-        _warn "awk: gawk recommended"
+        _fail "awk: gawk required (install gawk)"
       fi
     fi
   else
@@ -1747,6 +1759,48 @@ _nn_fetch_remote() {
   fi
 }
 
+# Write the shared preview script to a given path.
+# Used by both faceted browser and ad-hoc interactive mode.
+_nn_write_preview() {
+  local target="$1"
+  cat > "$target" << 'ENDPREVIEW'
+#!/usr/bin/env bash
+dir="$(dirname "$0")"
+file="$1"
+if [ ! -f "$file" ]; then
+  [ -f "$dir/.empty_placeholder" ] && cat "$dir/.empty_placeholder"
+  exit 0
+fi
+
+# Placeholder file: show content only, no links
+case "$file" in *.empty_placeholder) cat "$file"; exit 0 ;; esac
+
+# Show file content
+$(command -v bat || command -v batcat) -p --color always "$file" 2>/dev/null || cat "$file"
+
+# Collect links in parallel
+tmp_links=$(mktemp); tmp_back=$(mktemp)
+zk list --linked-by "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_links" &
+zk list --link-to "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_back" &
+wait
+
+# Show outgoing links
+if [ -s "$tmp_links" ]; then
+  printf '\n\033[1;34m── Links ─────────────────────────\033[0m\n'
+  cat "$tmp_links"
+fi
+
+# Show backlinks
+if [ -s "$tmp_back" ]; then
+  printf '\n\033[1;35m── Backlinks ─────────────────────\033[0m\n'
+  cat "$tmp_back"
+fi
+
+rm -f "$tmp_links" "$tmp_back"
+ENDPREVIEW
+  chmod +x "$target"
+}
+
 notenav_main() {
   # --version / --help
   if [[ "$1" == "--version" || "$1" == "-V" ]]; then
@@ -1789,9 +1843,10 @@ EOF
     elif [[ $_nn_rc -ne 0 ]]; then
       echo "Invalid n!"; return 1
     fi
-    _nn_easteregg_decode "/tmp" "$_nn_k"
-    cat "/tmp/.empty_easteregg_override" 2>/dev/null && echo
-    rm -f "/tmp/.empty_easteregg_override"
+    local _ee_dir; _ee_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn-ee.XXXXXX")
+    _nn_easteregg_decode "$_ee_dir" "$_nn_k"
+    cat "$_ee_dir/.empty_easteregg_override" 2>/dev/null && echo
+    rm -rf "$_ee_dir"
     return 0
   fi
 
@@ -1837,7 +1892,7 @@ EOF
 
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
-    local _nn_dir=$(mktemp -d)
+    local _nn_dir; _nn_dir=$(mktemp -d)
     trap "rm -rf '${_nn_dir}'" EXIT
     nn_write_workflow_files "$_nn_dir"
 
@@ -1913,7 +1968,7 @@ ENDTAGS
 #!/usr/bin/env bash
 dir="$1"; query="$2"
 zk_path=()
-while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
 if [ -n "$query" ]; then
   zk list "${zk_path[@]}" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
 else
@@ -1941,7 +1996,7 @@ rc=$?
 query=$(printf '%s' "$result" | head -1)
 if [ $rc -eq 0 ] && [ -n "$query" ]; then
   zk_path=()
-  while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+  while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
   zk list "${zk_path[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
   echo "$query" > "$dir/.f_match"
 elif [ $rc -eq 0 ]; then
@@ -1996,7 +2051,7 @@ printf '%s\n' "$@" > "$dir/.pinned"
 # Regenerate raw data
 fmt=$(cat "$dir/.zk_fmt")
 zk_path=()
-while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
 zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 # Re-run current filter to update .current
 "$dir/filter.sh" "$dir" refresh > /dev/null
@@ -2028,7 +2083,7 @@ case "$field" in
     vals=$(paste -sd'\n' "$dir/.schema_priority_values") ;;
   type)
     vals=""
-    while IFS=$'\t' read -r v ic clr desc; do
+    while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
       [ -n "$vals" ] && vals="$vals\n"
       vals="$vals$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
     done < "$dir/.schema_types" ;;
@@ -2057,7 +2112,7 @@ if [ $# -gt 0 ]; then
   files=("$@")
 else
   files=()
-  while IFS= read -r f; do [ -n "$f" ] && files+=("$f"); done < "$dir/.c_sel"
+  while IFS= read -r f || [ -n "$f" ]; do [ -n "$f" ] && files+=("$f"); done < "$dir/.c_sel"
 fi
 [ ${#files[@]} -eq 0 ] && exit 0
 # Pick value (pass file paths for context display)
@@ -2132,7 +2187,7 @@ ENDBEU
 dir="$1"; orig="$2"; edited="$3"
 errors=""
 count=0
-while IFS= read -r new_line; do
+while IFS= read -r new_line || [ -n "$new_line" ]; do
   # Skip comments and empty lines
   case "$new_line" in '#'*|'') continue ;; esac
   path=$(printf '%s' "$new_line" | awk -F'\t' '{print $6}')
@@ -2154,19 +2209,19 @@ while IFS= read -r new_line; do
     [ "$new_pri" = "$old_pri" ] && [ "$new_tags" = "$old_tags" ] && continue
   # Validate type
   valid=false
-  while IFS= read -r vt; do [ "$new_type" = "$vt" ] && valid=true && break; done < "$dir/.schema_type_values"
+  while IFS= read -r vt || [ -n "$vt" ]; do [ "$new_type" = "$vt" ] && valid=true && break; done < "$dir/.schema_type_values"
   $valid || { errors="${errors}Invalid type '$new_type' for $(basename "$path")\n"; continue; }
   # Validate status
   if [ -n "$new_status" ]; then
     valid=false
-    while IFS= read -r vs; do [ "$new_status" = "$vs" ] && valid=true && break; done < "$dir/.schema_status_values"
+    while IFS= read -r vs || [ -n "$vs" ]; do [ "$new_status" = "$vs" ] && valid=true && break; done < "$dir/.schema_status_values"
     $valid || { errors="${errors}Invalid status '$new_status' for $(basename "$path")\n"; continue; }
   fi
   # Validate priority
   if [ -n "$new_pri" ]; then
     if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
       valid=false
-      while IFS= read -r vp; do [ "$new_pri" = "$vp" ] && valid=true && break; done < "$dir/.schema_priority_values"
+      while IFS= read -r vp || [ -n "$vp" ]; do [ "$new_pri" = "$vp" ] && valid=true && break; done < "$dir/.schema_priority_values"
       $valid || { errors="${errors}Invalid priority '$new_pri' for $(basename "$path")\n"; continue; }
     fi
   fi
@@ -2178,10 +2233,19 @@ while IFS= read -r new_line; do
   [ "$new_tags" != "$old_tags" ] && update_args+=("tags=$new_tags")
   "$dir/bulkedit_update.sh" "$path" "${update_args[@]}" && count=$((count + 1))
 done < "$edited"
+# Report results to user
+if [ -n "$errors" ]; then
+  printf '\n\033[31m%b\033[0m' "$errors" > /dev/tty
+fi
+if [ "$count" -gt 0 ]; then
+  printf '\033[32mUpdated %d note(s)\033[0m\n' "$count" > /dev/tty
+else
+  [ -z "$errors" ] && printf '\033[90mNo changes\033[0m\n' > /dev/tty
+fi
 # Regenerate raw data and re-filter
 fmt=$(cat "$dir/.zk_fmt")
 zk_path=()
-while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
 zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 ENDBA
@@ -2197,10 +2261,10 @@ origfile="$dir/.bulkedit_orig.tsv"
 printf '# vim:ft=conf:ts=12:noet:nowrap\n' > "$tmpfile"
 printf '# type\tstatus\tpriority\ttags\ttitle\tpath\n' >> "$tmpfile"
 # Read each path from .current and look up metadata in .raw
-while IFS=$'\t' read -r fpath _rest; do
+while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   [ -z "$fpath" ] && continue
   awk -F'\t' -v p="$fpath" '$6 == p { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6 }' "$dir/.raw" >> "$tmpfile"
-done < <(tac "$dir/.current")
+done < <(awk '{a[NR]=$0} END{for(i=NR;i>0;i--)print a[i]}' "$dir/.current")
 # Footer with valid values from workflow
 printf '\n# type: %s\n' "$(paste -sd', ' "$dir/.schema_type_values")" >> "$tmpfile"
 printf '# status: %s (or empty)\n' "$(paste -sd', ' "$dir/.schema_status_values")" >> "$tmpfile"
@@ -2225,7 +2289,7 @@ dir="$1"
 # Pick type (default to current type filter)
 cur_type=$(cat "$dir/.f_type")
 types="" cur_line=""
-while IFS=$'\t' read -r v ic clr desc; do
+while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
   line=$(printf '\033[%sm%s %s\033[0m\t\033[90m  %s\033[0m' "$clr" "$ic" "$v" "$desc")
   if [ "$v" = "$cur_type" ]; then
     cur_line="$line"
@@ -2243,7 +2307,7 @@ selected=$(printf '%s' "$types" | fzf --reverse --prompt "type: " \
 [ -z "$selected" ] && exit 0
 # Styled title prompt — look up icon and color from workflow
 tc=""; icon=""
-while IFS=$'\t' read -r v ic clr desc; do
+while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
   [ "$v" = "$selected" ] && tc=$(printf '\033[%sm' "$clr") && icon="$ic" && break
 done < "$dir/.schema_types"
 printf '\n' > /dev/tty
@@ -2280,7 +2344,7 @@ fi
 # Regenerate raw
 fmt=$(cat "$dir/.zk_fmt")
 zk_path=()
-while IFS= read -r p; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
 zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 # Open in editor
@@ -2352,7 +2416,7 @@ dir="$1"
 [ ! -f "$dir/.queries" ] && exit 0
 n=0
 list=""
-while IFS='	' read -r qname qargs; do
+while IFS='	' read -r qname qargs || [ -n "$qname" ]; do
   n=$((n + 1))
   list="$list$(printf '%d\t%s\t%s\n' "$n" "$qname" "$qargs")"$'\n'
 done < "$dir/.queries"
@@ -2368,42 +2432,7 @@ ENDQP
     chmod +x "$_nn_dir/querypick.sh"
 
     # Preview helper script (file content + links + backlinks)
-    cat > "$_nn_dir/preview.sh" << 'ENDPREVIEW'
-#!/usr/bin/env bash
-dir="$(dirname "$0")"
-file="$1"
-if [ ! -f "$file" ]; then
-  [ -f "$dir/.empty_placeholder" ] && cat "$dir/.empty_placeholder"
-  exit 0
-fi
-
-# Placeholder file: show content only, no links
-case "$file" in *.empty_placeholder) cat "$file"; exit 0 ;; esac
-
-# Show file content
-$(command -v bat || command -v batcat) -p --color always "$file" 2>/dev/null || cat "$file"
-
-# Collect links in parallel
-tmp_links=$(mktemp); tmp_back=$(mktemp)
-zk list --linked-by "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_links" &
-zk list --link-to "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_back" &
-wait
-
-# Show outgoing links
-if [ -s "$tmp_links" ]; then
-  printf '\n\033[1;34m── Links ─────────────────────────\033[0m\n'
-  cat "$tmp_links"
-fi
-
-# Show backlinks
-if [ -s "$tmp_back" ]; then
-  printf '\n\033[1;35m── Backlinks ─────────────────────\033[0m\n'
-  cat "$tmp_back"
-fi
-
-rm -f "$tmp_links" "$tmp_back"
-ENDPREVIEW
-    chmod +x "$_nn_dir/preview.sh"
+    _nn_write_preview "$_nn_dir/preview.sh"
 
     # Faceted filter helper script
     cat > "$_nn_dir/filter.sh" << 'ENDFILTER'
@@ -2480,7 +2509,7 @@ case "$action" in
         cur_idx=0  # 0 = no query selected (show all)
         if [ -n "$cur_sq" ]; then
           n=0
-          while IFS='	' read -r qn _; do
+          while IFS='	' read -r qn _ || [ -n "$qn" ]; do
             n=$((n + 1))
             [ "$qn" = "$cur_sq" ] && cur_idx=$n && break
           done < "$dir/.queries"
@@ -2536,7 +2565,7 @@ fi
 # Tag filter (OR: match any selected tag)
 if [ -s "$dir/.f_tags" ]; then
   tag_cond=""
-  while IFS= read -r tag; do
+  while IFS= read -r tag || [ -n "$tag" ]; do
     [ -z "$tag" ] && continue
     _etag=$(awk_esc "$tag")
     if [ -n "$tag_cond" ]; then
@@ -2557,7 +2586,7 @@ do_sort() {
   [ -n "$fsort_rev" ] && _rev=yes
   case "$1" in
     priority)
-      local unset_pos=$(cat "$dir/.schema_priority_unset_pos")
+      local unset_pos; unset_pos=$(cat "$dir/.schema_priority_unset_pos")
       local placeholder=9; [ "$unset_pos" = "first" ] && placeholder=0
       local _pdir=n; [ -n "$_rev" ] && _pdir=nr
       awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' | sort -t'	' -k3,3${_pdir} -s | awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3==p)$3="";print}' ;;
@@ -2582,7 +2611,7 @@ count=$(awk 'END{print NR}' "$dir/.current")
 if [ -s "$dir/.pinned" ]; then
   pinned_lines=""
   pinned_awk=$(cat "$dir/.awk_color_pinned")
-  while IFS= read -r pin; do
+  while IFS= read -r pin || [ -n "$pin" ]; do
     [ -z "$pin" ] && continue
     grep -qF "$pin" "$dir/.current" && continue
     # Render the pinned item from .raw with a dim marker
@@ -2671,7 +2700,7 @@ fi
 line_len=$((8 + ${#all_count}))
 if [ -f "$dir/.queries" ]; then
   n=0
-  while IFS='	' read -r qname qargs; do
+  while IFS='	' read -r qname qargs || [ -n "$qname" ]; do
     n=$((n + 1))
     # Build awk condition for this query
     sq_cond='length($1) > 0'
@@ -2886,6 +2915,12 @@ ENDWK
 
   # ---- NAMED QUERY ----
   if [[ $# -ge 1 && "$1" != *=* && "$1" != -* && -n "${saved_queries[$1]+x}" ]]; then
+    local _nn_qdepth=${_NN_QUERY_DEPTH:-0}
+    if (( _nn_qdepth >= 5 )); then
+      echo "notenav: query preset recursion too deep (circular reference?)" >&2
+      return 1
+    fi
+    _NN_QUERY_DEPTH=$(( _nn_qdepth + 1 ))
     local saved="$1"; shift
     shopt -u nullglob
     notenav_main ${saved_queries[$saved]} "$@"
@@ -2924,30 +2959,11 @@ ENDWK
   [[ -n "${filters[tag]}" ]] && awk_cond="$awk_cond && index(\" \" \$4 \" \", \" $(_awk_esc "${filters[tag]}") \") > 0"
 
   if $interactive; then
-    local nn_tmp=$(mktemp)
-    local _nn_prev=$(mktemp)
-    local _nn_sflag=$(mktemp -u)
+    local nn_tmp; nn_tmp=$(mktemp)
+    local _nn_prev; _nn_prev=$(mktemp)
+    local _nn_sflag="${nn_tmp}.sflag"
     trap "rm -f '${nn_tmp}' '${_nn_prev}' '${_nn_sflag}'" EXIT
-    cat > "$_nn_prev" << 'ENDPREVIEW'
-#!/usr/bin/env bash
-file="$1"
-test -f "$file" || exit 0
-$(command -v bat || command -v batcat) -p --color always "$file" 2>/dev/null || cat "$file"
-tmp_links=$(mktemp); tmp_back=$(mktemp)
-zk list --linked-by "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_links" &
-zk list --link-to "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_back" &
-wait
-if [ -s "$tmp_links" ]; then
-  printf '\n\033[1;34m── Links ─────────────────────────\033[0m\n'
-  cat "$tmp_links"
-fi
-if [ -s "$tmp_back" ]; then
-  printf '\n\033[1;35m── Backlinks ─────────────────────\033[0m\n'
-  cat "$tmp_back"
-fi
-rm -f "$tmp_links" "$tmp_back"
-ENDPREVIEW
-    chmod +x "$_nn_prev"
+    _nn_write_preview "$_nn_prev"
     zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
       | awk -F'\t' "$awk_cond && length(\$1) > 0 $_awk_color" > "$nn_tmp"
     fzf --ansi --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
@@ -2970,7 +2986,8 @@ ENDPREVIEW
       local _v
       for _v in "${NN_PRIORITY_VALUES[@]}"; do
         [[ "${NN_PRIORITY_LABELS[$_v]}" == "P$_v" ]] && continue
-        _adhoc_pl+="; if (\$3 == \"$_v\") pl = \"${NN_PRIORITY_LABELS[$_v]}\""
+        local _esc_label; _esc_label=$(_nn_awk_esc "${NN_PRIORITY_LABELS[$_v]}")
+        _adhoc_pl+="; if (\$3 == \"$_v\") pl = \"${_esc_label}\""
       done
       _adhoc_fmt="{ $_adhoc_pl; "'printf "[%s] [%s] [%s] %s\n", $1, pl, $2, $5 }'
     else
