@@ -652,6 +652,7 @@ nn_doctor() {
   _pass() { echo "${_green}[✓]${_reset} $*"; }
   _warn() { echo "${_yellow}[!]${_reset} $*"; (( warns++ )); }
   _fail() { echo "${_red}[✗]${_reset} $*"; (( fails++ )); }
+  _valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
 
   # ── Phase 1: Dependencies ──
 
@@ -936,6 +937,17 @@ nn_doctor() {
     else
       _fail "Entities: $_ent_issues"
     fi
+    # Warn on invalid color formats
+    if [[ -n "$_ent_default_color" ]] && ! _valid_color "$_ent_default_color"; then
+      _warn "entity.default_color '$_ent_default_color' is not a valid ANSI code"
+    fi
+    for _ev in "${_ent_values[@]}"; do
+      local _color
+      _color=$(nn_cfg ".entity.\"$_ev\".color // empty")
+      if [[ -n "$_color" ]] && ! _valid_color "$_color"; then
+        _warn "entity.$_ev.color '$_color' is not a valid ANSI code"
+      fi
+    done
 
     # Status checks
     local _sta_values _sta_ok=true _sta_count=0
@@ -1029,6 +1041,17 @@ nn_doctor() {
     else
       _fail "Statuses: ${_sta_color_issues}${_sta_init_issues}${_fc_issues}${_arc_issues}${_lc_issues}"
     fi
+    # Warn on invalid color formats
+    if [[ -n "$_sta_default_color" ]] && ! _valid_color "$_sta_default_color"; then
+      _warn "status.default_color '$_sta_default_color' is not a valid ANSI code"
+    fi
+    for _stv in "${_sta_values[@]}"; do
+      local _scolor
+      _scolor=$(nn_cfg ".status.colors.\"$_stv\" // empty")
+      if [[ -n "$_scolor" ]] && ! _valid_color "$_scolor"; then
+        _warn "status.colors.$_stv '$_scolor' is not a valid ANSI code"
+      fi
+    done
 
     # Priority checks
     local _pri_enabled
@@ -1101,6 +1124,18 @@ nn_doctor() {
       else
         _fail "Priority: ${_pri_color_issues}${_pri_fc_issues}${_pri_lc_issues}${_pri_unset_issues}"
       fi
+      # Warn on invalid color formats
+      if [[ -n "$_pri_default_color" ]] && ! _valid_color "$_pri_default_color"; then
+        _warn "priority.default_color '$_pri_default_color' is not a valid ANSI code"
+      fi
+      local _pcv
+      for _pcv in "${_pri_values[@]}"; do
+        local _pcolor
+        _pcolor=$(nn_cfg ".priority.colors.\"$_pcv\" // empty")
+        if [[ -n "$_pcolor" ]] && ! _valid_color "$_pcolor"; then
+          _warn "priority.colors.$_pcv '$_pcolor' is not a valid ANSI code"
+        fi
+      done
     else
       _pass "Priority: disabled"
     fi
