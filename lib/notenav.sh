@@ -868,7 +868,8 @@ nn_doctor() {
 
     # Full config merge check
     # Run in current shell (not command substitution) so NN_CFG_JSON survives
-    local _merge_tmpf="${TMPDIR:-/tmp}/nn-doctor-merge.$$"
+    local _merge_tmpf
+    _merge_tmpf=$(mktemp "${TMPDIR:-/tmp}/nn-doctor-merge.XXXXXX")
     if nn_load_config "$notenav_root" 2>"$_merge_tmpf"; then
       _pass "Config merge OK"
     else
@@ -955,6 +956,9 @@ nn_doctor() {
     # Validate entity display_order
     local _ent_do_values
     mapfile -t _ent_do_values < <(nn_cfg '.entity.display_order // [] | .[]')
+    local _edo_dups
+    _edo_dups=$(_dupes "${_ent_do_values[@]}")
+    [[ -n "$_edo_dups" ]] && _warn "entity.display_order has duplicates: $_edo_dups"
     local _edov
     for _edov in "${_ent_do_values[@]}"; do
       if ! _in_array "$_edov" "${_ent_values[@]}"; then
@@ -1051,6 +1055,9 @@ nn_doctor() {
     # Check archive values exist in values
     local _arc_values _arc_issues="" _arcv
     mapfile -t _arc_values < <(nn_cfg '.status.archive // [] | .[]')
+    local _arc_dups
+    _arc_dups=$(_dupes "${_arc_values[@]}")
+    [[ -n "$_arc_dups" ]] && _warn "status.archive has duplicates: $_arc_dups"
     for _arcv in "${_arc_values[@]}"; do
       if ! _in_array "$_arcv" "${_sta_values[@]}"; then
         _arc_issues+="archive '$_arcv' not in values; "
@@ -1117,6 +1124,9 @@ nn_doctor() {
     # Validate status display_order
     local _sta_do_values
     mapfile -t _sta_do_values < <(nn_cfg '.status.display_order // [] | .[]')
+    local _sdo_dups
+    _sdo_dups=$(_dupes "${_sta_do_values[@]}")
+    [[ -n "$_sdo_dups" ]] && _warn "status.display_order has duplicates: $_sdo_dups"
     local _sdov
     for _sdov in "${_sta_do_values[@]}"; do
       if ! _in_array "$_sdov" "${_sta_values[@]}"; then
