@@ -2660,7 +2660,7 @@ _nn_now=$(date '+%Y-%m-%dT%H:%M:%S')
 _nn_initial_status=$(cat "$dir/.schema_status_initial" 2>/dev/null)
 _nn_has_fm=$(head -1 "$new_path" 2>/dev/null)
 if [ "$_nn_has_fm" = "---" ]; then
-  # Patch existing frontmatter – add missing fields
+  # Patch existing frontmatter – add missing type/status, always set created
   awk -v nn_type="$selected" -v nn_status="$_nn_initial_status" -v nn_created="$_nn_now" '
     NR==1 && /^---/ { in_fm=1; print; next }
     in_fm && /^---/ {
@@ -2672,7 +2672,7 @@ if [ "$_nn_has_fm" = "---" ]; then
     }
     in_fm && /^type:( |$)/    { found_type=1 }
     in_fm && /^status:( |$)/  { found_status=1 }
-    in_fm && /^created:( |$)/ { found_created=1 }
+    in_fm && /^created:( |$)/ { print "created: " nn_created; found_created=1; next }
     { print }
   ' "$new_path" > "$new_path.tmp" && mv "$new_path.tmp" "$new_path"
 else
