@@ -23,7 +23,7 @@ TOML files with comments are documentation artifacts — often the first thing a
 
 - **`config/base.toml`**: every key has a comment explaining what it does and what values are valid. Comments stay in sync with `docs/configuration.md`.
 - **`config/workflows/*.toml`**: each major section has a comment block explaining what it configures. Non-obvious keys have inline comments. ANSI color codes have a color name comment (e.g. `# bold red`). Tombstone/omission patterns are explained.
-- **`samples/user-config.toml`**: header comment explains where to put the file. Commented-out keys show useful customizations with clear explanations. No stale keys or wrong defaults.
+- **`samples/user-config.toml`**: all values commented out (matching base defaults), annotations explain each option. No stale keys or wrong defaults.
 - **`samples/workflows/*.toml`**: header comments explain purpose and placement. Inline comments guide a user building their first workflow. All keys, values, and extends references are valid.
 - Across all TOML files: comments match actual behavior — no outdated value lists, no wrong defaults, no references to renamed keys.
 

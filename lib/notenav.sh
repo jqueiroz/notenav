@@ -1647,16 +1647,21 @@ _nn_init_user() {
     fi
   fi
 
+  local _sample="$notenav_root/samples/user-config.toml"
+  if [[ ! -f "$_sample" ]]; then
+    echo "notenav: sample config not found at $_sample" >&2
+    return 1
+  fi
   mkdir -p "$(dirname "$target")" || { echo "notenav: cannot create directory: $(dirname "$target")" >&2; return 1; }
-  cp "$notenav_root/samples/user-config.toml" "$target"
+  cp "$_sample" "$target"
 
-  # Replace default_workflow if a name/URL was given.
+  # Uncomment and set default_workflow if a name/URL was given.
   # Uses awk to avoid sed delimiter injection from URLs or special characters.
   if [[ -n "$workflow_arg" ]]; then
     local _tmp
     _tmp=$(mktemp)
     wf="$workflow_arg" awk \
-      '/^default_workflow = / { print "default_workflow = \"" ENVIRON["wf"] "\""; next } { print }' \
+      '/^# default_workflow = / { print "default_workflow = \"" ENVIRON["wf"] "\""; next } { print }' \
       "$target" > "$_tmp" \
       && mv "$_tmp" "$target" \
       || rm -f "$_tmp"

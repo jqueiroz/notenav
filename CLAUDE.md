@@ -18,7 +18,7 @@ docs/
   faq.md              # Frequently asked questions
   workflows/          # Per-workflow documentation (zenith.md, ado.md, etc.)
 samples/
-  user-config.toml      # Example ~/.config/notenav/config.toml
+  user-config.toml      # Template for ~/.config/notenav/config.toml (all values commented out)
   workflows/            # Example .nn/workflow.toml files
 .claude/
   commands/           # Claude Code slash commands (best-practices, review-config, etc.)

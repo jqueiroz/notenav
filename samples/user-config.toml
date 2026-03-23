@@ -1,34 +1,33 @@
-# Example ~/.config/notenav/config.toml
-# Copy this to ~/.config/notenav/config.toml and customize.
+# notenav user config – uncomment and change values to override defaults.
+# See https://github.com/jqueiroz/notenav/blob/main/docs/configuration.md
 
 # Choose a built-in workflow: zenith, ado, gtd, zettelkasten
-default_workflow = "zenith"
+# default_workflow = "zenith"
 
-[defaults]
-sort_by = "modified"       # created | modified | title | priority
-sort_reverse = false       # true to reverse the default sort direction
-group_by = ""              # "" (none) | type | status
-show_archive = false       # true to show done/removed by default
-wrap_preview = false       # true to wrap the preview pane by default
+# [defaults]
+# sort_by = "created"           # created | modified | title | priority
+# sort_reverse = false          # true to reverse the default sort direction
+# group_by = ""                 # "" (none) | type | status
+# show_archive = false          # true to show done/removed by default
+# wrap_preview = false          # true to wrap the preview pane by default
 
-[ui]
-editor = "nvim"            # editor for opening notes
-# command_prompt = ": "   # prompt in normal (command) mode
-# search_prompt = "/ "    # prompt in ad-hoc interactive mode
-# exit_message = "fortune"   # "none" (default) or "fortune" (fun quote on exit)
-# priority_plus = "demote"   # "demote": + lowers urgency (P1→P2)
-                              # "promote": + raises urgency (P2→P1)
-# after_create = "edit"      # "edit" (open in editor) or "none" (just create)
+# [ui]
+# editor = ""                   # empty = $EDITOR, then nvim/vim/vi/nano/emacs
+# command_prompt = ": "         # prompt in normal (command) mode
+# search_prompt = "/ "          # prompt in ad-hoc interactive mode
+# exit_message = "none"         # "none" or "fortune" (fun quote on exit)
+# priority_plus = "demote"      # "demote": + lowers urgency (P1→P2)
+#                               # "promote": + raises urgency (P2→P1)
+# after_create = "edit"         # "edit" (open in editor) or "none" (just create)
 
-# Override individual type/status/priority colors from the workflow.
-# These merge on top of the workflow, so you only need to specify what you
+# Override workflow colors – these merge on top, so only specify what you
 # want to change.
 #
 # [type.task]
-# color = "34"          # change tasks from cyan to blue
+# color = "34"                  # change tasks from cyan to blue
 #
 # [status.colors]
-# active = "32;1"       # bold green for active
+# active = "32;1"               # bold green for active
 #
 # [priority.colors]
-# 1 = "31"              # non-bold red for P1
+# 1 = "31"                      # non-bold red for P1
