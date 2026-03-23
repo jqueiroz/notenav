@@ -259,8 +259,14 @@ nn_load_config() {
 
   # Deep merge: base * workflow * user * project_queries
   # Later values win. Project queries applied last so they override user/workflow queries.
+  # meta.schema is pinned to the workflow's value — user config must not override it.
+  local _wf_schema
+  _wf_schema=$(printf '%s' "$workflow_json" | jq -r '.meta.schema // empty' 2>/dev/null)
   NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$base_json" "$workflow_json" "$user_json" "$project_queries" \
     | jq -s '.[0] * .[1] * .[2] * .[3] | del(.queries.inherit)' 2>/dev/null)
+  if [[ -n "$_wf_schema" ]]; then
+    NN_CFG_JSON=$(printf '%s' "$NN_CFG_JSON" | jq ".meta.schema = $_wf_schema" 2>/dev/null)
+  fi
 
   if [[ -z "$NN_CFG_JSON" || "$NN_CFG_JSON" == "null" ]]; then
     echo "notenav: config merge failed" >&2
