@@ -2380,7 +2380,7 @@ if [ -n "$errors" ]; then
 fi
 if [ "$count" -gt 0 ]; then
   printf '\033[32mUpdated %d note(s)\033[0m\n' "$count" > /dev/tty
-  printf 'bulk edit → %d note(s)' "$count" > "$dir/.last_action"
+  printf 'bulk edit → %d notes' "$count" > "$dir/.last_action"
 else
   [ -z "$errors" ] && printf '\033[90mNo changes\033[0m\n' > /dev/tty
 fi
@@ -2804,7 +2804,7 @@ else
   printf '\n  %s%s %s · %s – Created!\033[0m\n  \033[90m%s\033[0m\n\n' "$tc" "$icon" "$selected" "$title" "$rel_path" > /dev/tty
 fi
 # Regenerate raw
-_la_title="$title"; [ ${#_la_title} -gt 40 ] && _la_title="${_la_title:0:37}..."
+_la_title="${title//[()]/}"; [ ${#_la_title} -gt 40 ] && _la_title="${_la_title:0:37}..."
 printf 'new %s → %s' "$selected" "$_la_title" > "$dir/.last_action"
 fmt=$(cat "$dir/.zk_fmt")
 zk_path=()
