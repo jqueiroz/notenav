@@ -19,6 +19,7 @@
         gawk
         gnused
         coreutils
+        ncurses  # provides tput (used for terminal width)
         git
         yq-go
         jq
