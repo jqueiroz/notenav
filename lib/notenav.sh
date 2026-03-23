@@ -747,8 +747,9 @@ _nn_list_notes_native() {
         # Parse "key: value" within frontmatter
         if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
           key = m[1]; val = m[2]
-          # Strip surrounding quotes
+          # Strip surrounding quotes and trailing whitespace
           gsub(/^["'"'"']|["'"'"']$/, "", val)
+          gsub(/[ \t]+$/, "", val)
           if (key == "type") type = val
           else if (key == "status") status = val
           else if (key == "priority") priority = val
@@ -2413,11 +2414,11 @@ else
     } BEGIN { NR_FILE = 0 }'
   }
   if [ -n "$query" ]; then
-    # Use rg if available, grep fallback
+    # Use rg if available, grep fallback; -F for literal match (like zk FTS)
     if command -v rg >/dev/null 2>&1; then
-      rg -l --type md "$query" "$search_dir" 2>/dev/null
+      rg -Fl --type md "$query" "$search_dir" 2>/dev/null
     else
-      grep -rl --include='*.md' "$query" "$search_dir" 2>/dev/null
+      grep -Frl --include='*.md' "$query" "$search_dir" 2>/dev/null
     fi | _nn_extract_titles
   else
     find "$search_dir" -name '*.md' -type f | _nn_extract_titles
@@ -2455,9 +2456,9 @@ if [ $rc -eq 0 ] && [ -n "$query" ]; then
     while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
     search_dir="${zk_path[0]:-$root}"
     if command -v rg >/dev/null 2>&1; then
-      rg -l --type md "$query" "$search_dir" 2>/dev/null > "$dir/.f_match_paths"
+      rg -Fl --type md "$query" "$search_dir" 2>/dev/null > "$dir/.f_match_paths"
     else
-      grep -rl --include='*.md' "$query" "$search_dir" 2>/dev/null > "$dir/.f_match_paths"
+      grep -Frl --include='*.md' "$query" "$search_dir" 2>/dev/null > "$dir/.f_match_paths"
     fi
   fi
   echo "$query" > "$dir/.f_match"
@@ -2534,6 +2535,7 @@ else
         if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
           key = m[1]; val = m[2]
           gsub(/^["'"'"']|["'"'"']$/, "", val)
+          gsub(/[ \t]+$/, "", val)
           if (key == "type") type = val
           else if (key == "status") status = val
           else if (key == "priority") priority = val

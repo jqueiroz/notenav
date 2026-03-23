@@ -89,7 +89,7 @@ Run `nn doctor` – it checks all dependencies (versions, variants), validates y
 nn doctor
 ```
 
-If something is wrong, the output tells you exactly what failed and why. Warnings (marked `[!]`) are non-fatal; failures (marked `[✗]`) indicate problems that will prevent `nn` from working correctly.
+If something is wrong, the output tells you exactly what failed and why. Info markers (`[-]`) note optional dependencies that aren't installed; warnings (`[!]`) are non-fatal; failures (`[✗]`) indicate problems that will prevent `nn` from working correctly.
 
 ## How do I scope `nn` to a subfolder without `cd`-ing into it?
 
