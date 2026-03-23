@@ -1980,7 +1980,8 @@ EOF
       NN_UI_EDITOR NN_UI_COMMAND_PROMPT NN_UI_SEARCH_PROMPT \
       NN_UI_EXIT_MESSAGE NN_UI_PRIORITY_PLUS NN_UI_AFTER_CREATE \
       NN_ZK_FMT NN_AWK_COLOR NN_AWK_COLOR_BODY NN_AWK_COLOR_PINNED NN_AWK_COLOR_STATS \
-      NN_TYPE_ORDER_STR NN_STATUS_ORDER_STR NN_AWK_ICON_SETUP NN_ARCHIVE_COND
+      NN_TYPE_ORDER_STR NN_STATUS_ORDER_STR NN_AWK_ICON_SETUP NN_ARCHIVE_COND \
+      NN_CFG_JSON
     _NN_SEALED=1
   fi
 
@@ -3445,7 +3446,12 @@ ENDEDIT
       case "$1" in
         -i|--interactive) interactive=true; shift ;;
         --) parsing_filters=false; shift ;;
-        *=*) filters[${1%%=*}]="${1#*=}"; shift ;;
+        *=*)
+          local _fk="${1%%=*}"
+          case "$_fk" in type|status|priority|tag) ;; *)
+            echo "notenav: unknown filter key '$_fk'" >&2
+            echo "notenav: valid keys: type, status, priority, tag" >&2; return 1 ;; esac
+          filters[$_fk]="${1#*=}"; shift ;;
         *) parsing_filters=false; zk_args+=("$1"); shift ;;
       esac
     else
