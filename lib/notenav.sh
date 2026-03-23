@@ -832,16 +832,7 @@ nn_doctor() {
     fi
   done
 
-  # Preview tools (optional – configured via ui.previewer, validated in Phase 2)
-  if command -v bat >/dev/null 2>&1; then
-    local bat_ver
-    bat_ver=$(bat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
-    _pass "bat ${bat_ver:-installed}"
-  elif command -v batcat >/dev/null 2>&1; then
-    local batcat_ver
-    batcat_ver=$(batcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
-    _pass "bat ${batcat_ver:-installed} (as batcat)"
-  fi
+  # Preview tools validated in Phase 2 alongside config
 
   # ── Phase 2: Config validation ──
 
@@ -1469,43 +1460,71 @@ nn_doctor() {
     if [[ -n "$_ui_prev_custom" && ! " $_ui_prev_list " =~ " custom " ]]; then
       _warn "ui.previewer_custom_command is set but ui.previewer does not include 'custom'"
     fi
-    # Check configured previewer availability
-    local _prev_any_found=false _pv
+    # Previewer summary – list each configured previewer with status
+    echo ""
+    echo "Previewers ${_dim}(first available is used)${_reset}:"
+    local _prev_any_found=false _prev_active="" _pv
     for _pv in ${_ui_prev_list:-bat glow mdcat}; do
       case "$_pv" in
         bat)
-          if command -v bat >/dev/null 2>&1 || command -v batcat >/dev/null 2>&1; then
+          if command -v bat >/dev/null 2>&1; then
+            local _bat_ver
+            _bat_ver=$(bat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            _pass "bat ${_bat_ver:-installed}"
             _prev_any_found=true
+            [[ -z "$_prev_active" ]] && _prev_active="bat"
+          elif command -v batcat >/dev/null 2>&1; then
+            local _batcat_ver
+            _batcat_ver=$(batcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            _pass "bat ${_batcat_ver:-installed} (as batcat)"
+            _prev_any_found=true
+            [[ -z "$_prev_active" ]] && _prev_active="bat (batcat)"
           else
-            _warn "ui.previewer: 'bat' not found"
+            _warn "bat not found"
           fi ;;
         glow)
           if command -v glow >/dev/null 2>&1; then
+            local _glow_ver
+            _glow_ver=$(glow --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            _pass "glow ${_glow_ver:-installed}"
             _prev_any_found=true
+            [[ -z "$_prev_active" ]] && _prev_active="glow"
           else
-            _warn "ui.previewer: 'glow' not found"
+            _warn "glow not found"
           fi ;;
         mdcat)
           if command -v mdcat >/dev/null 2>&1; then
+            local _mdcat_ver
+            _mdcat_ver=$(mdcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            _pass "mdcat ${_mdcat_ver:-installed}"
             _prev_any_found=true
+            [[ -z "$_prev_active" ]] && _prev_active="mdcat"
           else
-            _warn "ui.previewer: 'mdcat' not found"
+            _warn "mdcat not found"
           fi ;;
         custom)
           if [[ -n "$_ui_prev_custom" ]]; then
             local _custom_bin="${_ui_prev_custom%% *}"
             if command -v "$_custom_bin" >/dev/null 2>&1; then
+              _pass "custom ($_custom_bin)"
               _prev_any_found=true
+              [[ -z "$_prev_active" ]] && _prev_active="custom ($_custom_bin)"
             else
-              _warn "ui.previewer: custom command '$_custom_bin' not found"
+              _warn "custom command '$_custom_bin' not found"
             fi
           else
             _warn "ui.previewer includes 'custom' but ui.previewer_custom_command is empty"
           fi ;;
-        plain) _prev_any_found=true ;;
+        plain)
+          _pass "plain (cat)"
+          _prev_any_found=true
+          [[ -z "$_prev_active" ]] && _prev_active="plain"
+          ;;
       esac
     done
-    if [[ "$_prev_any_found" == "false" ]]; then
+    if [[ "$_prev_any_found" == "true" ]]; then
+      echo "  ${_dim}→ using: ${_prev_active}${_reset}"
+    else
       _warn "no configured previewer found (preview will use cat)"
     fi
     # Check for unrecognized keys in [ui]
