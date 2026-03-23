@@ -289,6 +289,7 @@ nn_cfg() {
 # Escape a string for safe interpolation into an AWK double-quoted literal.
 # Handles backslash and double-quote (the two characters that break AWK strings).
 _nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+_nn_in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
 
 _nn_gen_awk_bodies() {
   local _v _i _esc
@@ -484,6 +485,24 @@ nn_precompute_workflow() {
   # Status initial (starting state for notes without a status)
   NN_STATUS_INITIAL=$(nn_cfg '.status.initial // empty')
 
+  # -- Status invariants (fail fast on invalid config) --
+  if [[ ${#NN_STATUS_VALUES[@]} -gt 0 ]]; then
+    if [[ ${#NN_STATUS_FILTER_CYCLE[@]} -eq 0 ]]; then
+      echo "notenav: status.filter_cycle is empty (must contain at least one status)" >&2
+      return 1
+    fi
+    for _v in "${NN_STATUS_FILTER_CYCLE[@]}"; do
+      _nn_in_array "$_v" "${NN_STATUS_VALUES[@]}" || {
+        echo "notenav: status.filter_cycle '$_v' not in status.values" >&2; return 1; }
+    done
+    if [[ -n "$NN_STATUS_INITIAL" ]]; then
+      _nn_in_array "$NN_STATUS_INITIAL" "${NN_STATUS_VALUES[@]}" || {
+        echo "notenav: status.initial '$NN_STATUS_INITIAL' not in status.values" >&2; return 1; }
+      _nn_in_array "$NN_STATUS_INITIAL" "${NN_STATUS_ARCHIVE[@]}" && {
+        echo "notenav: status.initial '$NN_STATUS_INITIAL' is in status.archive (new notes would be hidden)" >&2; return 1; }
+    fi
+  fi
+
   # Status lifecycle
   declare -gA NN_STATUS_FWD NN_STATUS_REV
   for _v in "${NN_STATUS_VALUES[@]}"; do
@@ -501,6 +520,21 @@ nn_precompute_workflow() {
     mapfile -t NN_PRIORITY_FILTER_CYCLE < <(nn_cfg '.priority.filter_cycle // [] | .[]')
     NN_PRIORITY_DEFAULT_COLOR=$(nn_cfg '.priority.default_color // "33"')
     NN_PRIORITY_UNSET_POS=$(nn_cfg '.priority.unset_position // "last"')
+
+    # -- Priority invariants --
+    if [[ ${#NN_PRIORITY_VALUES[@]} -gt 0 && ${#NN_PRIORITY_FILTER_CYCLE[@]} -eq 0 ]]; then
+      echo "notenav: priority.filter_cycle is empty (must contain at least one priority)" >&2
+      return 1
+    fi
+    for _v in "${NN_PRIORITY_FILTER_CYCLE[@]}"; do
+      _nn_in_array "$_v" "${NN_PRIORITY_VALUES[@]}" || {
+        echo "notenav: priority.filter_cycle '$_v' not in priority.values" >&2; return 1; }
+    done
+    if [[ "$NN_PRIORITY_UNSET_POS" != "first" && "$NN_PRIORITY_UNSET_POS" != "last" ]]; then
+      echo "notenav: priority.unset_position '$NN_PRIORITY_UNSET_POS' invalid (must be 'first' or 'last')" >&2
+      return 1
+    fi
+
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
       NN_PRIORITY_COLORS[$_v]=$(nn_cfg ".priority.colors.\"$_v\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")
       local _label; _label=$(nn_cfg ".priority.labels.\"$_v\" // empty")
@@ -548,6 +582,19 @@ nn_precompute_workflow() {
 
   # Generate AWK bodies
   _nn_gen_awk_bodies
+
+  # Validate generated AWK syntax (catches config values with unescaped special chars)
+  local _awk_check
+  for _awk_check in \
+    "$NN_AWK_COLOR" \
+    "{ $NN_AWK_COLOR_BODY }" \
+    "{ $NN_AWK_COLOR_PINNED }" \
+    "$NN_AWK_COLOR_STATS"; do
+    if ! printf '' | gawk -F'\t' "$_awk_check" 2>/dev/null; then
+      echo "notenav: generated AWK program has syntax errors (check config values for special characters)" >&2
+      return 1
+    fi
+  done
 
   # Archive AWK condition (e.g. ' && $2!="done" && $2!="removed"')
   NN_ARCHIVE_COND=""
@@ -1916,8 +1963,26 @@ EOF
   fi
 
   # Load config (workflow + user preferences)
-  nn_load_config "$NOTENAV_ROOT" || { echo "notenav: config loading failed" >&2; return 1; }
-  nn_precompute_workflow || return 1
+  # Guard: skip on recursive re-entry (named query dispatch calls notenav_main again)
+  if [[ -z "${_NN_SEALED:-}" ]]; then
+    nn_load_config "$NOTENAV_ROOT" || { echo "notenav: config loading failed" >&2; return 1; }
+    nn_precompute_workflow || return 1
+
+    # Seal all workflow variables – accidental mutation is now a hard error
+    readonly NN_TYPE_VALUES NN_TYPE_DEFAULT_COLOR NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS \
+      NN_STATUS_VALUES NN_STATUS_ARCHIVE NN_STATUS_FILTER_CYCLE NN_STATUS_DEFAULT_COLOR \
+      NN_STATUS_INITIAL NN_STATUS_COLORS NN_STATUS_FWD NN_STATUS_REV \
+      NN_PRIORITY_ENABLED NN_PRIORITY_VALUES NN_PRIORITY_FILTER_CYCLE \
+      NN_PRIORITY_DEFAULT_COLOR NN_PRIORITY_UNSET_POS \
+      NN_PRIORITY_COLORS NN_PRIORITY_LABELS NN_PRIORITY_UP NN_PRIORITY_DOWN \
+      NN_TYPE_DISPLAY_ORDER NN_STATUS_DISPLAY_ORDER \
+      NN_DEFAULT_SORT NN_DEFAULT_SORT_REV NN_DEFAULT_GROUP NN_DEFAULT_ARCHIVE NN_DEFAULT_WRAP \
+      NN_UI_EDITOR NN_UI_COMMAND_PROMPT NN_UI_SEARCH_PROMPT \
+      NN_UI_EXIT_MESSAGE NN_UI_PRIORITY_PLUS NN_UI_AFTER_CREATE \
+      NN_ZK_FMT NN_AWK_COLOR NN_AWK_COLOR_BODY NN_AWK_COLOR_PINNED NN_AWK_COLOR_STATS \
+      NN_TYPE_ORDER_STR NN_STATUS_ORDER_STR NN_AWK_ICON_SETUP NN_ARCHIVE_COND
+    _NN_SEALED=1
+  fi
 
   shopt -s nullglob
 
@@ -3389,6 +3454,26 @@ ENDEDIT
   done
 
   [[ ${#zk_args[@]} -eq 0 ]] && zk_args=("${_zk_path[@]}")
+
+  # Validate ad-hoc filter values against known workflow values
+  if [[ -n "${filters[type]+x}" && -n "${filters[type]}" ]]; then
+    _nn_in_array "${filters[type]}" "${NN_TYPE_VALUES[@]}" || {
+      echo "notenav: unknown type '${filters[type]}'" >&2
+      echo "notenav: valid types: ${NN_TYPE_VALUES[*]}" >&2; return 1; }
+  fi
+  if [[ -n "${filters[status]+x}" && -n "${filters[status]}" ]]; then
+    _nn_in_array "${filters[status]}" "${NN_STATUS_VALUES[@]}" || {
+      echo "notenav: unknown status '${filters[status]}'" >&2
+      echo "notenav: valid statuses: ${NN_STATUS_VALUES[*]}" >&2; return 1; }
+  fi
+  if [[ -n "${filters[priority]+x}" && -n "${filters[priority]}" && "${filters[priority]}" != "none" ]]; then
+    if [[ "$NN_PRIORITY_ENABLED" == "false" ]]; then
+      echo "notenav: priority filtering not available (priority is disabled)" >&2; return 1
+    fi
+    _nn_in_array "${filters[priority]}" "${NN_PRIORITY_VALUES[@]}" || {
+      echo "notenav: unknown priority '${filters[priority]}'" >&2
+      echo "notenav: valid priorities: ${NN_PRIORITY_VALUES[*]}" >&2; return 1; }
+  fi
 
   local awk_cond="1"
   [[ -n "${filters[type]}" ]] && awk_cond="$awk_cond && \$1==\"$(_nn_awk_esc "${filters[type]}")\""
