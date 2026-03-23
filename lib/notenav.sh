@@ -257,9 +257,9 @@ nn_load_config() {
     workflow_json=$(printf '%s' "$workflow_json" | jq 'del(.queries)' 2>/dev/null)
   fi
 
-  # Deep merge: workflow * base * user * project_queries
+  # Deep merge: base * workflow * user * project_queries
   # Later values win. Project queries applied last so they override user/workflow queries.
-  NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$workflow_json" "$base_json" "$user_json" "$project_queries" \
+  NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$base_json" "$workflow_json" "$user_json" "$project_queries" \
     | jq -s '.[0] * .[1] * .[2] * .[3] | del(.queries.inherit)' 2>/dev/null)
 
   if [[ -z "$NN_CFG_JSON" || "$NN_CFG_JSON" == "null" ]]; then
@@ -3001,7 +3001,7 @@ if [ -n "$fgroup" ]; then
 fi
 # Compute inline stats from filtered set
 awk_stats=$(cat "$dir/.awk_color_stats")
-stats_s=$(awk -F'\t' "${cond}${awk_stats}" "$dir/.raw")
+stats_s=$(awk -F'\t' "${cond}${awk_stats}" "$_raw_input")
 # Header line 1: filter state
 fmt_dim() {
   local key="$1" val="$2" label suffix ic=""
