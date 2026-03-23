@@ -2952,8 +2952,15 @@ if [ -n "$fgroup" ]; then
       for (i=1; i<=n; i++) {
         g = order[i]
         if (!(g in counts)) continue
+        printed[g] = 1
         ic = (g in icon) ? icon[g] " " : ""
         printf "\t\033[90;1m── %s%s (%d) ──\033[0m\n", ic, g, counts[g]
+        printf "%s", lines[g]
+      }
+      for (g in counts) {
+        if (g in printed) continue
+        label = (g == "") ? "(none)" : g
+        printf "\t\033[90;1m── %s (%d) ──\033[0m\n", label, counts[g]
         printf "%s", lines[g]
       }
     }' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
