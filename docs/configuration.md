@@ -373,8 +373,8 @@ search_prompt = "/ "     # prompt in ad-hoc interactive mode
 exit_message = "none"    # "none" or "fortune"
 priority_plus = "demote" # what the + key does to priority
 after_create = "edit"    # "edit" or "none"
-previewer = "bat"        # bat | glow | mdcat | plain | custom
-previewer_custom_command = "" # command when previewer = "custom"
+previewer = ["bat"]      # fallback list (bat | glow | mdcat | plain | custom)
+previewer_custom_command = "" # command when previewer includes "custom"
 ```
 
 | Key | Type | Default | Description |
@@ -385,8 +385,8 @@ previewer_custom_command = "" # command when previewer = "custom"
 | `exit_message` | string | `"none"` | What to show on exit: `"none"` or `"fortune"` (a fun quote) |
 | `priority_plus` | string | `"demote"` | What the `+` key does to priority (see below) |
 | `after_create` | string | `"edit"` | What to do after creating a note: `"edit"` (open in editor) or `"none"` |
-| `previewer` | string | `"bat"` | Markdown previewer for the preview pane (see below) |
-| `previewer_custom_command` | string | `""` | Command to run when `previewer = "custom"` (file path passed as `$1`) |
+| `previewer` | string or array | `["bat"]` | Previewer fallback list – tries each in order, uses first one found (see below) |
+| `previewer_custom_command` | string | `""` | Command to run for the `"custom"` previewer entry (file path passed as `$1`) |
 
 #### Priority key direction
 
@@ -401,27 +401,34 @@ Both values use the same lifecycle tables (`[priority.lifecycle.up]` and `[prior
 
 #### Previewer
 
-The `previewer` setting controls which tool renders markdown in the preview pane.
+The `previewer` setting controls which tool renders markdown in the preview pane. It accepts a **fallback list** – notenav tries each entry in order and uses the first one found on `$PATH`.
+
+```toml
+[ui]
+previewer = ["glow", "bat"]   # try glow, fall back to bat
+```
+
+A single string (e.g. `previewer = "bat"`) is also accepted and is equivalent to a one-element list.
 
 | Value | Tool | Notes |
 |-------|------|-------|
-| `"bat"` (default) | [bat](https://github.com/sharkdp/bat) (or batcat) | Syntax-highlighted plain text; falls back to `cat` if not installed |
+| `"bat"` (default) | [bat](https://github.com/sharkdp/bat) (or batcat) | Syntax-highlighted plain text |
 | `"glow"` | [glow](https://github.com/charmbracelet/glow) | Rendered markdown with styling |
 | `"mdcat"` | [mdcat](https://codeberg.org/flausch/mdcat) | Rendered markdown; supports inline images in kitty/iTerm2 |
 | `"plain"` | cat | No highlighting or rendering |
 | `"custom"` | user-defined | Runs `previewer_custom_command` with the file path as `$1` |
 
-If the configured tool is not found, the preview falls back to `cat` silently. Use `nn doctor` to check that your chosen previewer is installed.
+If no entry in the list is available, the preview falls back to `cat`. Use `nn doctor` to check which previewers are installed.
 
 **Custom previewer example:**
 
 ```toml
 [ui]
-previewer = "custom"
+previewer = ["custom", "bat"]
 previewer_custom_command = "glow -s light -w 80"
 ```
 
-The command string is evaluated by the shell, so you can include flags. The file path is appended as the final argument.
+The command string is evaluated by the shell, so you can include flags. The file path is appended as the final argument. If the custom command is not found, the next entry in the list is tried.
 
 ### Overriding workflow colors
 
