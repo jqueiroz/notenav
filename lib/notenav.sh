@@ -3323,6 +3323,18 @@ ENDEDIT
     return
   fi
 
+  # Bare word that isn't a known query preset: warn if it doesn't look like a path
+  if [[ $# -ge 1 && "$1" != *=* && "$1" != -* && "$1" != */* && ! -e "$1" ]]; then
+    echo "notenav: '$1' is not a query preset" >&2
+    if [[ ${#saved_queries[@]} -gt 0 ]]; then
+      local _pnames
+      printf -v _pnames '%s, ' "${!saved_queries[@]}"
+      echo "notenav: available presets: ${_pnames%, }" >&2
+    fi
+    echo "notenav: run 'nn --help' for usage" >&2
+    return 1
+  fi
+
   # ---- AD-HOC QUERY ----
   declare -A filters
   local interactive=false zk_args=() parsing_filters=true
