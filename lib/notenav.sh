@@ -2329,7 +2329,7 @@ if [ "$type_count" -eq 1 ] || [ -n "$cur_type" ]; then
   fi
   while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
     if [ "$v" = "$auto_type" ]; then
-      auto_icon="$ic"; auto_color="$clr"; break
+      auto_icon="$ic"; auto_color="$clr"; auto_desc="$desc"; break
     fi
   done < "$dir/.schema_types"
 else
@@ -2429,25 +2429,32 @@ if [ "$mode" = "auto" ]; then
   hint_pad=$((inner - ${#hint} - 2))
   c="$auto_color"
 
+  # Truncate description for display
+  auto_desc_disp="$auto_desc"
+  desc_max=$((inner - 2))
+  [ ${#auto_desc_disp} -gt "$desc_max" ] && auto_desc_disp="${auto_desc_disp:0:$((desc_max - 3))}..."
+  desc_line_pad=$((inner - 2 - ${#auto_desc_disp}))
+
   printf '\n' > /dev/tty
   printf '  \033[%sm╭─ %s%s╮\033[0m\n' "$c" "$label" "$top_dashes" > /dev/tty
   printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$c" "$inner" "" "$c" > /dev/tty
   printf '  \033[%sm│\033[0m  Title: %*s\033[%sm│\033[0m\n' "$c" "$((inner - 9))" "" "$c" > /dev/tty
+  printf '  \033[%sm│\033[0m  \033[90m%s\033[0m%*s\033[%sm│\033[0m\n' "$c" "$auto_desc_disp" "$desc_line_pad" "" "$c" > /dev/tty
   printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$c" "$inner" "" "$c" > /dev/tty
   printf '  \033[%sm│\033[0m  \033[90m%s\033[0m%*s\033[%sm│\033[0m\n' "$c" "$hint" "$hint_pad" "" "$c" > /dev/tty
   printf '  \033[%sm╰%s╯\033[0m\n' "$c" "$bot_dashes" > /dev/tty
-  # Cursor: up 4 to title line, column 13 (after "  │  Title: ")
-  printf '\033[4A\033[13G' > /dev/tty
+  # Cursor: up 5 to title line, column 13 (after "  │  Title: ")
+  printf '\033[5A\033[13G' > /dev/tty
   title=""
   _nn_read_title
   if [ -z "$title" ]; then
-    # Move past box bottom (3 lines down from title+1)
-    printf '\033[3B' > /dev/tty
+    # Move past box bottom (4 lines down from title+1)
+    printf '\033[4B' > /dev/tty
     printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
     exit 0
   fi
-  # Move past box bottom (3 lines down from title+1)
-  printf '\033[3B' > /dev/tty
+  # Move past box bottom (4 lines down from title+1)
+  printf '\033[4B' > /dev/tty
   selected="$auto_type"
   tc=$(printf '\033[%sm' "$auto_color")
   icon="$auto_icon"
