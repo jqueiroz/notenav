@@ -1715,9 +1715,11 @@ nn_doctor() {
 
   echo ""
   echo "Notebook:"
+  local _zk_notebook_ok=false
   if [[ "$_has_zk" == "true" ]]; then
     if zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
       _pass "zk notebook found"
+      _zk_notebook_ok=true
       local _note_count
       _note_count=$(zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
       if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
@@ -1726,10 +1728,11 @@ nn_doctor() {
         _warn "0 notes indexed"
       fi
     else
-      _warn "No zk notebook found from current directory"
+      _info "No zk notebook found ${_dim}(will use native backend if .nn/ or .zk/ directory exists)${_reset}"
     fi
-  else
-    # Without zk, check for markdown files
+  fi
+  if [[ "$_zk_notebook_ok" != "true" ]]; then
+    # Check for native-backend notebook (no zk, or zk can't find its notebook)
     local _nn_root="$PWD"
     while true; do
       [[ -d "$_nn_root/.zk" || -d "$_nn_root/.nn" ]] && break
@@ -2277,13 +2280,21 @@ EOF
   if [[ "$_NN_HAS_ZK" == "true" ]]; then
     local _zk_check_err
     if ! _zk_check_err=$(zk list --format '{{absPath}}' --quiet --limit 1 "${_zk_path[@]}" 2>&1 >/dev/null); then
-      echo "notenav: no zk notebook found from $(pwd)" >&2
-      [[ -n "$_zk_check_err" ]] && echo "notenav: $_zk_check_err" >&2
-      echo "notenav: run 'zk init' to create one, or 'nn doctor' to diagnose" >&2
-      return 1
+      # zk is installed but can't find a notebook — fall back to native
+      # backend if we found a .nn/ or .zk/ root with markdown files
+      if [[ -n "$_zk_root" ]]; then
+        _NN_HAS_ZK=false
+      else
+        echo "notenav: no zk notebook found from $(pwd)" >&2
+        [[ -n "$_zk_check_err" ]] && echo "notenav: $_zk_check_err" >&2
+        echo "notenav: run 'zk init' to create one, or 'nn doctor' to diagnose" >&2
+        return 1
+      fi
     fi
-  else
-    # Without zk, verify we have a notebook root and markdown files
+  fi
+  if [[ "$_NN_HAS_ZK" != "true" ]]; then
+    # Without zk (or zk couldn't find a notebook), verify we have a
+    # notebook root and markdown files for the native backend
     if [[ -z "$_zk_root" ]]; then
       echo "notenav: no notebook found from $(pwd)" >&2
       echo "notenav: create a .nn/ directory with 'nn init', or install zk and run 'zk init'" >&2
