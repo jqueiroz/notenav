@@ -2654,6 +2654,39 @@ if [ -z "$new_path" ]; then
   exit 0
 fi
 rm -f "$_zk_err"
+
+# ── Ensure essential frontmatter fields are present ──
+_nn_now=$(date '+%Y-%m-%dT%H:%M:%S')
+_nn_initial_status=$(cat "$dir/.schema_status_initial" 2>/dev/null)
+_nn_has_fm=$(head -1 "$new_path" 2>/dev/null)
+if [ "$_nn_has_fm" = "---" ]; then
+  # Patch existing frontmatter – add missing fields
+  awk -v nn_type="$selected" -v nn_status="$_nn_initial_status" -v nn_created="$_nn_now" '
+    NR==1 && /^---/ { in_fm=1; print; next }
+    in_fm && /^---/ {
+      in_fm=0
+      if (!found_type)    print "type: " nn_type
+      if (!found_status && nn_status != "")  print "status: " nn_status
+      if (!found_created) print "created: " nn_created
+      print; next
+    }
+    in_fm && /^type:( |$)/    { found_type=1 }
+    in_fm && /^status:( |$)/  { found_status=1 }
+    in_fm && /^created:( |$)/ { found_created=1 }
+    { print }
+  ' "$new_path" > "$new_path.tmp" && mv "$new_path.tmp" "$new_path"
+else
+  # No frontmatter – prepend one
+  {
+    printf '%s\n' "---"
+    printf 'type: %s\n' "$selected"
+    [ -n "$_nn_initial_status" ] && printf 'status: %s\n' "$_nn_initial_status"
+    printf 'created: %s\n' "$_nn_now"
+    printf '%s\n' "---"
+    cat "$new_path"
+  } > "$new_path.tmp" && mv "$new_path.tmp" "$new_path"
+fi
+
 after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)
 rel_path="${new_path#$PWD/}"
 if [ "$after_create" = "edit" ]; then
