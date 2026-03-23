@@ -1920,6 +1920,15 @@ EOF
   local _nn_editor
   _nn_editor="$(_nn_resolve_editor "$NN_UI_EDITOR")"
 
+  # Check that zk can reach a notebook from here
+  local _zk_check_err
+  if ! _zk_check_err=$(zk list --format '{{absPath}}' --quiet --limit 1 "${_zk_path[@]}" 2>&1 >/dev/null); then
+    echo "notenav: no zk notebook found from $(pwd)" >&2
+    [[ -n "$_zk_check_err" ]] && echo "notenav: $_zk_check_err" >&2
+    echo "notenav: run 'zk init' to create one, or 'nn doctor' to diagnose" >&2
+    return 1
+  fi
+
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
     if [[ "${TERM:-dumb}" == "dumb" ]]; then

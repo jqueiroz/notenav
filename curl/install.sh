@@ -35,9 +35,9 @@ for dep in bash fzf gawk sort sed git yq jq; do
   fi
 done
 
-# bat or batcat
+# bat or batcat (optional – enables syntax-highlighted preview)
 if ! check_dep bat && ! check_dep batcat; then
-  missing="$missing bat"
+  warn "bat not found (optional – enables syntax-highlighted preview)"
 fi
 
 # zk
