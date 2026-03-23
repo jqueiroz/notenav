@@ -101,6 +101,7 @@ Slash commands in `.claude/commands/` for validating and reviewing the codebase.
 | `/check-workflows` | check | Validate TOML integrity (values, lifecycle, extends) and config defaults match code |
 | `/review-docs` | review | Doc quality, accuracy, and consistency across `.md` files and TOML comments |
 | `/review-config-naming` | review | Config key names, types (bool vs enum), table structure, future-proofing |
+| `/review-user-experience` | review | UX from the user's perspective: onboarding, feedback, errors, discoverability, friction |
 | `/audit-code` | audit | Code quality: shell scripting, security, standards, CLI conventions |
 
 ## Versioning
