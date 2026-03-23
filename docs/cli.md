@@ -222,15 +222,16 @@ The faceted browser uses a modal system with four modes: **command** (default), 
 | `S` | Clear status filter |
 | `p` | Filter by priority (cycles through `filter_cycle`, then `none`) |
 | `P` | Clear priority filter |
-| `[` and `]` | Previous / next query preset |
+| `tab` / `shift-tab` | Next / previous query preset |
+| `[` and `]` | Next / previous query preset (same as above) |
 | `g` | Go-to query preset (opens picker) |
 | `0` / `R` | Reset all filters and display settings to defaults |
 | `1`–`9` | Jump to query preset by number |
+| `space` | Toggle multi-select on current item |
 | `b` | Bulk edit selected notes (opens editor with TSV of fields) |
 | `j` / `k` | Move down / up |
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `J` / `K` | Scroll preview down / up |
-| `space` / `tab` | Toggle multi-select on current item |
 | `esc` | Clear search query (or exit prefix mode) |
 | `q` | Quit |
 
