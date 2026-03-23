@@ -83,14 +83,17 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `n` | Create [**n**]ew note |
 | `a` / `A` | Advance / reverse status |
 | `+` / `-` (or `<` / `>`) | Adjust priority up / down |
-| `t` | Filter by [**t**]ype |
-| `s` | Filter by [**s**]tatus |
-| `p` | Filter by [**p**]riority |
+| `t` | Filter by [**t**]ype (`T` to clear) |
+| `s` | Filter by [**s**]tatus (`S` to clear) |
+| `p` | Filter by [**p**]riority (`P` to clear) |
+| `0` or `R` | [**R**]eset all filters |
 | `[` and `]` | Previous / next query preset |
 | `g` | [**g**]o-to query preset |
+| `1`–`9` | Jump to query preset by number |
 | `c` then `s`/`p`/`t` | [**c**]hange status, priority, or type |
 | `f` then `t`/`c`/`n` | [**f**]ilter-by tags, contents, or name |
 | `z` then `o`/`r`/`g`/`h`/`w` | Display: order-by, reverse sort, group-by, toggle archived, wrap |
+| `esc` | Exit prefix mode, or clear query |
 | `b` | [**b**]ulk edit (via your preferred editor) |
 | `J` / `K` | Scroll preview down / up |
 | `q` | Quit |
