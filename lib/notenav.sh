@@ -3349,7 +3349,7 @@ ENDEDIT
     local nn_tmp; nn_tmp=$(mktemp)
     local _nn_prev; _nn_prev=$(mktemp)
     local _nn_edit; _nn_edit=$(mktemp)
-    local _nn_sflag="${nn_tmp}.sflag"
+    local _nn_sflag; _nn_sflag=$(mktemp)
     trap 'rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_sflag"' EXIT
     _nn_write_preview "$_nn_prev"
     printf '%s' "$_nn_editor" > "$_nn_edit.editor"
