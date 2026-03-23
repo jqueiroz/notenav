@@ -2917,23 +2917,9 @@ if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
 fi
 awk_body=$(cat "$dir/.awk_color_body")
 do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
-# Count filtered items (before pinning/grouping adds extra lines)
+# Pipeline: AWK filter → count → grouping → empty-view → pinning → border/output
+# INVARIANT: pinning is the LAST transformation of .current, so nothing can drop pinned items.
 count=$(awk 'END{print NR}' "$dir/.current")
-# Prepend pinned items (from actions) that got filtered out
-if [ -s "$dir/.pinned" ]; then
-  pinned_lines=""
-  pinned_awk=$(cat "$dir/.awk_color_pinned")
-  while IFS= read -r pin || [ -n "$pin" ]; do
-    [ -z "$pin" ] && continue
-    awk -F'\t' -v p="$pin" '$1==p{found=1;exit} END{exit !found}' "$dir/.current" && continue
-    # Render the pinned item from .raw with a dim marker
-    line=$(TZ=UTC awk -F'\t' -v p="$pin" -v now="$now" "\$6 == p { ${pinned_awk} }" "$dir/.raw")
-    [ -n "$line" ] && pinned_lines="${pinned_lines}${line}\n"
-  done < "$dir/.pinned"
-  if [ -n "$pinned_lines" ]; then
-    printf '%b' "$pinned_lines" | cat - "$dir/.current" > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
-  fi
-fi
 # Grouping post-processing: insert separator headers between groups
 if [ -n "$fgroup" ]; then
   case "$fgroup" in type) gcol=1 ;; status) gcol=2 ;; esac
@@ -3135,6 +3121,22 @@ if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
     printf '\n  [90m╭─────────────────────────────────────────────────╮[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                   [1;33mDON'\''T PANIC[0m                   [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    ───────────────────────────────────────────  [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    No notes here – yet.                         [90m│[0m\n  [90m│[0m    Press [36mn[0m to create your first note.           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m              [31m·[0m       [35m✦[0m                          [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m         [36m✦[0m                [32m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                  [1;37m·[0m                              [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m             [35m✦[0m            [34m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: check out the keybinding[0m                [90m│[0m\n  [90m│[0m    [37mindications on the footer, and[0m               [90m│[0m\n  [90m│[0m    [37mhappy note-taking![0m                           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
   fi
   printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
+fi
+# Prepend pinned items (from actions) that got filtered out
+# This runs LAST so no subsequent stage can overwrite pinned items.
+if [ -s "$dir/.pinned" ]; then
+  pinned_lines=""
+  pinned_awk=$(cat "$dir/.awk_color_pinned")
+  while IFS= read -r pin || [ -n "$pin" ]; do
+    [ -z "$pin" ] && continue
+    awk -F'\t' -v p="$pin" '$1==p{found=1;exit} END{exit !found}' "$dir/.current" && continue
+    # Render the pinned item from .raw with a dim marker
+    line=$(TZ=UTC awk -F'\t' -v p="$pin" -v now="$now" "\$6 == p { ${pinned_awk} }" "$dir/.raw")
+    [ -n "$line" ] && pinned_lines="${pinned_lines}${line}\n"
+  done < "$dir/.pinned"
+  if [ -n "$pinned_lines" ]; then
+    printf '%b' "$pinned_lines" | cat - "$dir/.current" > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
+  fi
 fi
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
 printf ' nn · %d/%d ' "$count" "$total" > "$dir/.border"
