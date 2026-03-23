@@ -6,7 +6,7 @@ Filter by type, status, priority, and tags; search by filename or body contents;
 
 Workflows are fully customizable: define your own note types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
 
-Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) – compatible with Obsidian, Dendron, Jekyll, and similar tools. Built on [fzf](https://github.com/junegunn/fzf), with [zk](https://github.com/zk-org/zk) for indexing. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
+Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) – compatible with Obsidian, Dendron, Jekyll, and similar tools. Built on [fzf](https://github.com/junegunn/fzf), with optional [zk](https://github.com/zk-org/zk) integration for faster indexing and link graph. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
 
 ## Platform support
 
@@ -30,7 +30,7 @@ This command uses Nix's imperative interface (`nix profile`). If you prefer a fu
 curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/curl/install.sh | sh
 ```
 
-Requires bash 4+, [zk](https://github.com/zk-org/zk), [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq) (yq-go, **not** yq-python), and [jq](https://github.com/jqlang/jq) to be installed and available on the PATH.
+Requires bash 4+, [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq) (yq-go, **not** yq-python), and [jq](https://github.com/jqlang/jq) to be installed and available on the PATH. [zk](https://github.com/zk-org/zk) is optional but recommended for faster indexing and link graph.
 See [docs/install.md](docs/install.md) for more details.
 
 **Option 3: Manual installation**
@@ -151,7 +151,7 @@ User config defines personal preferences – editor, prompts, sorting, grouping,
 
 ### `nn doctor`
 
-Validates your entire setup in one pass. Run it whenever something seems off: it checks dependencies, config files, workflow integrity, and your zk notebook.
+Validates your entire setup in one pass. Run it whenever something seems off: it checks dependencies, config files, workflow integrity, and your notebook.
 
 ```bash
 nn doctor

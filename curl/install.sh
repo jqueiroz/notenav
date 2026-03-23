@@ -40,9 +40,9 @@ if ! check_dep bat && ! check_dep batcat; then
   warn "bat not found (optional – default previewer; alternatives: glow, mdcat)"
 fi
 
-# zk
+# zk (optional – faster indexing and link graph)
 if ! check_dep zk; then
-  missing="$missing zk"
+  warn "zk not found (optional – install for faster indexing and link graph)"
 fi
 
 # bash version check (need 4+)

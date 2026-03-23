@@ -22,9 +22,20 @@ This means you can run `nn` from any subdirectory of your project and it will us
 
 If no `.nn/` directory is found anywhere in the path, notenav falls back to the `default_workflow` setting in your user config (`~/.config/notenav/config.toml`), or to the built-in Zenith workflow if that's not set either.
 
+## Do I need zk?
+
+No. [zk](https://github.com/zk-org/zk) is optional. Without it, notenav uses its own frontmatter parser and `rg`/`grep` for body text search. Everything works – you just lose a few features:
+
+- **Link graph:** the Links/Backlinks sections in the preview pane are skipped (they rely on zk's index)
+- **Body text search:** uses `rg` or `grep` instead of zk's indexed `--match` (slower on large notebooks)
+- **Note creation:** generates files directly instead of using zk templates
+- **Listing performance:** may be slower for very large notebooks (no SQLite index)
+
+Install zk when you want these features. `nn doctor` will tell you whether zk is detected.
+
 ## Which notes does `nn` show?
 
-notenav delegates note discovery to [zk](https://github.com/zk-org/zk), which recursively finds all markdown files with YAML frontmatter.
+notenav discovers notes by recursively finding all markdown files under the notebook root. When zk is installed, it delegates to `zk list` for faster indexed listing.
 
 **At the notebook root:** `nn` shows all notes in the entire notebook.
 
@@ -72,7 +83,7 @@ Yes. notenav works with any markdown files that use YAML frontmatter. It reads `
 
 ## How do I troubleshoot setup problems?
 
-Run `nn doctor` – it checks all dependencies (versions, variants), validates your config files, verifies workflow integrity (types, statuses, lifecycles), and confirms your zk notebook is reachable.
+Run `nn doctor` – it checks all dependencies (versions, variants), validates your config files, verifies workflow integrity (types, statuses, lifecycles), and confirms your notebook is reachable.
 
 ```bash
 nn doctor

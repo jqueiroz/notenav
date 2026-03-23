@@ -704,6 +704,94 @@ nn_write_workflow_files() {
   printf '%s' "$_archive_label" > "$dir/.schema_archive_label"
 }
 
+# --- Native listing (zk-free backend) ---
+# Produces the same 8-column TSV as `zk list --format "$NN_ZK_FMT"`:
+#   type \t status \t priority \t tags \t title \t absPath \t modified \t created
+# Uses find + awk to parse YAML frontmatter from each markdown file.
+
+# Portable mtime: emits "absPath\tmtime" for all .md files under $1.
+# GNU find uses -printf; BSD find + stat fallback for macOS.
+_nn_find_md_with_mtime() {
+  local dir="$1"
+  if find "$dir" -maxdepth 0 -printf '' 2>/dev/null; then
+    # GNU find
+    find "$dir" -name '*.md' -type f -printf '%p\t%TY-%Tm-%TdT%TH:%TM:%TS\n'
+  else
+    # BSD find + stat (macOS)
+    find "$dir" -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%dT%H:%M:%S' {} +
+  fi
+}
+
+# Reads a list of "absPath\tmtime" on stdin, parses each file's YAML frontmatter,
+# and outputs 8-column TSV matching NN_ZK_FMT.
+_nn_list_notes_native() {
+  awk -F'\t' '
+  {
+    file = $1; mtime = $2
+    type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
+    in_fm = 0; found_title_heading = ""
+    while ((getline line < file) > 0) {
+      if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
+      NR_FILE++
+      if (in_fm) {
+        if (line == "---") { in_fm = 0; continue }
+        # Parse "key: value" within frontmatter
+        if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
+          key = m[1]; val = m[2]
+          # Strip surrounding quotes
+          gsub(/^["'"'"']|["'"'"']$/, "", val)
+          if (key == "type") type = val
+          else if (key == "status") status = val
+          else if (key == "priority") priority = val
+          else if (key == "title") title = val
+          else if (key == "created") created = val
+          else if (key == "tags") {
+            # Handle inline array: [a, b, c] → "a b c"
+            gsub(/[\[\]]/, "", val)
+            gsub(/,[ \t]*/, " ", val)
+            tags = val
+          }
+        }
+      } else {
+        # Look for first heading as title fallback
+        if (found_title_heading == "" && match(line, /^#+ +(.+)$/, hm)) {
+          found_title_heading = hm[1]
+        }
+        # Stop reading after frontmatter to avoid scanning entire file
+        break
+      }
+    }
+    close(file)
+    NR_FILE = 0
+    # Title fallback: first heading, then filename
+    if (title == "") {
+      if (found_title_heading != "") title = found_title_heading
+      else {
+        n = split(file, parts, "/")
+        title = parts[n]
+        sub(/\.md$/, "", title)
+      }
+    }
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", type, status, priority, tags, title, file, mtime, created
+  }
+  BEGIN { NR_FILE = 0 }
+  '
+}
+
+# Lists notes for a given directory. Uses zk if available, native fallback otherwise.
+# Arguments: has_zk fmt zk_path...
+# Output: 8-column TSV to stdout
+_nn_list_notes() {
+  local has_zk="$1" fmt="$2"
+  shift 2
+  if [[ "$has_zk" == "true" ]]; then
+    zk list "$@" --format "$fmt" --quiet 2>/dev/null
+  else
+    local search_dir="${1:-.}"
+    _nn_find_md_with_mtime "$search_dir" | _nn_list_notes_native
+  fi
+}
+
 # --- Doctor ---
 # Diagnostic command: checks dependencies, config, workflow integrity, and zk notebook.
 
@@ -766,7 +854,7 @@ nn_doctor() {
     _fail "fzf not found"
   fi
 
-  # zk
+  # zk (optional – enhances performance and enables link graph)
   local _has_zk=false
   if command -v zk >/dev/null 2>&1; then
     local zk_ver
@@ -774,7 +862,7 @@ nn_doctor() {
     _pass "zk ${zk_ver:-installed}"
     _has_zk=true
   else
-    _fail "zk not found"
+    _info "zk not found ${_dim}(optional – install for faster indexing and link graph)${_reset}"
   fi
 
   # yq
@@ -1610,11 +1698,11 @@ nn_doctor() {
     echo "${_dim}Skipping workflow checks (config not loaded)${_reset}"
   fi
 
-  # ── Phase 5: zk notebook ──
+  # ── Phase 5: Notebook ──
 
+  echo ""
+  echo "Notebook:"
   if [[ "$_has_zk" == "true" ]]; then
-    echo ""
-    echo "Notebook:"
     if zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
       _pass "zk notebook found"
       local _note_count
@@ -1626,6 +1714,26 @@ nn_doctor() {
       fi
     else
       _warn "No zk notebook found from current directory"
+    fi
+  else
+    # Without zk, check for markdown files
+    local _nn_root="$PWD"
+    while true; do
+      [[ -d "$_nn_root/.zk" || -d "$_nn_root/.nn" ]] && break
+      [[ "$_nn_root" == "/" ]] && { _nn_root=""; break; }
+      _nn_root="$(dirname "$_nn_root")"
+    done
+    if [[ -n "$_nn_root" ]]; then
+      _pass "Notebook root: $_nn_root"
+      local _note_count
+      _note_count=$(find "$_nn_root" -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
+      if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
+        _pass "$_note_count markdown files found"
+      else
+        _warn "No markdown files found"
+      fi
+    else
+      _warn "No notebook found (no .zk/ or .nn/ directory in path)"
     fi
   fi
 
@@ -1951,10 +2059,11 @@ _nn_fetch_remote() {
 # Used by both faceted browser and ad-hoc interactive mode.
 _nn_write_preview() {
   local target="$1"
-  # Dynamic preamble: bake previewer config at generation time
+  # Dynamic preamble: bake previewer config and zk detection at generation time
   printf '#!/usr/bin/env bash\n' > "$target"
   printf '_nn_previewer=%q\n' "$NN_UI_PREVIEWER" >> "$target"
   printf '_nn_previewer_custom=%q\n' "$NN_UI_PREVIEWER_CUSTOM" >> "$target"
+  printf '_nn_has_zk=%q\n' "${_NN_HAS_ZK:-false}" >> "$target"
   cat >> "$target" << 'ENDPREVIEW'
 dir="$(dirname "$0")"
 file="$1"
@@ -2008,26 +2117,28 @@ if [ "$_rendered" = false ]; then
   cat "$file"
 fi
 
-# Collect links in parallel
-tmp_links=$(mktemp); tmp_back=$(mktemp)
-trap 'rm -f "$tmp_links" "$tmp_back"' EXIT
-zk list --linked-by "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_links" &
-zk list --link-to "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_back" &
-wait
+# Collect links in parallel (requires zk)
+if [ "$_nn_has_zk" = "true" ]; then
+  tmp_links=$(mktemp); tmp_back=$(mktemp)
+  trap 'rm -f "$tmp_links" "$tmp_back"' EXIT
+  zk list --linked-by "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_links" &
+  zk list --link-to "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_back" &
+  wait
 
-# Show outgoing links
-if [ -s "$tmp_links" ]; then
-  printf '\n\033[1;34m── Links ─────────────────────────\033[0m\n'
-  cat "$tmp_links"
+  # Show outgoing links
+  if [ -s "$tmp_links" ]; then
+    printf '\n\033[1;34m── Links ─────────────────────────\033[0m\n'
+    cat "$tmp_links"
+  fi
+
+  # Show backlinks
+  if [ -s "$tmp_back" ]; then
+    printf '\n\033[1;35m── Backlinks ─────────────────────\033[0m\n'
+    cat "$tmp_back"
+  fi
+
+  rm -f "$tmp_links" "$tmp_back"
 fi
-
-# Show backlinks
-if [ -s "$tmp_back" ]; then
-  printf '\n\033[1;35m── Backlinks ─────────────────────\033[0m\n'
-  cat "$tmp_back"
-fi
-
-rm -f "$tmp_links" "$tmp_back"
 ENDPREVIEW
   chmod +x "$target"
 }
@@ -2131,12 +2242,15 @@ EOF
   local _fmt="$NN_ZK_FMT"
   local _awk_color="$NN_AWK_COLOR"
 
-  # Default zk path args based on cwd
-  # If we're in a subdirectory of a zk notebook, scope to current directory.
+  # Detect zk availability
+  local _NN_HAS_ZK=false
+  command -v zk >/dev/null 2>&1 && _NN_HAS_ZK=true
+
+  # Find notebook root: walk up looking for .zk/ or .nn/
   local _zk_path=()
   local _zk_root="$PWD"
   while true; do
-    [[ -d "$_zk_root/.zk" ]] && break
+    [[ -d "$_zk_root/.zk" || -d "$_zk_root/.nn" ]] && break
     [[ "$_zk_root" == "/" ]] && { _zk_root=""; break; }
     _zk_root="$(dirname "$_zk_root")"
   done
@@ -2146,13 +2260,28 @@ EOF
   local _nn_editor
   _nn_editor="$(_nn_resolve_editor "$NN_UI_EDITOR")"
 
-  # Check that zk can reach a notebook from here
-  local _zk_check_err
-  if ! _zk_check_err=$(zk list --format '{{absPath}}' --quiet --limit 1 "${_zk_path[@]}" 2>&1 >/dev/null); then
-    echo "notenav: no zk notebook found from $(pwd)" >&2
-    [[ -n "$_zk_check_err" ]] && echo "notenav: $_zk_check_err" >&2
-    echo "notenav: run 'zk init' to create one, or 'nn doctor' to diagnose" >&2
-    return 1
+  # Check that we can reach a notebook from here
+  if [[ "$_NN_HAS_ZK" == "true" ]]; then
+    local _zk_check_err
+    if ! _zk_check_err=$(zk list --format '{{absPath}}' --quiet --limit 1 "${_zk_path[@]}" 2>&1 >/dev/null); then
+      echo "notenav: no zk notebook found from $(pwd)" >&2
+      [[ -n "$_zk_check_err" ]] && echo "notenav: $_zk_check_err" >&2
+      echo "notenav: run 'zk init' to create one, or 'nn doctor' to diagnose" >&2
+      return 1
+    fi
+  else
+    # Without zk, verify we have a notebook root and markdown files
+    if [[ -z "$_zk_root" ]]; then
+      echo "notenav: no notebook found from $(pwd)" >&2
+      echo "notenav: create a .nn/ directory with 'nn init', or install zk and run 'zk init'" >&2
+      return 1
+    fi
+    local _search_target="${_zk_path[0]:-$_zk_root}"
+    if [[ -z "$(find "$_search_target" -name '*.md' -type f -print -quit 2>/dev/null)" ]]; then
+      echo "notenav: no markdown files found in $_search_target" >&2
+      echo "notenav: run 'nn doctor' to diagnose" >&2
+      return 1
+    fi
   fi
 
   # ---- FACETED BROWSER (no args) ----
@@ -2165,8 +2294,12 @@ EOF
     trap 'rm -rf "$_nn_dir"' EXIT
     nn_write_workflow_files "$_nn_dir"
 
+    # Write backend detection flag and notebook root for helper scripts
+    printf '%s' "$_NN_HAS_ZK" > "$_nn_dir/.has_zk"
+    printf '%s' "${_zk_root:-$PWD}" > "$_nn_dir/.notebook_root"
+
     # Get all notes
-    zk list "${_zk_path[@]}" --format "$_fmt" --quiet 2>/dev/null > "$_nn_dir/.raw"
+    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${_zk_path[@]}" > "$_nn_dir/.raw"
 
     # Initialize filter state (empty = all)
     : > "$_nn_dir/.f_type"
@@ -2232,16 +2365,50 @@ fi
 ENDTAGS
     chmod +x "$_nn_dir/tags.sh"
 
-    # Body text search: live fzf with zk --match
+    # Body text search: live fzf with zk --match or rg/grep fallback
     cat > "$_nn_dir/match_search.sh" << 'ENDMSEARCH'
 #!/usr/bin/env bash
 dir="$1"; query="$2"
+has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
 zk_path=()
 while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
-if [ -n "$query" ]; then
-  zk list "${zk_path[@]}" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
+if [ "$has_zk" = "true" ]; then
+  if [ -n "$query" ]; then
+    zk list "${zk_path[@]}" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
+  else
+    zk list "${zk_path[@]}" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
+  fi
 else
-  zk list "${zk_path[@]}" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
+  root=$(cat "$dir/.notebook_root" 2>/dev/null)
+  search_dir="${zk_path[0]:-$root}"
+  if [ -n "$query" ]; then
+    # Use rg if available, grep fallback
+    if command -v rg >/dev/null 2>&1; then
+      rg -l --type md "$query" "$search_dir" 2>/dev/null
+    else
+      grep -rl --include='*.md' "$query" "$search_dir" 2>/dev/null
+    fi | while IFS= read -r f; do
+      # Extract title from frontmatter or filename
+      t=$(awk '
+        NR==1 && /^---/ { in_fm=1; next }
+        in_fm && /^---/ { exit }
+        in_fm && /^title:/ { sub(/^title:[ \t]*/, ""); gsub(/^["'"'"']|["'"'"']$/, ""); print; exit }
+      ' "$f")
+      [ -z "$t" ] && t=$(basename "$f" .md)
+      printf '%s\t%s\n' "$f" "$t"
+    done
+  else
+    # No query: list all files with titles
+    find "$search_dir" -name '*.md' -type f | while IFS= read -r f; do
+      t=$(awk '
+        NR==1 && /^---/ { in_fm=1; next }
+        in_fm && /^---/ { exit }
+        in_fm && /^title:/ { sub(/^title:[ \t]*/, ""); gsub(/^["'"'"']|["'"'"']$/, ""); print; exit }
+      ' "$f")
+      [ -z "$t" ] && t=$(basename "$f" .md)
+      printf '%s\t%s\n' "$f" "$t"
+    done
+  fi
 fi
 ENDMSEARCH
     chmod +x "$_nn_dir/match_search.sh"
@@ -2249,6 +2416,7 @@ ENDMSEARCH
     cat > "$_nn_dir/match.sh" << 'ENDMATCH'
 #!/usr/bin/env bash
 dir="$1"
+has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
 cur=""
 [ -s "$dir/.f_match" ] && cur=$(cat "$dir/.f_match")
 result=$(: | fzf --ansi --disabled --query "$cur" \
@@ -2264,9 +2432,21 @@ result=$(: | fzf --ansi --disabled --query "$cur" \
 rc=$?
 query=$(printf '%s' "$result" | head -1)
 if [ $rc -eq 0 ] && [ -n "$query" ]; then
-  zk_path=()
-  while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
-  zk list "${zk_path[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
+  if [ "$has_zk" = "true" ]; then
+    zk_path=()
+    while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+    zk list "${zk_path[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
+  else
+    root=$(cat "$dir/.notebook_root" 2>/dev/null)
+    zk_path=()
+    while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+    search_dir="${zk_path[0]:-$root}"
+    if command -v rg >/dev/null 2>&1; then
+      rg -l --type md "$query" "$search_dir" 2>/dev/null > "$dir/.f_match_paths"
+    else
+      grep -rl --include='*.md' "$query" "$search_dir" 2>/dev/null > "$dir/.f_match_paths"
+    fi
+  fi
   echo "$query" > "$dir/.f_match"
 elif [ $rc -eq 0 ]; then
   : > "$dir/.f_match"
@@ -2299,6 +2479,76 @@ ENDNAMEFILT
     printf '%s\n' "${_zk_path[@]}" > "$_nn_dir/.zk_path"
     echo "$_fmt" > "$_nn_dir/.zk_fmt"
 
+    # Reload raw data helper: consolidates zk/native backend dispatch for reloading
+    cat > "$_nn_dir/reload_raw.sh" << 'ENDRELOAD'
+#!/usr/bin/env bash
+dir="$1"
+has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
+fmt=$(cat "$dir/.zk_fmt")
+zk_path=()
+while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+if [ "$has_zk" = "true" ]; then
+  zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
+else
+  root=$(cat "$dir/.notebook_root" 2>/dev/null)
+  search_dir="${zk_path[0]:-$root}"
+  _nn_find_md_with_mtime() {
+    local d="$1"
+    if find "$d" -maxdepth 0 -printf '' 2>/dev/null; then
+      find "$d" -name '*.md' -type f -printf '%p\t%TY-%Tm-%TdT%TH:%TM:%TS\n'
+    else
+      find "$d" -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%dT%H:%M:%S' {} +
+    fi
+  }
+  _nn_find_md_with_mtime "$search_dir" | awk -F'\t' '
+  {
+    file = $1; mtime = $2
+    type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
+    in_fm = 0; found_title_heading = ""
+    while ((getline line < file) > 0) {
+      if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
+      NR_FILE++
+      if (in_fm) {
+        if (line == "---") { in_fm = 0; continue }
+        if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
+          key = m[1]; val = m[2]
+          gsub(/^["'"'"']|["'"'"']$/, "", val)
+          if (key == "type") type = val
+          else if (key == "status") status = val
+          else if (key == "priority") priority = val
+          else if (key == "title") title = val
+          else if (key == "created") created = val
+          else if (key == "tags") {
+            gsub(/[\[\]]/, "", val)
+            gsub(/,[ \t]*/, " ", val)
+            tags = val
+          }
+        }
+      } else {
+        if (found_title_heading == "" && match(line, /^#+ +(.+)$/, hm)) {
+          found_title_heading = hm[1]
+        }
+        break
+      }
+    }
+    close(file)
+    NR_FILE = 0
+    if (title == "") {
+      if (found_title_heading != "") title = found_title_heading
+      else {
+        n = split(file, parts, "/")
+        title = parts[n]
+        sub(/\.md$/, "", title)
+      }
+    }
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", type, status, priority, tags, title, file, mtime, created
+  }
+  BEGIN { NR_FILE = 0 }
+  ' > "$dir/.raw"
+fi
+ENDRELOAD
+    chmod +x "$_nn_dir/reload_raw.sh"
+
     # Bulk action script: update frontmatter field on selected files, then reload
     cat > "$_nn_dir/action.sh" << 'ENDACTION'
 #!/usr/bin/env bash
@@ -2318,12 +2568,8 @@ done
 # Pin acted-on files so they stay visible after filter
 printf '%s\n' "$@" > "$dir/.pinned"
 printf '%s → %s' "$field" "$value" > "$dir/.last_action"
-# Regenerate raw data
-fmt=$(cat "$dir/.zk_fmt")
-zk_path=()
-while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
-zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
-# Re-run current filter to update .current
+# Regenerate raw data and re-filter
+"$dir/reload_raw.sh" "$dir"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 ENDACTION
     chmod +x "$_nn_dir/action.sh"
@@ -2515,10 +2761,7 @@ else
   [ -z "$errors" ] && printf '\033[90mNo changes\033[0m\n' > /dev/tty
 fi
 # Regenerate raw data and re-filter
-fmt=$(cat "$dir/.zk_fmt")
-zk_path=()
-while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
-zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
+"$dir/reload_raw.sh" "$dir"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 ENDBA
     chmod +x "$_nn_dir/bulkedit_apply.sh"
@@ -2880,50 +3123,68 @@ else
 fi
 
 # ── Create note ──
-_zk_err=$(mktemp)
-new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>"$_zk_err")
-if [ -z "$new_path" ]; then
-  _zk_msg=$(cat "$_zk_err")
-  rm -f "$_zk_err"
-  if [ -n "$_zk_msg" ]; then
-    printf '\n  \033[31m%s\033[0m\n\n' "$_zk_msg" > /dev/tty
-  else
-    printf '\n  \033[31mFailed to create note\033[0m\n\n' > /dev/tty
-  fi
-  exit 0
-fi
-rm -f "$_zk_err"
-
-# ── Ensure essential frontmatter fields are present ──
+_nn_has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
 _nn_now=$(date '+%Y-%m-%dT%H:%M:%S')
 _nn_initial_status=$(cat "$dir/.schema_status_initial" 2>/dev/null)
-_nn_has_fm=$(head -1 "$new_path" 2>/dev/null)
-if [ "$_nn_has_fm" = "---" ]; then
-  # Patch existing frontmatter – add missing type/status, always set created
-  awk -v nn_type="$selected" -v nn_status="$_nn_initial_status" -v nn_created="$_nn_now" '
-    NR==1 && /^---/ { in_fm=1; print; next }
-    in_fm && /^---/ {
-      in_fm=0
-      if (!found_type)    print "type: " nn_type
-      if (!found_status && nn_status != "")  print "status: " nn_status
-      if (!found_created) print "created: " nn_created
-      print; next
-    }
-    in_fm && /^type:( |$)/    { found_type=1 }
-    in_fm && /^status:( |$)/  { found_status=1 }
-    in_fm && /^created:( |$)/ { print "created: " nn_created; found_created=1; next }
-    { print }
-  ' "$new_path" > "$new_path.tmp" && mv "$new_path.tmp" "$new_path"
+
+if [ "$_nn_has_zk" = "true" ]; then
+  _zk_err=$(mktemp)
+  new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>"$_zk_err")
+  if [ -z "$new_path" ]; then
+    _zk_msg=$(cat "$_zk_err")
+    rm -f "$_zk_err"
+    if [ -n "$_zk_msg" ]; then
+      printf '\n  \033[31m%s\033[0m\n\n' "$_zk_msg" > /dev/tty
+    else
+      printf '\n  \033[31mFailed to create note\033[0m\n\n' > /dev/tty
+    fi
+    exit 0
+  fi
+  rm -f "$_zk_err"
+
+  # Ensure essential frontmatter fields are present
+  _nn_has_fm=$(head -1 "$new_path" 2>/dev/null)
+  if [ "$_nn_has_fm" = "---" ]; then
+    awk -v nn_type="$selected" -v nn_status="$_nn_initial_status" -v nn_created="$_nn_now" '
+      NR==1 && /^---/ { in_fm=1; print; next }
+      in_fm && /^---/ {
+        in_fm=0
+        if (!found_type)    print "type: " nn_type
+        if (!found_status && nn_status != "")  print "status: " nn_status
+        if (!found_created) print "created: " nn_created
+        print; next
+      }
+      in_fm && /^type:( |$)/    { found_type=1 }
+      in_fm && /^status:( |$)/  { found_status=1 }
+      in_fm && /^created:( |$)/ { print "created: " nn_created; found_created=1; next }
+      { print }
+    ' "$new_path" > "$new_path.tmp" && mv "$new_path.tmp" "$new_path"
+  else
+    {
+      printf '%s\n' "---"
+      printf 'type: %s\n' "$selected"
+      [ -n "$_nn_initial_status" ] && printf 'status: %s\n' "$_nn_initial_status"
+      printf 'created: %s\n' "$_nn_now"
+      printf '%s\n' "---"
+      cat "$new_path"
+    } > "$new_path.tmp" && mv "$new_path.tmp" "$new_path"
+  fi
 else
-  # No frontmatter – prepend one
+  # Native note creation (no zk)
+  _slug=$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
+  [ -z "$_slug" ] && _slug="note"
+  new_path="${_slug}.md"
+  if [ -f "$new_path" ]; then
+    new_path="${_slug}-$(date +%s).md"
+  fi
   {
     printf '%s\n' "---"
+    printf 'title: "%s"\n' "$title"
     printf 'type: %s\n' "$selected"
     [ -n "$_nn_initial_status" ] && printf 'status: %s\n' "$_nn_initial_status"
     printf 'created: %s\n' "$_nn_now"
     printf '%s\n' "---"
-    cat "$new_path"
-  } > "$new_path.tmp" && mv "$new_path.tmp" "$new_path"
+  } > "$new_path"
 fi
 
 after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)
@@ -2936,10 +3197,7 @@ fi
 # Regenerate raw
 _la_title="${title//[()]/}"; [ ${#_la_title} -gt 40 ] && _la_title="${_la_title:0:37}..."
 printf 'new %s → %s' "$selected" "$_la_title" > "$dir/.last_action"
-fmt=$(cat "$dir/.zk_fmt")
-zk_path=()
-while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
-zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
+"$dir/reload_raw.sh" "$dir"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 # Open in editor
 if [ "$after_create" = "edit" ]; then
@@ -3594,7 +3852,13 @@ ENDEDIT
     fi
   done
 
-  [[ ${#zk_args[@]} -eq 0 ]] && zk_args=("${_zk_path[@]}")
+  if [[ ${#zk_args[@]} -eq 0 ]]; then
+    if [[ ${#_zk_path[@]} -gt 0 ]]; then
+      zk_args=("${_zk_path[@]}")
+    elif [[ "$_NN_HAS_ZK" != "true" && -n "$_zk_root" ]]; then
+      zk_args=("$_zk_root")
+    fi
+  fi
 
   # Validate ad-hoc filter values against known workflow values
   if [[ -n "${filters[type]+x}" && -n "${filters[type]}" ]]; then
@@ -3660,7 +3924,7 @@ ENDEDIT
     printf '%s' "$_nn_editor" > "$_nn_edit.editor"
     printf '#!/usr/bin/env bash\nnn_editor=$(cat "%s" 2>/dev/null)\n[ -f "$1" ] && ${nn_editor:-vi} "$1"\n' "$_nn_edit.editor" > "$_nn_edit"
     chmod +x "$_nn_edit"
-    zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
+    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && length(\$1) > 0" \
       | _nn_adhoc_sort \
       | awk -F'\t' "$_awk_color" > "$nn_tmp"
@@ -3691,7 +3955,7 @@ ENDEDIT
     else
       _adhoc_fmt='{printf "[%s] [%s] %s\n", $1, $2, $5}'
     fi
-    zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
+    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && length(\$1) > 0" \
       | _nn_adhoc_sort \
       | awk -F'\t' "$_adhoc_fmt"

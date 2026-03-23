@@ -5,9 +5,8 @@
 ## Requirements
 
 - **bash 4+:** notenav is a bash script (your default shell can be anything; bash 4+ just needs to be installed). macOS ships with bash 3.2; use the Nix install path or `brew install bash`
-- **[zk](https://github.com/zk-org/zk):** used for indexing markdown files. Available via [Homebrew](https://formulae.brew.sh/formula/zk), [AUR](https://aur.archlinux.org/packages/zk), or [GitHub releases](https://github.com/zk-org/zk/releases) (not in apt/dnf)
 - **[fzf](https://github.com/junegunn/fzf)** 0.44+: TUI framework
-- **[yq](https://github.com/mikefarah/yq)** (yq-go): TOML→JSON conversion for config/workflow loading. **Must be [Mike Farah's yq](https://github.com/mikefarah/yq)** (written in Go), not the [Python yq wrapper](https://github.com/kislyuk/yq) — they are different tools that share the same name. Install via `brew install yq`, `go install github.com/mikefarah/yq/v4@latest`, or your package manager. Verify with `yq --version` (should show `v4.x.x`)
+- **[yq](https://github.com/mikefarah/yq)** (yq-go): TOML→JSON conversion for config/workflow loading. **Must be [Mike Farah's yq](https://github.com/mikefarah/yq)** (written in Go), not the [Python yq wrapper](https://github.com/kislyuk/yq) – they are different tools that share the same name. Install via `brew install yq`, `go install github.com/mikefarah/yq/v4@latest`, or your package manager. Verify with `yq --version` (should show `v4.x.x`)
 - **[jq](https://github.com/jqlang/jq):** JSON merging/querying for config system
 - **awk**, **sort**, **sed**, **tput:** standard unix tools (gawk recommended)
 
@@ -15,6 +14,7 @@
 
 Not required, but progressively enhance the experience when installed.
 
+- **[zk](https://github.com/zk-org/zk):** faster indexed listing, body text search via `--match`, and link graph in preview pane. Available via [Homebrew](https://formulae.brew.sh/formula/zk), [AUR](https://aur.archlinux.org/packages/zk), or [GitHub releases](https://github.com/zk-org/zk/releases). Without zk, notenav uses its own frontmatter parser and `rg`/`grep` for search
 - **[bat](https://github.com/sharkdp/bat):** syntax-highlighted preview (default; called `batcat` on Debian/Ubuntu). Alternatives: [glow](https://github.com/charmbracelet/glow), [mdcat](https://codeberg.org/flausch/mdcat) – see [previewer configuration](configuration.md#previewer)
 - **curl:** required for [remote workflows](configuration.md#extending-a-remote-workflow) (`nn init https://...`). Pre-installed on most systems
 

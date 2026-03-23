@@ -1,5 +1,5 @@
 {
-  description = "notenav — TUI faceted browser for zk notebooks";
+  description = "notenav — TUI faceted browser for markdown notebooks";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -51,7 +51,7 @@
             '';
 
             meta = with pkgs.lib; {
-              description = "TUI faceted browser for zk notebooks";
+              description = "TUI faceted browser for markdown notebooks";
               homepage = "https://github.com/jqueiroz/notenav";
               license = licenses.mit;
               platforms = platforms.unix;

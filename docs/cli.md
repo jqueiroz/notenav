@@ -31,7 +31,7 @@ notenav has three primary modes of operation:
 
 Launches the faceted browser. Requires a terminal (`$TERM` must not be `dumb`).
 
-The TUI indexes all notes via `zk list`, applies filters, and displays results in fzf with a preview pane showing note contents, outgoing links, and backlinks. All keybindings are displayed on-screen by default.
+The TUI indexes all notes (via `zk list` when zk is installed, or via native frontmatter parsing otherwise), applies filters, and displays results in fzf with a preview pane showing note contents and – when zk is available – outgoing links and backlinks. All keybindings are displayed on-screen by default.
 
 Notes are scoped by working directory: at the notebook root you see everything, from a subdirectory you see only that subtree.
 
@@ -80,7 +80,7 @@ Multiple filters are combined with AND logic. Multiple `tag=` filters are not su
 | Flag | Description |
 |------|-------------|
 | `-i`, `--interactive` | Open results in an interactive fzf picker instead of plain output |
-| `--` | Stop filter parsing; remaining arguments are passed through to `zk list` |
+| `--` | Stop filter parsing; remaining arguments are passed through to `zk list` (when zk is available) |
 
 **Plain output format:**
 
@@ -143,11 +143,11 @@ nn doctor
 1. **Dependencies:** checks that required tools are installed and meet version requirements:
    - bash 4+
    - fzf 0.44+
-   - zk
    - yq (yq-go, **not** yq-python)
    - jq
    - gawk (GNU awk – required for `mktime()` and `strtonum()`)
    - sort, sed, git
+   - zk (optional – faster indexing and link graph)
    - bat or batcat (optional – default previewer; alternatives: glow, mdcat)
    - curl (optional – required for remote workflows)
 
@@ -170,7 +170,7 @@ nn doctor
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
    - ANSI color codes are syntactically valid throughout
 
-5. **Notebook:** confirms zk can find a notebook from the current directory and reports the indexed note count.
+5. **Notebook:** confirms a notebook is reachable from the current directory. With zk: checks the zk index. Without zk: looks for a `.zk/` or `.nn/` directory and counts markdown files.
 
 **Output markers:**
 
@@ -254,7 +254,7 @@ Press `f` to enter filter mode. The prompt changes to `f `. Then press one of:
 | Key | Action |
 |-----|--------|
 | `t` | Filter by tags (multi-select picker, OR logic) |
-| `c` | Filter by contents (live search of note body via `zk --match`) |
+| `c` | Filter by contents (live search of note body – uses `zk --match` when available, `rg`/`grep` otherwise) |
 | `n` | Filter by name (substring match on note title, case-insensitive) |
 | `esc` | Cancel, return to command mode |
 
