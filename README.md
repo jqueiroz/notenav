@@ -126,11 +126,6 @@ nn                              # interactive TUI
 nn type=task status=active      # ad-hoc query (plain output)
 nn backlog                      # run a query preset (from config)
 nn type=task -i                 # interactive (fzf) ad-hoc query
-nn init [workflow]              # create project config (.nn/workflow.toml)
-nn init --user [workflow]       # create user config
-nn doctor                       # check setup and diagnose problems
-nn --version                    # version info
-nn --help                       # show usage
 ```
 
 ### `nn init`
@@ -164,7 +159,9 @@ Validates your entire setup in one pass. Run it whenever something seems off: it
 nn doctor
 ```
 
-See [docs/cli.md](docs/cli.md) for the full CLI reference.
+### Other commands
+
+`nn --version` prints version info and `nn --help` shows usage. See [docs/cli.md](docs/cli.md) for the full CLI reference.
 
 ## License
 
