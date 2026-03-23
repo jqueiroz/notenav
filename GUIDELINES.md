@@ -28,6 +28,7 @@ Rules and conventions for contributing to notenav.
 - **Plain keys only.** Stick to letters, digits, symbols, and Shift variants (uppercase letters). (`ctrl-j`/`ctrl-k` for paging are the sole exception – see above.)
 - **Use the modal pattern.** notenav has four input modes: command mode (plain keys), change mode (`c` prefix), filter-by mode (`f` prefix), and display mode (`z` prefix). Fit new bindings into this structure.
 - **Use `.nn-mode` for mode state, not separate flag files.** Mode state is stored in a single file `.nn-mode` (empty = command mode, `c`/`f`/`z` = prefix mode). Bindings read it with `m=$(cat .nn-mode)` and check with `test "$m" = z`. Mode entry writes the letter (`echo z > .nn-mode`), mode exit clears it (`: > .nn-mode`). All mode state operations must happen inside `transform[...]` as side effects before the `echo` that produces the fzf action string – never via `execute-silent` at the top level.
+- **Guard command-mode actions behind `test -z "$m"`.** When a binding has different behavior per mode, its `else` / fallback branch must check that the mode is empty before firing command-mode actions. Without this guard, keys leak through prefix modes – e.g., pressing `c` then `g` would trigger the command-mode `g` action instead of being ignored. Pattern: `if test "$m" = z; then ...; elif test -z "$m"; then ...; fi` (no bare `else`).
 - **Never use `[ ]` inside `transform[...]`.** fzf's `transform[CMD]` uses bracket depth counting to find the closing `]`. Shell test syntax `[ expr ]` introduces extra brackets that confuse fzf's parsing, silently truncating the command. Use `test expr` instead – it is identical POSIX behavior without brackets. For complex logic, extract to a helper script.
 
 ## Workflow definitions
@@ -95,6 +96,7 @@ Slash commands in `.claude/commands/` for validating and reviewing the codebase.
 
 | Command | Type | Scope |
 |---------|------|-------|
+| `/check-keybindings` | check | Validate fzf bindings: mode leak detection, README table sync, guideline compliance |
 | `/check-links` | check | Validate all markdown relative and anchor links resolve |
 | `/check-workflows` | check | Validate TOML integrity (values, lifecycle, extends) and config defaults match code |
 | `/review-docs` | review | Doc quality, accuracy, and consistency across `.md` files and TOML comments |
