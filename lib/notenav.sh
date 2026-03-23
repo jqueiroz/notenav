@@ -3075,7 +3075,7 @@ filters_lbl=$(printf '%s\n%s\n%s\n%s' "$filters_top" "$ftags_s" "$fmatch_s" "$fn
 filters_lbl_f=$(printf '%s\n%s\n%s\n%s' "$filters_top" "$ftags_s_active" "$fmatch_s_active" "$fname_s_active")
 # Display section: per-line [z] options with current value
 default_sort=$(head -1 "$dir/.schema_defaults")
-sort_hint="$fsort"; [ "$fsort" = "$default_sort" ] && sort_hint="$fsort (default)"
+sort_hint="$fsort"; [ "$fsort" = "$default_sort" ] && sort_hint="$fsort (default order)"
 # Field-aware sort direction description
 case "$fsort" in
   modified|created) if [ -n "$fsort_rev" ]; then sort_dir="oldest first"; else sort_dir="newest first"; fi ;;
