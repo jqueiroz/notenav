@@ -439,6 +439,14 @@ _nn_gen_awk_bodies() {
 
 nn_precompute_workflow() {
   local _v
+  # Schema version check (absent = 1, future versions rejected)
+  local _schema_ver
+  _schema_ver=$(nn_cfg '.meta.schema // 1')
+  if [[ "$_schema_ver" != "1" ]]; then
+    echo "notenav: workflow requires schema version $_schema_ver, but this notenav only supports version 1" >&2
+    echo "notenav: please upgrade notenav" >&2
+    return 1
+  fi
   # Note types
   mapfile -t NN_TYPE_VALUES < <(nn_cfg '.type.values[]')
   if [[ ${#NN_TYPE_VALUES[@]} -eq 0 ]]; then
@@ -1014,7 +1022,7 @@ nn_doctor() {
     done < <(nn_cfg '.type // {} | keys[]' 2>/dev/null)
 
     # Meta sub-key validation
-    local _known_meta_keys="name description"
+    local _known_meta_keys="name description schema"
     local _mmk
     while IFS= read -r _mmk; do
       [[ -z "$_mmk" ]] && continue

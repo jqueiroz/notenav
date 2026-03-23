@@ -100,6 +100,7 @@ description = "Custom workflow for my project"
 |-----|------|-------------|
 | `name` | string | Display name |
 | `description` | string | Short description |
+| `schema` | integer | Schema version (default: `1`). notenav rejects workflows with a version it does not support. |
 
 ### `[type]`
 
