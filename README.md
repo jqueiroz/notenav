@@ -121,13 +121,6 @@ See [docs/configuration.md](docs/configuration.md) for the full config and workf
 
 ## CLI reference
 
-```bash
-nn                              # interactive TUI
-nn type=task status=active      # ad-hoc query (plain output)
-nn backlog                      # run a query preset (from config)
-nn type=task -i                 # interactive (fzf) ad-hoc query
-```
-
 ### `nn init`
 
 Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name: one of the built-in workflows (`compass`, `ado`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `compass` when no workflow is specified.
@@ -161,7 +154,12 @@ nn doctor
 
 ### Other commands
 
-`nn --version` prints version info and `nn --help` shows usage. See [docs/cli.md](docs/cli.md) for the full CLI reference.
+```bash
+nn --version                    # version info
+nn --help                       # show usage
+```
+
+See [docs/cli.md](docs/cli.md) for the full CLI reference.
 
 ## License
 
