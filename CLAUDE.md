@@ -1,6 +1,6 @@
 # notenav
 
-TUI faceted browser for [zk](https://github.com/zk-org/zk) notebooks, built on fzf.
+TUI faceted browser for markdown notebooks, built on fzf. Optional [zk](https://github.com/zk-org/zk) integration for faster indexing and link graph.
 
 ## Repo Layout
 
@@ -37,7 +37,7 @@ LICENSE             # MIT
 
 ## Data Flow
 
-1. `zk list` outputs TSV: `type \t status \t priority \t tags \t title \t absPath \t modified \t created`
+1. `zk list` (or native find+AWK parser when zk is absent) outputs TSV: `type \t status \t priority \t tags \t title \t absPath \t modified \t created`
 2. `filter.sh` applies awk conditions based on current filter state
 3. Colored output piped to fzf via `.current` file
 4. Actions update frontmatter in-place via `action.sh`, then regenerate `.raw` and re-filter

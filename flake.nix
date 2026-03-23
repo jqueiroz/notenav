@@ -1,5 +1,5 @@
 {
-  description = "notenav — TUI faceted browser for markdown notebooks";
+  description = "notenav – TUI faceted browser for markdown notebooks";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";

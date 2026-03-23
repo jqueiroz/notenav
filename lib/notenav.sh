@@ -714,27 +714,36 @@ nn_write_workflow_files() {
 _nn_find_md_with_mtime() {
   local dir="$1"
   if find "$dir" -maxdepth 0 -printf '' 2>/dev/null; then
-    # GNU find
-    find "$dir" -name '*.md' -type f -printf '%p\t%TY-%Tm-%TdT%TH:%TM:%TS\n'
+    # GNU find – space-separated date to match zk's {{modified}} format
+    find "$dir" -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
   else
     # BSD find + stat (macOS)
-    find "$dir" -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%dT%H:%M:%S' {} +
+    find "$dir" -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
   fi
 }
 
 # Reads a list of "absPath\tmtime" on stdin, parses each file's YAML frontmatter,
 # and outputs 8-column TSV matching NN_ZK_FMT.
+# NOTE: the AWK body here must stay in sync with the copy in reload_raw.sh (heredoc).
 _nn_list_notes_native() {
   awk -F'\t' '
   {
     file = $1; mtime = $2
     type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
-    in_fm = 0; found_title_heading = ""
+    in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0
     while ((getline line < file) > 0) {
       if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
       NR_FILE++
       if (in_fm) {
         if (line == "---") { in_fm = 0; continue }
+        # Multi-line tag list continuation: "  - tagname"
+        if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
+          t = lm[1]; gsub(/^["'"'"']|["'"'"']$/, "", t)
+          if (tags != "") tags = tags " "
+          tags = tags t
+          continue
+        }
+        collecting_tags = 0
         # Parse "key: value" within frontmatter
         if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
           key = m[1]; val = m[2]
@@ -746,19 +755,21 @@ _nn_list_notes_native() {
           else if (key == "title") title = val
           else if (key == "created") created = val
           else if (key == "tags") {
-            # Handle inline array: [a, b, c] → "a b c"
+            # Handle inline array: [a, b, c] -> "a b c"
             gsub(/[\[\]]/, "", val)
             gsub(/,[ \t]*/, " ", val)
-            tags = val
+            gsub(/^ +| +$/, "", val)
+            if (val != "") { tags = val }
+            else { collecting_tags = 1 }
           }
         }
       } else {
-        # Look for first heading as title fallback
+        # Scan a few lines past frontmatter for a heading as title fallback
         if (found_title_heading == "" && match(line, /^#+ +(.+)$/, hm)) {
           found_title_heading = hm[1]
         }
-        # Stop reading after frontmatter to avoid scanning entire file
-        break
+        post_fm++
+        if (found_title_heading != "" || post_fm >= 10) break
       }
     }
     close(file)
@@ -2381,33 +2392,34 @@ if [ "$has_zk" = "true" ]; then
 else
   root=$(cat "$dir/.notebook_root" 2>/dev/null)
   search_dir="${zk_path[0]:-$root}"
+  # Title extractor: reads file paths on stdin, outputs "absPath\ttitle"
+  _nn_extract_titles() {
+    awk '{
+      file = $0; title = ""
+      while ((getline line < file) > 0) {
+        if (nr == 0 && line == "---") { in_fm = 1; nr++; continue }
+        nr++
+        if (in_fm) {
+          if (line == "---") break
+          if (match(line, /^title:[ \t]*(.*)$/, m)) {
+            title = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", title); break
+          }
+        } else break
+      }
+      close(file); nr = 0; in_fm = 0
+      if (title == "") { n = split(file, p, "/"); title = p[n]; sub(/\.md$/, "", title) }
+      printf "%s\t%s\n", file, title
+    }'
+  }
   if [ -n "$query" ]; then
     # Use rg if available, grep fallback
     if command -v rg >/dev/null 2>&1; then
       rg -l --type md "$query" "$search_dir" 2>/dev/null
     else
       grep -rl --include='*.md' "$query" "$search_dir" 2>/dev/null
-    fi | while IFS= read -r f; do
-      # Extract title from frontmatter or filename
-      t=$(awk '
-        NR==1 && /^---/ { in_fm=1; next }
-        in_fm && /^---/ { exit }
-        in_fm && /^title:/ { sub(/^title:[ \t]*/, ""); gsub(/^["'"'"']|["'"'"']$/, ""); print; exit }
-      ' "$f")
-      [ -z "$t" ] && t=$(basename "$f" .md)
-      printf '%s\t%s\n' "$f" "$t"
-    done
+    fi | _nn_extract_titles
   else
-    # No query: list all files with titles
-    find "$search_dir" -name '*.md' -type f | while IFS= read -r f; do
-      t=$(awk '
-        NR==1 && /^---/ { in_fm=1; next }
-        in_fm && /^---/ { exit }
-        in_fm && /^title:/ { sub(/^title:[ \t]*/, ""); gsub(/^["'"'"']|["'"'"']$/, ""); print; exit }
-      ' "$f")
-      [ -z "$t" ] && t=$(basename "$f" .md)
-      printf '%s\t%s\n' "$f" "$t"
-    done
+    find "$search_dir" -name '*.md' -type f | _nn_extract_titles
   fi
 fi
 ENDMSEARCH
@@ -2495,21 +2507,29 @@ else
   _nn_find_md_with_mtime() {
     local d="$1"
     if find "$d" -maxdepth 0 -printf '' 2>/dev/null; then
-      find "$d" -name '*.md' -type f -printf '%p\t%TY-%Tm-%TdT%TH:%TM:%TS\n'
+      find "$d" -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
     else
-      find "$d" -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%dT%H:%M:%S' {} +
+      find "$d" -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
     fi
   }
+  # NOTE: this AWK body must stay in sync with _nn_list_notes_native() in lib/notenav.sh
   _nn_find_md_with_mtime "$search_dir" | awk -F'\t' '
   {
     file = $1; mtime = $2
     type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
-    in_fm = 0; found_title_heading = ""
+    in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0
     while ((getline line < file) > 0) {
       if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
       NR_FILE++
       if (in_fm) {
         if (line == "---") { in_fm = 0; continue }
+        if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
+          t = lm[1]; gsub(/^["'"'"']|["'"'"']$/, "", t)
+          if (tags != "") tags = tags " "
+          tags = tags t
+          continue
+        }
+        collecting_tags = 0
         if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
           key = m[1]; val = m[2]
           gsub(/^["'"'"']|["'"'"']$/, "", val)
@@ -2521,14 +2541,17 @@ else
           else if (key == "tags") {
             gsub(/[\[\]]/, "", val)
             gsub(/,[ \t]*/, " ", val)
-            tags = val
+            gsub(/^ +| +$/, "", val)
+            if (val != "") { tags = val }
+            else { collecting_tags = 1 }
           }
         }
       } else {
         if (found_title_heading == "" && match(line, /^#+ +(.+)$/, hm)) {
           found_title_heading = hm[1]
         }
-        break
+        post_fm++
+        if (found_title_heading != "" || post_fm >= 10) break
       }
     }
     close(file)
@@ -3173,13 +3196,15 @@ else
   # Native note creation (no zk)
   _slug=$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
   [ -z "$_slug" ] && _slug="note"
-  new_path="${_slug}.md"
+  new_path="$PWD/${_slug}.md"
   if [ -f "$new_path" ]; then
-    new_path="${_slug}-$(date +%s).md"
+    new_path="$PWD/${_slug}-$(date +%s).md"
   fi
+  # Escape double quotes for valid YAML
+  _yaml_title=$(printf '%s' "$title" | sed 's/\\/\\\\/g; s/"/\\"/g')
   {
     printf '%s\n' "---"
-    printf 'title: "%s"\n' "$title"
+    printf 'title: "%s"\n' "$_yaml_title"
     printf 'type: %s\n' "$selected"
     [ -n "$_nn_initial_status" ] && printf 'status: %s\n' "$_nn_initial_status"
     printf 'created: %s\n' "$_nn_now"
