@@ -16,6 +16,8 @@
         zk
         fzf
         bat
+        glow
+        mdcat
         gawk
         gnused
         coreutils

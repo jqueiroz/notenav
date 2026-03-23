@@ -578,7 +578,7 @@ nn_precompute_workflow() {
   NN_UI_EXIT_MESSAGE=$(nn_cfg '.ui.exit_message // "none"')
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
-  NN_UI_PREVIEWER=$(nn_cfg '.ui.previewer // ["bat"] | if type == "array" then join(" ") else . end')
+  NN_UI_PREVIEWER=$(nn_cfg '.ui.previewer // ["glow","mdcat","bat"] | if type == "array" then join(" ") else . end')
   NN_UI_PREVIEWER_CUSTOM=$(nn_cfg '.ui.previewer_custom_command // ""')
 
   # ZK format (hardcoded – the entire pipeline assumes this exact column layout)
@@ -1461,7 +1461,7 @@ nn_doctor() {
           esac
         done < <(nn_cfg '.ui.previewer[]')
         ;;
-      null) _ui_prev_list="bat" ;;
+      null) _ui_prev_list="glow mdcat bat" ;;
       *) _warn "ui.previewer must be a string or array of strings" ;;
     esac
     local _ui_prev_custom
@@ -1471,7 +1471,7 @@ nn_doctor() {
     fi
     # Check configured previewer availability
     local _prev_any_found=false _pv
-    for _pv in ${_ui_prev_list:-bat}; do
+    for _pv in ${_ui_prev_list:-glow mdcat bat}; do
       case "$_pv" in
         bat)
           if command -v bat >/dev/null 2>&1 || command -v batcat >/dev/null 2>&1; then
@@ -1945,7 +1945,7 @@ case "$file" in *.empty_placeholder) cat "$file"; exit 0 ;; esac
 
 # Show file content using configured previewer (fallback list)
 _rendered=false
-for _p in ${_nn_previewer:-bat}; do
+for _p in ${_nn_previewer:-glow mdcat bat}; do
   case "$_p" in
     bat)
       _bat=$(command -v bat || command -v batcat || true)
