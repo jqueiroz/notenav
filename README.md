@@ -1,6 +1,6 @@
 # notenav (`nn`)
 
-Your notes deserve a proper interface. Not a browser tab, not an Electron app – a fast, keyboard-driven TUI that feels like editing code. Finally, task and note management that's seamless and, dare we say, _fun_!
+Your notes deserve a proper interface. Not a browser tab, not an Electron app – a fast, keyboard-driven TUI that feels like editing code[^1]. Finally, task and note management that's seamless and, dare we say, _fun_!
 
 Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions – all without leaving the terminal. Friendly learning curve: with the default configuration, every keybinding is displayed on-screen.
 
@@ -100,7 +100,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 
 These keybindings apply to all workflows, including custom ones. With the default configuration, every keybinding is displayed on-screen.
 
-Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi → nano → emacs[^1].
+Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi → nano → emacs[^2].
 
 ## Configuration
 
@@ -168,4 +168,5 @@ See [docs/cli.md](docs/cli.md) for the full CLI reference.
 
 MIT
 
-[^1]: All in good spirit – emacs users, you know you can set `$EDITOR`.
+[^1]: Well, not _all_ code editing. We're talking about the kind that sparks joy.
+[^2]: All in good spirit – emacs users, you know you can set `$EDITOR`.
