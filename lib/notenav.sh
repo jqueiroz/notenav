@@ -641,8 +641,9 @@ nn_write_workflow_files() {
 # Version comparison: returns 0 if $1 >= $2 (dot-separated numeric)
 _nn_ver_cmp() {
   [[ -z "$1" || -z "$2" ]] && return 1
-  local IFS=.
-  local -a a=($1) b=($2)
+  local -a a b
+  IFS=. read -ra a <<< "$1"
+  IFS=. read -ra b <<< "$2"
   local i
   for ((i=0; i<${#b[@]}; i++)); do
     local av="${a[i]:-0}" bv="${b[i]:-0}"
@@ -1747,7 +1748,7 @@ _nn_fetch_remote() {
   # Download to temp file
   local tmpfile
   tmpfile=$(mktemp)
-  trap "rm -f '$tmpfile'" RETURN
+  trap 'rm -f "$tmpfile"' RETURN
   if ! curl -fsSL "$url" -o "$tmpfile"; then
     echo "notenav: failed to download $url" >&2
     return 1
@@ -1926,7 +1927,7 @@ EOF
       return 1
     fi
     local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX")
-    trap "rm -rf '${_nn_dir}'" EXIT
+    trap 'rm -rf "$_nn_dir"' EXIT
     nn_write_workflow_files "$_nn_dir"
 
     # Get all notes
@@ -3349,7 +3350,7 @@ ENDEDIT
     local _nn_prev; _nn_prev=$(mktemp)
     local _nn_edit; _nn_edit=$(mktemp)
     local _nn_sflag="${nn_tmp}.sflag"
-    trap "rm -f '${nn_tmp}' '${_nn_prev}' '${_nn_edit}' '${_nn_edit}.editor' '${_nn_sflag}'" EXIT
+    trap 'rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_sflag"' EXIT
     _nn_write_preview "$_nn_prev"
     printf '%s' "$_nn_editor" > "$_nn_edit.editor"
     printf '#!/usr/bin/env bash\nnn_editor=$(cat "%s" 2>/dev/null)\n[ -f "$1" ] && ${nn_editor:-vi} "$1"\n' "$_nn_edit.editor" > "$_nn_edit"
