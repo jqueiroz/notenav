@@ -442,7 +442,11 @@ nn_precompute_workflow() {
   # Schema version check (absent = 1, future versions rejected)
   local _schema_ver
   _schema_ver=$(nn_cfg '.meta.schema // 1')
-  if [[ "$_schema_ver" != "1" ]]; then
+  if ! [[ "$_schema_ver" =~ ^[0-9]+$ ]] || [[ "$_schema_ver" -lt 1 ]]; then
+    echo "notenav: invalid schema version '$_schema_ver' in workflow (expected a positive integer)" >&2
+    return 1
+  fi
+  if [[ "$_schema_ver" -gt 1 ]]; then
     echo "notenav: workflow requires schema version $_schema_ver, but this notenav only supports version 1" >&2
     echo "notenav: please upgrade notenav" >&2
     return 1
@@ -1030,6 +1034,16 @@ nn_doctor() {
         _warn "meta: unrecognized key '$_mmk'"
       fi
     done < <(nn_cfg '.meta // {} | keys[]' 2>/dev/null)
+    # Validate meta.schema
+    local _doc_schema
+    _doc_schema=$(nn_cfg '.meta.schema // empty')
+    if [[ -n "$_doc_schema" ]]; then
+      if ! [[ "$_doc_schema" =~ ^[0-9]+$ ]] || [[ "$_doc_schema" -lt 1 ]]; then
+        _fail "meta.schema '$_doc_schema' is not a valid positive integer"
+      elif [[ "$_doc_schema" -gt 1 ]]; then
+        _warn "meta.schema is $_doc_schema, but this notenav only supports version 1"
+      fi
+    fi
 
     # Status checks
     local _sta_values _sta_ok=true _sta_count=0

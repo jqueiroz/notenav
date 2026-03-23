@@ -88,12 +88,13 @@ A workflow file has four top-level sections: `[meta]`, `[type]`, `[status]`, and
 
 ### `[meta]`
 
-Descriptive metadata. Not used at runtime but helps identify the workflow.
+Identifies the workflow and declares its schema version.
 
 ```toml
 [meta]
 name = "My Workflow"
 description = "Custom workflow for my project"
+schema = 1
 ```
 
 | Key | Type | Description |
