@@ -755,9 +755,10 @@ _nn_list_notes_native() {
           else if (key == "title") title = val
           else if (key == "created") created = val
           else if (key == "tags") {
-            # Handle inline array: [a, b, c] -> "a b c"
+            # Handle inline array: [a, b, c] or ["a", "b"] -> "a b c"
             gsub(/[\[\]]/, "", val)
             gsub(/,[ \t]*/, " ", val)
+            gsub(/["'"'"']/, "", val)
             gsub(/^ +| +$/, "", val)
             if (val != "") { tags = val }
             else { collecting_tags = 1 }
@@ -2541,6 +2542,7 @@ else
           else if (key == "tags") {
             gsub(/[\[\]]/, "", val)
             gsub(/,[ \t]*/, " ", val)
+            gsub(/["'"'"']/, "", val)
             gsub(/^ +| +$/, "", val)
             if (val != "") { tags = val }
             else { collecting_tags = 1 }
