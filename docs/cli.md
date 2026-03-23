@@ -148,6 +148,7 @@ nn doctor
    - gawk (GNU awk – required for `mktime()` and `strtonum()`)
    - sort, sed
    - zk (optional – faster indexing and link graph)
+   - curl (optional – needed for remote workflows)
    - bat or batcat (optional – default previewer; alternatives: glow, mdcat)
 
 2. **Config:** validates configuration files:

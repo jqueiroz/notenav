@@ -934,6 +934,13 @@ nn_doctor() {
     fi
   done
 
+  # curl (optional – needed for remote workflows)
+  if command -v curl >/dev/null 2>&1; then
+    _pass "curl"
+  else
+    _info "curl not found ${_dim}(optional – needed for remote workflows)${_reset}"
+  fi
+
   # Preview tools validated in Phase 2 alongside config
 
   # ── Phase 2: Config validation ──
