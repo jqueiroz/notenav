@@ -2311,8 +2311,13 @@ EOF
     printf '%s' "$_NN_HAS_ZK" > "$_nn_dir/.has_zk"
     printf '%s' "${_zk_root:-$PWD}" > "$_nn_dir/.notebook_root"
 
-    # Get all notes
-    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${_zk_path[@]}" > "$_nn_dir/.raw"
+    # Get all notes (native backend needs an explicit absolute path to ensure
+    # consistent paths between initial load and reload_raw.sh)
+    if [[ "$_NN_HAS_ZK" != "true" && ${#_zk_path[@]} -eq 0 && -n "$_zk_root" ]]; then
+      _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "$_zk_root" > "$_nn_dir/.raw"
+    else
+      _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${_zk_path[@]}" > "$_nn_dir/.raw"
+    fi
 
     # Initialize filter state (empty = all)
     : > "$_nn_dir/.f_type"

@@ -146,10 +146,9 @@ nn doctor
    - yq (yq-go, **not** yq-python)
    - jq
    - gawk (GNU awk – required for `mktime()` and `strtonum()`)
-   - sort, sed, git
+   - sort, sed
    - zk (optional – faster indexing and link graph)
    - bat or batcat (optional – default previewer; alternatives: glow, mdcat)
-   - curl (optional – required for remote workflows)
 
 2. **Config:** validates configuration files:
    - User config (`~/.config/notenav/config.toml`): TOML parse check
