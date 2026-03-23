@@ -265,7 +265,9 @@ nn_load_config() {
   NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$base_json" "$workflow_json" "$user_json" "$project_queries" \
     | jq -s '.[0] * .[1] * .[2] * .[3] | del(.queries.inherit)' 2>/dev/null)
   if [[ -n "$_wf_schema" ]]; then
-    NN_CFG_JSON=$(printf '%s' "$NN_CFG_JSON" | jq ".meta.schema = $_wf_schema" 2>/dev/null)
+    local _pinned
+    _pinned=$(printf '%s' "$NN_CFG_JSON" | jq --argjson v "$_wf_schema" '.meta.schema = $v' 2>/dev/null)
+    [[ -n "$_pinned" ]] && NN_CFG_JSON="$_pinned"
   fi
 
   if [[ -z "$NN_CFG_JSON" || "$NN_CFG_JSON" == "null" ]]; then
