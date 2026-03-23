@@ -21,8 +21,8 @@ At startup, two things happen:
 
    | Layer | Source | Wins on |
    |-------|--------|---------|
-   | 1. Workflow | Built-in or extended workflow definition | — (base) |
-   | 2. Base config | `$NOTENAV_ROOT/config/base.toml` | Workflow defaults |
+   | 1. Base config | `$NOTENAV_ROOT/config/base.toml` | — (base) |
+   | 2. Workflow | Built-in or extended workflow definition | Base defaults |
    | 3. User config | `$XDG_CONFIG_HOME/notenav/config.toml` | Everything above |
    | 4. Project queries | `[queries]` from `.nn/workflow.toml` | All queries |
 
@@ -84,7 +84,7 @@ By design, there is no support for a user-global workflows directory – project
 
 ## Workflow reference
 
-A workflow file has four top-level sections: `[meta]`, `[type]`, `[status]`, and `[priority]`.
+A workflow file has four main sections – `[type]`, `[status]`, `[priority]`, and `[meta]` – plus optional `[queries]` presets and an `extends` key for inheritance.
 
 ### `[meta]`
 
