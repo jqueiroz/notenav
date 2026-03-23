@@ -3394,6 +3394,25 @@ ENDEDIT
   fi
   [[ -n "${filters[tag]}" ]] && awk_cond="$awk_cond && index(\" \" \$4 \" \", \" $(_nn_awk_esc "${filters[tag]}") \") > 0"
 
+  # Sort helper for ad-hoc output (same column layout as TUI's filter.sh)
+  _nn_adhoc_sort() {
+    local _rev=""
+    [[ "$NN_DEFAULT_SORT_REV" == "true" ]] && _rev=yes
+    case "$NN_DEFAULT_SORT" in
+      priority)
+        if [[ "$NN_PRIORITY_ENABLED" == "false" ]]; then cat; return; fi
+        local _ph=9; [[ "$NN_PRIORITY_UNSET_POS" == "first" ]] && _ph=0
+        local _pdir=n; [[ -n "$_rev" ]] && _pdir=nr
+        awk -F'\t' -v p="$_ph" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' \
+          | sort -t'	' -k3,3${_pdir} -s \
+          | awk -F'\t' -v p="$_ph" 'BEGIN{OFS=FS}{if($3==p)$3="";print}' ;;
+      modified) if [[ -n "$_rev" ]]; then sort -t'	' -k7,7 -s; else sort -t'	' -k7,7r -s; fi ;;
+      created)  if [[ -n "$_rev" ]]; then sort -t'	' -k8,8 -s; else sort -t'	' -k8,8r -s; fi ;;
+      title)    if [[ -n "$_rev" ]]; then sort -t'	' -k5,5r -s; else sort -t'	' -k5,5 -s; fi ;;
+      *)        cat ;;
+    esac
+  }
+
   if $interactive; then
     if [[ "${TERM:-dumb}" == "dumb" ]]; then
       echo "notenav: interactive mode requires a terminal (TERM is 'dumb')" >&2
@@ -3409,7 +3428,9 @@ ENDEDIT
     printf '#!/usr/bin/env bash\nnn_editor=$(cat "%s" 2>/dev/null)\n[ -f "$1" ] && ${nn_editor:-vi} "$1"\n' "$_nn_edit.editor" > "$_nn_edit"
     chmod +x "$_nn_edit"
     zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
-      | awk -F'\t' "$awk_cond && length(\$1) > 0 $_awk_color" > "$nn_tmp"
+      | awk -F'\t' "$awk_cond && length(\$1) > 0" \
+      | _nn_adhoc_sort \
+      | awk -F'\t' "$_awk_color" > "$nn_tmp"
     fzf --ansi --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
           --preview "$_nn_prev {1}" \
           --prompt "$NN_UI_COMMAND_PROMPT" \
@@ -3438,7 +3459,10 @@ ENDEDIT
       _adhoc_fmt='{printf "[%s] [%s] %s\n", $1, $2, $5}'
     fi
     zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
-      | awk -F'\t' "$awk_cond && length(\$1) > 0 $_adhoc_fmt"
+      | awk -F'\t' "$awk_cond && length(\$1) > 0" \
+      | _nn_adhoc_sort \
+      | awk -F'\t' "$_adhoc_fmt"
   fi
+  unset -f _nn_adhoc_sort
   shopt -u nullglob
 }
