@@ -578,7 +578,7 @@ nn_precompute_workflow() {
   NN_UI_EXIT_MESSAGE=$(nn_cfg '.ui.exit_message // "none"')
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
-  NN_UI_PREVIEWER=$(nn_cfg '.ui.previewer // ["glow","mdcat","bat"] | if type == "array" then join(" ") else . end')
+  NN_UI_PREVIEWER=$(nn_cfg '.ui.previewer // ["bat","glow","mdcat"] | if type == "array" then join(" ") else . end')
   NN_UI_PREVIEWER_CUSTOM=$(nn_cfg '.ui.previewer_custom_command // ""')
 
   # ZK format (hardcoded – the entire pipeline assumes this exact column layout)
@@ -1461,7 +1461,7 @@ nn_doctor() {
           esac
         done < <(nn_cfg '.ui.previewer[]')
         ;;
-      null) _ui_prev_list="glow mdcat bat" ;;
+      null) _ui_prev_list="bat glow mdcat" ;;
       *) _warn "ui.previewer must be a string or array of strings" ;;
     esac
     local _ui_prev_custom
@@ -1471,7 +1471,7 @@ nn_doctor() {
     fi
     # Check configured previewer availability
     local _prev_any_found=false _pv
-    for _pv in ${_ui_prev_list:-glow mdcat bat}; do
+    for _pv in ${_ui_prev_list:-bat glow mdcat}; do
       case "$_pv" in
         bat)
           if command -v bat >/dev/null 2>&1 || command -v batcat >/dev/null 2>&1; then
@@ -1930,8 +1930,8 @@ _nn_write_preview() {
   local target="$1"
   # Dynamic preamble: bake previewer config at generation time
   printf '#!/usr/bin/env bash\n' > "$target"
-  printf '_nn_previewer=%q\n' "$NN_UI_PREVIEWER"
-  printf '_nn_previewer_custom=%q\n' "$NN_UI_PREVIEWER_CUSTOM"
+  printf '_nn_previewer=%q\n' "$NN_UI_PREVIEWER" >> "$target"
+  printf '_nn_previewer_custom=%q\n' "$NN_UI_PREVIEWER_CUSTOM" >> "$target"
   cat >> "$target" << 'ENDPREVIEW'
 dir="$(dirname "$0")"
 file="$1"
@@ -1945,7 +1945,7 @@ case "$file" in *.empty_placeholder) cat "$file"; exit 0 ;; esac
 
 # Show file content using configured previewer (fallback list)
 _rendered=false
-for _p in ${_nn_previewer:-glow mdcat bat}; do
+for _p in ${_nn_previewer:-bat glow mdcat}; do
   case "$_p" in
     bat)
       _bat=$(command -v bat || command -v batcat || true)

@@ -19,5 +19,5 @@ search_prompt = "/ "     # prompt in ad-hoc interactive mode
 exit_message = "none"    # "none" or "fortune" (show a fun quote on exit)
 priority_plus = "demote" # what + key does: "demote" = lower urgency (P1→P2), "promote" = raise urgency (P2→P1)
 after_create = "edit"    # "edit" (open in editor) or "none" (just create)
-previewer = ["glow", "mdcat", "bat"] # fallback list: tries each in order, uses first found
+previewer = ["bat", "glow", "mdcat"] # fallback list: tries each in order, uses first found
 previewer_custom_command = "" # command when previewer = "custom" (file path passed as $1)

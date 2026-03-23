@@ -19,7 +19,7 @@
 # priority_plus = "demote"      # "demote": + lowers urgency (P1→P2)
 #                               # "promote": + raises urgency (P2→P1)
 # after_create = "edit"         # "edit" (open in editor) or "none" (just create)
-# previewer = ["glow", "mdcat", "bat"]  # fallback list (bat | glow | mdcat | plain | custom)
+# previewer = ["bat", "glow", "mdcat"]  # fallback list (bat | glow | mdcat | plain | custom)
 # previewer_custom_command = ""  # command when previewer includes "custom" (file as $1)
 
 # Override workflow colors – these merge on top, so only specify what you
