@@ -3506,7 +3506,8 @@ ENDEDIT
       modified) if [[ -n "$_rev" ]]; then sort -t'	' -k7,7 -s; else sort -t'	' -k7,7r -s; fi ;;
       created)  if [[ -n "$_rev" ]]; then sort -t'	' -k8,8 -s; else sort -t'	' -k8,8r -s; fi ;;
       title)    if [[ -n "$_rev" ]]; then sort -t'	' -k5,5r -s; else sort -t'	' -k5,5 -s; fi ;;
-      *)        cat ;;
+      "")       cat ;;
+      *)        echo "bug: _nn_adhoc_sort: unknown field '$NN_DEFAULT_SORT'" >&2; cat ;;
     esac
   }
 
