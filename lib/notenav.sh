@@ -590,7 +590,7 @@ nn_precompute_workflow() {
     "{ $NN_AWK_COLOR_BODY }" \
     "{ $NN_AWK_COLOR_PINNED }" \
     "$NN_AWK_COLOR_STATS"; do
-    if ! printf '' | gawk -F'\t' "$_awk_check" 2>/dev/null; then
+    if ! printf '' | awk -F'\t' "$_awk_check" 2>/dev/null; then
       echo "notenav: generated AWK program has syntax errors (check config values for special characters)" >&2
       return 1
     fi
