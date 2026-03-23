@@ -1544,7 +1544,7 @@ EOF
       *)
         if [[ -n "$workflow_arg" ]]; then
           echo "notenav: unexpected argument: $1" >&2
-          return 1
+          return 2
         fi
         workflow_arg="$1"; shift ;;
     esac
@@ -1604,7 +1604,7 @@ _nn_init_project() {
     if ! _nn_workflow_exists "$notenav_root" "$workflow_name"; then
       echo "notenav: workflow '$workflow_name' not found" >&2
       _nn_list_workflows "$notenav_root" >&2
-      return 1
+      return 2
     fi
   fi
 
@@ -1643,7 +1643,7 @@ _nn_init_user() {
     elif ! _nn_workflow_exists "$notenav_root" "$workflow_arg"; then
       echo "notenav: workflow '$workflow_arg' not found" >&2
       _nn_list_workflows "$notenav_root" >&2
-      return 1
+      return 2
     fi
   fi
 
