@@ -104,7 +104,7 @@ nn init --help
 
 | Argument | Description |
 |----------|-------------|
-| `workflow` | Built-in workflow name (`compass`, `ado`, `gtd`, `zettelkasten`) or HTTPS URL. Defaults to `compass`. |
+| `workflow` | Built-in workflow name (`zenith`, `ado`, `gtd`, `zettelkasten`) or HTTPS URL. Defaults to `zenith`. |
 
 **Flags:**
 
@@ -123,7 +123,7 @@ nn init --help
 **Examples:**
 
 ```bash
-nn init                           # project config, extends compass
+nn init                           # project config, extends zenith
 nn init zettelkasten              # project config, extends zettelkasten
 nn init https://example.com/w.toml  # project config, extends remote workflow
 nn init --user                    # user config with default settings

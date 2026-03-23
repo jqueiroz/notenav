@@ -9,14 +9,14 @@ bin/nn              # Entry point: resolves root, sources lib, calls notenav_mai
 lib/notenav.sh      # Full implementation (~1700 LOC)
 config/
   base.toml        # Base config (ships with notenav; user/project configs overlay on top)
-  workflows/       # Built-in workflows: compass, ado, gtd, zettelkasten
+  workflows/       # Built-in workflows: zenith, ado, gtd, zettelkasten
 curl/
   install.sh       # curl-pipe-sh installer script
 docs/
   install.md          # Full install instructions (requirements, all methods)
   configuration.md    # Config system + workflow reference
   faq.md              # Frequently asked questions
-  workflows/          # Per-workflow documentation (compass.md, ado.md, etc.)
+  workflows/          # Per-workflow documentation (zenith.md, ado.md, etc.)
 samples/
   user-config.toml      # Example ~/.config/notenav/config.toml
   workflows/            # Example .nn/workflow.toml files
@@ -54,7 +54,7 @@ The merged config is stored in `NN_CFG_JSON` and queried via `nn_cfg '.path.to.v
 which nn                                      # should show bin/nn path
 nn --version                                  # notenav 0.1.0-dev
 nn doctor                                     # check dependencies, config, notebook
-nn init                                       # create .nn/workflow.toml (compass)
+nn init                                       # create .nn/workflow.toml (zenith)
 nn init --user                                # create ~/.config/notenav/config.toml
 
 cd ~/Writing/obsidian-johnjq

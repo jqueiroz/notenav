@@ -3,7 +3,7 @@
 # User config:    ~/.config/notenav/config.toml (preferences + personal queries)
 # Project:        .nn/workflow.toml (workflow definition + project queries)
 
-default_workflow = "compass"
+default_workflow = "zenith"
 
 [defaults]
 sort_by = "created"

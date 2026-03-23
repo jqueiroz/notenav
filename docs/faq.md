@@ -20,7 +20,7 @@ This means you can run `nn` from any subdirectory of your project and it will us
 └── inbox.md
 ```
 
-If no `.nn/` directory is found anywhere in the path, notenav falls back to the `default_workflow` setting in your user config (`~/.config/notenav/config.toml`), or to the built-in Compass workflow if that's not set either.
+If no `.nn/` directory is found anywhere in the path, notenav falls back to the `default_workflow` setting in your user config (`~/.config/notenav/config.toml`), or to the built-in Zenith workflow if that's not set either.
 
 ## Which notes does `nn` show?
 
@@ -64,7 +64,7 @@ Short name where you see it often, full name where discoverability matters. `.nn
 
 ## Can I use `nn` without a `.nn/` directory?
 
-Yes. If there's no `.nn/workflow.toml`, notenav uses your `default_workflow` from `~/.config/notenav/config.toml` (defaults to Compass). This works well for personal notebooks that don't need project-specific configuration.
+Yes. If there's no `.nn/workflow.toml`, notenav uses your `default_workflow` from `~/.config/notenav/config.toml` (defaults to Zenith). This works well for personal notebooks that don't need project-specific configuration.
 
 ## Can I use `nn` with Obsidian / Dendron / Jekyll / other tools?
 

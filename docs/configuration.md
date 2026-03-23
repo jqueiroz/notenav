@@ -15,7 +15,7 @@ Both scopes are layered on top of notenav's base defaults, so you only need to s
 
 At startup, two things happen:
 
-1. **Workflow resolution:** if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"compass"`.
+1. **Workflow resolution:** if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"zenith"`.
 
 2. **Preference merge:** preferences are assembled by deep-merging these layers in order (later values win):
 
@@ -33,7 +33,7 @@ The `.nn/` directory is found by walking up from the current directory.
 The quickest way to get started is `nn init`:
 
 ```bash
-nn init                    # create .nn/workflow.toml (extends compass)
+nn init                    # create .nn/workflow.toml (extends zenith)
 nn init gtd                # create .nn/workflow.toml (extends gtd)
 nn init --user             # create ~/.config/notenav/config.toml
 ```
@@ -78,7 +78,7 @@ name = "My Workflow"
 # ...
 ```
 
-If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used (defaults to `"compass"`).
+If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used (defaults to `"zenith"`).
 
 By design, there is no support for a user-global workflows directory – projects are self-contained.
 
@@ -263,7 +263,7 @@ notenav ships with four workflows. Use `extends` in `.nn/workflow.toml` or `defa
 
 | Workflow | Types | Statuses | Priority | Use case |
 |--------|----------|----------|----------|----------|
-| **compass** (default) | task, idea, reference | new, active, blocked, done, removed | 1-4 | General-purpose task/idea tracking |
+| **zenith** (default) | task, idea, reference | new, active, blocked, done, removed | 1-4 | General-purpose task/idea tracking |
 | **ado** | feature, task, bug | new, active, resolved, closed, removed | 1-4 | Azure DevOps-style work items |
 | **gtd** | action, project, reference | inbox, next, waiting, someday, done, dropped | 1-3 | Getting Things Done workflow |
 | **zettelkasten** | fleeting, literature, permanent | draft, review, mature, archived | *(disabled)* | Slip-box knowledge management |
@@ -276,7 +276,7 @@ The `extends` key is optional. If present, it deep-merges your definitions on to
 
 ```toml
 # .nn/workflow.toml
-extends = "compass"
+extends = "zenith"
 
 # Override just what you need
 [type.bug]
@@ -334,7 +334,7 @@ User config key that defines the fallback workflow for directories without a `.n
 
 ```toml
 # ~/.config/notenav/config.toml
-default_workflow = "compass"    # built-in name (default)
+default_workflow = "zenith"    # built-in name (default)
 default_workflow = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"  # remote URL
 ```
 
@@ -399,7 +399,7 @@ You can override individual colors without writing a full custom workflow. In `.
 
 ```toml
 # .nn/workflow.toml
-extends = "compass"
+extends = "zenith"
 
 [type.task]
 color = "34"          # change tasks from cyan to blue

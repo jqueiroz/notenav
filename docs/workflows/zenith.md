@@ -1,19 +1,19 @@
-# Compass Workflow
+# Zenith Workflow
 
 The default notenav workflow. A simple workflow built around three note types, four statuses, and four priority levels – enough structure to manage a project without getting in the way.
 
-**Workflow file:** [`config/workflows/compass.toml`](../../config/workflows/compass.toml)
+**Workflow file:** [`config/workflows/zenith.toml`](../../config/workflows/zenith.toml)
 
-Compass is the default – no setup needed. To use it explicitly:
+Zenith is the default – no setup needed. To use it explicitly:
 
 ```toml
 # Per-project — .nn/workflow.toml
-extends = "compass"
+extends = "zenith"
 ```
 
 ```toml
 # As default for all projects — ~/.config/notenav/config.toml
-default_workflow = "compass"
+default_workflow = "zenith"
 ```
 
 ## Philosophy
@@ -93,7 +93,7 @@ created: 2026-03-18
 
 ## Query Presets
 
-Compass ships with five built-in query presets – filtered views that appear in the query bar when you launch `nn`:
+Zenith ships with five built-in query presets – filtered views that appear in the query bar when you launch `nn`:
 
 | Preset | Filter | Purpose |
 |--------|--------|---------|
@@ -105,9 +105,9 @@ Compass ships with five built-in query presets – filtered views that appear in
 
 These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#query-presets) for details.
 
-## When to Use Compass
+## When to Use Zenith
 
-Compass is a good default when you don't have a specific methodology in mind. It works well for:
+Zenith is a good default when you don't have a specific methodology in mind. It works well for:
 
 - Personal project management
 - Mixed notebooks with tasks, brainstorming, and documentation

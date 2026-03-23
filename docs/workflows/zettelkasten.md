@@ -124,4 +124,4 @@ This workflow is for knowledge management and intellectual work – research, wr
 - You value long-term knowledge accumulation over task completion
 - You write to think, not just to record
 
-If your notes are primarily tasks and to-dos, [Compass](compass.md) or [GTD](gtd.md) will serve you better.
+If your notes are primarily tasks and to-dos, [Zenith](zenith.md) or [GTD](gtd.md) will serve you better.

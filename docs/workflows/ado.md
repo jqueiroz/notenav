@@ -105,4 +105,4 @@ ADO is a good fit when:
 - You want a familiar new → active → resolved → closed flow
 - You need clear separation between features, tasks, and bugs
 
-For more general note-taking, see [Compass](compass.md). For a process-oriented approach, see [GTD](gtd.md).
+For more general note-taking, see [Zenith](zenith.md). For a process-oriented approach, see [GTD](gtd.md).

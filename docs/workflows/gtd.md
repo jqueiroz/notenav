@@ -129,4 +129,4 @@ These can be overridden or cleared in project/user config. See [Configuration](.
 
 GTD works best when you have a high volume of heterogeneous inputs (e.g. work tasks, personal errands, ideas, delegated items) and need a reliable system to process them all. It scales from a handful of notes to hundreds.
 
-If you don't need the full GTD list structure, [Compass](compass.md) is simpler. If you're focused on software development, see [ADO](ado.md).
+If you don't need the full GTD list structure, [Zenith](zenith.md) is simpler. If you're focused on software development, see [ADO](ado.md).

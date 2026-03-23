@@ -1,8 +1,8 @@
-# Compass — the default notenav workflow
+# Zenith — the default notenav workflow
 # Simple task/idea/reference workflow with priority and status tracking
 
 [meta]
-name = "Compass"
+name = "Zenith"
 description = "Simple task/idea/reference workflow"
 
 # --- Note types ---

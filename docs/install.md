@@ -86,10 +86,10 @@ nn --version
 nn doctor        # check dependencies, config, and notebook
 ```
 
-notenav works out of the box with the default [Compass](workflows/compass.md) workflow. To customize, use `nn init` to scaffold config files:
+notenav works out of the box with the default [Zenith](workflows/zenith.md) workflow. To customize, use `nn init` to scaffold config files:
 
 ```bash
-nn init                    # create .nn/workflow.toml (extends compass)
+nn init                    # create .nn/workflow.toml (extends zenith)
 nn init ado                # create .nn/workflow.toml (extends ado)
 nn init --user             # create ~/.config/notenav/config.toml
 nn init --user gtd         # create user config with gtd as default workflow

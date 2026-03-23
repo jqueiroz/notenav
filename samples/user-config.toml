@@ -1,8 +1,8 @@
 # Example ~/.config/notenav/config.toml
 # Copy this to ~/.config/notenav/config.toml and customize.
 
-# Choose a built-in workflow: compass, ado, gtd, zettelkasten
-default_workflow = "compass"
+# Choose a built-in workflow: zenith, ado, gtd, zettelkasten
+default_workflow = "zenith"
 
 [defaults]
 sort_by = "modified"       # created | modified | title | priority

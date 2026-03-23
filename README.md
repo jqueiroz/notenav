@@ -42,9 +42,9 @@ ln -s ~/.local/share/notenav/bin/nn ~/.local/bin/nn
 
 Same dependencies as the one-liner. See [docs/install.md](docs/install.md) for details.
 
-## Getting started: the Compass workflow
+## Getting started: the Zenith workflow
 
-Out of the box, `nn` uses **Compass** – a simple workflow built around three note types, four statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
+Out of the box, `nn` uses **Zenith** – a simple workflow built around three note types, four statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
 
 **Note types:** every note is one of:
 - **task:** concrete, actionable unit of work
@@ -57,7 +57,7 @@ Out of the box, `nn` uses **Compass** – a simple workflow built around three n
 
 **Inbox and triage:** borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views, where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
 
-**Built-in query presets:** Compass ships with `inbox`, `p1-tasks`, `p1-ideas`, `p1-references`, and `all-active`. You can add your own presets in project or user config.
+**Built-in query presets:** Zenith ships with `inbox`, `p1-tasks`, `p1-ideas`, `p1-references`, and `all-active`. You can add your own presets in project or user config.
 
 **Frontmatter:** notes are plain markdown with YAML frontmatter:
 
@@ -72,7 +72,7 @@ created: 2026-03-18
 ---
 ```
 
-If Compass doesn't fit your requirements, explore our other built-in workflows or define your own – see [Configuration](#configuration) below.
+If Zenith doesn't fit your requirements, explore our other built-in workflows or define your own – see [Configuration](#configuration) below.
 
 ## Main keybindings
 
@@ -112,7 +112,7 @@ Ships with four built-in workflows. Use a preset as-is, extend it with overrides
 
 | Workflow | Overview | Config |
 |----------|----------|--------|
-| **compass** (default) | [docs/workflows/compass.md](docs/workflows/compass.md) | [config/workflows/compass.toml](config/workflows/compass.toml) |
+| **zenith** (default) | [docs/workflows/zenith.md](docs/workflows/zenith.md) | [config/workflows/zenith.toml](config/workflows/zenith.toml) |
 | **ado** | [docs/workflows/ado.md](docs/workflows/ado.md) | [config/workflows/ado.toml](config/workflows/ado.toml) |
 | **gtd** | [docs/workflows/gtd.md](docs/workflows/gtd.md) | [config/workflows/gtd.toml](config/workflows/gtd.toml) |
 | **zettelkasten** | [docs/workflows/zettelkasten.md](docs/workflows/zettelkasten.md) | [config/workflows/zettelkasten.toml](config/workflows/zettelkasten.toml) |
@@ -123,10 +123,10 @@ See [docs/configuration.md](docs/configuration.md) for the full config and workf
 
 ### `nn init`
 
-Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name: one of the built-in workflows (`compass`, `ado`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `compass` when no workflow is specified.
+Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name: one of the built-in workflows (`zenith`, `ado`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `zenith` when no workflow is specified.
 
 ```bash
-nn init                 # .nn/workflow.toml extending compass
+nn init                 # .nn/workflow.toml extending zenith
 nn init gtd             # .nn/workflow.toml extending gtd
 nn init https://...     # fetch remote workflow, cache it, extend it
 ```
@@ -138,7 +138,7 @@ If `.nn/workflow.toml` already exists, `nn init` refuses to overwrite it – edi
 Creates a user preferences file at `~/.config/notenav/config.toml` (respects `$XDG_CONFIG_HOME`), pre-populated from the annotated sample. An optional workflow argument sets the `default_workflow` key:
 
 ```bash
-nn init --user          # create user config (default workflow: compass)
+nn init --user          # create user config (default workflow: zenith)
 nn init --user gtd      # create user config with gtd as the default workflow
 ```
 

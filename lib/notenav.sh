@@ -142,7 +142,7 @@ nn_load_config() {
   # Step 3: Determine base workflow to load
   # If project workflow has extends → use that as the base
   # If project workflow exists without extends → it IS the full definition (no base needed)
-  # If no project workflow → use user default_workflow or "compass"
+  # If no project workflow → use user default_workflow or "zenith"
   local workflow_name="" workflow_json="{}"
   if [[ "$_has_project_wf" == "true" ]]; then
     workflow_name=$(printf '%s' "$project_wf_json" | jq -r '.extends // empty' 2>/dev/null)
@@ -152,7 +152,7 @@ nn_load_config() {
     if [[ -z "$workflow_name" ]]; then
       workflow_name=$(printf '%s' "$base_json" | jq -r '.default_workflow // empty' 2>/dev/null)
     fi
-    workflow_name="${workflow_name:-compass}"
+    workflow_name="${workflow_name:-zenith}"
   fi
 
   # Step 4: Load base workflow and resolve extends chain
@@ -174,8 +174,8 @@ nn_load_config() {
     fi
 
     if [[ -z "$workflow_file" ]]; then
-      echo "notenav: workflow '$workflow_name' not found, falling back to compass" >&2
-      workflow_file="$notenav_root/config/workflows/compass.toml"
+      echo "notenav: workflow '$workflow_name' not found, falling back to zenith" >&2
+      workflow_file="$notenav_root/config/workflows/zenith.toml"
     fi
 
     if [[ ! -f "$workflow_file" ]]; then
@@ -1526,9 +1526,9 @@ nn_init() {
 Usage: nn init [workflow]        create project config (.nn/workflow.toml)
        nn init --user [workflow] create user config (~/.config/notenav/config.toml)
 
-Workflow can be a built-in name (compass, ado, gtd, zettelkasten),
+Workflow can be a built-in name (zenith, ado, gtd, zettelkasten),
 a user-defined workflow, or an https:// URL.
-If omitted, defaults to compass.
+If omitted, defaults to zenith.
 
 Remote URLs are fetched, validated, and cached locally. On first use
 you will be prompted to trust the URL.
@@ -1559,7 +1559,7 @@ EOF
 
 _nn_init_project() {
   local notenav_root="$1" workflow_arg="$2"
-  local workflow_name="${workflow_arg:-compass}"
+  local workflow_name="${workflow_arg:-zenith}"
 
   # Resolve .nn/ directory (walk up from cwd, same as nn_load_config)
   local project_nn_dir="" _search_dir="$PWD"
