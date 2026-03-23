@@ -2091,6 +2091,7 @@ for file in "$@"; do
 done
 # Pin acted-on files so they stay visible after filter
 printf '%s\n' "$@" > "$dir/.pinned"
+printf '%s → %s' "$field" "$value" > "$dir/.last_action"
 # Regenerate raw data
 fmt=$(cat "$dir/.zk_fmt")
 zk_path=()
@@ -3199,7 +3200,8 @@ if [ -s "$dir/.pinned" ]; then
   fi
 fi
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
-printf ' nn · %d/%d ' "$count" "$total" > "$dir/.border"
+last_action=""; [ -s "$dir/.last_action" ] && { last_action=" · last change: $(cat "$dir/.last_action")"; : > "$dir/.last_action"; }
+printf ' nn · %d/%d%s ' "$count" "$total" "$last_action" > "$dir/.border"
 [ "$fwrap_was" != "$fwrap" ] && printf 'toggle-wrap+'
 printf 'reload(cat %s/.current)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "$dir" "$(cat "$dir/.border")"
 ENDFILTER
