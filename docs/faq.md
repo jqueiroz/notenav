@@ -24,7 +24,7 @@ If no `.nn/` directory is found anywhere in the path, notenav falls back to the 
 
 ## Do I need zk?
 
-No. [zk](https://github.com/zk-org/zk) is optional. Without it, notenav uses its own frontmatter parser and `rg`/`grep` for body text search. Everything works – you just lose a few features:
+No. [zk](https://github.com/zk-org/zk) is optional. Without it, notenav uses its own frontmatter parser and `rg`/`grep` for body text search. The core experience works – you just lose a few features:
 
 - **Link graph:** the Links/Backlinks sections in the preview pane are skipped (they rely on zk's index)
 - **Body text search:** uses `rg` or `grep` instead of zk's indexed `--match` (slower on large notebooks)

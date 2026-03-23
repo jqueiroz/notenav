@@ -13,7 +13,7 @@
       });
       runtimeDepsFor = pkgs: with pkgs; [
         bash
-        zk
+        zk  # optional but bundled – enables faster indexing and link graph
         fzf
         bat
         gawk

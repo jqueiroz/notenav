@@ -80,7 +80,7 @@ Multiple filters are combined with AND logic. Multiple `tag=` filters are not su
 | Flag | Description |
 |------|-------------|
 | `-i`, `--interactive` | Open results in an interactive fzf picker instead of plain output |
-| `--` | Stop filter parsing; remaining arguments are passed through to `zk list` (when zk is available) |
+| `--` | Stop filter parsing; remaining arguments are passed through to `zk list` (ignored without zk) |
 
 **Plain output format:**
 
@@ -177,6 +177,7 @@ nn doctor
 | Marker | Meaning |
 |--------|---------|
 | `[✓]` | Check passed |
+| `[-]` | Info (optional dependency not found) |
 | `[!]` | Warning (non-fatal) |
 | `[✗]` | Failure (will prevent normal operation) |
 

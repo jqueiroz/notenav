@@ -6,7 +6,7 @@ TUI faceted browser for markdown notebooks, built on fzf. Optional [zk](https://
 
 ```
 bin/nn              # Entry point: resolves root, sources lib, calls notenav_main
-lib/notenav.sh      # Full implementation (~1700 LOC)
+lib/notenav.sh      # Full implementation (~4000 LOC)
 config/
   base.toml        # Base config (ships with notenav; user/project configs overlay on top)
   workflows/       # Built-in workflows: zenith, ado, gtd, zettelkasten

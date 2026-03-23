@@ -804,7 +804,7 @@ _nn_list_notes() {
 }
 
 # --- Doctor ---
-# Diagnostic command: checks dependencies, config, workflow integrity, and zk notebook.
+# Diagnostic command: checks dependencies, config, workflow integrity, and notebook.
 
 # Version comparison: returns 0 if $1 >= $2 (dot-separated numeric)
 _nn_ver_cmp() {
@@ -2397,8 +2397,8 @@ else
     awk '{
       file = $0; title = ""
       while ((getline line < file) > 0) {
-        if (nr == 0 && line == "---") { in_fm = 1; nr++; continue }
-        nr++
+        if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
+        NR_FILE++
         if (in_fm) {
           if (line == "---") break
           if (match(line, /^title:[ \t]*(.*)$/, m)) {
@@ -2406,10 +2406,10 @@ else
           }
         } else break
       }
-      close(file); nr = 0; in_fm = 0
+      close(file); NR_FILE = 0; in_fm = 0
       if (title == "") { n = split(file, p, "/"); title = p[n]; sub(/\.md$/, "", title) }
       printf "%s\t%s\n", file, title
-    }'
+    } BEGIN { NR_FILE = 0 }'
   }
   if [ -n "$query" ]; then
     # Use rg if available, grep fallback
