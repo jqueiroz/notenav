@@ -3375,7 +3375,7 @@ if [ -s "$dir/.pinned" ]; then
   fi
 fi
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
-last_action=""; [ -s "$dir/.last_action" ] && { last_action=" · last change: $(cat "$dir/.last_action")"; : > "$dir/.last_action"; }
+last_action=""; [ -s "$dir/.last_action" ] && last_action=" · last change: $(cat "$dir/.last_action")"
 printf ' nn · %d/%d%s ' "$count" "$total" "$last_action" > "$dir/.border"
 [ "$fwrap_was" != "$fwrap" ] && printf 'toggle-wrap+'
 printf 'reload(cat %s/.current)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "$dir" "$(cat "$dir/.border")"
