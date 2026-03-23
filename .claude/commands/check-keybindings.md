@@ -6,12 +6,24 @@ Read `lib/notenav.sh` and `README.md`. Extract all `--bind` lines from the main 
 
 ### 1. Mode leak detection
 
+#### 1a. Bare `else` with command-mode action
+
 For every `--bind` line whose `transform[...]` block reads `.nn-mode`:
 
 - **Bare `else` with command-mode action:** If the `else` branch performs a command-mode action (executing a script, running filter.sh, opening a picker), flag it. Command-mode actions must be guarded behind `test -z "$m"` (use `elif test -z "$m"` instead of bare `else`). See GUIDELINES.md for the rule.
 - **Bare `else` with mode transition is OK:** An `else` branch that writes to `.nn-mode` and changes the prompt/header (entering a prefix mode) is a mode transition, not a command-mode action. These are fine -- do NOT flag them.
 - **Pattern to flag:** `else echo 'execute(...)` or `else .../filter.sh ...` without a preceding `test -z "$m"` check.
 - **Pattern that is OK:** `elif test -z "$m"; then echo 'execute(...)` or `elif test -z "$m"; then .../filter.sh ...`.
+
+#### 1b. Missing mode guard
+
+For every `--bind` line that performs a command-mode action (executing a script, running filter.sh, opening a picker, applying a filter) **without reading `.nn-mode` at all**, flag it. These bindings fire unconditionally in any mode. They must be wrapped in `transform[m=$(cat .nn-mode); if test -z "$m"; then ...; fi]`.
+
+Skip these categories (exempt from mode guards):
+- Navigation: `j`, `k`, `ctrl-j`, `ctrl-k`, `J`, `K`, `q`, `space`, `tab`
+- Mode transitions: `f`, `z`, `esc`
+- Internal: `start`, `change`
+- Bindings that delegate to a helper script with its own internal mode check (e.g., `w` → `wrapkey.sh`)
 
 ### 2. Keybinding table sync
 

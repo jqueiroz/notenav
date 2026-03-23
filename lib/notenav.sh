@@ -3202,47 +3202,47 @@ ENDEDIT
       --prompt "$NN_UI_COMMAND_PROMPT" \
       "${_nn_fzf_wrap[@]}" \
       --bind "t:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/tags.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir type; fi]" \
-      --bind "T:transform[$_nn_dir/filter.sh $_nn_dir clear-type]" \
+      --bind "T:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-type; fi]" \
       --bind "s:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir status; fi]" \
-      --bind "S:transform[$_nn_dir/filter.sh $_nn_dir clear-status]" \
+      --bind "S:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-status; fi]" \
       --bind "p:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+deselect-all'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir priority; fi]" \
-      --bind "P:transform[$_nn_dir/filter.sh $_nn_dir clear-priority]" \
-      --bind "]:transform[$_nn_dir/filter.sh $_nn_dir next]" \
-      --bind "[:transform[$_nn_dir/filter.sh $_nn_dir prev]" \
+      --bind "P:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-priority; fi]" \
+      --bind "]:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir next; fi]" \
+      --bind "[:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir prev; fi]" \
       --bind "h:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir archive; fi]" \
-      --bind "1:transform[$_nn_dir/filter.sh $_nn_dir sq1]" \
-      --bind "2:transform[$_nn_dir/filter.sh $_nn_dir sq2]" \
-      --bind "3:transform[$_nn_dir/filter.sh $_nn_dir sq3]" \
-      --bind "4:transform[$_nn_dir/filter.sh $_nn_dir sq4]" \
-      --bind "5:transform[$_nn_dir/filter.sh $_nn_dir sq5]" \
-      --bind "6:transform[$_nn_dir/filter.sh $_nn_dir sq6]" \
-      --bind "7:transform[$_nn_dir/filter.sh $_nn_dir sq7]" \
-      --bind "8:transform[$_nn_dir/filter.sh $_nn_dir sq8]" \
-      --bind "9:transform[$_nn_dir/filter.sh $_nn_dir sq9]" \
-      --bind "0:transform[$_nn_dir/filter.sh $_nn_dir reset]" \
-      --bind "R:transform[$_nn_dir/filter.sh $_nn_dir reset]" \
+      --bind "1:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq1; fi]" \
+      --bind "2:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq2; fi]" \
+      --bind "3:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq3; fi]" \
+      --bind "4:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq4; fi]" \
+      --bind "5:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq5; fi]" \
+      --bind "6:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq6; fi]" \
+      --bind "7:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq7; fi]" \
+      --bind "8:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq8; fi]" \
+      --bind "9:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq9; fi]" \
+      --bind "0:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir reset; fi]" \
+      --bind "R:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir reset; fi]" \
       --bind "g:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir group; elif test -z \"\$m\"; then echo 'execute($_nn_dir/querypick.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir pick)'; fi]" \
-      --bind "a:execute($_nn_dir/cyclestatus.sh $_nn_dir {1} fwd)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind "A:execute($_nn_dir/cyclestatus.sh $_nn_dir {1} rev)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind "+:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_plus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind ">:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_plus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind "-:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
-      --bind "<:execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir {1}]" \
+      --bind "a:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/cyclestatus.sh $_nn_dir {1} fwd)+transform($_nn_dir/reload_at.sh $_nn_dir {1})'; fi]" \
+      --bind "A:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/cyclestatus.sh $_nn_dir {1} rev)+transform($_nn_dir/reload_at.sh $_nn_dir {1})'; fi]" \
+      --bind "+:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_plus_dir)+transform($_nn_dir/reload_at.sh $_nn_dir {1})'; fi]" \
+      --bind ">:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_plus_dir)+transform($_nn_dir/reload_at.sh $_nn_dir {1})'; fi]" \
+      --bind "-:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir)+transform($_nn_dir/reload_at.sh $_nn_dir {1})'; fi]" \
+      --bind "<:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir)+transform($_nn_dir/reload_at.sh $_nn_dir {1})'; fi]" \
       --bind "n:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/namefilt.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test -z \"\$m\"; then echo 'execute($_nn_dir/newnote.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)'; fi]" \
       --bind "c:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/match.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; else echo c > $_nn_dir/.nn-mode; echo 'change-prompt(c )+transform-header(cat $_nn_dir/.header-c)'; fi]" \
-      --bind "e:execute[$_nn_dir/edit.sh {1}]" \
+      --bind "e:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/edit.sh {1})'; fi]" \
       --bind "f:transform[echo f > $_nn_dir/.nn-mode; echo 'change-prompt(f )+transform-header(cat $_nn_dir/.header-f)']" \
       --bind "z:transform[echo z > $_nn_dir/.nn-mode; echo 'change-prompt(z )+transform-header(cat $_nn_dir/.header-z)']" \
       --bind "o:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort; fi]" \
       --bind "r:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort-reverse; fi]" \
       --bind "w:transform[$_nn_dir/wrapkey.sh $_nn_dir '$NN_UI_COMMAND_PROMPT']" \
       --multi \
-      --bind "b:execute($_nn_dir/bulkedit.sh $_nn_dir)+transform[$_nn_dir/reload_at.sh $_nn_dir '']+deselect-all" \
+      --bind "b:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bulkedit.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)+deselect-all'; fi]" \
       --bind "start:transform-header(cat $_nn_dir/.header)" \
       --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,q:abort,change:clear-query' \
       --bind "esc:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; else echo clear-query; fi]" \
       --bind 'J:preview-page-down,K:preview-page-up' \
-      --bind "enter:execute[$_nn_dir/edit.sh {1}]"
+      --bind "enter:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/edit.sh {1})'; fi]"
     trap - EXIT
     rm -rf "$_nn_dir"
     shopt -u nullglob
