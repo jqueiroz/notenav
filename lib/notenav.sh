@@ -3157,7 +3157,7 @@ actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status
 change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
 keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[enter]\033[0m open note \033[90m·\033[0m \033[36m[R]\033[0meset everything \033[90m·\033[0m \033[36m[q]\033[0muit')
-stats_lbl=$(printf '\033[1;90m Stats:\033[0m %s' "$stats_s")
+stats_lbl=$(printf '\033[1;90m Results:\033[0m %s' "$stats_s")
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl" "$stats_lbl" "$display_lbl" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header"
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl" "$stats_lbl" "$display_lbl" "$actions_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl_f" "$stats_lbl" "$display_lbl" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header-f"
