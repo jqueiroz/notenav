@@ -1956,13 +1956,13 @@ for _p in ${_nn_previewer:-glow mdcat bat}; do
       ;;
     glow)
       if command -v glow >/dev/null 2>&1; then
-        glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" "$file" < /dev/null 2>/dev/null || cat "$file"
+        CLICOLOR_FORCE=1 glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
     mdcat)
       if command -v mdcat >/dev/null 2>&1; then
-        mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" "$file" < /dev/null 2>/dev/null || cat "$file"
+        CLICOLOR_FORCE=1 mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
