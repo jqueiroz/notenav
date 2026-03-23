@@ -2804,7 +2804,8 @@ else
   printf '\n  %s%s %s · %s – Created!\033[0m\n  \033[90m%s\033[0m\n\n' "$tc" "$icon" "$selected" "$title" "$rel_path" > /dev/tty
 fi
 # Regenerate raw
-printf 'new %s → %s' "$selected" "$title" > "$dir/.last_action"
+_la_title="$title"; [ ${#_la_title} -gt 40 ] && _la_title="${_la_title:0:37}..."
+printf 'new %s → %s' "$selected" "$_la_title" > "$dir/.last_action"
 fmt=$(cat "$dir/.zk_fmt")
 zk_path=()
 while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
