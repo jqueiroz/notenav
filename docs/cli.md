@@ -161,6 +161,7 @@ nn doctor
 3. **Trusted sources:** lists URLs in the trusted-sources allow-list with cache status and fetch dates.
 
 4. **Workflow integrity:** validates the merged workflow definition:
+   - **Meta**: `schema` version is a supported positive integer, no unrecognized sub-keys
    - **Types**: all types have icon and color, no duplicates, `display_order` references valid types, no unrecognized sub-keys
    - **Statuses**: all statuses have colors, `initial` exists in values, `filter_cycle` and `archive` reference valid values, lifecycle transitions reference valid statuses, no unrecognized sub-keys
    - **Priority**: levels have colors, `filter_cycle` references valid values, lifecycle transitions valid, `unset_position` is `first` or `last`, no unrecognized sub-keys

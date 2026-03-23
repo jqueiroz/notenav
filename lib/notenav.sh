@@ -259,7 +259,7 @@ nn_load_config() {
 
   # Deep merge: base * workflow * user * project_queries
   # Later values win. Project queries applied last so they override user/workflow queries.
-  # meta.schema is pinned to the workflow's value — user config must not override it.
+  # meta.schema is pinned to the workflow's value – user config must not override it.
   local _wf_schema
   _wf_schema=$(printf '%s' "$workflow_json" | jq -r '.meta.schema // empty' 2>/dev/null)
   NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$base_json" "$workflow_json" "$user_json" "$project_queries" \
