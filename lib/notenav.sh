@@ -735,6 +735,7 @@ nn_doctor() {
     _dim=$'\033[90m' _reset=$'\033[0m'
   fi
   _pass() { echo "${_green}[✓]${_reset} $*"; }
+  _info() { echo "${_dim}[-]${_reset} $*"; }
   _warn() { echo "${_yellow}[!]${_reset} $*"; (( warns++ )) || true; }
   _fail() { echo "${_red}[✗]${_reset} $*"; (( fails++ )) || true; }
   _valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
@@ -1461,9 +1462,12 @@ nn_doctor() {
       _warn "ui.previewer_custom_command is set but ui.previewer does not include 'custom'"
     fi
     # Previewer summary – list each configured previewer with status
+    # Missing previewers are warnings until a usable one is found,
+    # then info (nice-to-have, not a problem).
     echo ""
     echo "Previewers ${_dim}(first available is used)${_reset}:"
     local _prev_any_found=false _prev_active="" _pv
+    _prev_miss() { if [[ "$_prev_any_found" == "true" ]]; then _info "$@"; else _warn "$@"; fi; }
     for _pv in ${_ui_prev_list:-bat glow mdcat}; do
       case "$_pv" in
         bat)
@@ -1480,7 +1484,7 @@ nn_doctor() {
             _prev_any_found=true
             [[ -z "$_prev_active" ]] && _prev_active="bat (batcat)"
           else
-            _warn "bat not found"
+            _prev_miss "bat not found"
           fi ;;
         glow)
           if command -v glow >/dev/null 2>&1; then
@@ -1490,7 +1494,7 @@ nn_doctor() {
             _prev_any_found=true
             [[ -z "$_prev_active" ]] && _prev_active="glow"
           else
-            _warn "glow not found"
+            _prev_miss "glow not found"
           fi ;;
         mdcat)
           if command -v mdcat >/dev/null 2>&1; then
@@ -1500,7 +1504,7 @@ nn_doctor() {
             _prev_any_found=true
             [[ -z "$_prev_active" ]] && _prev_active="mdcat"
           else
-            _warn "mdcat not found"
+            _prev_miss "mdcat not found"
           fi ;;
         custom)
           if [[ -n "$_ui_prev_custom" ]]; then
@@ -1510,7 +1514,7 @@ nn_doctor() {
               _prev_any_found=true
               [[ -z "$_prev_active" ]] && _prev_active="custom ($_custom_bin)"
             else
-              _warn "custom command '$_custom_bin' not found"
+              _prev_miss "custom command '$_custom_bin' not found"
             fi
           else
             _warn "ui.previewer includes 'custom' but ui.previewer_custom_command is empty"
