@@ -1956,13 +1956,13 @@ for _p in ${_nn_previewer:-glow mdcat bat}; do
       ;;
     glow)
       if command -v glow >/dev/null 2>&1; then
-        glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" "$file" 2>/dev/null || cat "$file"
+        glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
     mdcat)
       if command -v mdcat >/dev/null 2>&1; then
-        mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" "$file" 2>/dev/null || cat "$file"
+        mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
@@ -1970,7 +1970,7 @@ for _p in ${_nn_previewer:-glow mdcat bat}; do
       if [ -n "$_nn_previewer_custom" ]; then
         _custom_bin="${_nn_previewer_custom%% *}"
         if command -v "$_custom_bin" >/dev/null 2>&1; then
-          eval "$_nn_previewer_custom \"\$file\"" 2>/dev/null || cat "$file"
+          eval "$_nn_previewer_custom \"\$file\"" < /dev/null 2>/dev/null || cat "$file"
           _rendered=true; break
         fi
       fi
