@@ -2131,7 +2131,7 @@ case "$field" in
       [ -n "$vals" ] && vals="$vals\n"
       vals="$vals$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
     done < "$dir/.schema_types" ;;
-  *) exit 1 ;;
+  *) echo "bug: set_field: unknown field '$field'" >&2; exit 2 ;;
 esac
 hdr="Enter apply · Esc cancel"
 [ -n "$ctx" ] && hdr=$(printf '%s\n%s' "$ctx" "$hdr")
@@ -2189,6 +2189,7 @@ for arg in "$@"; do
         set_tags=$(echo "$v" | sed 's/  */ /g; s/^ //; s/ $//' | tr ' ' '\n' | paste -sd, | sed 's/^/[/; s/$/]/')
       fi
       ;;
+    *) echo "bug: action: unknown field '$f'" >&2; exit 2 ;;
   esac
 done
 awk -v set_type="$set_type" -v has_type="$has_type" \
@@ -2756,6 +2757,7 @@ else
   case "$direction" in
     up)   next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_up") ;;
     down) next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_down") ;;
+    *) echo "bug: bumppri: unknown direction '$direction'" >&2; exit 2 ;;
   esac
   [ -z "$next" ] && exit 0
 fi
@@ -2816,6 +2818,7 @@ cycle() {
       vals=("created" "modified" "title")
       [ "$(cat "$dir/.schema_priority_enabled")" != "false" ] && vals+=("priority") ;;
     group)    vals=("" "type" "status") ;;
+    *) echo "bug: cycle: unknown dimension '$dim'" >&2; exit 2 ;;
   esac
   local total=${#vals[@]} idx=0 i
   for i in "${!vals[@]}"; do
@@ -2837,6 +2840,7 @@ apply_sq() {
     case "$a" in
       type=*) ft="${a#*=}";; status=*) fs="${a#*=}";;
       priority=*) fp="${a#*=}";; tag=*) echo "${a#*=}" >> "$dir/.f_tags";;
+      *) echo "bug: apply_sq: unknown arg '${a%%=*}'" >&2 ;;
     esac
   done
   echo "$name" > "$dir/.f_sq"
@@ -2907,6 +2911,7 @@ case "$action" in
   clear-group) fgroup="" ;;
   archive) [ -n "$farchive" ] && farchive="" || farchive="show" ;;
   refresh) ;;  # just re-apply filters (after tag picker)
+  *) echo "bug: filter: unknown action '$action'" >&2; exit 2 ;;
 esac
 echo "$ft" > "$dir/.f_type"; echo "$fs" > "$dir/.f_status"
 echo "$fp" > "$dir/.f_priority"
@@ -2959,7 +2964,8 @@ do_sort() {
     modified) if [ -n "$_rev" ]; then sort -t'	' -k7,7 -s; else sort -t'	' -k7,7r -s; fi ;;
     created)  if [ -n "$_rev" ]; then sort -t'	' -k8,8 -s; else sort -t'	' -k8,8r -s; fi ;;
     title)    if [ -n "$_rev" ]; then sort -t'	' -k5,5r -s; else sort -t'	' -k5,5 -s; fi ;;
-    *)        cat ;;
+    "")       cat ;;
+    *)        echo "bug: do_sort: unknown field '$1'" >&2; cat ;;
   esac
 }
 now=$(date +%s)
@@ -2976,7 +2982,7 @@ do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "${cond} { ${
 count=$(awk 'END{print NR}' "$dir/.current")
 # Grouping post-processing: insert separator headers between groups
 if [ -n "$fgroup" ]; then
-  case "$fgroup" in type) gcol=1 ;; status) gcol=2 ;; esac
+  case "$fgroup" in type) gcol=1 ;; status) gcol=2 ;; *) echo "bug: unknown group '$fgroup'" >&2; exit 2 ;; esac
   awk -F'\t' -v gcol="$gcol" '
     NR==FNR { key[$6] = $gcol; next }
     { path=$1; gk=key[path]; print gk "\t" $0 }
@@ -3072,6 +3078,7 @@ if [ -f "$dir/.queries" ]; then
         priority=none) sq_cond="$sq_cond && \$3==\"\"" ;;
         priority=*) sq_cond="$sq_cond && \$3==\"$_av\"" ;;
         tag=*) sq_cond="$sq_cond && index(\" \" \$4 \" \", \" $_av \")" ;;
+        *) echo "bug: query stats: unknown arg '${a%%=*}'" >&2 ;;
       esac
     done
     sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw")
@@ -3125,7 +3132,8 @@ case "$fsort" in
   modified|created) if [ -n "$fsort_rev" ]; then sort_dir="oldest first"; else sort_dir="newest first"; fi ;;
   title)            if [ -n "$fsort_rev" ]; then sort_dir="Z–A"; else sort_dir="A–Z"; fi ;;
   priority)         if [ -n "$fsort_rev" ]; then sort_dir="lowest first"; else sort_dir="highest first"; fi ;;
-  *)                sort_dir="" ;;
+  "")               sort_dir="" ;;
+  *)                echo "bug: unknown sort '$fsort'" >&2; sort_dir="" ;;
 esac
 sort_desc="$sort_hint"; [ -n "$sort_dir" ] && sort_desc="$sort_hint, $sort_dir"
 zorder_s=$(printf '       \033[36m[z]\033[0m then \033[36m[o]\033[0mrder-by: \033[1m%s\033[0m' "$sort_desc")
