@@ -2463,9 +2463,6 @@ else
   # ── Pick: two-step with inline type picker ──
   top_pad=$((inner - 11))
   top_dashes=$(printf '%*s' "$top_pad" '' | sed 's/ /─/g')
-  # Step-2 border has icon after "New Note": ╭─ New Note ◆ ───╮
-  step2_pad=$((inner - 13))
-  step2_dashes=$(printf '%*s' "$step2_pad" '' | sed 's/ /─/g')
   bot_dashes=$(printf '%*s' "$inner" '' | sed 's/ /─/g')
   hint="Enter to continue · Esc cancels"
   hint_pad=$((inner - ${#hint} - 2))
@@ -2493,6 +2490,17 @@ else
     t_tdescs+=("$d")
   done
 
+  # Precompute step-2 border labels and dashes per type
+  # e.g. "New task ◆ " with matching dash fill
+  step2_labels=(); step2_dashes_arr=()
+  for ((i = 0; i < type_count; i++)); do
+    l="New ${t_vals[$i]} ${t_icons[$i]} "
+    step2_labels+=("$l")
+    lpad=$((inner - ${#l} - 2))
+    [ "$lpad" -lt 1 ] && lpad=1
+    step2_dashes_arr+=("$(printf '%*s' "$lpad" '' | sed 's/ /─/g')")
+  done
+
   hint2="j/k · Enter · Esc back"
   hint2_pad=$((inner - ${#hint2} - 2))
 
@@ -2516,7 +2524,7 @@ else
   # Helper: draw entire step-2 box
   _nn_draw_step2() {
     local sel="$1" bc="$2" i
-    printf '  \033[%sm╭─ New Note %s %s╮\033[0m\n' "$bc" "${t_icons[$sel]}" "$step2_dashes"
+    printf '  \033[%sm╭─ %s%s╮\033[0m\n' "$bc" "${step2_labels[$sel]}" "${step2_dashes_arr[$sel]}"
     printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$bc" "$inner" "" "$bc"
     printf '  \033[%sm│\033[0m  \033[32m✓\033[0m %s%*s\033[%sm│\033[0m\n' \
       "$bc" "$disp_title" "$((inner - 4 - ${#disp_title}))" "" "$bc"
