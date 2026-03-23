@@ -3232,8 +3232,8 @@ ENDEDIT
       --bind "esc:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; else echo clear-query; fi]" \
       --bind 'J:preview-page-down,K:preview-page-up' \
       --bind "enter:execute[$_nn_dir/edit.sh {1}]"
-    rm -rf "$_nn_dir"
     trap - EXIT
+    rm -rf "$_nn_dir"
     shopt -u nullglob
     [[ "$NN_UI_EXIT_MESSAGE" == "fortune" ]] && echo "So long, and thanks for all the notes."
     return

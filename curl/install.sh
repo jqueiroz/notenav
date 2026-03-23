@@ -57,7 +57,7 @@ fi
 if [ -n "$missing" ]; then
   warn "Missing dependencies:$missing"
   warn "notenav will be installed but may not work until these are available."
-  echo
+  echo >&2
 fi
 
 # --- install or update ---
