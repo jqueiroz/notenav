@@ -832,7 +832,7 @@ nn_doctor() {
     fi
   done
 
-  # Preview tool (optional)
+  # Preview tools (optional – configured via ui.previewer, validated in Phase 2)
   if command -v bat >/dev/null 2>&1; then
     local bat_ver
     bat_ver=$(bat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
@@ -841,8 +841,6 @@ nn_doctor() {
     local batcat_ver
     batcat_ver=$(batcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
     _pass "bat ${batcat_ver:-installed} (as batcat)"
-  else
-    _warn "bat not found (optional – enables syntax-highlighted preview)"
   fi
 
   # ── Phase 2: Config validation ──
@@ -1924,14 +1922,14 @@ case "${_nn_previewer:-bat}" in
     ;;
   glow)
     if command -v glow >/dev/null 2>&1; then
-      glow -s dark -w 0 "$file" 2>/dev/null || cat "$file"
+      glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" "$file" 2>/dev/null || cat "$file"
     else
       cat "$file"
     fi
     ;;
   mdcat)
     if command -v mdcat >/dev/null 2>&1; then
-      mdcat "$file" 2>/dev/null || cat "$file"
+      mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" "$file" 2>/dev/null || cat "$file"
     else
       cat "$file"
     fi
