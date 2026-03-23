@@ -752,9 +752,9 @@ nn_doctor() {
     _fail "awk not found"
   fi
 
-  # sort, sed, git
+  # sort, sed
   local _tool
-  for _tool in sort sed git; do
+  for _tool in sort sed; do
     if command -v "$_tool" >/dev/null 2>&1; then
       _pass "$_tool"
     else
@@ -1905,10 +1905,15 @@ EOF
   local _awk_color="$NN_AWK_COLOR"
 
   # Default zk path args based on cwd
+  # If we're in a subdirectory of a zk notebook, scope to current directory.
   local _zk_path=()
-  local _gr
-  _gr=$(git rev-parse --show-toplevel 2>/dev/null)
-  [[ -n "$_gr" && "$PWD" != "$_gr" ]] && _zk_path=("$(pwd)")
+  local _zk_root="$PWD"
+  while true; do
+    [[ -d "$_zk_root/.zk" ]] && break
+    [[ "$_zk_root" == "/" ]] && { _zk_root=""; break; }
+    _zk_root="$(dirname "$_zk_root")"
+  done
+  [[ -n "$_zk_root" && "$PWD" != "$_zk_root" ]] && _zk_path=("$(pwd)")
 
   # Resolve editor
   local _nn_editor
