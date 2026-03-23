@@ -3173,9 +3173,10 @@ ENDWK
     chmod +x "$_nn_dir/wrapkey.sh"
 
     # Editor helper: isolates editor command from fzf binding syntax
-    cat > "$_nn_dir/edit.sh" << ENDEDIT
+    cat > "$_nn_dir/edit.sh" << 'ENDEDIT'
 #!/usr/bin/env bash
-[ -f "\$1" ] && $_nn_editor "\$1"
+nn_editor=$(cat "$(dirname "$0")/.schema_editor" 2>/dev/null)
+[ -f "$1" ] && ${nn_editor:-vi} "$1"
 ENDEDIT
     chmod +x "$_nn_dir/edit.sh"
 
@@ -3294,9 +3295,10 @@ ENDEDIT
     local _nn_prev; _nn_prev=$(mktemp)
     local _nn_edit; _nn_edit=$(mktemp)
     local _nn_sflag="${nn_tmp}.sflag"
-    trap "rm -f '${nn_tmp}' '${_nn_prev}' '${_nn_edit}' '${_nn_sflag}'" EXIT
+    trap "rm -f '${nn_tmp}' '${_nn_prev}' '${_nn_edit}' '${_nn_edit}.editor' '${_nn_sflag}'" EXIT
     _nn_write_preview "$_nn_prev"
-    printf '#!/usr/bin/env bash\n[ -f "$1" ] && %s "$1"\n' "$_nn_editor" > "$_nn_edit"
+    printf '%s' "$_nn_editor" > "$_nn_edit.editor"
+    printf '#!/usr/bin/env bash\nnn_editor=$(cat "%s" 2>/dev/null)\n[ -f "$1" ] && ${nn_editor:-vi} "$1"\n' "$_nn_edit.editor" > "$_nn_edit"
     chmod +x "$_nn_edit"
     zk list "${zk_args[@]}" --format "$_fmt" --quiet 2>/dev/null \
       | awk -F'\t' "$awk_cond && length(\$1) > 0 $_awk_color" > "$nn_tmp"
@@ -3311,7 +3313,7 @@ ENDEDIT
           --bind 'J:preview-page-down,K:preview-page-up' \
           --bind 'H:toggle-wrap' \
           --bind "enter:execute($_nn_edit {1})"
-    rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_sflag"
+    rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_sflag"
     trap - EXIT
   else
     local _adhoc_fmt
