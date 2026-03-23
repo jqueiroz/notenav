@@ -148,7 +148,7 @@ nn doctor
    - jq
    - gawk (GNU awk – required for `mktime()` and `strtonum()`)
    - sort, sed, git
-   - bat or batcat (optional – enables syntax-highlighted preview)
+   - bat or batcat (optional – default previewer; alternatives: glow, mdcat)
    - curl (optional – required for remote workflows)
 
 2. **Config:** validates configuration files:
@@ -166,7 +166,7 @@ nn doctor
    - **Statuses**: all statuses have colors, `initial` exists in values, `filter_cycle` and `archive` reference valid values, lifecycle transitions reference valid statuses, no unrecognized sub-keys
    - **Priority**: levels have colors, `filter_cycle` references valid values, lifecycle transitions valid, `unset_position` is `first` or `last`, no unrecognized sub-keys
    - **Defaults**: `sort_by`, `sort_reverse`, `group_by`, `show_archive`, and `wrap_preview` have valid values
-   - **UI**: `exit_message`, `priority_plus`, and `after_create` have valid values
+   - **UI**: `exit_message`, `priority_plus`, `after_create`, and `previewer` have valid values; configured previewer tool is available
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
    - ANSI color codes are syntactically valid throughout
 

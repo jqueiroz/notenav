@@ -373,6 +373,8 @@ search_prompt = "/ "     # prompt in ad-hoc interactive mode
 exit_message = "none"    # "none" or "fortune"
 priority_plus = "demote" # what the + key does to priority
 after_create = "edit"    # "edit" or "none"
+previewer = "bat"        # bat | glow | mdcat | plain | custom
+previewer_custom_command = "" # command when previewer = "custom"
 ```
 
 | Key | Type | Default | Description |
@@ -383,6 +385,8 @@ after_create = "edit"    # "edit" or "none"
 | `exit_message` | string | `"none"` | What to show on exit: `"none"` or `"fortune"` (a fun quote) |
 | `priority_plus` | string | `"demote"` | What the `+` key does to priority (see below) |
 | `after_create` | string | `"edit"` | What to do after creating a note: `"edit"` (open in editor) or `"none"` |
+| `previewer` | string | `"bat"` | Markdown previewer for the preview pane (see below) |
+| `previewer_custom_command` | string | `""` | Command to run when `previewer = "custom"` (file path passed as `$1`) |
 
 #### Priority key direction
 
@@ -394,6 +398,30 @@ The `+`/`-` keys (and their `>`/`<` aliases) bump a note's priority. The `priori
 | `"promote"` | Raise urgency (e.g. P2→P1) | Lower urgency (e.g. P1→P2) |
 
 Both values use the same lifecycle tables (`[priority.lifecycle.up]` and `[priority.lifecycle.down]`) – the setting only controls which table the `+`/`-` and `>`/`<` keys map to.
+
+#### Previewer
+
+The `previewer` setting controls which tool renders markdown in the preview pane.
+
+| Value | Tool | Notes |
+|-------|------|-------|
+| `"bat"` (default) | [bat](https://github.com/sharkdp/bat) (or batcat) | Syntax-highlighted plain text; falls back to `cat` if not installed |
+| `"glow"` | [glow](https://github.com/charmbracelet/glow) | Rendered markdown with styling |
+| `"mdcat"` | [mdcat](https://codeberg.org/flausch/mdcat) | Rendered markdown; supports inline images in kitty/iTerm2 |
+| `"plain"` | cat | No highlighting or rendering |
+| `"custom"` | user-defined | Runs `previewer_custom_command` with the file path as `$1` |
+
+If the configured tool is not found, the preview falls back to `cat` silently. Use `nn doctor` to check that your chosen previewer is installed.
+
+**Custom previewer example:**
+
+```toml
+[ui]
+previewer = "custom"
+previewer_custom_command = "glow -s light -w 80"
+```
+
+The command string is evaluated by the shell, so you can include flags. The file path is appended as the final argument.
 
 ### Overriding workflow colors
 

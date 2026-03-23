@@ -578,6 +578,8 @@ nn_precompute_workflow() {
   NN_UI_EXIT_MESSAGE=$(nn_cfg '.ui.exit_message // "none"')
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
+  NN_UI_PREVIEWER=$(nn_cfg '.ui.previewer // "bat"')
+  NN_UI_PREVIEWER_CUSTOM=$(nn_cfg '.ui.previewer_custom_command // ""')
 
   # ZK format (hardcoded – the entire pipeline assumes this exact column layout)
   NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
@@ -830,7 +832,7 @@ nn_doctor() {
     fi
   done
 
-  # bat (optional)
+  # Preview tool (optional)
   if command -v bat >/dev/null 2>&1; then
     local bat_ver
     bat_ver=$(bat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
@@ -1438,8 +1440,45 @@ nn_doctor() {
         *) _warn "ui.after_create '$_ui_ac' invalid (must be 'edit' or 'none')" ;;
       esac
     fi
+    local _ui_prev
+    _ui_prev=$(nn_cfg '.ui.previewer // empty')
+    if [[ -n "$_ui_prev" ]]; then
+      case "$_ui_prev" in
+        bat|glow|mdcat|plain|custom) ;;
+        *) _warn "ui.previewer '$_ui_prev' invalid (must be bat, glow, mdcat, plain, or custom)" ;;
+      esac
+    fi
+    local _ui_prev_custom
+    _ui_prev_custom=$(nn_cfg '.ui.previewer_custom_command // empty')
+    if [[ -n "$_ui_prev_custom" && "$_ui_prev" != "custom" ]]; then
+      _warn "ui.previewer_custom_command is set but ui.previewer is '${_ui_prev:-bat}' (only used when previewer = custom)"
+    fi
+    # Check configured previewer availability
+    case "${_ui_prev:-bat}" in
+      bat)
+        if ! command -v bat >/dev/null 2>&1 && ! command -v batcat >/dev/null 2>&1; then
+          _warn "configured previewer 'bat' not found (install bat or set ui.previewer)"
+        fi ;;
+      glow)
+        if ! command -v glow >/dev/null 2>&1; then
+          _warn "configured previewer 'glow' not found"
+        fi ;;
+      mdcat)
+        if ! command -v mdcat >/dev/null 2>&1; then
+          _warn "configured previewer 'mdcat' not found"
+        fi ;;
+      custom)
+        if [[ -n "$_ui_prev_custom" ]]; then
+          local _custom_bin="${_ui_prev_custom%% *}"
+          if ! command -v "$_custom_bin" >/dev/null 2>&1; then
+            _warn "custom previewer command '$_custom_bin' not found"
+          fi
+        else
+          _warn "ui.previewer is 'custom' but ui.previewer_custom_command is empty"
+        fi ;;
+    esac
     # Check for unrecognized keys in [ui]
-    local _known_ui="editor command_prompt search_prompt exit_message priority_plus after_create"
+    local _known_ui="editor command_prompt search_prompt exit_message priority_plus after_create previewer previewer_custom_command"
     local _uk
     while IFS= read -r _uk; do
       [[ -z "$_uk" ]] && continue
@@ -1858,8 +1897,11 @@ _nn_fetch_remote() {
 # Used by both faceted browser and ad-hoc interactive mode.
 _nn_write_preview() {
   local target="$1"
-  cat > "$target" << 'ENDPREVIEW'
-#!/usr/bin/env bash
+  # Dynamic preamble: bake previewer config at generation time
+  printf '#!/usr/bin/env bash\n' > "$target"
+  printf '_nn_previewer=%q\n' "$NN_UI_PREVIEWER"
+  printf '_nn_previewer_custom=%q\n' "$NN_UI_PREVIEWER_CUSTOM"
+  cat >> "$target" << 'ENDPREVIEW'
 dir="$(dirname "$0")"
 file="$1"
 if [ ! -f "$file" ]; then
@@ -1870,13 +1912,41 @@ fi
 # Placeholder file: show content only, no links
 case "$file" in *.empty_placeholder) cat "$file"; exit 0 ;; esac
 
-# Show file content
-_bat=$(command -v bat || command -v batcat || true)
-if [ -n "$_bat" ]; then
-  "$_bat" -p --color always "$file" 2>/dev/null || cat "$file"
-else
-  cat "$file"
-fi
+# Show file content using configured previewer
+case "${_nn_previewer:-bat}" in
+  bat)
+    _bat=$(command -v bat || command -v batcat || true)
+    if [ -n "$_bat" ]; then
+      "$_bat" -p --color always "$file" 2>/dev/null || cat "$file"
+    else
+      cat "$file"
+    fi
+    ;;
+  glow)
+    if command -v glow >/dev/null 2>&1; then
+      glow -s dark -w 0 "$file" 2>/dev/null || cat "$file"
+    else
+      cat "$file"
+    fi
+    ;;
+  mdcat)
+    if command -v mdcat >/dev/null 2>&1; then
+      mdcat "$file" 2>/dev/null || cat "$file"
+    else
+      cat "$file"
+    fi
+    ;;
+  custom)
+    if [ -n "$_nn_previewer_custom" ]; then
+      eval "$_nn_previewer_custom \"\$file\"" 2>/dev/null || cat "$file"
+    else
+      cat "$file"
+    fi
+    ;;
+  plain|*)
+    cat "$file"
+    ;;
+esac
 
 # Collect links in parallel
 tmp_links=$(mktemp); tmp_back=$(mktemp)

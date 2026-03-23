@@ -15,7 +15,7 @@
 
 Not required, but progressively enhance the experience when installed.
 
-- **[bat](https://github.com/sharkdp/bat):** syntax-highlighted preview (called `batcat` on Debian/Ubuntu)
+- **[bat](https://github.com/sharkdp/bat):** syntax-highlighted preview (default; called `batcat` on Debian/Ubuntu). Alternatives: [glow](https://github.com/charmbracelet/glow), [mdcat](https://codeberg.org/flausch/mdcat) – see [previewer configuration](configuration.md#previewer)
 - **curl:** required for [remote workflows](configuration.md#extending-a-remote-workflow) (`nn init https://...`). Pre-installed on most systems
 
 ## Install
