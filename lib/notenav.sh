@@ -3173,9 +3173,9 @@ ENDFILTER
 #!/bin/sh
 dir="$1"; prompt="$2"
 m=$(cat "$dir/.nn-mode" 2>/dev/null)
-if [ "$m" = z ]; then
+if test "$m" = z; then
   : > "$dir/.nn-mode"
-  if [ -n "$(cat "$dir/.f_wrap" 2>/dev/null)" ]; then : > "$dir/.f_wrap"; else echo on > "$dir/.f_wrap"; fi
+  if test -n "$(cat "$dir/.f_wrap" 2>/dev/null)"; then : > "$dir/.f_wrap"; else echo on > "$dir/.f_wrap"; fi
   printf 'change-prompt(%s)+toggle-wrap+' "$prompt"
   "$dir/filter.sh" "$dir" refresh
 fi
