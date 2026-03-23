@@ -2543,6 +2543,7 @@ else
   # ── Step 1 ↔ Step 2 loop (Esc in step 2 goes back to step 1) ──
   title=""
   selected=""
+  sel=0
   while true; do
   printf '\033[H\033[J' > /dev/tty
 
@@ -2574,8 +2575,7 @@ else
     disp_title="${disp_title:0:$((max_disp - 3))}..."
   fi
 
-  sel=0
-  bc="${t_colors[0]}"
+  bc="${t_colors[$sel]}"
   printf '\n' > /dev/tty
   _nn_draw_step2 "$sel" "$bc" > /dev/tty
   printf '\033[%dA' "$((type_count + 7))" > /dev/tty
