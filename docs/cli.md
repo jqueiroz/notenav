@@ -230,6 +230,7 @@ The faceted browser uses a modal system with four modes: **command** (default), 
 | `0` / `R` | Reset all filters and display settings to defaults |
 | `1`–`9` | Jump to query preset by number |
 | `space` | Toggle multi-select on current item |
+| `r` | Refresh note list (re-index from disk) |
 | `b` | Bulk edit selected notes (opens editor with TSV of fields) |
 | `j` / `k` | Move down / up |
 | `ctrl-j` / `ctrl-k` | Page down / up |

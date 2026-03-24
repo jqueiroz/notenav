@@ -430,6 +430,31 @@ previewer_custom_command = "glow -s light -w 80"
 
 For the `"custom"` entry, the command string is evaluated by the shell, so you can include flags. The file path is appended as the final argument. If the custom command is not found, the next entry in the list is tried.
 
+### `[refresh]`
+
+Controls how the TUI detects external changes to notes (edits in another terminal, syncs via Dropbox/git, etc.).
+
+```toml
+[refresh]
+mode = "watch"         # "watch" | "poll" | "manual"
+poll_interval = 30     # seconds between polls (poll mode only)
+max_files = 0          # disable auto-refresh above this note count (0 = no limit)
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `mode` | string | `"watch"` | Refresh strategy: `"watch"` (filesystem events via inotifywait/fswatch), `"poll"` (periodic check), or `"manual"` (only on `r` key) |
+| `poll_interval` | integer | `30` | Seconds between polls in poll mode |
+| `max_files` | integer | `0` | Disable auto-refresh when the notebook has more notes than this; `0` means no limit. Manual refresh (`r` key) always works regardless of this setting. |
+
+**Mode details:**
+
+- **`watch`** (default) – uses `inotifywait` (Linux) or `fswatch` (macOS) to detect `.md` file changes in real time, with 1-second debouncing. If neither tool is installed, silently degrades to `manual` at runtime.
+- **`poll`** – checks every `poll_interval` seconds whether any `.md` file is newer than the last index. Only triggers a reload when something actually changed.
+- **`manual`** – no automatic refresh. Press `r` in command mode to reload.
+
+In all modes, pressing `r` in command mode triggers an immediate manual refresh.
+
 ### Overriding workflow colors
 
 You can override individual colors without writing a full custom workflow. In `.nn/workflow.toml`, use `extends` and override what you need:

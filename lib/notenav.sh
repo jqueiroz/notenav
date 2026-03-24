@@ -581,6 +581,11 @@ nn_precompute_workflow() {
   NN_UI_PREVIEWER=$(nn_cfg '.ui.previewer // ["bat","glow","mdcat"] | if type == "array" then join(" ") else . end')
   NN_UI_PREVIEWER_CUSTOM=$(nn_cfg '.ui.previewer_custom_command // ""')
 
+  # Refresh preferences
+  NN_REFRESH_MODE=$(nn_cfg '.refresh.mode // "watch"')
+  NN_REFRESH_POLL_INTERVAL=$(nn_cfg '.refresh.poll_interval // 30')
+  NN_REFRESH_MAX_FILES=$(nn_cfg '.refresh.max_files // 0')
+
   # ZK format (hardcoded – the entire pipeline assumes this exact column layout)
   NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
 
@@ -941,6 +946,15 @@ nn_doctor() {
     _info "curl not found ${_dim}(optional – needed for remote workflows)${_reset}"
   fi
 
+  # inotifywait / fswatch (optional – needed for refresh.mode=watch)
+  if command -v inotifywait >/dev/null 2>&1; then
+    _pass "inotifywait"
+  elif command -v fswatch >/dev/null 2>&1; then
+    _pass "fswatch"
+  else
+    _info "inotifywait/fswatch not found ${_dim}(optional – auto-refresh in watch mode)${_reset}"
+  fi
+
   # Preview tools validated in Phase 2 alongside config
 
   # ── Phase 2: Config validation ──
@@ -1031,7 +1045,7 @@ nn_doctor() {
     fi
 
     # Unrecognized top-level keys
-    local _known_keys="meta type status priority queries defaults ui extends default_workflow"
+    local _known_keys="meta type status priority queries defaults ui refresh extends default_workflow"
     local _check_files=()
     [[ -f "$user_cfg" ]] && _check_files+=("$user_cfg")
     [[ -n "$project_wf_file" && -f "$project_wf_file" ]] && _check_files+=("$project_wf_file")
@@ -1648,6 +1662,44 @@ nn_doctor() {
         _warn "ui: unrecognized key '$_uk'"
       fi
     done < <(nn_cfg '.ui // {} | keys[]' 2>/dev/null)
+
+    # Refresh validation
+    local _rf_mode
+    _rf_mode=$(nn_cfg '.refresh.mode // empty')
+    if [[ -n "$_rf_mode" ]]; then
+      case "$_rf_mode" in
+        watch|poll|manual) ;;
+        *) _warn "refresh.mode '$_rf_mode' invalid (must be 'watch', 'poll', or 'manual')" ;;
+      esac
+    fi
+    if [[ "$_rf_mode" == "watch" ]]; then
+      if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
+        _warn "refresh.mode is 'watch' but neither inotifywait nor fswatch is installed (will fall back to manual)"
+      fi
+    fi
+    local _rf_interval
+    _rf_interval=$(nn_cfg '.refresh.poll_interval // empty')
+    if [[ -n "$_rf_interval" ]]; then
+      if ! [[ "$_rf_interval" =~ ^[0-9]+$ ]]; then
+        _warn "refresh.poll_interval '$_rf_interval' is not a valid integer"
+      elif [[ "$_rf_interval" -lt 5 ]]; then
+        _warn "refresh.poll_interval is $_rf_interval (< 5 seconds may be too aggressive)"
+      fi
+    fi
+    local _rf_max
+    _rf_max=$(nn_cfg '.refresh.max_files // empty')
+    if [[ -n "$_rf_max" ]] && ! [[ "$_rf_max" =~ ^[0-9]+$ ]]; then
+      _warn "refresh.max_files '$_rf_max' is not a valid integer"
+    fi
+    # Check for unrecognized keys in [refresh]
+    local _known_refresh="mode poll_interval max_files"
+    local _rfk
+    while IFS= read -r _rfk; do
+      [[ -z "$_rfk" ]] && continue
+      if ! _in_array "$_rfk" $_known_refresh; then
+        _warn "refresh: unrecognized key '$_rfk'"
+      fi
+    done < <(nn_cfg '.refresh // {} | keys[]' 2>/dev/null)
 
     # Query preset validation (warnings only)
     local _qp_count=0 _qp_warns=""
@@ -2322,7 +2374,7 @@ EOF
       return 1
     fi
     local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX")
-    trap 'rm -rf "$_nn_dir"' EXIT
+    trap '_p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "$_nn_dir"' EXIT
     nn_write_workflow_files "$_nn_dir"
 
     # Write backend detection flag and notebook root for helper scripts
@@ -2598,6 +2650,64 @@ else
 fi
 ENDRELOAD
     chmod +x "$_nn_dir/reload_raw.sh"
+
+    # Watcher script: signals fzf to reload when files change on disk
+    cat > "$_nn_dir/watcher.sh" << 'ENDWATCHER'
+#!/usr/bin/env bash
+dir="$1"
+printf '%s' $$ > "$dir/.watcher_pid"
+
+mode=$(cat "$dir/.refresh_mode" 2>/dev/null)
+[[ -z "$mode" || "$mode" = "manual" ]] && exit 0
+
+post_reload() {
+  local action="transform($dir/reload_raw.sh $dir 2>/dev/null; $dir/filter.sh $dir refresh)"
+  if command -v curl >/dev/null 2>&1; then
+    curl -s -X POST -d "$action" "http://127.0.0.1:$FZF_PORT" >/dev/null 2>&1
+  else
+    printf 'POST / HTTP/1.0\r\nHost: localhost\r\nContent-Length: %d\r\n\r\n%s' \
+      "${#action}" "$action" > /dev/tcp/127.0.0.1/"$FZF_PORT" 2>/dev/null
+  fi
+}
+
+if [[ "$mode" = "watch" ]]; then
+  notebook_root=$(cat "$dir/.notebook_root" 2>/dev/null)
+  # Background inotifywait/fswatch writing to a FIFO so we can capture its PID
+  # via $! and kill it in the trap.  A plain pipeline (cmd | while) would leave
+  # orphaned subshells when the watcher is killed.
+  _fifo="$dir/.watch_fifo"
+  mkfifo "$_fifo" 2>/dev/null || exit 0
+  if command -v inotifywait >/dev/null 2>&1; then
+    inotifywait -m -r -e modify,create,delete,move \
+      --include '\.md$' "$notebook_root" > "$_fifo" 2>/dev/null &
+    _watch_child=$!
+  elif command -v fswatch >/dev/null 2>&1; then
+    fswatch -r --include '\.md$' --exclude '.*' \
+      --latency 1 "$notebook_root" > "$_fifo" 2>/dev/null &
+    _watch_child=$!
+  else
+    rm -f "$_fifo"
+    exit 0
+  fi
+  trap 'kill $_watch_child 2>/dev/null; rm -f "$_fifo"; exit' EXIT TERM
+  while IFS= read -r _; do
+    while IFS= read -r -t 1 _; do :; done
+    post_reload
+  done < "$_fifo"
+elif [[ "$mode" = "poll" ]]; then
+  trap 'exit' EXIT TERM
+  interval=$(cat "$dir/.refresh_interval" 2>/dev/null)
+  interval=${interval:-30}
+  while sleep "$interval"; do
+    notebook_root=$(cat "$dir/.notebook_root" 2>/dev/null)
+    if [[ -n $(find "$notebook_root" -name '*.md' -newer "$dir/.raw" \
+                -print -quit 2>/dev/null) ]]; then
+      post_reload
+    fi
+  done
+fi
+ENDWATCHER
+    chmod +x "$_nn_dir/watcher.sh"
 
     # Bulk action script: update frontmatter field on selected files, then reload
     cat > "$_nn_dir/action.sh" << 'ENDACTION'
@@ -3710,7 +3820,7 @@ display_lbl=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s
 display_lbl_z=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zrev_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
 presets_hint=$(printf '\033[90m          \033[36mtab\033[90m/\033[36mshift-tab\033[90m ←→ next/prev  \033[36m[0-9]\033[90m jump to preset \033[90m·\033[0m \033[36m[g]\033[90m pick preset\033[0m')
-actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
+actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
 change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
 keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[enter]\033[0m open note \033[90m·\033[0m \033[36m[R]\033[0meset everything \033[90m·\033[0m \033[36m[q]\033[0muit')
@@ -3750,7 +3860,11 @@ total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
 last_action=""; [ -s "$dir/.last_action" ] && last_action=" · last change: $(cat "$dir/.last_action")"
 printf ' nn · %d/%d%s ' "$count" "$total" "$last_action" > "$dir/.border"
 [ "$fwrap_was" != "$fwrap" ] && printf 'toggle-wrap+'
-printf 'reload(cat %s/.current)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "$dir" "$(cat "$dir/.border")"
+# Use the mode-appropriate header so auto-refresh doesn't clobber prefix-mode hints
+_hdr="$dir/.header"
+_m=$(cat "$dir/.nn-mode" 2>/dev/null)
+case "$_m" in c) _hdr="$dir/.header-c" ;; f) _hdr="$dir/.header-f" ;; z) _hdr="$dir/.header-z" ;; esac
+printf 'reload(cat %s/.current)+transform-header(cat %s)+change-border-label(%s)' "$dir" "$_hdr" "$(cat "$dir/.border")"
 ENDFILTER
     chmod +x "$_nn_dir/filter.sh"
 
@@ -3794,7 +3908,31 @@ ENDEDIT
     local _nn_fzf_wrap=()
     [[ "$NN_DEFAULT_WRAP" == "true" ]] && _nn_fzf_wrap=(--wrap)
 
+    # Resolve effective refresh mode (watch → manual if no watcher tool)
+    local _nn_raw_count
+    _nn_raw_count=$(wc -l < "$_nn_dir/.raw")
+    local _nn_refresh_mode="$NN_REFRESH_MODE"
+    if [[ "$_nn_refresh_mode" == "watch" ]]; then
+      if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
+        _nn_refresh_mode="manual"
+      fi
+    fi
+    if [[ "$_nn_refresh_mode" != "manual" && $NN_REFRESH_MAX_FILES -gt 0 && $_nn_raw_count -gt $NN_REFRESH_MAX_FILES ]]; then
+      _nn_refresh_mode="manual"
+    fi
+
+    # Set up --listen and watcher for auto-refresh modes
+    local _nn_fzf_listen=()
+    local _nn_fzf_start_watcher=""
+    if [[ "$_nn_refresh_mode" != "manual" ]]; then
+      _nn_fzf_listen=(--listen 0)
+      printf '%s' "$_nn_refresh_mode" > "$_nn_dir/.refresh_mode"
+      printf '%s' "$NN_REFRESH_POLL_INTERVAL" > "$_nn_dir/.refresh_interval"
+      _nn_fzf_start_watcher="+execute-silent($_nn_dir/watcher.sh $_nn_dir &)"
+    fi
+
     fzf --ansi --delimiter $'\t' --with-nth 2.. < "$_nn_dir/.current" \
+      "${_nn_fzf_listen[@]}" \
       --header '' --header-first \
       --border rounded \
       --border-label "$(cat "$_nn_dir/.border")" \
@@ -3835,17 +3973,18 @@ ENDEDIT
       --bind "f:transform[echo f > $_nn_dir/.nn-mode; echo 'change-prompt(f )+transform-header(cat $_nn_dir/.header-f)']" \
       --bind "z:transform[echo z > $_nn_dir/.nn-mode; echo 'change-prompt(z )+transform-header(cat $_nn_dir/.header-z)']" \
       --bind "o:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort; fi]" \
-      --bind "r:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort-reverse; fi]" \
+      --bind "r:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort-reverse; elif test -z \"\$m\"; then $_nn_dir/reload_raw.sh $_nn_dir 2>/dev/null; $_nn_dir/filter.sh $_nn_dir refresh; fi]" \
       --bind "w:transform[$_nn_dir/wrapkey.sh $_nn_dir '$NN_UI_COMMAND_PROMPT']" \
       --multi \
       --bind "b:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bulkedit.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)+deselect-all'; fi]" \
-      --bind "start:transform-header(cat $_nn_dir/.header)" \
+      --bind "start:transform-header(cat $_nn_dir/.header)${_nn_fzf_start_watcher}" \
       --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,space:toggle,q:abort,change:clear-query' \
       --bind "tab:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir next; fi]" \
       --bind "shift-tab:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir prev; fi]" \
       --bind "esc:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; else echo clear-query; fi]" \
       --bind 'J:preview-page-down,K:preview-page-up' \
       --bind "enter:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)'; fi]"
+    _p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null
     trap - EXIT
     rm -rf "$_nn_dir"
     shopt -u nullglob

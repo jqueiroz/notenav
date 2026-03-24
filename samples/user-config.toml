@@ -22,6 +22,11 @@
 # previewer = ["bat", "glow", "mdcat"]  # fallback list (bat | glow | mdcat | plain | custom)
 # previewer_custom_command = ""  # command when previewer includes "custom" (file as $1)
 
+# [refresh]
+# mode = "watch"              # "watch" | "poll" | "manual"
+# poll_interval = 30          # seconds between polls (poll mode only)
+# max_files = 0               # disable auto-refresh above this note count (0 = no limit)
+
 # Override workflow colors – these merge on top, so only specify what you
 # want to change.
 #

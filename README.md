@@ -96,6 +96,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `z` then `o`/`r`/`g`/`h`/`w` | Display: order-by, reverse sort, group-by, toggle archived, wrap |
 | `esc` | Exit prefix mode, or clear query |
 | `space` | Toggle multi-select |
+| `r` | [**r**]efresh note list |
 | `b` | [**b**]ulk edit (via your preferred editor) |
 | `J` / `K` | Scroll preview down / up |
 | `q` | Quit |
