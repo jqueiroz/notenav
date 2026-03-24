@@ -1001,7 +1001,16 @@ nn_doctor() {
         _fail "Project config: .nn/workflow.toml (parse error)"
       fi
     else
-      _pass "Project config: not present ${_dim}(using default workflow)${_reset}"
+      # Resolve effective default workflow: user config → base config → "zenith"
+      local _def_wf=""
+      if [[ -f "$user_cfg" ]]; then
+        _def_wf=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null | jq -r '.default_workflow // empty' 2>/dev/null)
+      fi
+      if [[ -z "$_def_wf" ]]; then
+        _def_wf=$(yq -p=toml -o=json -I=0 '.' "$notenav_root/config/base.toml" 2>/dev/null | jq -r '.default_workflow // empty' 2>/dev/null)
+      fi
+      _def_wf="${_def_wf:-zenith}"
+      _pass "Project config: not present ${_dim}(using default workflow: $_def_wf)${_reset}"
     fi
 
     # Resolve extends reference
