@@ -61,7 +61,7 @@ review = "draft"
 draft = "archived"
 
 # --- Priority ---
-# Disabled — Zettelkasten doesn't use priority; notes mature by connection density.
+# Disabled – Zettelkasten doesn't use priority; notes mature by connection density.
 
 [priority]
 enabled = false

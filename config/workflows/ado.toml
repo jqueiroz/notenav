@@ -69,10 +69,10 @@ unset_position = "last"
 default_color = "33"           # yellow
 
 [priority.colors]
-1 = "31;1"             # bold red — critical
-2 = "33"               # yellow — high
-3 = "33"               # yellow — medium
-4 = "90"               # dim — low
+1 = "31;1"             # bold red – critical
+2 = "33"               # yellow – high
+3 = "33"               # yellow – medium
+4 = "90"               # dim – low
 
 [priority.lifecycle.up]
 4 = "3"

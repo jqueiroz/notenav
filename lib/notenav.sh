@@ -1,4 +1,4 @@
-# notenav — TUI faceted browser for markdown notes
+# notenav – TUI faceted browser for markdown notes
 # https://github.com/jqueiroz/notenav
 
 NOTENAV_VERSION="0.1.0-dev"
@@ -239,7 +239,7 @@ nn_load_config() {
   if [[ "$_has_project_wf" == "true" ]]; then
     project_queries=$(printf '%s' "$project_wf_json" | jq '{queries: (.queries // {})}' 2>/dev/null) || project_queries="{}"
     if [[ -n "$workflow_name" ]]; then
-      # Has extends — merge project overrides (minus queries/extends) onto base
+      # Has extends – merge project overrides (minus queries/extends) onto base
       local _project_overrides
       _project_overrides=$(printf '%s' "$project_wf_json" | jq 'del(.queries) | del(.extends)' 2>/dev/null)
       if [[ -n "$_project_overrides" && "$_project_overrides" != "{}" && "$_project_overrides" != "null" ]]; then
@@ -247,7 +247,7 @@ nn_load_config() {
           | jq -s '.[0] * .[1]' 2>/dev/null)
       fi
     else
-      # Full custom definition — the file IS the workflow (minus queries)
+      # Full custom definition – the file IS the workflow (minus queries)
       workflow_json=$(printf '%s' "$project_wf_json" | jq 'del(.queries)' 2>/dev/null)
     fi
   fi
@@ -2928,7 +2928,7 @@ fi
 ENDBA
     chmod +x "$_nn_dir/bulkedit_apply.sh"
 
-    # Bulk edit: orchestrator — generates TSV, opens editor, applies changes
+    # Bulk edit: orchestrator – generates TSV, opens editor, applies changes
     cat > "$_nn_dir/bulkedit.sh" << 'ENDBE'
 #!/usr/bin/env bash
 dir="$1"

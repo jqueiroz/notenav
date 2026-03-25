@@ -5,12 +5,12 @@ Inspired by [Azure DevOps](https://azure.microsoft.com/en-us/products/devops/) w
 **Workflow file:** [`config/workflows/ado.toml`](../../config/workflows/ado.toml)
 
 ```toml
-# Per-project — .nn/workflow.toml
+# Per-project – .nn/workflow.toml
 extends = "ado"
 ```
 
 ```toml
-# As default for all projects — ~/.config/notenav/config.toml
+# As default for all projects – ~/.config/notenav/config.toml
 default_workflow = "ado"
 ```
 
@@ -91,7 +91,7 @@ ADO ships with three built-in query presets:
 
 | Preset | Filter | Purpose |
 |--------|--------|---------|
-| active-bugs | `type=bug status=active` | Bugs currently being worked on — the fire list |
+| active-bugs | `type=bug status=active` | Bugs currently being worked on – the fire list |
 | p1-features | `type=feature priority=1` | Critical features that need attention |
 | new-items | `status=new` | Recently created items awaiting triage |
 

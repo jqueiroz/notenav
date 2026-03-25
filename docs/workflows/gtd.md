@@ -5,12 +5,12 @@ Based on David Allen's [Getting Things Done](https://gettingthingsdone.com/) met
 **Workflow file:** [`config/workflows/gtd.toml`](../../config/workflows/gtd.toml)
 
 ```toml
-# Per-project — .nn/workflow.toml
+# Per-project – .nn/workflow.toml
 extends = "gtd"
 ```
 
 ```toml
-# As default for all projects — ~/.config/notenav/config.toml
+# As default for all projects – ~/.config/notenav/config.toml
 default_workflow = "gtd"
 ```
 
@@ -118,10 +118,10 @@ GTD ships with four built-in query presets aligned to the core GTD lists:
 
 | Preset | Filter | Purpose |
 |--------|--------|---------|
-| next-actions | `type=action status=next` | Actions ready to do — your immediate to-do list |
+| next-actions | `type=action status=next` | Actions ready to do – your immediate to-do list |
 | inbox | `status=inbox` | Unclarified captures awaiting processing |
 | waiting | `status=waiting` | Delegated items or things blocked on others |
-| someday | `status=someday` | Parked ideas — review during weekly review |
+| someday | `status=someday` | Parked ideas – review during weekly review |
 
 These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#query-presets) for details.
 

@@ -7,12 +7,12 @@ The default notenav workflow. A simple workflow built around three note types, f
 Zenith is the default – no setup needed. To use it explicitly:
 
 ```toml
-# Per-project — .nn/workflow.toml
+# Per-project – .nn/workflow.toml
 extends = "zenith"
 ```
 
 ```toml
-# As default for all projects — ~/.config/notenav/config.toml
+# As default for all projects – ~/.config/notenav/config.toml
 default_workflow = "zenith"
 ```
 

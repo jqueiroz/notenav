@@ -40,10 +40,10 @@ filter_cycle = ["inbox", "next", "waiting", "someday", "done"]
 default_color = "90"   # dim
 
 [status.colors]
-inbox = "33"           # yellow — needs processing
-next = "32"            # green — ready to do
-waiting = "34"         # blue — blocked on someone else
-someday = "90"         # dim — parked
+inbox = "33"           # yellow – needs processing
+next = "32"            # green – ready to do
+waiting = "34"         # blue – blocked on someone else
+someday = "90"         # dim – parked
 done = "90"            # dim
 dropped = "90"         # dim
 

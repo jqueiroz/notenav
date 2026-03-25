@@ -21,7 +21,7 @@ At startup, two things happen:
 
    | Layer | Source | Wins on |
    |-------|--------|---------|
-   | 1. Base config | `$NOTENAV_ROOT/config/base.toml` | — (base) |
+   | 1. Base config | `$NOTENAV_ROOT/config/base.toml` | – (base) |
    | 2. Workflow | Built-in or extended workflow definition | Base defaults |
    | 3. User config | `$XDG_CONFIG_HOME/notenav/config.toml` | Everything above |
    | 4. Project queries | `[queries]` from `.nn/workflow.toml` | All queries |
@@ -249,7 +249,7 @@ Same-name queries at a later layer fully replace the earlier one. For example, d
 **Clearing workflow presets:** If you want to start fresh without the workflow's built-in queries, set `inherit = false` in your project or user config:
 
 ```toml
-# .nn/workflow.toml — clear workflow presets, define only your own
+# .nn/workflow.toml – clear workflow presets, define only your own
 [queries]
 inherit = false
 

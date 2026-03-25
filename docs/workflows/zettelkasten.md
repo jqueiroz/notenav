@@ -5,12 +5,12 @@ Based on Niklas Luhmann's [Zettelkasten](https://en.wikipedia.org/wiki/Zettelkas
 **Workflow file:** [`config/workflows/zettelkasten.toml`](../../config/workflows/zettelkasten.toml)
 
 ```toml
-# Per-project — .nn/workflow.toml
+# Per-project – .nn/workflow.toml
 extends = "zettelkasten"
 ```
 
 ```toml
-# As default for all projects — ~/.config/notenav/config.toml
+# As default for all projects – ~/.config/notenav/config.toml
 default_workflow = "zettelkasten"
 ```
 
@@ -110,7 +110,7 @@ Zettelkasten ships with three built-in query presets:
 
 | Preset | Filter | Purpose |
 |--------|--------|---------|
-| drafts | `status=draft` | Notes in first-pass form — rough, possibly incomplete |
+| drafts | `status=draft` | Notes in first-pass form – rough, possibly incomplete |
 | fleeting | `type=fleeting` | Quick captures to process into literature or permanent notes |
 | review | `status=review` | Notes that need another look for clarity and linking |
 
