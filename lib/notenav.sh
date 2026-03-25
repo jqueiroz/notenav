@@ -3622,21 +3622,23 @@ do_sort() {
 now=$(date +%s)
 # Pre-filter by body match if active
 _raw_input="$dir/.raw"
+_count_input="$dir/.raw"
 if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
-  if [ -s "$dir/.pinned" ]; then
-    # Include pinned paths so ghost rows survive body-match filtering
-    cat "$dir/.f_match_paths" "$dir/.pinned" > "$dir/.match_plus_pinned"
-    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.match_plus_pinned" "$dir/.raw" > "$dir/.raw_matched"
-  else
-    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw" > "$dir/.raw_matched"
-  fi
+  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw" > "$dir/.raw_matched"
   _raw_input="$dir/.raw_matched"
+  _count_input="$dir/.raw_matched"
+  if [ -s "$dir/.pinned" ]; then
+    # Widen _raw_input with pinned paths so ghost rows survive body-match filtering
+    cat "$dir/.f_match_paths" "$dir/.pinned" > "$dir/.match_plus_pinned"
+    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.match_plus_pinned" "$dir/.raw" > "$dir/.raw_match_render"
+    _raw_input="$dir/.raw_match_render"
+  fi
 fi
 awk_body=$(cat "$dir/.awk_color_body")
 pinned_awk=$(cat "$dir/.awk_color_pinned")
 if [ -s "$dir/.pinned" ]; then
   do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" '
-    NR==FNR { is_pinned[$0]=1; next }
+    NR==FNR { if (NF) is_pinned[$0]=1; next }
     '"${cond}"' { '"${awk_body}"' }
     !('"${cond}"') && ($6 in is_pinned) { '"${pinned_awk}"' }
   ' "$dir/.pinned" - > "$dir/.current"
@@ -3645,7 +3647,7 @@ else
 fi
 # Pipeline: AWK filter → count → grouping → empty-view → border/output
 # Ghost rows (pinned items failing filters) are already in .current from the dual-rule AWK above.
-count=$(awk -F'\t' "${cond}{n++} END{print n+0}" "$_raw_input")
+count=$(awk -F'\t' "${cond}{n++} END{print n+0}" "$_count_input")
 # Grouping post-processing: insert separator headers between groups
 if [ -n "$fgroup" ]; then
   case "$fgroup" in type) gcol=1 ;; status) gcol=2 ;; *) echo "bug: unknown group '$fgroup'" >&2; exit 2 ;; esac
@@ -3683,7 +3685,7 @@ if [ -n "$fgroup" ]; then
 fi
 # Compute inline stats from filtered set
 awk_stats=$(cat "$dir/.awk_color_stats")
-stats_s=$(awk -F'\t' "${cond}${awk_stats}" "$_raw_input")
+stats_s=$(awk -F'\t' "${cond}${awk_stats}" "$_count_input")
 # Header line 1: filter state
 fmt_dim() {
   local key="$1" val="$2" label suffix ic=""
@@ -3858,7 +3860,7 @@ if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
   printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
 fi
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
-pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF' "$dir/.pinned" | wc -l)
+pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "$dir/.pinned")
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 last_action=""; [ -s "$dir/.last_action" ] && last_action=" · last change: $(cat "$dir/.last_action")"
 printf ' nn · %d/%d%s%s ' "$count" "$total" "$pin_s" "$last_action" > "$dir/.border"
