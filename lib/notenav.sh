@@ -963,6 +963,20 @@ nn_doctor() {
 
   # Preview tools validated in Phase 2 alongside config
 
+  # Find notebook root (shared by Phase 2 config and Phase 5 notebook checks)
+  local _nn_root="$PWD" _nn_root_bare=false
+  while true; do
+    if [[ -d "$_nn_root/.nn" ]]; then
+      if [[ -f "$_nn_root/.nn/workflow.toml" ]]; then
+        break
+      else
+        _nn_root_bare=true; _nn_root=""; break
+      fi
+    fi
+    [[ "$_nn_root" == "/" ]] && { _nn_root=""; break; }
+    _nn_root="$(dirname "$_nn_root")"
+  done
+
   # ── Phase 2: Config validation ──
 
   if [[ "$_has_yq" == "true" && "$_has_jq" == "true" ]]; then
@@ -970,19 +984,7 @@ nn_doctor() {
     echo "Config:"
 
     local user_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
-    local project_nn_dir="" _search_dir="$PWD"
-    while true; do
-      if [[ -d "$_search_dir/.nn" ]]; then
-        if [[ -f "$_search_dir/.nn/workflow.toml" ]]; then
-          project_nn_dir="$_search_dir/.nn"
-        else
-          _warn "Found .nn/ at $_search_dir but it has no workflow.toml"
-        fi
-        break
-      fi
-      [[ "$_search_dir" == "/" ]] && break
-      _search_dir="$(dirname "$_search_dir")"
-    done
+    local project_nn_dir="${_nn_root:+$_nn_root/.nn}"
     local project_wf_file="${project_nn_dir:+$project_nn_dir/workflow.toml}"
 
     # User config
@@ -1794,21 +1796,8 @@ nn_doctor() {
   echo ""
   echo "Notebook:"
 
-  # Find notebook root: walk up looking for .nn/workflow.toml
-  local _nn_root="$PWD"
-  while true; do
-    if [[ -d "$_nn_root/.nn" ]]; then
-      if [[ -f "$_nn_root/.nn/workflow.toml" ]]; then
-        break
-      else
-        _fail "Found .nn/ at $_nn_root but it has no workflow.toml"
-        _nn_root=""
-        break
-      fi
-    fi
-    [[ "$_nn_root" == "/" ]] && { _nn_root=""; break; }
-    _nn_root="$(dirname "$_nn_root")"
-  done
+  # _nn_root was already resolved above (shared walk-up before Phase 2)
+  [[ "$_nn_root_bare" == "true" ]] && _fail "Found .nn/ but it has no workflow.toml"
 
   if [[ -n "$_nn_root" ]]; then
     _pass "Notebook root: $_nn_root ${_dim}(.nn/ found)${_reset}"
@@ -2351,8 +2340,9 @@ EOF
   local _NN_HAS_ZK=false
   command -v zk >/dev/null 2>&1 && _NN_HAS_ZK=true
 
+  # Scope: always show notes from $(pwd) downward
+  local _scope_path="$(pwd)"
   # Find notebook root: walk up looking for .nn/workflow.toml
-  local _scope_path=("$(pwd)")
   local _nn_root="$PWD"
   while true; do
     if [[ -d "$_nn_root/.nn" ]]; then
@@ -2379,12 +2369,12 @@ EOF
 
   # Detect backend: use zk when available and it can reach this directory
   if [[ "$_NN_HAS_ZK" == "true" ]]; then
-    if ! zk list --format '{{absPath}}' --quiet --limit 1 "${_scope_path[@]}" >/dev/null 2>&1; then
+    if ! zk list --format '{{absPath}}' --quiet --limit 1 "$_scope_path" >/dev/null 2>&1; then
       _NN_HAS_ZK=false
     fi
   fi
   if [[ "$_NN_HAS_ZK" != "true" ]]; then
-    local _search_target="${_scope_path[0]}"
+    local _search_target="$_scope_path"
     if [[ -z "$(find "$_search_target" -name '*.md' -type f -print -quit 2>/dev/null)" ]]; then
       echo "notenav: no markdown files found in $_search_target" >&2
       echo "notenav: run 'nn doctor' to diagnose" >&2
@@ -2407,7 +2397,7 @@ EOF
     printf '%s' "$_nn_root" > "$_nn_dir/.notebook_root"
 
     # Get all notes
-    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${_scope_path[@]}" > "$_nn_dir/.raw"
+    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "$_scope_path" > "$_nn_dir/.raw"
 
     # Initialize filter state (empty = all)
     : > "$_nn_dir/.f_type"
@@ -2478,16 +2468,15 @@ ENDTAGS
 #!/usr/bin/env bash
 dir="$1"; query="$2"
 has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
-scope_path=()
-while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && scope_path+=("$p"); done < "$dir/.scope_path"
+scope_path=$(cat "$dir/.scope_path")
 if [ "$has_zk" = "true" ]; then
   if [ -n "$query" ]; then
-    zk list "${scope_path[@]}" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
+    zk list "$scope_path" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
   else
-    zk list "${scope_path[@]}" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
+    zk list "$scope_path" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
   fi
 else
-  search_dir="${scope_path[0]}"
+  search_dir="$scope_path"
   # Title extractor: reads file paths on stdin, outputs "absPath\ttitle"
   _nn_extract_titles() {
     awk '{
@@ -2540,14 +2529,11 @@ result=$(: | fzf --ansi --disabled --query "$cur" \
 rc=$?
 query=$(printf '%s' "$result" | head -1)
 if [ $rc -eq 0 ] && [ -n "$query" ]; then
+  scope_path=$(cat "$dir/.scope_path")
   if [ "$has_zk" = "true" ]; then
-    scope_path=()
-    while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && scope_path+=("$p"); done < "$dir/.scope_path"
-    zk list "${scope_path[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
+    zk list "$scope_path" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
   else
-    scope_path=()
-    while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && scope_path+=("$p"); done < "$dir/.scope_path"
-    search_dir="${scope_path[0]}"
+    search_dir="$scope_path"
     if command -v rg >/dev/null 2>&1; then
       rg -Fl --type md "$query" "$search_dir" 2>/dev/null > "$dir/.f_match_paths"
     else
@@ -2583,7 +2569,7 @@ ENDNAMEFILT
     chmod +x "$_nn_dir/namefilt.sh"
 
     # Store scope and format for reload
-    printf '%s\n' "${_scope_path[@]}" > "$_nn_dir/.scope_path"
+    printf '%s' "$_scope_path" > "$_nn_dir/.scope_path"
     echo "$_fmt" > "$_nn_dir/.list_fmt"
 
     # Reload raw data helper: consolidates zk/native backend dispatch for reloading
@@ -2592,12 +2578,11 @@ ENDNAMEFILT
 dir="$1"
 has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
 fmt=$(cat "$dir/.list_fmt")
-scope_path=()
-while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && scope_path+=("$p"); done < "$dir/.scope_path"
+scope_path=$(cat "$dir/.scope_path")
 if [ "$has_zk" = "true" ]; then
-  zk list "${scope_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
+  zk list "$scope_path" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 else
-  search_dir="${scope_path[0]}"
+  search_dir="$scope_path"
   _nn_find_md_with_mtime() {
     local d="$1"
     if find "$d" -maxdepth 0 -printf '' 2>/dev/null; then
@@ -4061,7 +4046,7 @@ ENDEDIT
   done
 
   if [[ ${#zk_args[@]} -eq 0 ]]; then
-    zk_args=("${_scope_path[@]}")
+    zk_args=("$_scope_path")
   fi
 
   # Validate ad-hoc filter values against known workflow values
