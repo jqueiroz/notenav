@@ -170,7 +170,7 @@ nn doctor
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
    - ANSI color codes are syntactically valid throughout
 
-5. **Notebook:** confirms a notebook is reachable from the current directory. With zk: checks the zk index. Without zk: looks for a `.zk/` or `.nn/` directory and counts markdown files.
+5. **Notebook:** confirms a notebook is reachable from the current directory by looking for `.nn/workflow.toml`. Reports the notebook root, markdown file count, and active backend (zk or native).
 
 **Output markers:**
 

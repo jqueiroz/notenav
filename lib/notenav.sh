@@ -108,12 +108,18 @@ nn_load_config() {
   local base_cfg="$notenav_root/config/base.toml"
   local user_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
 
-  # Find closest .nn directory (walk from cwd up to filesystem root)
+  # Find closest .nn directory with workflow.toml (walk from cwd up to filesystem root)
   local project_nn_dir=""
   local _search_dir="$PWD"
   while true; do
     if [[ -d "$_search_dir/.nn" ]]; then
-      project_nn_dir="$_search_dir/.nn"
+      if [[ -f "$_search_dir/.nn/workflow.toml" ]]; then
+        project_nn_dir="$_search_dir/.nn"
+      else
+        echo "notenav: found .nn/ at $_search_dir but it has no workflow.toml" >&2
+        echo "notenav: run 'nn init' there, or remove the .nn/ directory" >&2
+        return 1
+      fi
       break
     fi
     [[ "$_search_dir" == "/" ]] && break
@@ -797,7 +803,7 @@ _nn_list_notes_native() {
 }
 
 # Lists notes for a given directory. Uses zk if available, native fallback otherwise.
-# Arguments: has_zk fmt zk_path...
+# Arguments: has_zk fmt scope_path...
 # Output: 8-column TSV to stdout
 _nn_list_notes() {
   local has_zk="$1" fmt="$2"
@@ -967,7 +973,11 @@ nn_doctor() {
     local project_nn_dir="" _search_dir="$PWD"
     while true; do
       if [[ -d "$_search_dir/.nn" ]]; then
-        project_nn_dir="$_search_dir/.nn"
+        if [[ -f "$_search_dir/.nn/workflow.toml" ]]; then
+          project_nn_dir="$_search_dir/.nn"
+        else
+          _warn "Found .nn/ at $_search_dir but it has no workflow.toml"
+        fi
         break
       fi
       [[ "$_search_dir" == "/" ]] && break
@@ -1783,42 +1793,52 @@ nn_doctor() {
 
   echo ""
   echo "Notebook:"
-  local _zk_notebook_ok=false
-  if [[ "$_has_zk" == "true" ]]; then
-    if zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
-      _pass "zk notebook found"
-      _zk_notebook_ok=true
-      local _note_count
-      _note_count=$(zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
-      if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
-        _pass "$_note_count notes indexed"
+
+  # Find notebook root: walk up looking for .nn/workflow.toml
+  local _nn_root="$PWD"
+  while true; do
+    if [[ -d "$_nn_root/.nn" ]]; then
+      if [[ -f "$_nn_root/.nn/workflow.toml" ]]; then
+        break
       else
-        _warn "0 notes indexed"
+        _fail "Found .nn/ at $_nn_root but it has no workflow.toml"
+        _nn_root=""
+        break
+      fi
+    fi
+    [[ "$_nn_root" == "/" ]] && { _nn_root=""; break; }
+    _nn_root="$(dirname "$_nn_root")"
+  done
+
+  if [[ -n "$_nn_root" ]]; then
+    _pass "Notebook root: $_nn_root ${_dim}(.nn/ found)${_reset}"
+    local _note_count
+    _note_count=$(find "$_nn_root" -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
+      _pass "$_note_count markdown files found"
+    else
+      _warn "No markdown files found"
+    fi
+
+    # Backend status
+    if [[ "$_has_zk" == "true" ]]; then
+      if zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
+        local _zk_count
+        _zk_count=$(zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
+        _pass "Backend: zk ${_dim}(indexed listing, link graph, full-text search)${_reset}"
+        if [[ "$_zk_count" -gt 0 ]] 2>/dev/null; then
+          _pass "$_zk_count notes in zk index"
+        else
+          _warn "0 notes in zk index"
+        fi
+      else
+        _info "Backend: native ${_dim}(zk installed but no .zk/ notebook – run 'zk init' for faster indexing)${_reset}"
       fi
     else
-      _info "No zk notebook found ${_dim}(will use native backend if .nn/ or .zk/ directory exists)${_reset}"
+      _info "Backend: native ${_dim}(install zk for faster indexing and link graph)${_reset}"
     fi
-  fi
-  if [[ "$_zk_notebook_ok" != "true" ]]; then
-    # Check for native-backend notebook (no zk, or zk can't find its notebook)
-    local _nn_root="$PWD"
-    while true; do
-      [[ -d "$_nn_root/.zk" || -d "$_nn_root/.nn" ]] && break
-      [[ "$_nn_root" == "/" ]] && { _nn_root=""; break; }
-      _nn_root="$(dirname "$_nn_root")"
-    done
-    if [[ -n "$_nn_root" ]]; then
-      _pass "Notebook root: $_nn_root"
-      local _note_count
-      _note_count=$(find "$_nn_root" -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
-      if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
-        _pass "$_note_count markdown files found"
-      else
-        _warn "No markdown files found"
-      fi
-    else
-      _warn "No notebook found (no .zk/ or .nn/ directory in path)"
-    fi
+  else
+    _warn "No notebook found ${_dim}(no .nn/workflow.toml in path)${_reset}"
   fi
 
   # Summary
@@ -1924,7 +1944,8 @@ _nn_init_project() {
   local notenav_root="$1" workflow_arg="$2"
   local workflow_name="${workflow_arg:-zenith}"
 
-  # Resolve .nn/ directory (walk up from cwd, same as nn_load_config)
+  # Resolve .nn/ directory (walk up from cwd; intentionally accepts bare .nn/
+  # without workflow.toml since this command creates it)
   local project_nn_dir="" _search_dir="$PWD"
   while true; do
     if [[ -d "$_search_dir/.nn" ]]; then
@@ -2330,45 +2351,40 @@ EOF
   local _NN_HAS_ZK=false
   command -v zk >/dev/null 2>&1 && _NN_HAS_ZK=true
 
-  # Find notebook root: walk up looking for .zk/ or .nn/
-  local _zk_path=()
-  local _zk_root="$PWD"
+  # Find notebook root: walk up looking for .nn/workflow.toml
+  local _scope_path=("$(pwd)")
+  local _nn_root="$PWD"
   while true; do
-    [[ -d "$_zk_root/.zk" || -d "$_zk_root/.nn" ]] && break
-    [[ "$_zk_root" == "/" ]] && { _zk_root=""; break; }
-    _zk_root="$(dirname "$_zk_root")"
+    if [[ -d "$_nn_root/.nn" ]]; then
+      if [[ -f "$_nn_root/.nn/workflow.toml" ]]; then
+        break
+      else
+        echo "notenav: found .nn/ at $_nn_root but it has no workflow.toml" >&2
+        echo "notenav: run 'nn init' there, or remove the .nn/ directory" >&2
+        return 1
+      fi
+    fi
+    [[ "$_nn_root" == "/" ]] && { _nn_root=""; break; }
+    _nn_root="$(dirname "$_nn_root")"
   done
-  [[ -n "$_zk_root" && "$PWD" != "$_zk_root" ]] && _zk_path=("$(pwd)")
+  if [[ -z "$_nn_root" ]]; then
+    echo "notenav: no notebook found from $(pwd)" >&2
+    echo "notenav: run 'nn init' to create one, or 'nn doctor' to diagnose" >&2
+    return 1
+  fi
 
   # Resolve editor
   local _nn_editor
   _nn_editor="$(_nn_resolve_editor "$NN_UI_EDITOR")"
 
-  # Check that we can reach a notebook from here
+  # Detect backend: use zk when available and it can reach this directory
   if [[ "$_NN_HAS_ZK" == "true" ]]; then
-    local _zk_check_err
-    if ! _zk_check_err=$(zk list --format '{{absPath}}' --quiet --limit 1 "${_zk_path[@]}" 2>&1 >/dev/null); then
-      # zk is installed but can't find a notebook — fall back to native
-      # backend if we found a .nn/ or .zk/ root with markdown files
-      if [[ -n "$_zk_root" ]]; then
-        _NN_HAS_ZK=false
-      else
-        echo "notenav: no zk notebook found from $(pwd)" >&2
-        [[ -n "$_zk_check_err" ]] && echo "notenav: $_zk_check_err" >&2
-        echo "notenav: run 'zk init' to create one, or 'nn doctor' to diagnose" >&2
-        return 1
-      fi
+    if ! zk list --format '{{absPath}}' --quiet --limit 1 "${_scope_path[@]}" >/dev/null 2>&1; then
+      _NN_HAS_ZK=false
     fi
   fi
   if [[ "$_NN_HAS_ZK" != "true" ]]; then
-    # Without zk (or zk couldn't find a notebook), verify we have a
-    # notebook root and markdown files for the native backend
-    if [[ -z "$_zk_root" ]]; then
-      echo "notenav: no notebook found from $(pwd)" >&2
-      echo "notenav: create a .nn/ directory with 'nn init', or install zk and run 'zk init'" >&2
-      return 1
-    fi
-    local _search_target="${_zk_path[0]:-$_zk_root}"
+    local _search_target="${_scope_path[0]}"
     if [[ -z "$(find "$_search_target" -name '*.md' -type f -print -quit 2>/dev/null)" ]]; then
       echo "notenav: no markdown files found in $_search_target" >&2
       echo "notenav: run 'nn doctor' to diagnose" >&2
@@ -2388,15 +2404,10 @@ EOF
 
     # Write backend detection flag and notebook root for helper scripts
     printf '%s' "$_NN_HAS_ZK" > "$_nn_dir/.has_zk"
-    printf '%s' "${_zk_root:-$PWD}" > "$_nn_dir/.notebook_root"
+    printf '%s' "$_nn_root" > "$_nn_dir/.notebook_root"
 
-    # Get all notes (native backend needs an explicit absolute path to ensure
-    # consistent paths between initial load and reload_raw.sh)
-    if [[ "$_NN_HAS_ZK" != "true" && ${#_zk_path[@]} -eq 0 && -n "$_zk_root" ]]; then
-      _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "$_zk_root" > "$_nn_dir/.raw"
-    else
-      _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${_zk_path[@]}" > "$_nn_dir/.raw"
-    fi
+    # Get all notes
+    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${_scope_path[@]}" > "$_nn_dir/.raw"
 
     # Initialize filter state (empty = all)
     : > "$_nn_dir/.f_type"
@@ -2467,17 +2478,16 @@ ENDTAGS
 #!/usr/bin/env bash
 dir="$1"; query="$2"
 has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
-zk_path=()
-while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+scope_path=()
+while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && scope_path+=("$p"); done < "$dir/.scope_path"
 if [ "$has_zk" = "true" ]; then
   if [ -n "$query" ]; then
-    zk list "${zk_path[@]}" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
+    zk list "${scope_path[@]}" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
   else
-    zk list "${zk_path[@]}" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
+    zk list "${scope_path[@]}" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
   fi
 else
-  root=$(cat "$dir/.notebook_root" 2>/dev/null)
-  search_dir="${zk_path[0]:-$root}"
+  search_dir="${scope_path[0]}"
   # Title extractor: reads file paths on stdin, outputs "absPath\ttitle"
   _nn_extract_titles() {
     awk '{
@@ -2531,14 +2541,13 @@ rc=$?
 query=$(printf '%s' "$result" | head -1)
 if [ $rc -eq 0 ] && [ -n "$query" ]; then
   if [ "$has_zk" = "true" ]; then
-    zk_path=()
-    while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
-    zk list "${zk_path[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
+    scope_path=()
+    while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && scope_path+=("$p"); done < "$dir/.scope_path"
+    zk list "${scope_path[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
   else
-    root=$(cat "$dir/.notebook_root" 2>/dev/null)
-    zk_path=()
-    while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
-    search_dir="${zk_path[0]:-$root}"
+    scope_path=()
+    while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && scope_path+=("$p"); done < "$dir/.scope_path"
+    search_dir="${scope_path[0]}"
     if command -v rg >/dev/null 2>&1; then
       rg -Fl --type md "$query" "$search_dir" 2>/dev/null > "$dir/.f_match_paths"
     else
@@ -2573,23 +2582,22 @@ fi
 ENDNAMEFILT
     chmod +x "$_nn_dir/namefilt.sh"
 
-    # Store zk list args for reload
-    printf '%s\n' "${_zk_path[@]}" > "$_nn_dir/.zk_path"
-    echo "$_fmt" > "$_nn_dir/.zk_fmt"
+    # Store scope and format for reload
+    printf '%s\n' "${_scope_path[@]}" > "$_nn_dir/.scope_path"
+    echo "$_fmt" > "$_nn_dir/.list_fmt"
 
     # Reload raw data helper: consolidates zk/native backend dispatch for reloading
     cat > "$_nn_dir/reload_raw.sh" << 'ENDRELOAD'
 #!/usr/bin/env bash
 dir="$1"
 has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
-fmt=$(cat "$dir/.zk_fmt")
-zk_path=()
-while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && zk_path+=("$p"); done < "$dir/.zk_path"
+fmt=$(cat "$dir/.list_fmt")
+scope_path=()
+while IFS= read -r p || [ -n "$p" ]; do [ -n "$p" ] && scope_path+=("$p"); done < "$dir/.scope_path"
 if [ "$has_zk" = "true" ]; then
-  zk list "${zk_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
+  zk list "${scope_path[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 else
-  root=$(cat "$dir/.notebook_root" 2>/dev/null)
-  search_dir="${zk_path[0]:-$root}"
+  search_dir="${scope_path[0]}"
   _nn_find_md_with_mtime() {
     local d="$1"
     if find "$d" -maxdepth 0 -printf '' 2>/dev/null; then
@@ -4053,11 +4061,7 @@ ENDEDIT
   done
 
   if [[ ${#zk_args[@]} -eq 0 ]]; then
-    if [[ ${#_zk_path[@]} -gt 0 ]]; then
-      zk_args=("${_zk_path[@]}")
-    elif [[ "$_NN_HAS_ZK" != "true" && -n "$_zk_root" ]]; then
-      zk_args=("$_zk_root")
-    fi
+    zk_args=("${_scope_path[@]}")
   fi
 
   # Validate ad-hoc filter values against known workflow values

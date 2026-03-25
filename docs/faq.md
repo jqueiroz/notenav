@@ -24,18 +24,18 @@ If no `.nn/` directory is found anywhere in the path, notenav falls back to the 
 
 ## Do I need zk?
 
-No. [zk](https://github.com/zk-org/zk) is optional. Without it, notenav uses its own frontmatter parser and `rg`/`grep` for body text search. The core experience works – you just lose a few features:
+No. [zk](https://github.com/zk-org/zk) is optional and transparent – notenav auto-detects it and uses it when available, with no extra setup beyond `zk init`. Without it, notenav uses its own frontmatter parser and `rg`/`grep` for body text search. The core experience works – you just lose a few features:
 
 - **Link graph:** the Links/Backlinks sections in the preview pane are skipped (they rely on zk's index)
 - **Body text search:** uses `rg` or `grep` instead of zk's indexed `--match` (slower on large notebooks)
 - **Note creation:** generates files directly instead of using zk templates
 - **Listing performance:** may be slower for very large notebooks (no SQLite index)
 
-Install zk when you want these features. `nn doctor` will tell you whether zk is detected.
+zk enhances notenav when `.zk/` is at the same level as or above `.nn/`. notenav re-indexes on every query – there is no manual sync step. Install zk when you want these features. `nn doctor` will tell you whether zk is detected and which backend is active.
 
 ## Which notes does `nn` show?
 
-notenav discovers notes by recursively finding all markdown files under the notebook root. When zk is installed, it delegates to `zk list` for faster indexed listing.
+notenav discovers notes by recursively finding all markdown files under the current directory. When zk is installed, it delegates to `zk list` for faster indexed listing.
 
 **At the notebook root:** `nn` shows all notes in the entire notebook.
 
