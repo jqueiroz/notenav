@@ -964,16 +964,16 @@ nn_doctor() {
   # Preview tools validated in Phase 2 alongside config
 
   # Find notebook root (shared by Phase 2 config and Phase 5 notebook checks)
-  local _nn_root="$PWD" _nn_root_bare=false
+  local _nn_root="$PWD" _nn_root_bare=false _nn_root_found=false
   while true; do
     if [[ -d "$_nn_root/.nn" ]]; then
       if [[ -f "$_nn_root/.nn/workflow.toml" ]]; then
-        break
+        _nn_root_found=true; break
       else
-        _nn_root_bare=true; _nn_root=""; break
+        _nn_root_bare=true; break
       fi
     fi
-    [[ "$_nn_root" == "/" ]] && { _nn_root=""; break; }
+    [[ "$_nn_root" == "/" ]] && { _nn_root="$PWD"; break; }
     _nn_root="$(dirname "$_nn_root")"
   done
 
@@ -984,7 +984,8 @@ nn_doctor() {
     echo "Config:"
 
     local user_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
-    local project_nn_dir="${_nn_root:+$_nn_root/.nn}"
+    local project_nn_dir=""
+    [[ "$_nn_root_found" == "true" ]] && project_nn_dir="$_nn_root/.nn"
     local project_wf_file="${project_nn_dir:+$project_nn_dir/workflow.toml}"
 
     # User config
@@ -1797,37 +1798,38 @@ nn_doctor() {
   echo "Notebook:"
 
   # _nn_root was already resolved above (shared walk-up before Phase 2)
-  [[ "$_nn_root_bare" == "true" ]] && _fail "Found .nn/ but it has no workflow.toml"
-
-  if [[ -n "$_nn_root" ]]; then
+  if [[ "$_nn_root_bare" == "true" ]]; then
+    _fail "Found .nn/ at $_nn_root but it has no workflow.toml"
+  elif [[ "$_nn_root_found" == "true" ]]; then
     _pass "Notebook root: $_nn_root ${_dim}(.nn/ found)${_reset}"
-    local _note_count
-    _note_count=$(find "$_nn_root" -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
-    if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
-      _pass "$_note_count markdown files found"
-    else
-      _warn "No markdown files found"
-    fi
+  else
+    _info "No .nn/ found ${_dim}(using $PWD with default workflow)${_reset}"
+  fi
 
-    # Backend status
-    if [[ "$_has_zk" == "true" ]]; then
-      if zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
-        local _zk_count
-        _zk_count=$(zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
-        _pass "Backend: zk ${_dim}(indexed listing, link graph, full-text search)${_reset}"
-        if [[ "$_zk_count" -gt 0 ]] 2>/dev/null; then
-          _pass "$_zk_count notes in zk index"
-        else
-          _warn "0 notes in zk index"
-        fi
+  local _note_count
+  _note_count=$(find "$_nn_root" -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
+    _pass "$_note_count markdown files found"
+  else
+    _warn "No markdown files found"
+  fi
+
+  # Backend status
+  if [[ "$_has_zk" == "true" ]]; then
+    if zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
+      local _zk_count
+      _zk_count=$(zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
+      _pass "Backend: zk ${_dim}(indexed listing, link graph, full-text search)${_reset}"
+      if [[ "$_zk_count" -gt 0 ]] 2>/dev/null; then
+        _pass "$_zk_count notes in zk index"
       else
-        _info "Backend: native ${_dim}(zk installed but no .zk/ notebook – run 'zk init' for faster indexing)${_reset}"
+        _warn "0 notes in zk index"
       fi
     else
-      _info "Backend: native ${_dim}(install zk for faster indexing and link graph)${_reset}"
+      _info "Backend: native ${_dim}(zk installed but no .zk/ notebook – run 'zk init' for faster indexing)${_reset}"
     fi
   else
-    _warn "No notebook found ${_dim}(no .nn/workflow.toml in path)${_reset}"
+    _info "Backend: native ${_dim}(install zk for faster indexing and link graph)${_reset}"
   fi
 
   # Summary
@@ -2357,11 +2359,9 @@ EOF
     [[ "$_nn_root" == "/" ]] && { _nn_root=""; break; }
     _nn_root="$(dirname "$_nn_root")"
   done
-  if [[ -z "$_nn_root" ]]; then
-    echo "notenav: no notebook found from $(pwd)" >&2
-    echo "notenav: run 'nn init' to create one, or 'nn doctor' to diagnose" >&2
-    return 1
-  fi
+  # No .nn/workflow.toml found – use $PWD as notebook root (config already
+  # fell back to default_workflow in nn_load_config)
+  [[ -z "$_nn_root" ]] && _nn_root="$PWD"
 
   # Resolve editor
   local _nn_editor

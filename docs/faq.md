@@ -20,7 +20,7 @@ This means you can run `nn` from any subdirectory of your project and it will us
 └── inbox.md
 ```
 
-If no `.nn/` directory is found anywhere in the path, `nn` will prompt you to run `nn init`. A `.nn/workflow.toml` is required – it tells notenav where your notebook root is and which workflow to use.
+If no `.nn/` directory is found anywhere in the path, notenav falls back to the `default_workflow` setting in your user config (`~/.config/notenav/config.toml`), or to the built-in Zenith workflow if that's not set either.
 
 ## Do I need zk?
 
@@ -75,7 +75,7 @@ Short name where you see it often, full name where discoverability matters. `.nn
 
 ## Can I use `nn` without a `.nn/` directory?
 
-No – `.nn/workflow.toml` is required to mark the notebook root. Run `nn init` to create one (defaults to the Zenith workflow). The file is small and can be committed alongside your notes.
+Yes. If there's no `.nn/workflow.toml`, notenav uses your `default_workflow` from `~/.config/notenav/config.toml` (defaults to Zenith) and treats the current directory as the notebook root. This works well for personal notebooks that don't need project-specific configuration.
 
 ## Can I use `nn` with Obsidian / Dendron / Jekyll / other tools?
 
