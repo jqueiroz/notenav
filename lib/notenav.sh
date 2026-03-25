@@ -3623,7 +3623,13 @@ now=$(date +%s)
 # Pre-filter by body match if active
 _raw_input="$dir/.raw"
 if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
-  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw" > "$dir/.raw_matched"
+  if [ -s "$dir/.pinned" ]; then
+    # Include pinned paths so ghost rows survive body-match filtering
+    cat "$dir/.f_match_paths" "$dir/.pinned" > "$dir/.match_plus_pinned"
+    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.match_plus_pinned" "$dir/.raw" > "$dir/.raw_matched"
+  else
+    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw" > "$dir/.raw_matched"
+  fi
   _raw_input="$dir/.raw_matched"
 fi
 awk_body=$(cat "$dir/.awk_color_body")
