@@ -393,9 +393,9 @@ _nn_gen_awk_bodies() {
   _pinned+=$'\n''  r = "\033[0m\033[1m"'
   _pinned+=$'\n'"  $_age_awk"
   if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
-    _pinned+=$'\n''  printf "%s\t\033[1m%s%s %s%s %s%s%s %s%s%s %s%s \033[0m\033[30;43m temporarily pinned \033[0m\033[90m (after the next change, will drop from this view)\033[0m\n", $6, tc, ic, $1, r, pc, pl, r, sc, $2, r, $5, age_s'
+    _pinned+=$'\n''  printf "%s\t\033[1m%s%s %s%s %s%s%s %s%s%s %s%s \033[0m\033[30;43m pinned \033[0m\n", $6, tc, ic, $1, r, pc, pl, r, sc, $2, r, $5, age_s'
   else
-    _pinned+=$'\n''  printf "%s\t\033[1m%s%s %s%s %s%s%s %s%s \033[0m\033[30;43m temporarily pinned \033[0m\033[90m (after the next change, will drop from this view)\033[0m\n", $6, tc, ic, $1, r, sc, $2, r, $5, age_s'
+    _pinned+=$'\n''  printf "%s\t\033[1m%s%s %s%s %s%s%s %s%s \033[0m\033[30;43m pinned \033[0m\n", $6, tc, ic, $1, r, sc, $2, r, $5, age_s'
   fi
   NN_AWK_COLOR_PINNED="$_pinned"
 
@@ -2727,8 +2727,9 @@ for file in "$@"; do
     { print }
   ' "$file" > "$file.tmp" && mv "$file.tmp" "$file" && count=$((count + 1))
 done
-# Pin acted-on files so they stay visible after filter
-printf '%s\n' "$@" > "$dir/.pinned"
+# Pin acted-on files so they stay visible after filter (accumulative + dedup)
+{ cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$@"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
+mv "$dir/.pinned.tmp" "$dir/.pinned"
 printf '%s → %s' "$field" "$value" > "$dir/.last_action"
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
@@ -3504,12 +3505,10 @@ fname=$(cat "$dir/.f_name" 2>/dev/null)
 fwrap=$(cat "$dir/.f_wrap" 2>/dev/null)
 fwrap_was="$fwrap"
 # Pinned items: when an action (priority bump, status cycle) causes an item
-# to no longer match active filters, it stays visible at the top of the list
-# (marked "pinned" in bold red). Pins are cleared on any filter change
-# (type/status/priority/tag/query/reset) but kept on refresh (which runs
-# after actions). action.sh overwrites .pinned each time, so only the latest
-# acted-on items stay pinned.
-case "$action" in refresh) ;; *) : > "$dir/.pinned" ;; esac
+# to no longer match active filters, it stays visible in-place as a "ghost row"
+# with a pinned badge. Pins are accumulative (multiple actions add up) and
+# sticky (survive filter changes). Only reset and clear-pins clear them.
+case "$action" in reset|clear-pins) : > "$dir/.pinned" ;; esac
 case "$action" in
   type)     ft=$(cycle type next "$ft"); : > "$dir/.f_sq" ;;
   status)   fs=$(cycle status next "$fs"); : > "$dir/.f_sq" ;;
@@ -3561,6 +3560,7 @@ case "$action" in
   group) fgroup=$(cycle group next "$fgroup") ;;
   clear-group) fgroup="" ;;
   archive) [ -n "$farchive" ] && farchive="" || farchive="show" ;;
+  clear-pins) ;;  # pins already cleared above; just re-render
   refresh) ;;  # just re-apply filters (after tag picker)
   *) echo "bug: filter: unknown action '$action'" >&2; exit 2 ;;
 esac
@@ -3627,10 +3627,19 @@ if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
   _raw_input="$dir/.raw_matched"
 fi
 awk_body=$(cat "$dir/.awk_color_body")
-do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
-# Pipeline: AWK filter → count → grouping → empty-view → pinning → border/output
-# INVARIANT: pinning is the LAST transformation of .current, so nothing can drop pinned items.
-count=$(awk 'END{print NR}' "$dir/.current")
+pinned_awk=$(cat "$dir/.awk_color_pinned")
+if [ -s "$dir/.pinned" ]; then
+  do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" '
+    NR==FNR { is_pinned[$0]=1; next }
+    '"${cond}"' { '"${awk_body}"' }
+    !('"${cond}"') && ($6 in is_pinned) { '"${pinned_awk}"' }
+  ' "$dir/.pinned" - > "$dir/.current"
+else
+  do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
+fi
+# Pipeline: AWK filter → count → grouping → empty-view → border/output
+# Ghost rows (pinned items failing filters) are already in .current from the dual-rule AWK above.
+count=$(awk -F'\t' "${cond}{n++} END{print n+0}" "$_raw_input")
 # Grouping post-processing: insert separator headers between groups
 if [ -n "$fgroup" ]; then
   case "$fgroup" in type) gcol=1 ;; status) gcol=2 ;; *) echo "bug: unknown group '$fgroup'" >&2; exit 2 ;; esac
@@ -3822,7 +3831,7 @@ display_lbl=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s
 display_lbl_z=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zrev_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
 presets_hint=$(printf '\033[90m          \033[36mtab\033[90m/\033[36mshift-tab\033[90m ←→ next/prev  \033[36m[0-9]\033[90m jump to preset \033[90m·\033[0m \033[36m[g]\033[90m pick preset\033[0m')
-actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[b]\033[0mulk edit')
+actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[b]\033[0mulk edit \033[90m·\033[0m \033[36m[x]\033[0m clear pins')
 change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
 keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[enter]\033[0m open note \033[90m·\033[0m \033[36m[R]\033[0meset everything \033[90m·\033[0m \033[36m[q]\033[0muit')
@@ -3842,25 +3851,11 @@ if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
   fi
   printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
 fi
-# Prepend pinned items (from actions) that got filtered out
-# This runs LAST so no subsequent stage can overwrite pinned items.
-if [ -s "$dir/.pinned" ]; then
-  pinned_lines=""
-  pinned_awk=$(cat "$dir/.awk_color_pinned")
-  while IFS= read -r pin || [ -n "$pin" ]; do
-    [ -z "$pin" ] && continue
-    awk -F'\t' -v p="$pin" '$1==p{found=1;exit} END{exit !found}' "$dir/.current" && continue
-    # Render the pinned item from .raw with a dim marker
-    line=$(TZ=UTC awk -F'\t' -v p="$pin" -v now="$now" "\$6 == p { ${pinned_awk} }" "$dir/.raw")
-    [ -n "$line" ] && pinned_lines="${pinned_lines}${line}\n"
-  done < "$dir/.pinned"
-  if [ -n "$pinned_lines" ]; then
-    printf '%b' "$pinned_lines" | cat - "$dir/.current" > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
-  fi
-fi
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
+pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF' "$dir/.pinned" | wc -l)
+pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 last_action=""; [ -s "$dir/.last_action" ] && last_action=" · last change: $(cat "$dir/.last_action")"
-printf ' nn · %d/%d%s ' "$count" "$total" "$last_action" > "$dir/.border"
+printf ' nn · %d/%d%s%s ' "$count" "$total" "$pin_s" "$last_action" > "$dir/.border"
 [ "$fwrap_was" != "$fwrap" ] && printf 'toggle-wrap+'
 # Use the mode-appropriate header so auto-refresh doesn't clobber prefix-mode hints
 _hdr="$dir/.header"
@@ -3979,6 +3974,7 @@ ENDEDIT
       --bind "w:transform[$_nn_dir/wrapkey.sh $_nn_dir '$NN_UI_COMMAND_PROMPT']" \
       --multi \
       --bind "b:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bulkedit.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)+deselect-all'; fi]" \
+      --bind "x:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-pins; fi]" \
       --bind "start:transform-header(cat $_nn_dir/.header)${_nn_fzf_start_watcher}" \
       --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,space:toggle,q:abort,change:clear-query' \
       --bind "tab:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir next; fi]" \

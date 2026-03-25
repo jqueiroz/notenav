@@ -98,6 +98,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `space` | Toggle multi-select |
 | `r` | [**r**]efresh note list |
 | `b` | [**b**]ulk edit (via your preferred editor) |
+| `x` | Clear all pinned ghost rows |
 | `J` / `K` | Scroll preview down / up |
 | `q` | Quit |
 
