@@ -2444,7 +2444,8 @@ if [ -z "$tags" ]; then
 fi
 cur_tags=""
 [ -s "$dir/.f_tags" ] && cur_tags=$(cat "$dir/.f_tags")
-n_cur=$(echo "$cur_tags" | grep -c . 2>/dev/null || echo 0)
+n_cur=$(printf '%s\n' "$cur_tags" | grep -c . 2>/dev/null)
+n_cur=${n_cur:-0}
 if [ "$n_cur" -gt 0 ]; then
   ordered=$(printf '%s\n%s' "$cur_tags" "$tags" | awk '!seen[$0]++')
   start_bind="load:select+down"
