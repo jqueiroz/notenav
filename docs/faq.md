@@ -31,7 +31,24 @@ No. [zk](https://github.com/zk-org/zk) is optional and transparent – notenav a
 - **Note creation:** generates files directly instead of using zk templates
 - **Listing performance:** may be slower for very large notebooks (no SQLite index)
 
-zk enhances notenav when `.zk/` is at the same level as or above `.nn/`. notenav re-indexes on every query – there is no manual sync step. Install zk when you want these features. `nn doctor` will tell you whether zk is detected and which backend is active.
+Install zk when you want these features. `nn doctor` will tell you whether zk is detected and which backend is active.
+
+## How do I set up zk?
+
+Install [zk](https://github.com/zk-org/zk) via your package manager (Homebrew, AUR, or [GitHub releases](https://github.com/zk-org/zk/releases)), then run `zk init` at the root of your notebook:
+
+```bash
+cd ~/notes
+zk init
+```
+
+This creates a `.zk/` directory. That's it – notenav auto-detects `.zk/` and switches to the zk backend automatically. No configuration needed on the notenav side. Run `nn doctor` to confirm it's detected.
+
+The `.zk/` directory should be at the same level as or above `.nn/`. If your notebook root is `~/notes` and `.nn/` is at `~/notes/.nn/`, then `~/notes/.zk/` is the right place.
+
+## Do I need to manually trigger indexing when using zk?
+
+No. notenav re-indexes on every query automatically – there is no manual sync step. Just edit your notes and `nn` always shows the latest state.
 
 ## Which notes does `nn` show?
 
