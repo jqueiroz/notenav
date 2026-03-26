@@ -91,6 +91,12 @@ nn doctor
 
 If something is wrong, the output tells you exactly what failed and why. Info markers (`[-]`) note optional dependencies that aren't installed; warnings (`[!]`) are non-fatal; failures (`[✗]`) indicate problems that will prevent `nn` from working correctly.
 
+## Why does a note show a yellow "pinned" badge?
+
+You performed an action (advance status, bump priority, change a field) that caused the note to no longer match your active filters. Instead of disappearing, it stays visible in place as a "ghost row" so you can see what you just changed.
+
+Pins accumulate -- acting on multiple notes pins all of them. They also survive filter changes, so cycling through types or statuses won't clear them. To dismiss ghost rows, press `x`. A full reset (`R` or `0`) also clears them.
+
 ## How do I scope `nn` to a subfolder without `cd`-ing into it?
 
 Use a subshell:

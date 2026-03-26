@@ -274,6 +274,23 @@ Press `z` to enter display mode. The prompt changes to `z `. Then press one of:
 | `w` | Toggle title wrapping in preview |
 | `esc` | Cancel, return to command mode |
 
+### Pinned ghost rows
+
+When you perform an inline action -- advance status (`a`/`A`), bump priority (`+`/`-`), or change a field via the picker (`c` then `s`/`p`/`t`) -- the acted-on note may no longer match your active filters. Rather than vanishing, it stays visible **in place** as a ghost row with a yellow `pinned` badge. The list never reorders and the cursor never jumps.
+
+**Accumulative:** each action adds to the set of pinned items. Advancing one note and then bumping another leaves both pinned.
+
+**Sticky:** pins survive filter changes (cycling type, status, priority, tags, or body search). They persist until you explicitly clear them.
+
+**Clearing pins:**
+
+- `x` -- clear all pins (ghost rows disappear, everything else stays)
+- `R` / `0` -- full reset (clears pins along with all filters and display settings)
+
+**Grouping:** ghost rows appear in the group matching their *current* metadata. If you advance a task from "active" to "done" while filtering by status "active", the ghost row appears in the "done" group (when grouping by status is enabled).
+
+**Count:** the match count in the border label (e.g., `15/42`) reflects genuinely matching notes only -- ghost rows are not counted. A separate pin count appears when pins are present (e.g., `15/42 · 2 pinned`).
+
 ### Interactive ad-hoc mode (`-i`)
 
 A simplified set of keybindings for `nn key=value ... -i`:
