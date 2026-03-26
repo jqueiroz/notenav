@@ -48,7 +48,7 @@ The `.zk/` directory should be at the same level as or above `.nn/`. If your not
 
 ## Do I need to manually trigger indexing when using zk?
 
-No. notenav re-indexes on every query automatically – there is no manual sync step. Just edit your notes and `nn` always shows the latest state.
+No. zk incrementally re-indexes on every query – there is no manual sync step. Just edit your notes and `nn` always shows the latest state.
 
 ## Which notes does `nn` show?
 
