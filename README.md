@@ -104,7 +104,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `1`–`9` | Jump to query preset by number |
 | `c` then `s`/`p`/`t` | [**c**]hange status, priority, or type |
 | `f` then `t`/`c`/`n` | [**f**]ilter-by tags, contents, or name |
-| `z` then `o`/`r`/`g`/`h`/`w` | Display: order-by, reverse sort, group-by, toggle archived, wrap |
+| `z` then `o`/`r`/`g`/`h`/`w` | Display: order-by, reverse sort, group-by, toggle archived, toggle wrap |
 | `esc` | Exit prefix mode, or clear query |
 | `space` | Toggle multi-select |
 | `r` | [**r**]efresh note list |
@@ -115,7 +115,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 
 These keybindings apply to all workflows, including custom ones. With the default configuration, every keybinding is displayed on-screen.
 
-When an action like `a` (advance status) or `+` (bump priority) causes a note to no longer match your active filters, the note stays visible in its natural sort position as a **ghost row** with a yellow `pinned` badge. This means you never lose sight of what you just changed and the cursor never jumps. Pins accumulate across multiple actions and survive filter changes. Press `x` to clear all pins, or `R` to reset everything (filters, pins, sort, grouping, and display settings).
+When an action like `a` (advance status) or `+` (bump priority) causes a note to no longer match your active filters, the note stays visible in its natural sort position as a **ghost row** with a yellow `pinned` badge. This means you never lose sight of what you just changed and the cursor never jumps. Pins accumulate across multiple actions and survive filter changes. Press `x` to clear all pins, or `R` to reset everything (i.e. filters, pins, sort, grouping, and display settings).
 
 Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi → nano → emacs[^3].
 
