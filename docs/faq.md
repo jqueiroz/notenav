@@ -95,7 +95,7 @@ If something is wrong, the output tells you exactly what failed and why. Info ma
 
 You performed an action (advance status, bump priority, change a field) that caused the note to no longer match your active filters. Instead of disappearing, it stays visible in place as a "ghost row" so you can see what you just changed.
 
-Pins accumulate -- acting on multiple notes pins all of them. They also survive filter changes, so cycling through types or statuses won't clear them. To dismiss ghost rows, press `x`. A full reset (`R` or `0`) also clears them.
+Pins accumulate -- acting on multiple notes pins all of them. They also survive filter changes, so cycling through types or statuses won't clear them. To dismiss ghost rows, press `x`. A full reset (`R` or `0`) also clears them along with all filters, sort order, grouping, and display settings.
 
 ## How do I scope `nn` to a subfolder without `cd`-ing into it?
 

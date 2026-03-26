@@ -285,7 +285,7 @@ When you perform an inline action -- advance status (`a`/`A`), bump priority (`+
 **Clearing pins:**
 
 - `x` -- clear all pins (ghost rows disappear, everything else stays)
-- `R` / `0` -- full reset (clears pins along with all filters and display settings)
+- `R` / `0` -- full reset (clears pins, all filters, sort order, grouping, and display settings)
 
 **Grouping:** ghost rows appear in the group matching their *current* metadata. If you advance a task from "active" to "done" while filtering by status "active", the ghost row appears in the "done" group (when grouping by status is enabled).
 
