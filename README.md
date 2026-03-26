@@ -6,11 +6,22 @@ Filter by type, status, priority, and tags; search by filename or body contents;
 
 Workflows are fully customizable: define your own note types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
 
-Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) – compatible with Obsidian, Dendron, Jekyll, and similar tools. Built on [fzf](https://github.com/junegunn/fzf), with optional [zk](https://github.com/zk-org/zk) integration for faster indexing and link graph. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
+Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) – compatible with Obsidian, Dendron, Jekyll, and similar tools. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
 
-## Platform support
+## What you need
 
-Currently works on **Linux** and **macOS**. Windows support is planned – in the meantime, consider using [WSL](https://learn.microsoft.com/en-us/windows/wsl/).
+`nn` is a single bash script[^2] that runs on **Linux** and **macOS** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). Its only required dependencies are:
+
+- **[fzf](https://github.com/junegunn/fzf)** 0.44+ – the TUI engine and beloved fuzzy finder
+- **[yq](https://github.com/mikefarah/yq)** / **[jq](https://github.com/jqlang/jq)** – config parsing
+
+Everything else is optional and progressively enhances the experience:
+
+- **[zk](https://github.com/zk-org/zk)** – faster indexed listing, body text search, and link graph in preview
+- **[bat](https://github.com/sharkdp/bat)** – syntax-highlighted markdown preview
+- [and a few more](docs/install.md#optional-dependencies)
+
+The Nix install path handles all of this automatically.
 
 ## Install
 
@@ -106,7 +117,7 @@ These keybindings apply to all workflows, including custom ones. With the defaul
 
 When an action like `a` (advance status) or `+` (bump priority) causes a note to no longer match your active filters, the note stays visible in its natural sort position as a **ghost row** with a yellow `pinned` badge. This means you never lose sight of what you just changed and the cursor never jumps. Pins accumulate across multiple actions and survive filter changes. Press `x` to clear all pins, or `R` to reset everything (filters, pins, sort, grouping, and display settings).
 
-Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi → nano → emacs[^2].
+Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi → nano → emacs[^3].
 
 ## Configuration
 
@@ -175,4 +186,7 @@ See [docs/cli.md](docs/cli.md) for the full CLI reference.
 MIT
 
 [^1]: Well, not _all_ code editing. We're talking about the kind that sparks joy.
-[^2]: All in good spirit – emacs users, you know you can set `$EDITOR`.
+[^2]: The feeling of writing a faceted note navigator purely in Bash is almost, but not quite, entirely unlike joy. As you may have noticed from the messy commit history, Claude mostly deprived me of this feeling, and for that I am grateful.
+
+    *Rest assured: no LLMs were harmed in the making of notenav.*
+[^3]: All in good spirit – emacs users, you know you can set `$EDITOR`.
