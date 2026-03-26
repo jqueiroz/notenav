@@ -23,7 +23,9 @@
         yq-go
         jq
         curl
-      ] ++ (if pkgs.stdenv.isLinux then [ pkgs.inotify-tools ] else [ pkgs.fswatch ]);
+      ] ++ (if pkgs.stdenv.isLinux then [ pkgs.inotify-tools ]
+           else if pkgs.stdenv.isDarwin then [ pkgs.fswatch ]
+           else throw "unsupported platform for file watcher dependency");
     in
     {
       packages = forAllSystems ({ pkgs }:
