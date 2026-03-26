@@ -125,10 +125,12 @@ Pins accumulate -- acting on multiple notes pins all of them. They also survive 
 
 ## How do I scope `nn` to a subfolder without `cd`-ing into it?
 
-Use a subshell:
+Use a subshell[^1]:
 
 ```bash
-(cd ~/notes/projects/alpha && nn)
+(cd ./projects/alpha && nn)
 ```
 
 This scopes results to the subfolder without changing the working directory in your main shell.
+
+[^1]: Yes, I realize that this did not quite answer the question (see also: [XY problem](https://en.wikipedia.org/wiki/XY_problem)).
