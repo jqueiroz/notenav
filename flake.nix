@@ -23,7 +23,7 @@
         yq-go
         jq
         curl
-      ];
+      ] ++ (if pkgs.stdenv.isLinux then [ pkgs.inotify-tools ] else [ pkgs.fswatch ]);
     in
     {
       packages = forAllSystems ({ pkgs }:
