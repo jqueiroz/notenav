@@ -128,7 +128,7 @@ All configuration is TOML. Project and user configuration are entirely orthogona
 
 The `.nn/` directory is found by walking up from your current directory (like `.git/`), so `nn` works from any subdirectory. Notes are discovered recursively: at the notebook root you see everything, from a subdirectory you see only that subtree.
 
-Ships with four built-in workflows. Use a preset as-is, extend it with overrides, or write your own – the config files are good starting points and serve as reference for the format.
+Ships with four built-in workflows. Use a preset as-is, extend it with overrides, or write your own. The built-in config files are self-documenting and the best way to learn the format.
 
 | Workflow | Overview | Config |
 |----------|----------|--------|
