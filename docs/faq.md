@@ -84,7 +84,16 @@ nn init                    # create .nn/workflow.toml
 nn init --user             # create ~/.config/notenav/config.toml
 ```
 
-Or start from the annotated examples: [`samples/user-config.toml`](../samples/user-config.toml) and [`samples/workflows/project-workflow.toml`](../samples/workflows/project-workflow.toml).
+Or start from the built-in workflows and annotated samples:
+
+| File | Description |
+|------|-------------|
+| [config/workflows/zenith.toml](../config/workflows/zenith.toml) | Built-in Zenith workflow (default) |
+| [config/workflows/ado.toml](../config/workflows/ado.toml) | Built-in ADO workflow |
+| [config/workflows/gtd.toml](../config/workflows/gtd.toml) | Built-in GTD workflow |
+| [config/workflows/zettelkasten.toml](../config/workflows/zettelkasten.toml) | Built-in Zettelkasten workflow |
+| [samples/workflows/project-workflow.toml](../samples/workflows/project-workflow.toml) | Annotated project config template |
+| [samples/user-config.toml](../samples/user-config.toml) | Annotated user preferences template |
 
 ## Why is the project directory called `.nn/` but the user config is under `notenav/`?
 
