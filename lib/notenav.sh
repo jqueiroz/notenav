@@ -2825,6 +2825,19 @@ for f in "$@"; do
   shown=$((shown + 1))
 done
 [ $shown -gt 2 ] && ctx="$ctx (+$((shown - 2)) more)"
+# Determine current value from first selected file for pre-selection
+cur_pos=""
+if [ $# -gt 0 ] && [ -f "$1" ]; then
+  cur_val=$(awk -F'\t' -v p="$1" -v f="$field" \
+    'f=="type"&&$6==p{print $1;exit} f=="status"&&$6==p{print $2;exit} f=="priority"&&$6==p{print $3;exit}' "$dir/.raw")
+  if [ -n "$cur_val" ]; then
+    case "$field" in
+      type)     cur_pos=$(awk -F'\t' -v v="$cur_val" '$1==v{print NR;exit}' "$dir/.schema_types") ;;
+      status)   cur_pos=$(awk -v v="$cur_val" '$0==v{print NR;exit}' "$dir/.schema_status_values") ;;
+      priority) cur_pos=$(awk -v v="$cur_val" '$0==v{print NR;exit}' "$dir/.schema_priority_values") ;;
+    esac
+  fi
+fi
 case "$field" in
   status)   vals=$(paste -sd'\n' "$dir/.schema_status_values") ;;
   priority)
@@ -2840,9 +2853,12 @@ case "$field" in
 esac
 hdr="Enter apply · Esc cancel"
 [ -n "$ctx" ] && hdr=$(printf '%s\n%s' "$ctx" "$hdr")
+pos_bind=()
+[ -n "$cur_pos" ] && pos_bind=(--bind "start:pos($cur_pos)")
 selected=$(printf '%b' "$vals" | fzf --ansi --reverse --prompt "set $field: " \
   --border --border-label " Set $field " \
   --header "$hdr" \
+  "${pos_bind[@]}" \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
 [ -z "$selected" ] && exit 1
 # Strip icon prefix (e.g. "◆ task" → "task")
