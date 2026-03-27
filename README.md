@@ -13,8 +13,7 @@ Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/d
 `nn` is a single bash script[^2] that runs on **Linux** and **macOS** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The only required dependencies are:
 
 - **[fzf](https://github.com/junegunn/fzf)** 0.44+ – the TUI engine and beloved fuzzy finder
-- **[yq](https://github.com/mikefarah/yq)** / **[jq](https://github.com/jqlang/jq)** – config parsing
-  - yq means Mike Farah's Go implementation, not the Python wrapper
+- **[yq](https://github.com/mikefarah/yq)**[^3] / **[jq](https://github.com/jqlang/jq)** – config parsing
 
 Everything else is optional and progressively enhances the experience:
 
@@ -118,7 +117,7 @@ These keybindings apply to all workflows, including custom ones. With the defaul
 
 When an action like `a` (advance status) or `+` (bump priority) causes a note to no longer match your active filters, the note stays visible in its natural sort position as a **ghost row** with a yellow `pinned` badge. This means you never lose sight of what you just changed and the cursor never jumps. Pins accumulate across multiple actions and survive filter changes. Press `x` to clear all pins, or `R` to reset everything (i.e. filters, pins, sort, grouping, and display settings).
 
-Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi → nano → emacs[^3].
+Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi → nano → emacs[^4].
 
 ## Configuration
 
@@ -190,4 +189,5 @@ MIT
 [^2]: The feeling of writing a faceted note navigator purely in Bash is almost, but not quite, entirely unlike joy. As you may have noticed from the messy commit history, Claude mostly deprived me of this feeling, and for that I am grateful.
 
     *Rest assured: no LLMs were harmed in the making of notenav.*
-[^3]: All in good spirit – emacs users, you know you can set `$EDITOR`.
+[^3]: This means Mike Farah's Go implementation – not the Python wrapper (kislyuk/yq). On Fedora, Arch, and Homebrew `yq` is the right one. On Ubuntu/Debian, `apt install yq` gives you the wrong one – use `snap install yq` or grab the binary from [GitHub releases](https://github.com/mikefarah/yq/releases).
+[^4]: All in good spirit – emacs users, you know you can set `$EDITOR`.
