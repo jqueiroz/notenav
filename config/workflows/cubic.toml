@@ -16,7 +16,7 @@ schema = 1
 
 [type]
 default_color = "36"   # cyan
-values = ["idea", "task", "reference", "reminder"]
+values = ["idea", "task", "reference", "ritual"]
 
 [type.idea]
 icon = "✦"
@@ -33,10 +33,10 @@ icon = "▪"
 color = "33"           # yellow
 description = "Living documentation; continually updated as understanding grows"
 
-[type.reminder]
+[type.ritual]
 icon = "◎"
 color = "32"           # green
-description = "Time-sensitive prompt to revisit, follow up, or act on something"
+description = "Recurring practice or routine to revisit regularly"
 
 # --- Statuses ---
 # values: all valid statuses; array order = display order in grouped view
@@ -129,9 +129,9 @@ args = "type=task priority=1"
 order = 30
 args = "type=idea priority=1"
 
-[queries.reminders]
+[queries.rituals]
 order = 40
-args = "type=reminder"
+args = "type=ritual"
 
 [queries.all-active]
 order = 50
