@@ -10,10 +10,11 @@ Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/d
 
 ## What you need
 
-`nn` is a single bash script[^2] that runs on **Linux** and **macOS** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). Its only required dependencies are:
+`nn` is a single bash script[^2] that runs on **Linux** and **macOS** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The only required dependencies are:
 
 - **[fzf](https://github.com/junegunn/fzf)** 0.44+ – the TUI engine and beloved fuzzy finder
 - **[yq](https://github.com/mikefarah/yq)** / **[jq](https://github.com/jqlang/jq)** – config parsing
+  - yq means Mike Farah's Go implementation, not the Python wrapper
 
 Everything else is optional and progressively enhances the experience:
 
