@@ -22,6 +22,11 @@
 # previewer = ["bat", "glow", "mdcat"]  # fallback list (bat | glow | mdcat | plain | custom)
 # previewer_custom_command = ""  # command when previewer includes "custom" (file as $1)
 
+# [ui.previewer_flags]
+# bat = ""                        # extra flags appended to bat (e.g. "--theme=Nord")
+# glow = ""                       # extra flags appended to glow (e.g. "-s light")
+# mdcat = ""                      # extra flags appended to mdcat (e.g. "--local")
+
 # [refresh]
 # mode = "watch"              # "watch" | "poll" | "manual"
 # poll_interval = 30          # seconds between polls (poll mode only)

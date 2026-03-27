@@ -22,6 +22,11 @@ after_create = "edit"    # "edit" (open in editor) or "none" (just create)
 previewer = ["bat", "glow", "mdcat"] # fallback list: tries each in order, uses first found
 previewer_custom_command = "" # command when previewer = "custom" (file path passed as $1)
 
+[ui.previewer_flags]
+bat = ""       # extra flags appended to bat (notenav always passes -p --color always)
+glow = ""      # extra flags appended to glow (notenav always passes -s dark -w $cols)
+mdcat = ""     # extra flags appended to mdcat (notenav always passes --columns $cols)
+
 [refresh]
 mode = "watch"         # "watch" | "poll" | "manual"
 poll_interval = 30     # seconds between polls (poll mode only)

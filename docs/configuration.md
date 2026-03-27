@@ -375,6 +375,11 @@ priority_plus = "demote" # what the + key does to priority
 after_create = "edit"    # "edit" or "none"
 previewer = ["bat", "glow", "mdcat"]  # fallback list; tries each in order
 previewer_custom_command = "" # command when previewer includes "custom"
+
+[ui.previewer_flags]
+bat = ""       # extra flags appended to bat
+glow = ""      # extra flags appended to glow
+mdcat = ""     # extra flags appended to mdcat
 ```
 
 | Key | Type | Default | Description |
@@ -387,6 +392,7 @@ previewer_custom_command = "" # command when previewer includes "custom"
 | `after_create` | string | `"edit"` | What to do after creating a note: `"edit"` (open in editor) or `"none"` |
 | `previewer` | string or array | `["bat", "glow", "mdcat"]` | Previewer fallback list – tries each in order, uses first one found (see below) |
 | `previewer_custom_command` | string | `""` | Command to run for the `"custom"` previewer entry (file path passed as `$1`) |
+| `previewer_flags` | table | `{}` | Extra CLI flags appended to built-in previewer commands (see below) |
 
 #### Priority key direction
 
@@ -429,6 +435,29 @@ previewer_custom_command = "glow -s light -w 80"
 ```
 
 For the `"custom"` entry, the command string is evaluated by the shell, so you can include flags. The file path is appended as the final argument. If the custom command is not found, the next entry in the list is tried.
+
+#### Previewer flags
+
+The `previewer_flags` table lets you pass extra CLI flags to the built-in previewers. Each key corresponds to a previewer name, and the value is a string of flags appended to notenav's default invocation.
+
+```toml
+[ui.previewer_flags]
+bat = "--theme=Nord"              # appended after: bat -p --color always
+glow = "-s light"                 # appended after: glow -s dark -w $cols
+mdcat = "--local"                 # appended after: mdcat --columns $cols
+```
+
+notenav always passes a minimal set of flags for correct operation:
+
+| Previewer | Core flags (always passed) |
+|-----------|--------------------------|
+| bat | `-p --color always` |
+| glow | `-s dark -w $cols` |
+| mdcat | `--columns $cols` |
+
+Your flags are appended after these defaults. Most CLI tools use last-flag-wins, so you can override style flags – for example, `-s light` overrides the default `-s dark` for glow.
+
+Leave a key empty or omit it entirely for default behavior.
 
 ### `[refresh]`
 

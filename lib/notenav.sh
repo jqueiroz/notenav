@@ -612,6 +612,9 @@ nn_precompute_workflow() {
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
   NN_UI_PREVIEWER=$(nn_cfg '.ui.previewer // ["bat","glow","mdcat"] | if type == "array" then join(" ") else . end')
   NN_UI_PREVIEWER_CUSTOM=$(nn_cfg '.ui.previewer_custom_command // ""')
+  NN_UI_PREVIEWER_FLAGS_BAT=$(nn_cfg '.ui.previewer_flags.bat // ""')
+  NN_UI_PREVIEWER_FLAGS_GLOW=$(nn_cfg '.ui.previewer_flags.glow // ""')
+  NN_UI_PREVIEWER_FLAGS_MDCAT=$(nn_cfg '.ui.previewer_flags.mdcat // ""')
 
   # Refresh preferences
   NN_REFRESH_MODE=$(nn_cfg '.refresh.mode // "watch"')
@@ -1702,7 +1705,7 @@ nn_doctor() {
       _warn "no configured previewer found (preview will use cat)"
     fi
     # Check for unrecognized keys in [ui]
-    local _known_ui="editor command_prompt search_prompt exit_message priority_plus after_create previewer previewer_custom_command"
+    local _known_ui="editor command_prompt search_prompt exit_message priority_plus after_create previewer previewer_custom_command previewer_flags"
     local _uk
     while IFS= read -r _uk; do
       [[ -z "$_uk" ]] && continue
@@ -1710,6 +1713,22 @@ nn_doctor() {
         _warn "ui: unrecognized key '$_uk'"
       fi
     done < <(nn_cfg '.ui // {} | keys[]' 2>/dev/null)
+
+    # Validate ui.previewer_flags sub-keys
+    local _known_pf="bat glow mdcat"
+    local _pfk _pfv
+    while IFS= read -r _pfk; do
+      [[ -z "$_pfk" ]] && continue
+      if ! _in_array "$_pfk" $_known_pf; then
+        _warn "ui.previewer_flags: unrecognized key '$_pfk' (expected: bat, glow, mdcat)"
+      fi
+    done < <(nn_cfg '.ui.previewer_flags // {} | keys[]' 2>/dev/null)
+    for _pfk in bat glow mdcat; do
+      _pfv=$(nn_cfg ".ui.previewer_flags.$_pfk // null | type" 2>/dev/null)
+      if [[ "$_pfv" != "null" && "$_pfv" != "string" ]]; then
+        _warn "ui.previewer_flags.$_pfk must be a string"
+      fi
+    done
 
     # Refresh validation
     local _rf_mode
@@ -2185,6 +2204,9 @@ _nn_write_preview() {
   printf '#!/usr/bin/env bash\n' > "$target"
   printf '_nn_previewer=%q\n' "$NN_UI_PREVIEWER" >> "$target"
   printf '_nn_previewer_custom=%q\n' "$NN_UI_PREVIEWER_CUSTOM" >> "$target"
+  printf '_nn_previewer_flags_bat=%q\n' "$NN_UI_PREVIEWER_FLAGS_BAT" >> "$target"
+  printf '_nn_previewer_flags_glow=%q\n' "$NN_UI_PREVIEWER_FLAGS_GLOW" >> "$target"
+  printf '_nn_previewer_flags_mdcat=%q\n' "$NN_UI_PREVIEWER_FLAGS_MDCAT" >> "$target"
   printf '_nn_has_zk=%q\n' "${_NN_HAS_ZK:-false}" >> "$target"
   cat >> "$target" << 'ENDPREVIEW'
 dir="$(dirname "$0")"
@@ -2204,19 +2226,31 @@ for _p in ${_nn_previewer:-bat glow mdcat}; do
     bat)
       _bat=$(command -v bat || command -v batcat || true)
       if [ -n "$_bat" ]; then
-        "$_bat" -p --color always "$file" 2>/dev/null || cat "$file"
+        if [ -n "$_nn_previewer_flags_bat" ]; then
+          eval "\"$_bat\" -p --color always $_nn_previewer_flags_bat \"\$file\"" 2>/dev/null || cat "$file"
+        else
+          "$_bat" -p --color always "$file" 2>/dev/null || cat "$file"
+        fi
         _rendered=true; break
       fi
       ;;
     glow)
       if command -v glow >/dev/null 2>&1; then
-        CLICOLOR_FORCE=1 glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" "$file" < /dev/null 2>/dev/null || cat "$file"
+        if [ -n "$_nn_previewer_flags_glow" ]; then
+          eval "CLICOLOR_FORCE=1 glow -s dark -w \"\${FZF_PREVIEW_COLUMNS:-0}\" $_nn_previewer_flags_glow \"\$file\"" < /dev/null 2>/dev/null || cat "$file"
+        else
+          CLICOLOR_FORCE=1 glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" "$file" < /dev/null 2>/dev/null || cat "$file"
+        fi
         _rendered=true; break
       fi
       ;;
     mdcat)
       if command -v mdcat >/dev/null 2>&1; then
-        CLICOLOR_FORCE=1 mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" "$file" < /dev/null 2>/dev/null || cat "$file"
+        if [ -n "$_nn_previewer_flags_mdcat" ]; then
+          eval "CLICOLOR_FORCE=1 mdcat --columns \"\${FZF_PREVIEW_COLUMNS:-80}\" $_nn_previewer_flags_mdcat \"\$file\"" < /dev/null 2>/dev/null || cat "$file"
+        else
+          CLICOLOR_FORCE=1 mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" "$file" < /dev/null 2>/dev/null || cat "$file"
+        fi
         _rendered=true; break
       fi
       ;;
