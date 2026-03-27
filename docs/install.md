@@ -101,6 +101,7 @@ Or start from the built-in workflows and annotated samples:
 | File | Description |
 |------|-------------|
 | [config/workflows/zenith.toml](../config/workflows/zenith.toml) | Built-in Zenith workflow (default) |
+| [config/workflows/cubic.toml](../config/workflows/cubic.toml) | Built-in Cubic workflow |
 | [config/workflows/ado.toml](../config/workflows/ado.toml) | Built-in ADO workflow |
 | [config/workflows/gtd.toml](../config/workflows/gtd.toml) | Built-in GTD workflow |
 | [config/workflows/zettelkasten.toml](../config/workflows/zettelkasten.toml) | Built-in Zettelkasten workflow |

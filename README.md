@@ -133,9 +133,9 @@ Ships with five built-in workflows. Use a preset as-is, extend it with overrides
 | Workflow | Overview | Config |
 |----------|----------|--------|
 | **zenith** (default) | [docs/workflows/zenith.md](docs/workflows/zenith.md) | [config/workflows/zenith.toml](config/workflows/zenith.toml) |
+| **cubic** | [docs/workflows/cubic.md](docs/workflows/cubic.md) | [config/workflows/cubic.toml](config/workflows/cubic.toml) |
 | **ado** | [docs/workflows/ado.md](docs/workflows/ado.md) | [config/workflows/ado.toml](config/workflows/ado.toml) |
 | **gtd** | [docs/workflows/gtd.md](docs/workflows/gtd.md) | [config/workflows/gtd.toml](config/workflows/gtd.toml) |
-| **cubic** | [docs/workflows/cubic.md](docs/workflows/cubic.md) | [config/workflows/cubic.toml](config/workflows/cubic.toml) |
 | **zettelkasten** | [docs/workflows/zettelkasten.md](docs/workflows/zettelkasten.md) | [config/workflows/zettelkasten.toml](config/workflows/zettelkasten.toml) |
 
 See [docs/configuration.md](docs/configuration.md) for the full config and workflow reference, or [docs/faq.md](docs/faq.md) for common questions.
