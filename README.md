@@ -13,7 +13,7 @@ Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/d
 `nn` is a single bash script[^2] that runs on **Linux** and **macOS** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The only required dependencies are:
 
 - **[fzf](https://github.com/junegunn/fzf)** 0.44+ – the TUI engine and beloved fuzzy finder
-- **[yq](https://github.com/mikefarah/yq)**[^3] / **[jq](https://github.com/jqlang/jq)** – config parsing
+- **[yq](https://github.com/mikefarah/yq)**[^3], **[jq](https://github.com/jqlang/jq)** – config parsing
 
 Everything else is optional and progressively enhances the experience:
 
