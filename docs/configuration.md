@@ -269,13 +269,14 @@ This removes all workflow-level queries before merging. Queries defined in the s
 
 ## Built-in workflows
 
-notenav ships with four workflows. Use `extends` in `.nn/workflow.toml` or `default_workflow` in your user config to select one.
+notenav ships with five workflows. Use `extends` in `.nn/workflow.toml` or `default_workflow` in your user config to select one.
 
 | Workflow | Types | Statuses | Priority | Use case |
 |--------|----------|----------|----------|----------|
 | **zenith** (default) | task, idea, reference | new, active, blocked, done, removed | 1-4 | General-purpose task/idea tracking |
 | **ado** | feature, task, bug | new, active, resolved, closed, removed | 1-4 | Azure DevOps-style work items |
 | **gtd** | action, project, reference | inbox, next, waiting, someday, done, dropped | 1-3 | Getting Things Done workflow |
+| **cubic** | idea, task, reference, reminder | new, active, blocked, done, removed | 1–4 | Personal wikis and mixed notebooks |
 | **zettelkasten** | fleeting, literature, permanent | draft, review, mature, archived | *(disabled)* | Slip-box knowledge management |
 
 ## Creating a custom workflow

@@ -37,7 +37,7 @@ Rules and conventions for contributing to notenav.
 - Every value in `status.values` must have a color in `[status.colors]` and entries in `filter_cycle` (unless intentionally omitted, like tombstone statuses).
 - Lifecycle transitions (`forward`/`reverse`) must only reference values that exist in `status.values` or `priority.values`.
 - Query preset `args` must only reference valid note types, statuses, and priority values from the same workflow.
-- When adding a new built-in workflow, update four places: `config/workflows/` (TOML), `docs/workflows/` (doc page), the workflow table in `README.md`, and the built-in name list in `nn init --help`.
+- When adding a new built-in workflow, update five places: `config/workflows/` (TOML), `docs/workflows/` (doc page), the workflow table in `README.md`, the built-in workflow table in `docs/configuration.md`, and the built-in name list in `nn init --help`.
 
 ## Naming convention: `nn` vs `notenav`
 
