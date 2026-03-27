@@ -45,6 +45,13 @@ resolved = "34"        # blue
 closed = "90"          # dim
 removed = "90"         # dim
 
+[status.descriptions]
+new = "Not yet triaged"
+active = "In progress"
+resolved = "Fix or feature complete, pending verification"
+closed = "Verified and closed"
+removed = "Discarded or no longer relevant"
+
 # 'a' advances forward, 'A' reverses
 
 [status.lifecycle.forward]

@@ -511,9 +511,10 @@ nn_precompute_workflow() {
   mapfile -t NN_STATUS_ARCHIVE < <(nn_cfg '.status.archive // [] | .[]')
   mapfile -t NN_STATUS_FILTER_CYCLE < <(nn_cfg '.status.filter_cycle // [] | .[]')
   NN_STATUS_DEFAULT_COLOR=$(nn_cfg '.status.default_color // "90"')
-  declare -gA NN_STATUS_COLORS
+  declare -gA NN_STATUS_COLORS NN_STATUS_DESCS
   for _v in "${NN_STATUS_VALUES[@]}"; do
     NN_STATUS_COLORS[$_v]=$(nn_cfg ".status.colors.\"$_v\" // \"$NN_STATUS_DEFAULT_COLOR\"")
+    NN_STATUS_DESCS[$_v]=$(nn_cfg ".status.descriptions.\"$_v\" // \"\"")
   done
 
   # Status initial (starting state for notes without a status)
@@ -1359,6 +1360,20 @@ nn_doctor() {
 
     if [[ "$_sta_ok" == "true" && $_sta_count -gt 0 ]]; then
       _pass "Statuses: $_sta_count values, lifecycle valid"
+      # Show descriptions when any are defined
+      local _has_sta_descs=false
+      for _stv in "${_sta_values[@]}"; do
+        local _sdesc
+        _sdesc=$(nn_cfg ".status.descriptions.\"$_stv\" // empty")
+        if [[ -n "$_sdesc" ]]; then _has_sta_descs=true; break; fi
+      done
+      if [[ "$_has_sta_descs" == "true" ]]; then
+        for _stv in "${_sta_values[@]}"; do
+          local _sdesc
+          _sdesc=$(nn_cfg ".status.descriptions.\"$_stv\" // empty")
+          [[ -n "$_sdesc" ]] && _info "    $_stv ${_dim}– $_sdesc${_reset}"
+        done
+      fi
     elif [[ $_sta_count -eq 0 ]]; then
       _fail "Statuses: none defined"
     else
@@ -1384,6 +1399,14 @@ nn_doctor() {
         _warn "status.colors.$_sck not in status.values"
       fi
     done < <(nn_cfg '.status.colors // {} | keys[]' 2>/dev/null)
+    # Validate status.descriptions keys reference valid values
+    local _sdk
+    while IFS= read -r _sdk; do
+      [[ -z "$_sdk" ]] && continue
+      if ! _in_array "$_sdk" "${_sta_values[@]}"; then
+        _warn "status.descriptions.$_sdk not in status.values"
+      fi
+    done < <(nn_cfg '.status.descriptions // {} | keys[]' 2>/dev/null)
     # Validate status display_order
     local _sta_do_values
     mapfile -t _sta_do_values < <(nn_cfg '.status.display_order // [] | .[]')
@@ -1397,7 +1420,7 @@ nn_doctor() {
       fi
     done
     # Validate status sub-keys
-    local _known_status_keys="values initial archive filter_cycle default_color colors lifecycle display_order"
+    local _known_status_keys="values initial archive filter_cycle default_color colors descriptions lifecycle display_order"
     local _stk
     while IFS= read -r _stk; do
       [[ -z "$_stk" ]] && continue
@@ -2364,7 +2387,7 @@ EOF
     # Seal all workflow variables – accidental mutation is now a hard error
     readonly NN_TYPE_VALUES NN_TYPE_DEFAULT_COLOR NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS \
       NN_STATUS_VALUES NN_STATUS_ARCHIVE NN_STATUS_FILTER_CYCLE NN_STATUS_DEFAULT_COLOR \
-      NN_STATUS_INITIAL NN_STATUS_COLORS NN_STATUS_FWD NN_STATUS_REV \
+      NN_STATUS_INITIAL NN_STATUS_COLORS NN_STATUS_DESCS NN_STATUS_FWD NN_STATUS_REV \
       NN_PRIORITY_ENABLED NN_PRIORITY_VALUES NN_PRIORITY_FILTER_CYCLE \
       NN_PRIORITY_DEFAULT_COLOR NN_PRIORITY_UNSET_POS \
       NN_PRIORITY_COLORS NN_PRIORITY_LABELS NN_PRIORITY_UP NN_PRIORITY_DOWN \

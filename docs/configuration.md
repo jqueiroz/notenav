@@ -148,6 +148,13 @@ blocked = "31"
 done = "90"
 removed = "90"
 
+[status.descriptions]
+new = "Not yet started"
+active = "Currently being worked on"
+blocked = "Waiting on an external dependency"
+done = "Completed"
+removed = "Discarded or no longer relevant"
+
 [status.lifecycle.forward]
 new = "active"
 active = "done"
@@ -170,6 +177,7 @@ blocked = "new"
 | `filter_cycle` | array | Order when pressing `s` to cycle the filter (`"all"` is auto-prepended) |
 | `default_color` | string | Fallback ANSI color for statuses not in `[status.colors]` |
 | `[status.colors]` | table | ANSI color per status |
+| `[status.descriptions]` | table | *(optional)* Human-readable description per status; shown in `nn doctor` |
 | `[status.lifecycle.forward]` | table | Transition map for `a` key (advance status) |
 | `[status.lifecycle.reverse]` | table | Transition map for `A` key (reverse status) |
 

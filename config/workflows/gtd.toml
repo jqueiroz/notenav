@@ -47,6 +47,14 @@ someday = "90"         # dim – parked
 done = "90"            # dim
 dropped = "90"         # dim
 
+[status.descriptions]
+inbox = "Captured but not yet clarified"
+next = "Clarified and ready to do"
+waiting = "Blocked on someone else"
+someday = "Parked for later consideration"
+done = "Completed"
+dropped = "Intentionally removed"
+
 # 'a' advances forward (clarify/complete), 'A' reverses (reopen/defer)
 
 [status.lifecycle.forward]

@@ -46,6 +46,12 @@ review = "34"          # blue
 mature = "32"          # green
 archived = "90"        # dim
 
+[status.descriptions]
+draft = "Initial capture, not yet developed"
+review = "Being refined and linked"
+mature = "Fully developed, well-connected idea"
+archived = "No longer actively maintained"
+
 # 'a' advances maturity, 'A' reverses it
 
 [status.lifecycle.forward]
