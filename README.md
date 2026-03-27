@@ -144,7 +144,7 @@ See [docs/configuration.md](docs/configuration.md) for the full config and workf
 
 ### `nn init`
 
-Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name: one of the built-in workflows (`zenith`, `ado`, `cubic`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `zenith` when no workflow is specified.
+Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name: one of the built-in workflows (`zenith`, `cubic`, `ado`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `zenith` when no workflow is specified.
 
 ```bash
 nn init                 # .nn/workflow.toml extending zenith

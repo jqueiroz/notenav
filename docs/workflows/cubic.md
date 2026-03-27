@@ -94,7 +94,6 @@ Press `+` to increase priority, `-` to decrease. Pressing `+` on an unprioritize
 title: "Review inbox and triage new notes"
 type: ritual
 status: active
-priority: 2
 tags: [daily, triage]
 created: 2026-03-25
 ---
