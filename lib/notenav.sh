@@ -1360,20 +1360,12 @@ nn_doctor() {
 
     if [[ "$_sta_ok" == "true" && $_sta_count -gt 0 ]]; then
       _pass "Statuses: $_sta_count values, lifecycle valid"
-      # Show descriptions when any are defined
-      local _has_sta_descs=false
+      # Show descriptions when defined (optional per-status)
       for _stv in "${_sta_values[@]}"; do
         local _sdesc
         _sdesc=$(nn_cfg ".status.descriptions.\"$_stv\" // empty")
-        if [[ -n "$_sdesc" ]]; then _has_sta_descs=true; break; fi
+        [[ -n "$_sdesc" ]] && _info "    $_stv ${_dim}– $_sdesc${_reset}"
       done
-      if [[ "$_has_sta_descs" == "true" ]]; then
-        for _stv in "${_sta_values[@]}"; do
-          local _sdesc
-          _sdesc=$(nn_cfg ".status.descriptions.\"$_stv\" // empty")
-          [[ -n "$_sdesc" ]] && _info "    $_stv ${_dim}– $_sdesc${_reset}"
-        done
-      fi
     elif [[ $_sta_count -eq 0 ]]; then
       _fail "Statuses: none defined"
     else

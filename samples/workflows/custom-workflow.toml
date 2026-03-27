@@ -49,6 +49,12 @@ in-progress = "32"
 review = "34"
 done = "90"
 
+[status.descriptions]
+open = "Not yet started"
+in-progress = "Work underway"
+review = "Waiting for feedback"
+done = "Completed"
+
 # forward/reverse define what happens when you press a/A on a note
 [status.lifecycle.forward]
 open = "in-progress"
