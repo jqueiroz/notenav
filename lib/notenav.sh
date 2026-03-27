@@ -2226,31 +2226,22 @@ for _p in ${_nn_previewer:-bat glow mdcat}; do
     bat)
       _bat=$(command -v bat || command -v batcat || true)
       if [ -n "$_bat" ]; then
-        if [ -n "$_nn_previewer_flags_bat" ]; then
-          eval "\"$_bat\" -p --color always $_nn_previewer_flags_bat \"\$file\"" 2>/dev/null || cat "$file"
-        else
-          "$_bat" -p --color always "$file" 2>/dev/null || cat "$file"
-        fi
+        # shellcheck disable=SC2086
+        "$_bat" -p --color always $_nn_previewer_flags_bat "$file" 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
     glow)
       if command -v glow >/dev/null 2>&1; then
-        if [ -n "$_nn_previewer_flags_glow" ]; then
-          eval "CLICOLOR_FORCE=1 glow -s dark -w \"\${FZF_PREVIEW_COLUMNS:-0}\" $_nn_previewer_flags_glow \"\$file\"" < /dev/null 2>/dev/null || cat "$file"
-        else
-          CLICOLOR_FORCE=1 glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" "$file" < /dev/null 2>/dev/null || cat "$file"
-        fi
+        # shellcheck disable=SC2086
+        CLICOLOR_FORCE=1 glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" $_nn_previewer_flags_glow "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
     mdcat)
       if command -v mdcat >/dev/null 2>&1; then
-        if [ -n "$_nn_previewer_flags_mdcat" ]; then
-          eval "CLICOLOR_FORCE=1 mdcat --columns \"\${FZF_PREVIEW_COLUMNS:-80}\" $_nn_previewer_flags_mdcat \"\$file\"" < /dev/null 2>/dev/null || cat "$file"
-        else
-          CLICOLOR_FORCE=1 mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" "$file" < /dev/null 2>/dev/null || cat "$file"
-        fi
+        # shellcheck disable=SC2086
+        CLICOLOR_FORCE=1 mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" $_nn_previewer_flags_mdcat "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;

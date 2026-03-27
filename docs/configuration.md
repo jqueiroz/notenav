@@ -450,7 +450,7 @@ mdcat = "--local"                 # appended after: mdcat --columns $cols
 notenav always passes a minimal set of flags for correct operation:
 
 | Previewer | Core flags (always passed) |
-|-----------|--------------------------|
+|-----------|---------------------------|
 | bat | `-p --color always` |
 | glow | `-s dark -w $cols` |
 | mdcat | `--columns $cols` |
