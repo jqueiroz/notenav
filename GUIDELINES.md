@@ -106,4 +106,4 @@ Slash commands in `.claude/commands/` for validating and reviewing the codebase.
 
 ## Versioning
 
-- Version string lives in `NOTENAV_VERSION` at the top of `lib/notenav.sh` and must match the version in `flake.nix`.
+- Version string is defined in the `VERSION` file at the repo root. `lib/notenav.sh` reads it at runtime; `flake.nix` reads it at build time. See [docs/releasing.md](docs/releasing.md) for the release process.
