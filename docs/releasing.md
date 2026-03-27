@@ -6,8 +6,8 @@ The `VERSION` file at the repo root is the single source of truth for the versio
 
 ## Branching model
 
-- **`main`** -- bleeding edge development. All work lands here.
-- **`stable`** -- always points at the latest release. Updated as part of the release process.
+- **`main`** – bleeding edge development. All work lands here.
+- **`stable`** – always points at the latest release. Updated as part of the release process.
 - **Tags** (`v0.1.0`, `v0.2.0`, ...) mark individual releases.
 
 ## Version string format
@@ -17,7 +17,7 @@ The `VERSION` file at the repo root is the single source of truth for the versio
 
 ## Release checklist
 
-1. **Update VERSION** -- remove the `-dev` suffix:
+1. **Update VERSION** – remove the `-dev` suffix:
 
    ```
    echo "0.2.0" > VERSION
