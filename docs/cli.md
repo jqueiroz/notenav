@@ -194,7 +194,7 @@ Prints the version string and exits.
 
 ```
 $ nn --version
-notenav 0.1.0-dev
+notenav X.Y.Z
 ```
 
 ### `nn --help` / `nn -h`

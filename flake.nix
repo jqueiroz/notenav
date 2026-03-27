@@ -33,7 +33,7 @@
         in {
           default = pkgs.stdenv.mkDerivation {
             pname = "notenav";
-            version = "0.1.0-dev";
+            version = builtins.replaceStrings ["\n"] [""] (builtins.readFile ./VERSION);
             src = ./.;
 
             nativeBuildInputs = [ pkgs.makeWrapper ];
@@ -45,6 +45,7 @@
               mkdir -p $out/bin $out/lib $out/config/workflows
               install -m755 bin/nn $out/bin/nn
               install -m644 lib/notenav.sh $out/lib/notenav.sh
+              install -m644 VERSION $out/VERSION
               install -m644 config/base.toml $out/config/base.toml
               install -m644 config/workflows/*.toml $out/config/workflows/
               wrapProgram $out/bin/nn \

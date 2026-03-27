@@ -16,12 +16,14 @@ docs/
   install.md          # Full install instructions (requirements, all methods)
   configuration.md    # Config system + workflow reference
   faq.md              # Frequently asked questions
+  releasing.md        # Release process and versioning
   workflows/          # Per-workflow documentation (zenith.md, ado.md, etc.)
 samples/
   user-config.toml      # Template for ~/.config/notenav/config.toml (all values commented out)
   workflows/            # Example .nn/workflow.toml files
 .claude/
   commands/           # Claude Code slash commands (best-practices, review-config, etc.)
+VERSION             # Single source of truth for version string
 flake.nix           # Nix package definition
 CLAUDE.md           # This file
 GUIDELINES.md       # Development guidelines
@@ -52,7 +54,7 @@ The merged config is stored in `NN_CFG_JSON` and queried via `nn_cfg '.path.to.v
 
 ```bash
 which nn                                      # should show bin/nn path
-nn --version                                  # notenav 0.1.0-dev
+nn --version                                  # notenav X.Y.Z
 nn doctor                                     # check dependencies, config, notebook
 nn init                                       # create .nn/workflow.toml (zenith)
 nn init --user                                # create ~/.config/notenav/config.toml
@@ -71,6 +73,7 @@ nn type=task -i                               # interactive ad-hoc
 - [docs/configuration.md](docs/configuration.md): config system, workflow reference, and preferences
 - [docs/faq.md](docs/faq.md): directory discovery, note scoping, config file locations
 - [docs/install.md](docs/install.md): requirements and installation methods
+- [docs/releasing.md](docs/releasing.md): release process and versioning
 - [README.md](README.md): user-facing overview, getting started, keybindings
 
 **Before adding or renaming config keys**, read the "Config key naming" section in [GUIDELINES.md](GUIDELINES.md#config-key-naming) – it covers enum-vs-boolean, naming direction, and structural conventions. New config keys must be added in ~5 places: `config/base.toml`, the `nn_cfg` call with `//` fallback, `nn_doctor()` known-key list + validation, `docs/configuration.md`, and `samples/user-config.toml`.
