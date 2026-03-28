@@ -1144,7 +1144,12 @@ nn_doctor() {
     if nn_load_config "$notenav_root" 2>"$_merge_tmpf"; then
       _pass "Config merge OK"
     else
-      _fail "Config merge failed: $(< "$_merge_tmpf")"
+      local _merge_first
+      _merge_first=$(head -1 "$_merge_tmpf")
+      _fail "Config merge failed: ${_merge_first:-unknown error}"
+      local _merge_rest
+      _merge_rest=$(tail -n +2 "$_merge_tmpf")
+      [[ -n "$_merge_rest" ]] && echo "$_merge_rest" | while IFS= read -r _line; do echo "      $_line"; done
     fi
     rm -f "$_merge_tmpf"
   fi
@@ -1852,7 +1857,9 @@ nn_doctor() {
             fi
             ;;
           priority)
-            if [[ "$_val" != "none" && "$_pri_enabled" != "false" ]] && ! _in_array "$_val" "${_pri_values[@]}"; then
+            if [[ "$_pri_enabled" == "false" ]]; then
+              _qp_warns+="$_qname: filters by priority but priority is disabled; "
+            elif [[ "$_val" != "none" ]] && ! _in_array "$_val" "${_pri_values[@]}"; then
               _qp_warns+="$_qname: priority=$_val unknown; "
             fi
             ;;
