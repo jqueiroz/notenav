@@ -4,7 +4,7 @@
 
 ## Keybindings
 
-The faceted browser uses a modal system with four modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), and **display** (prefix `z`). Press `esc` to return to command mode from any prefix mode.
+The faceted browser uses a modal system with five modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), **display** (prefix `z`), and **mark** (prefix `m`). Press `esc` to return to command mode from any prefix mode.
 
 ### Command mode
 
