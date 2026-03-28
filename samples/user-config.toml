@@ -1,7 +1,7 @@
 # notenav user config – uncomment and change values to override defaults.
 # See https://github.com/jqueiroz/notenav/blob/main/docs/configuration.md
 
-# Choose a built-in workflow: zenith, ado, gtd, zettelkasten
+# Choose a built-in workflow: zenith, cubic, ado, gtd, zettelkasten
 # default_workflow = "zenith"
 
 # [defaults]

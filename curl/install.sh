@@ -1,6 +1,6 @@
 #!/bin/sh
 # notenav installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/curl/install.sh | sh
 set -e
 
 NOTENAV_DIR="${NOTENAV_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/notenav}"

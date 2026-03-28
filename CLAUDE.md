@@ -9,15 +9,17 @@ bin/nn              # Entry point: resolves root, sources lib, calls notenav_mai
 lib/notenav.sh      # Full implementation (~4000 LOC)
 config/
   base.toml        # Base config (ships with notenav; user/project configs overlay on top)
-  workflows/       # Built-in workflows: zenith, ado, gtd, zettelkasten
+  workflows/       # Built-in workflows: zenith, cubic, ado, gtd, zettelkasten
 curl/
   install.sh       # curl-pipe-sh installer script
 docs/
-  install.md          # Full install instructions (requirements, all methods)
+  cli.md              # Full CLI reference (commands, flags, keybindings, environment)
   configuration.md    # Config system + workflow reference
+  adding-a-workflow.md # Guide for creating new built-in workflows
+  install.md          # Full install instructions (requirements, all methods)
   faq.md              # Frequently asked questions
   releasing.md        # Release process and versioning
-  workflows/          # Per-workflow documentation (zenith.md, ado.md, etc.)
+  workflows/          # Per-workflow documentation (zenith.md, cubic.md, ado.md, etc.)
 samples/
   user-config.toml      # Template for ~/.config/notenav/config.toml (all values commented out)
   workflows/            # Example .nn/workflow.toml files
@@ -74,6 +76,7 @@ nn type=task -i                               # interactive ad-hoc
 - [docs/faq.md](docs/faq.md): directory discovery, note scoping, config file locations
 - [docs/install.md](docs/install.md): requirements and installation methods
 - [docs/releasing.md](docs/releasing.md): release process and versioning
+- [docs/adding-a-workflow.md](docs/adding-a-workflow.md): guide for creating new built-in workflows
 - [README.md](README.md): user-facing overview, getting started, keybindings
 
 **Before adding or renaming config keys**, read the "Config key naming" section in [GUIDELINES.md](GUIDELINES.md#config-key-naming) – it covers enum-vs-boolean, naming direction, and structural conventions. New config keys must be added in ~5 places: `config/base.toml`, the `nn_cfg` call with `//` fallback, `nn_doctor()` known-key list + validation, `docs/configuration.md`, and `samples/user-config.toml`.

@@ -8,7 +8,7 @@
 - **[fzf](https://github.com/junegunn/fzf)** 0.44+: TUI framework
 - **[yq](https://github.com/mikefarah/yq)** (yq-go): TOML→JSON conversion for config/workflow loading. **Must be [Mike Farah's yq](https://github.com/mikefarah/yq)** (written in Go), not the [Python yq wrapper](https://github.com/kislyuk/yq) – they are different tools that share the same name. Install via `brew install yq`, `go install github.com/mikefarah/yq/v4@latest`, or your package manager. Verify with `yq --version` (should show `v4.x.x`)
 - **[jq](https://github.com/jqlang/jq):** JSON merging/querying for config system
-- **awk**, **sort**, **sed**, **tput:** standard unix tools (gawk recommended)
+- **awk**, **sort**, **sed**, **tput:** standard unix tools (gawk required – notenav uses `mktime()` and `strtonum()`)
 
 ## Optional dependencies
 

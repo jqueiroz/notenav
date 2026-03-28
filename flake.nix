@@ -42,12 +42,14 @@
 
             installPhase = ''
               runHook preInstall
-              mkdir -p $out/bin $out/lib $out/config/workflows
+              mkdir -p $out/bin $out/lib $out/config/workflows $out/samples/workflows
               install -m755 bin/nn $out/bin/nn
               install -m644 lib/notenav.sh $out/lib/notenav.sh
               install -m644 VERSION $out/VERSION
               install -m644 config/base.toml $out/config/base.toml
               install -m644 config/workflows/*.toml $out/config/workflows/
+              install -m644 samples/user-config.toml $out/samples/user-config.toml
+              install -m644 samples/workflows/*.toml $out/samples/workflows/
               wrapProgram $out/bin/nn \
                 --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
               runHook postInstall
