@@ -39,7 +39,7 @@ For every TOML in `config/workflows/` and `samples/workflows/`:
 - Type/status/priority values referenced in query `args` exist in their respective `values` arrays
 
 **Extends files** (e.g. sample workflows with `extends`):
-- Load the base workflow for validation context — values from the base apply unless overridden
+- Load the base workflow for validation context – values from the base apply unless overridden
 
 ### 2. Config defaults consistency
 
@@ -60,4 +60,4 @@ At the end, provide a summary:
 - Number of issues found per category
 - Overall pass/fail assessment
 
-If no issues are found in a category, report it as clean. Do NOT make any changes — this is an audit only.
+If no issues are found in a category, report it as clean. Do NOT make any changes – this is an audit only.

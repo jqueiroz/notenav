@@ -1,6 +1,6 @@
 Review all documentation for quality, accuracy, and consistency. Read every doc and cross-reference against the actual codebase.
 
-Files to review: `README.md`, `docs/install.md`, `docs/configuration.md`, `docs/faq.md`, `docs/workflows/*.md`, `config/base.toml`, `config/workflows/*.toml`, `samples/`, and `CLAUDE.md`. This includes TOML file comments — they are documentation too.
+Files to review: `README.md`, `docs/install.md`, `docs/configuration.md`, `docs/faq.md`, `docs/workflows/*.md`, `config/base.toml`, `config/workflows/*.toml`, `samples/`, and `CLAUDE.md`. This includes TOML file comments – they are documentation too.
 
 ## What to check
 
@@ -19,13 +19,13 @@ Files to review: `README.md`, `docs/install.md`, `docs/configuration.md`, `docs/
 
 ### 2b. TOML files as documentation
 
-TOML files with comments are documentation artifacts — often the first thing a user reads or copies. Review them as such:
+TOML files with comments are documentation artifacts – often the first thing a user reads or copies. Review them as such:
 
 - **`config/base.toml`**: every key has a comment explaining what it does and what values are valid. Comments stay in sync with `docs/configuration.md`.
 - **`config/workflows/*.toml`**: each major section has a comment block explaining what it configures. Non-obvious keys have inline comments. ANSI color codes have a color name comment (e.g. `# bold red`). Tombstone/omission patterns are explained.
 - **`samples/user-config.toml`**: all values commented out (matching base defaults), annotations explain each option. No stale keys or wrong defaults.
 - **`samples/workflows/*.toml`**: header comments explain purpose and placement. Inline comments guide a user building their first workflow. All keys, values, and extends references are valid.
-- Across all TOML files: comments match actual behavior — no outdated value lists, no wrong defaults, no references to renamed keys.
+- Across all TOML files: comments match actual behavior – no outdated value lists, no wrong defaults, no references to renamed keys.
 
 ### 3. Completeness
 - Are any features, keybindings, or config options missing from the docs?
@@ -42,7 +42,7 @@ TOML files with comments are documentation artifacts — often the first thing a
 
 ### 5. Writing quality
 - Concise, no unnecessary repetition
-- Clear structure — easy to find what you need
+- Clear structure – easy to find what you need
 - Code examples are correct and runnable
 - No stale TODOs, placeholders, or draft text left in
 
@@ -56,9 +56,9 @@ TOML files with comments are documentation artifacts — often the first thing a
 Group findings by document. For each finding:
 1. **File** and line number
 2. **Category** (1–6 above)
-3. **Issue** — what's wrong
-4. **Suggestion** — how to fix it
+3. **Issue** – what's wrong
+4. **Suggestion** – how to fix it
 
 End with a summary table: files reviewed, issues per category, overall assessment.
 
-Do NOT make any changes — this is a review only.
+Do NOT make any changes – this is a review only.

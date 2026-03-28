@@ -11,7 +11,7 @@ Read `lib/notenav.sh` and `README.md`. Extract all `--bind` lines from the main 
 For every `--bind` line whose `transform[...]` block reads `.nn-mode`:
 
 - **Bare `else` with command-mode action:** If the `else` branch performs a command-mode action (executing a script, running filter.sh, opening a picker), flag it. Command-mode actions must be guarded behind `test -z "$m"` (use `elif test -z "$m"` instead of bare `else`). See GUIDELINES.md for the rule.
-- **Bare `else` with mode transition is OK:** An `else` branch that writes to `.nn-mode` and changes the prompt/header (entering a prefix mode) is a mode transition, not a command-mode action. These are fine -- do NOT flag them.
+- **Bare `else` with mode transition is OK:** An `else` branch that writes to `.nn-mode` and changes the prompt/header (entering a prefix mode) is a mode transition, not a command-mode action. These are fine –do NOT flag them.
 - **Pattern to flag:** `else echo 'execute(...)` or `else .../filter.sh ...` without a preceding `test -z "$m"` check.
 - **Pattern that is OK:** `elif test -z "$m"; then echo 'execute(...)` or `elif test -z "$m"; then .../filter.sh ...`.
 
@@ -39,7 +39,7 @@ Cross-reference the `--bind` lines in `lib/notenav.sh` with the keybinding table
 Check each `--bind` line against the keybinding rules in `GUIDELINES.md`:
 
 - No modifier keys other than `ctrl-j`/`ctrl-k` (no ctrl-*, alt-*, meta-*).
-- No `[ ]` (shell test syntax) inside `transform[...]` -- must use `test` instead.
+- No `[ ]` (shell test syntax) inside `transform[...]` –must use `test` instead.
 
 ## Output format
 
@@ -51,4 +51,4 @@ For each finding:
 
 Group by check category. End with a pass/fail summary.
 
-Do NOT make any changes -- this is a check only.
+Do NOT make any changes –this is a check only.

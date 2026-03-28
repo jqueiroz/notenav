@@ -27,7 +27,7 @@ Read all source files (`bin/nn`, `lib/notenav.sh`, `curl/install.sh`, `flake.nix
 - **Temp files**: no predictable names in `/tmp`; use `mktemp` and scope sentinel files to the temp dir
 - **Cleanup**: `trap ... EXIT` for temp dirs so they don't leak on signals
 - **Injection**: user-supplied or config-derived values interpolated into AWK/sed must be sanitized (quotes, backslashes, special chars)
-- **File operations**: `mv "$file.tmp" "$file"` pattern for atomic writes (already used — verify consistent)
+- **File operations**: `mv "$file.tmp" "$file"` pattern for atomic writes (already used – verify consistent)
 - **Permissions**: temp scripts shouldn't be world-writable; sensitive data not written to predictable paths
 
 #### Standards compliance
@@ -45,10 +45,10 @@ Read all source files (`bin/nn`, `lib/notenav.sh`, `curl/install.sh`, `flake.nix
 - See `GUIDELINES.md` for rationale
 
 #### Portability (Linux + macOS)
-- **`sed -i`**: must never appear — GNU and BSD/macOS `sed -i` have incompatible syntax. Use `sed 's/…' "$file" > "$tmp" && mv "$tmp" "$file"` instead
+- **`sed -i`**: must never appear – GNU and BSD/macOS `sed -i` have incompatible syntax. Use `sed 's/…' "$file" > "$tmp" && mv "$tmp" "$file"` instead
 - **`while read` trailing newlines**: `while IFS= read -r line` skips the last line if the file has no trailing newline. Use `|| [[ -n "$line" ]]` when reading user-editable files
 - **`date` vs `stat`**: `date -r <file>` works on macOS but not GNU/Linux (where `-r` expects a timestamp). `stat -c` is GNU-only. Use a fallback chain
-- **`readlink -f`**: not available on macOS stock `readlink`. The codebase already has a `_realpath` fallback — verify all usages go through it
+- **`readlink -f`**: not available on macOS stock `readlink`. The codebase already has a `_realpath` fallback – verify all usages go through it
 - **GNU-only flags**: watch for `grep -P`, `sort -V`, `mktemp --suffix`, and similar GNU extensions
 
 #### CLI conventions
@@ -67,7 +67,7 @@ Read all source files (`bin/nn`, `lib/notenav.sh`, `curl/install.sh`, `flake.nix
 - **Screen readers**: not typically applicable for TUI, but error messages should be plain text
 
 #### Code quality
-- **DRY**: duplicated logic (e.g., preview script appears twice — faceted and ad-hoc modes)
+- **DRY**: duplicated logic (e.g., preview script appears twice – faceted and ad-hoc modes)
 - **Hardcoded values**: magic numbers or strings that should come from config
 - **Error messages**: consistent format, actionable, point to fix
 
@@ -81,4 +81,4 @@ For each finding:
 
 Group findings by category. At the end, provide a summary table sorted by priority.
 
-Do NOT make any changes — this is an audit only. Report findings so the user can decide what to fix.
+Do NOT make any changes – this is an audit only. Report findings so the user can decide what to fix.

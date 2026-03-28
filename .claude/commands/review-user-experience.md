@@ -72,10 +72,10 @@ Walk through common user journeys and flag unnecessary steps or lost context:
 
 For each finding:
 1. **Category** (1-7 above)
-2. **What the user experiences** -- describe the scenario from the user's perspective
-3. **What would be better** -- concrete suggestion
+2. **What the user experiences** –describe the scenario from the user's perspective
+3. **What would be better** –concrete suggestion
 4. **Impact**: high (users will hit this and get stuck), medium (causes confusion but recoverable), low (minor polish)
 
 Group findings by category. End with a summary table sorted by impact.
 
-Do NOT make any changes -- this is a review only. Report findings so the user can decide what to fix.
+Do NOT make any changes –this is a review only. Report findings so the user can decide what to fix.
