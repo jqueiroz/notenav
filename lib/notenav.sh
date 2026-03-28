@@ -2132,7 +2132,10 @@ _nn_init_user() {
       '/^# default_workflow = / { print "default_workflow = \"" ENVIRON["wf"] "\""; next } { print }' \
       "$target" > "$_tmp" \
       && mv "$_tmp" "$target" \
-      || rm -f "$_tmp"
+      || { rm -f "$_tmp"
+           echo "notenav: created $target but failed to set default_workflow" >&2
+           echo "notenav: edit it to set: default_workflow = \"$workflow_arg\"" >&2
+           return 1; }
   fi
 
   echo "Created $target"
@@ -2215,7 +2218,7 @@ _nn_fetch_remote() {
   # Download to temp file
   local tmpfile
   tmpfile=$(mktemp)
-  trap 'rm -f "$tmpfile"' RETURN
+  trap 'rm -f "$tmpfile" "${_cache_tmp:-}"' RETURN
   if ! curl -fsSL "$url" -o "$tmpfile"; then
     echo "notenav: failed to download $url" >&2
     return 1
