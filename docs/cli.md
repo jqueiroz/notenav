@@ -227,7 +227,7 @@ The faceted browser uses a modal system with four modes: **command** (default), 
 | `tab` / `shift-tab` | Next / previous query preset |
 | `[` and `]` | Next / previous query preset (same as above) |
 | `g` | Go-to query preset (opens picker) |
-| `0` / `R` | Reset all filters and display settings to defaults |
+| `0` / `R` | Reset all filters, pins, marks, and display settings to defaults |
 | `1`–`9` | Jump to query preset by number |
 | `space` | Toggle multi-select on current item |
 | `r` | Refresh note list (re-index from disk) |
@@ -275,6 +275,21 @@ Press `z` to enter display mode. The prompt changes to `z `. Then press one of:
 | `w` | Toggle title wrapping in preview |
 | `esc` | Cancel, return to command mode |
 
+### Mark mode (prefix `m`)
+
+Press `m` to enter mark mode. The prompt changes to `m `. Then press one of:
+
+| Key | Action |
+|-----|--------|
+| `m` | Toggle mark on focused item |
+| `a` | Mark all selected items (or focused if none selected) |
+| `d` | Unmark all selected items (or focused if none selected) |
+| `D` | Clear all marks |
+| `f` | Toggle filter to show only marked items |
+| `esc` | Cancel, return to command mode |
+
+Marks are intentional, user-placed bookmarks – distinct from pins, which are automatic. Marked items display a magenta `marked` badge. Marks persist for the session; reset (`R` / `0`) clears them. A mark count appears in the border label when marks are present (e.g., `15/42 · 2 marked`). Unlike pins, marks are purely visual badges – they do not create ghost rows. Facet filters apply normally to marked items. Use `mf` to narrow the view to only your bookmarks.
+
 ### Pinned ghost rows
 
 When you perform an inline action – advance status (`a`/`A`), bump priority (`+`/`-`), or change a field via the picker (`c` then `s`/`p`/`t`) – the acted-on note may no longer match your active filters. Rather than vanishing, it stays visible **in place** as a ghost row with a yellow `pinned` badge. The list never reorders and the cursor never jumps.
@@ -287,7 +302,7 @@ When you perform an inline action – advance status (`a`/`A`), bump priority (`
 
 - `x` – clear all pins (ghost rows disappear, everything else stays)
 - `X` – restore pins from the last clear (one-shot undo – the backup is consumed)
-- `R` / `0` – full reset (clears pins, all filters, sort order, grouping, and display settings)
+- `R` / `0` – full reset (clears pins, marks, all filters, sort order, grouping, and display settings)
 
 **Grouping:** ghost rows appear in the group matching their *current* metadata. If you advance a task from "active" to "done" while filtering by status "active", the ghost row appears in the "done" group (when grouping by status is enabled).
 
