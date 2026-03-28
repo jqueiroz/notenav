@@ -2920,8 +2920,8 @@ selected=$(printf '%b' "$vals" | fzf --ansi --reverse --prompt "set $field: " \
   "${pos_bind[@]}" \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
 [ -z "$selected" ] && exit 1
-# Strip icon prefix (e.g. "◆ task" → "task")
-selected=$(echo "$selected" | sed 's/^[^ ]* //')
+# Strip icon prefix (e.g. "◆ task" → "task"); use last word in case icon is empty
+selected=$(echo "$selected" | awk '{print $NF}')
 echo "$field" > "$dir/.fp_field"
 echo "$selected" > "$dir/.fp_value"
 ENDFP
@@ -3632,7 +3632,7 @@ apply_sq() {
   [ -z "$line" ] && return
   name="${line%%	*}"; args="${line#*	}"
   # Reset filters then apply query preset's key=value pairs
-  ft=""; fs=""; fp=""; fname=""; : > "$dir/.f_tags"; : > "$dir/.f_name"
+  ft=""; fs=""; fp=""; fname=""; fmatch=""; : > "$dir/.f_tags"; : > "$dir/.f_name"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
   for a in $args; do
     case "$a" in
       type=*) ft="${a#*=}";; status=*) fs="${a#*=}";;
@@ -3694,7 +3694,7 @@ case "$action" in
           cur_idx=$(( (cur_idx - 1 + positions) % positions ))
         fi
         if [ "$cur_idx" -eq 0 ]; then
-          ft=""; fs=""; fp=""; fname=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_name"
+          ft=""; fs=""; fp=""; fname=""; fmatch=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_name"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
         else
           apply_sq "$cur_idx"
         fi
