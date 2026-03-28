@@ -57,7 +57,7 @@ Also update the count at the top of that section.
 
 ## 5. Update `nn init --help`
 
-In `lib/notenav.sh`, find the `nn init` help text (search for `built-in name`) and add the new workflow name to the parenthetical list. Keep the list alphabetically sorted (except `zenith` first, as the default).
+In `lib/notenav.sh`, find the `nn init` help text (search for `built-in name`) and add the new workflow name to the parenthetical list. `zenith` comes first (as the default); the rest are ordered by relatedness, not alphabetically.
 
 ## Summary checklist
 
