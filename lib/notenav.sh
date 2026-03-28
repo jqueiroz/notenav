@@ -4265,6 +4265,7 @@ ENDEDIT
 
   # ---- AD-HOC QUERY ----
   declare -A filters
+  local -a filter_tags=()
   local interactive=false zk_args=() parsing_filters=true
 
   while [[ $# -gt 0 ]]; do
@@ -4277,7 +4278,12 @@ ENDEDIT
           case "$_fk" in type|status|priority|tag) ;; *)
             echo "notenav: unknown filter key '$_fk'" >&2
             echo "notenav: valid keys: type, status, priority, tag" >&2; return 1 ;; esac
-          filters[$_fk]="${1#*=}"; shift ;;
+          if [[ "$_fk" == "tag" ]]; then
+            filter_tags+=("${1#*=}")
+          else
+            filters[$_fk]="${1#*=}"
+          fi
+          shift ;;
         *) parsing_filters=false; zk_args+=("$1"); shift ;;
       esac
     else
@@ -4317,7 +4323,18 @@ ENDEDIT
   elif [[ -n "${filters[priority]}" ]]; then
     awk_cond="$awk_cond && \$3==\"$(_nn_awk_esc "${filters[priority]}")\""
   fi
-  [[ -n "${filters[tag]}" ]] && awk_cond="$awk_cond && index(\" \" \$4 \" \", \" $(_nn_awk_esc "${filters[tag]}") \") > 0"
+  if [[ ${#filter_tags[@]} -gt 0 ]]; then
+    local _tag_cond="" _t
+    for _t in "${filter_tags[@]}"; do
+      [[ -z "$_t" ]] && continue
+      if [[ -n "$_tag_cond" ]]; then
+        _tag_cond="$_tag_cond || index(\" \" \$4 \" \", \" $(_nn_awk_esc "$_t") \")"
+      else
+        _tag_cond="index(\" \" \$4 \" \", \" $(_nn_awk_esc "$_t") \")"
+      fi
+    done
+    [[ -n "$_tag_cond" ]] && awk_cond="$awk_cond && ($_tag_cond)"
+  fi
 
   # Sort helper for ad-hoc output (same column layout as TUI's filter.sh)
   _nn_adhoc_sort() {
