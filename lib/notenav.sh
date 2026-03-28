@@ -901,7 +901,7 @@ nn_doctor() {
   _fail() { echo "${_red}[✗]${_reset} $*"; (( fails++ )) || true; }
   _valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
   _in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
-  _dupes() { local -A _seen; local _d="" _v; for _v; do [[ -n "${_seen[$_v]+x}" ]] && _d+="$_v, "; _seen[$_v]=1; done; printf '%s' "${_d%, }"; }
+  _dupes() { local -A _seen; local _d="" _v; for _v; do if [[ -n "${_seen[$_v]+x}" ]]; then [[ "${_seen[$_v]}" == d ]] || { _d+="$_v, "; _seen[$_v]=d; }; else _seen[$_v]=1; fi; done; printf '%s' "${_d%, }"; }
 
   # ── Phase 1: Dependencies ──
   echo "Dependencies:"
@@ -1312,7 +1312,10 @@ nn_doctor() {
     # Check initial status exists in values
     local _sta_init_issues="" _sta_initial
     _sta_initial=$(nn_cfg '.status.initial // empty')
-    if [[ -n "$_sta_initial" ]] && ! _in_array "$_sta_initial" "${_sta_values[@]}"; then
+    if [[ -z "$_sta_initial" && $_sta_count -gt 0 ]]; then
+      _sta_init_issues+="initial not set (new notes will have no status); "
+      _sta_ok=false
+    elif [[ -n "$_sta_initial" ]] && ! _in_array "$_sta_initial" "${_sta_values[@]}"; then
       _sta_init_issues+="initial '$_sta_initial' not in values; "
       _sta_ok=false
     fi
@@ -1886,7 +1889,7 @@ nn_doctor() {
   fi
 
   local _note_count
-  _note_count=$(find "$_nn_root" -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
+  _note_count=$(find "$_nn_root" \( -name .git -o -name .zk -o -name .obsidian -o -name node_modules \) -prune -o -name '*.md' -type f -print 2>/dev/null | wc -l | tr -d ' ')
   if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
     _pass "$_note_count markdown files found"
   else
