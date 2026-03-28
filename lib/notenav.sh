@@ -3988,7 +3988,7 @@ if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
   printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
 fi
 # Measure placeholder visible width (strip ANSI, find longest line) for preview.sh centering
-sed 's/\x1b\[[0-9;]*m//g' "$dir/.empty_placeholder" | awk '{ l=length; if(l>m) m=l } END { print m+0 }' > "$dir/.empty_placeholder_width"
+awk 'BEGIN{esc=sprintf("%c",27)} {gsub(esc"\\[[0-9;]*m",""); if(length>m) m=length} END{print m+0}' "$dir/.empty_placeholder" > "$dir/.empty_placeholder_width"
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
 pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "$dir/.pinned")
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
