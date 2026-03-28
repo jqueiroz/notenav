@@ -17,7 +17,7 @@ Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/d
 
 Everything else is optional and progressively enhances the experience:
 
-- **[zk](https://github.com/zk-org/zk)** – faster indexed listing, body text search, and link graph in preview
+- **[zk](https://github.com/zk-org/zk)** – faster indexed listing and link graph in preview
 - **[bat](https://github.com/sharkdp/bat)** – syntax-highlighted markdown preview
 - [and a few more](docs/install.md#optional-dependencies)
 
