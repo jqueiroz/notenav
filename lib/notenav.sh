@@ -2230,13 +2230,38 @@ _nn_write_preview() {
   cat >> "$target" << 'ENDPREVIEW'
 dir="$(dirname "$0")"
 file="$1"
+
+# Center a placeholder box in the preview pane (best-effort; falls back to plain cat)
+# Reads box width from .empty_placeholder_width sidecar file (written by filter.sh)
+_nn_show_centered() {
+  local f="$1" rows cols lines vpad hpad box_width
+  rows="${FZF_PREVIEW_LINES:-0}"
+  cols="${FZF_PREVIEW_COLUMNS:-0}"
+  box_width=$(cat "$dir/.empty_placeholder_width" 2>/dev/null)
+  box_width="${box_width:-0}"
+  lines=$(wc -l < "$f")
+  # Vertical padding
+  vpad=$(( (rows - lines) / 2 ))
+  # Horizontal padding (skip if width unknown)
+  hpad=0
+  [ "$box_width" -gt 0 ] 2>/dev/null && hpad=$(( (cols - box_width) / 2 ))
+  if [ "$vpad" -gt 0 ]; then
+    printf '%0.s\n' $(seq 1 "$vpad")
+  fi
+  if [ "$hpad" -gt 0 ]; then
+    sed "s/^/$(printf '%*s' "$hpad" '')/" "$f"
+  else
+    cat "$f"
+  fi
+}
+
 if [ ! -f "$file" ]; then
-  [ -f "$dir/.empty_placeholder" ] && cat "$dir/.empty_placeholder"
+  [ -f "$dir/.empty_placeholder" ] && _nn_show_centered "$dir/.empty_placeholder"
   exit 0
 fi
 
 # Placeholder file: show content only, no links
-case "$file" in *.empty_placeholder) cat "$file"; exit 0 ;; esac
+case "$file" in *.empty_placeholder) _nn_show_centered "$file"; exit 0 ;; esac
 
 # Show file content using configured previewer (fallback list)
 _rendered=false
@@ -3951,6 +3976,7 @@ printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl_f" "$stats_lbl" "$display_lbl" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header-f"
 printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl" "$stats_lbl" "$display_lbl_z" "$actions_lbl" "$change_lbl" "$keys_lbl" > "$dir/.header-z"
 # Always write Dylan placeholder for preview when no item is selected
+# Visible width is measured after final content is written to .empty_placeholder
     printf '\n  [34m╭─────────────────────────────────────────────────╮[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                [35m♩[0m [1;36m♪[0m [32m♫[0m [36m♩[0m [35m♪[0m [31m♫[0m [32m♩[0m [1;36m♪[0m [35m♩[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    ───────────────────────────────────────────  [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore vim comes to a crawl?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore they turn to a scrawl?[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, can save us all.[0m      [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore we call vim unprepared?[0m               [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore adrift he'\''s declared?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is simply [1;31mn²[0m[1;33m.[0m         [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore dear vim hits a wall?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is [1;31mnn[0m[1;33m, after all.[0m     [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m            [35m♩[0m                                    [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                      [36m♪[0m                          [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m         [35m♫[0m                                       [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                   [32m♩[0m                             [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
 [ -f "$dir/.empty_easteregg_override" ] && cat "$dir/.empty_easteregg_override" > "$dir/.empty_placeholder"
 # Show Adams placeholder + dummy entry when view is truly empty (skip if pinned items present)
@@ -3961,6 +3987,8 @@ if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
   fi
   printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
 fi
+# Measure placeholder visible width (strip ANSI, find longest line) for preview.sh centering
+sed 's/\x1b\[[0-9;]*m//g' "$dir/.empty_placeholder" | awk '{ l=length; if(l>m) m=l } END { print m+0 }' > "$dir/.empty_placeholder_width"
 total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
 pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "$dir/.pinned")
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
