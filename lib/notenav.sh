@@ -2041,6 +2041,10 @@ _nn_init_project() {
         echo "notenav: yq is required to check existing config for refresh" >&2
         return 1
       fi
+      if ! command -v jq >/dev/null 2>&1; then
+        echo "notenav: jq is required to check existing config for refresh" >&2
+        return 1
+      fi
       _existing_extends=$(yq -p=toml -o=json -I=0 '.' "$wf_file" 2>/dev/null \
         | jq -r '.extends // empty' 2>/dev/null)
       if [[ "$_existing_extends" == "$workflow_name" ]]; then
@@ -2219,7 +2223,7 @@ _nn_fetch_remote() {
   # Write to cache with header (atomic: temp + mv)
   local cache_path _cache_tmp
   cache_path=$(_nn_url_cache_path "$url")
-  mkdir -p "$(dirname "$cache_path")"
+  mkdir -p "$(dirname "$cache_path")" || { echo "notenav: could not create cache directory" >&2; return 1; }
   _cache_tmp=$(mktemp)
   {
     printf '# Cached from: %s\n' "$url"
