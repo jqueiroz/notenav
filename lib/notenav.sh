@@ -3922,8 +3922,8 @@ fmt_dim() {
     # Filter active: cyan key, bold value
     printf ' \033[36m[\033[1;36m%s\033[0;36m]%s:\033[0m \033[1m%s\033[0m' "$key" "$suffix" "$label"
   else
-    # No filter: all dim
-    printf ' \033[90m[%s]%s: all\033[0m' "$key" "$suffix"
+    # No filter: keys cyan, value dim
+    printf ' \033[36m[%s]%s:\033[0m \033[90mall\033[0m' "$key" "$suffix"
   fi
 }
 t_s=$(fmt_dim t "$ft"); s_s=$(fmt_dim s "$fs"); p_s=$(fmt_dim p "$fp")
