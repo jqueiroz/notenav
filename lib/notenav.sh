@@ -2841,6 +2841,7 @@ done
 # Pin acted-on files so they stay visible after filter (accumulative + dedup)
 { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$@"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
 mv "$dir/.pinned.tmp" "$dir/.pinned"
+rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
 printf '%s → %s' "$field" "$value" > "$dir/.last_action"
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
@@ -3635,7 +3636,10 @@ fwrap_was="$fwrap"
 # to no longer match active filters, it stays visible in-place as a "ghost row"
 # with a pinned badge. Pins are accumulative (multiple actions add up) and
 # sticky (survive filter changes). Only reset and clear-pins clear them.
-case "$action" in reset|clear-pins) : > "$dir/.pinned" ;; esac
+case "$action" in reset|clear-pins)
+  if [ -s "$dir/.pinned" ]; then cp "$dir/.pinned" "$dir/.pinned.bak"; fi
+  : > "$dir/.pinned" ;;
+esac
 case "$action" in
   type)     ft=$(cycle type next "$ft"); : > "$dir/.f_sq" ;;
   status)   fs=$(cycle status next "$fs"); : > "$dir/.f_sq" ;;
@@ -3688,6 +3692,10 @@ case "$action" in
   clear-group) fgroup="" ;;
   archive) [ -n "$farchive" ] && farchive="" || farchive="show" ;;
   clear-pins) ;;  # pins already cleared above; just re-render
+  restore-pins)  # one-shot undo of last clear-pins
+    if [ -s "$dir/.pinned.bak" ]; then
+      mv "$dir/.pinned.bak" "$dir/.pinned"
+    fi ;;
   refresh) ;;  # just re-apply filters (after tag picker)
   *) echo "bug: filter: unknown action '$action'" >&2; exit 2 ;;
 esac
@@ -3966,7 +3974,7 @@ display_lbl=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s
 display_lbl_z=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zrev_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
 presets_hint=$(printf '\033[90m          \033[36mtab\033[90m/\033[36mshift-tab\033[90m ←→ next/prev  \033[36m[0-9]\033[90m jump to preset \033[90m·\033[0m \033[36m[g]\033[90m pick preset\033[0m')
-actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[b]\033[0mulk edit \033[90m·\033[0m \033[36m[x]\033[0m clear pins')
+actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance \033[90m·\033[0m \033[36m+\033[0m/\033[36m-\033[0m pri \033[90m(alt: </>)\033[0m \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[b]\033[0mulk edit \033[90m·\033[0m \033[36m[x]\033[0m clear pins \033[90m·\033[0m \033[36m[X]\033[0m restore pins')
 change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
 keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[enter]\033[0m open note \033[90m·\033[0m \033[36m[R]\033[0meset everything \033[90m·\033[0m \033[36m[q]\033[0muit')
@@ -4113,6 +4121,7 @@ ENDEDIT
       --multi \
       --bind "b:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bulkedit.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)+deselect-all'; fi]" \
       --bind "x:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-pins; fi]" \
+      --bind "X:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\" && test -s $_nn_dir/.pinned.bak; then $_nn_dir/filter.sh $_nn_dir restore-pins; fi]" \
       --bind "start:transform-header(cat $_nn_dir/.header)${_nn_fzf_start_watcher}" \
       --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,space:toggle,q:abort,change:clear-query' \
       --bind "tab:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir next; fi]" \

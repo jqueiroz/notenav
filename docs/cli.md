@@ -233,6 +233,7 @@ The faceted browser uses a modal system with four modes: **command** (default), 
 | `r` | Refresh note list (re-index from disk) |
 | `b` | Bulk edit selected notes (opens editor with TSV of fields) |
 | `x` | Clear all pinned ghost rows |
+| `X` | Restore pins from last clear (one-shot undo) |
 | `j` / `k` | Move down / up |
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `J` / `K` | Scroll preview down / up |
@@ -285,6 +286,7 @@ When you perform an inline action – advance status (`a`/`A`), bump priority (`
 **Clearing pins:**
 
 - `x` – clear all pins (ghost rows disappear, everything else stays)
+- `X` – restore pins from the last clear (one-shot undo – the backup is consumed)
 - `R` / `0` – full reset (clears pins, all filters, sort order, grouping, and display settings)
 
 **Grouping:** ghost rows appear in the group matching their *current* metadata. If you advance a task from "active" to "done" while filtering by status "active", the ghost row appears in the "done" group (when grouping by status is enabled).
