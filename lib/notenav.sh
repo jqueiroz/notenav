@@ -1140,7 +1140,7 @@ nn_doctor() {
     # Run in current shell (not command substitution) so NN_CFG_JSON survives
     unset NN_CFG_JSON
     local _merge_tmpf
-    _merge_tmpf=$(mktemp "${TMPDIR:-/tmp}/nn-doctor-merge.XXXXXX")
+    _merge_tmpf=$(mktemp "${TMPDIR:-/tmp}/nn-doctor-merge.XXXXXX") || { _fail "mktemp failed"; return; }
     if nn_load_config "$notenav_root" 2>"$_merge_tmpf"; then
       _pass "Config merge OK"
     else
@@ -2127,7 +2127,7 @@ _nn_init_user() {
   # Uses awk to avoid sed delimiter injection from URLs or special characters.
   if [[ -n "$workflow_arg" ]]; then
     local _tmp
-    _tmp=$(mktemp)
+    _tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
     wf="$workflow_arg" awk \
       '/^# default_workflow = / { print "default_workflow = \"" ENVIRON["wf"] "\""; next } { print }' \
       "$target" > "$_tmp" \
@@ -3450,7 +3450,7 @@ _nn_now=$(date '+%Y-%m-%dT%H:%M:%S')
 _nn_initial_status=$(cat "$dir/.schema_status_initial" 2>/dev/null)
 
 if [ "$_nn_has_zk" = "true" ]; then
-  _zk_err=$(mktemp)
+  _zk_err=$(mktemp) || { printf '\n  \033[31mmktemp failed\033[0m\n\n' > /dev/tty; exit 0; }
   new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>"$_zk_err")
   if [ -z "$new_path" ]; then
     _zk_msg=$(cat "$_zk_err")
@@ -3740,8 +3740,8 @@ case "$action" in
         grep -vxF "$path" "$dir/.marked" > "$dir/.marked.tmp" && mv "$dir/.marked.tmp" "$dir/.marked"
         # Pin the unmarked item when mark filter is on so it doesn't vanish
         if [ -n "$fmarked" ]; then
-          { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$path"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
-          mv "$dir/.pinned.tmp" "$dir/.pinned"
+          { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$path"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp" \
+            && mv "$dir/.pinned.tmp" "$dir/.pinned"
           rm -f "$dir/.pinned.bak"
         fi
       else
@@ -3757,12 +3757,12 @@ case "$action" in
     if [ -s "$dir/.m_sel" ]; then
       # Pin the unmarked items when mark filter is on so they don't vanish
       if [ -n "$fmarked" ]; then
-        { cat "$dir/.pinned" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
-        mv "$dir/.pinned.tmp" "$dir/.pinned"
+        { cat "$dir/.pinned" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp" \
+          && mv "$dir/.pinned.tmp" "$dir/.pinned"
         rm -f "$dir/.pinned.bak"
       fi
-      awk 'NR==FNR{del[$0]=1;next} !($0 in del)' "$dir/.m_sel" "$dir/.marked" > "$dir/.marked.tmp"
-      mv "$dir/.marked.tmp" "$dir/.marked"
+      awk 'NR==FNR{del[$0]=1;next} !($0 in del)' "$dir/.m_sel" "$dir/.marked" > "$dir/.marked.tmp" \
+        && mv "$dir/.marked.tmp" "$dir/.marked"
     fi ;;
   mark-clear) : > "$dir/.marked" ;;
   mark-filter)
@@ -4375,10 +4375,10 @@ ENDEDIT
       echo "notenav: interactive mode requires a terminal (TERM is 'dumb')" >&2
       return 1
     fi
-    local nn_tmp; nn_tmp=$(mktemp)
-    local _nn_prev; _nn_prev=$(mktemp)
-    local _nn_edit; _nn_edit=$(mktemp)
-    local _nn_sflag; _nn_sflag=$(mktemp)
+    local nn_tmp; nn_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
+    local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed" >&2; return 1; }
+    local _nn_edit; _nn_edit=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev"; echo "notenav: mktemp failed" >&2; return 1; }
+    local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed" >&2; return 1; }
     trap 'rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_sflag"' EXIT
     _nn_write_preview "$_nn_prev"
     printf '%s' "$_nn_editor" > "$_nn_edit.editor"
