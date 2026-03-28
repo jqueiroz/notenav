@@ -1140,7 +1140,7 @@ nn_doctor() {
     # Run in current shell (not command substitution) so NN_CFG_JSON survives
     unset NN_CFG_JSON
     local _merge_tmpf
-    _merge_tmpf=$(mktemp "${TMPDIR:-/tmp}/nn-doctor-merge.XXXXXX") || { _fail "mktemp failed"; return; }
+    _merge_tmpf=$(mktemp "${TMPDIR:-/tmp}/nn-doctor-merge.XXXXXX") || { _fail "mktemp failed"; return 1; }
     if nn_load_config "$notenav_root" 2>"$_merge_tmpf"; then
       _pass "Config merge OK"
     else
