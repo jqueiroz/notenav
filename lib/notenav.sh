@@ -839,7 +839,11 @@ _nn_list_notes() {
   local has_zk="$1" fmt="$2"
   shift 2
   if [[ "$has_zk" == "true" ]]; then
-    zk list "$@" --format "$fmt" --quiet 2>/dev/null
+    # Workaround: zk list <path> returns only direct children (non-recursive)
+    # when <path> is the zk notebook root; omit the path in that case.
+    local _zk_scope=("$@")
+    [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
+    zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null
   else
     local search_dir="${1:-.}"
     _nn_find_md_with_mtime "$search_dir" | _nn_list_notes_native
@@ -2437,8 +2441,11 @@ EOF
   _nn_editor="$(_nn_resolve_editor "$NN_UI_EDITOR")"
 
   # Detect backend: use zk when available and it can reach this directory
+  # Workaround: zk list <root> returns only root-level notes; omit the path.
   if [[ "$_NN_HAS_ZK" == "true" ]]; then
-    if ! zk list --format '{{absPath}}' --quiet --limit 1 "$_scope_path" >/dev/null 2>&1; then
+    local _zk_probe=("$_scope_path")
+    [[ -d "$_scope_path/.zk" ]] && _zk_probe=()
+    if ! zk list --format '{{absPath}}' --quiet --limit 1 "${_zk_probe[@]}" >/dev/null 2>&1; then
       _NN_HAS_ZK=false
     fi
   fi
@@ -2540,10 +2547,13 @@ dir="$1"; query="$2"
 has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
 scope_path=$(cat "$dir/.scope_path")
 if [ "$has_zk" = "true" ]; then
+  # Workaround: zk list <root> returns only root-level notes; omit the path.
+  _zk_scope=("$scope_path")
+  [ -d "$scope_path/.zk" ] && _zk_scope=()
   if [ -n "$query" ]; then
-    zk list "$scope_path" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
+    zk list "${_zk_scope[@]}" --match "$query" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
   else
-    zk list "$scope_path" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
+    zk list "${_zk_scope[@]}" --format "{{absPath}}	{{title}}" --quiet 2>/dev/null || true
   fi
 else
   search_dir="$scope_path"
@@ -2601,7 +2611,10 @@ query=$(printf '%s' "$result" | head -1)
 if [ $rc -eq 0 ] && [ -n "$query" ]; then
   scope_path=$(cat "$dir/.scope_path")
   if [ "$has_zk" = "true" ]; then
-    zk list "$scope_path" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
+    # Workaround: zk list <root> returns only root-level notes; omit the path.
+    _zk_scope=("$scope_path")
+    [ -d "$scope_path/.zk" ] && _zk_scope=()
+    zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
   else
     search_dir="$scope_path"
     if command -v rg >/dev/null 2>&1; then
@@ -2650,7 +2663,10 @@ has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
 fmt=$(cat "$dir/.list_fmt")
 scope_path=$(cat "$dir/.scope_path")
 if [ "$has_zk" = "true" ]; then
-  zk list "$scope_path" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
+  # Workaround: zk list <root> returns only root-level notes; omit the path.
+  _zk_scope=("$scope_path")
+  [ -d "$scope_path/.zk" ] && _zk_scope=()
+  zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
 else
   search_dir="$scope_path"
   _nn_find_md_with_mtime() {
