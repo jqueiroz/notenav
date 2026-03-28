@@ -2870,7 +2870,7 @@ esac
 hdr="Enter apply · Esc cancel"
 [ -n "$ctx" ] && hdr=$(printf '%s\n%s' "$ctx" "$hdr")
 pos_bind=()
-[ -n "$cur_pos" ] && pos_bind=(--bind "start:pos($cur_pos)")
+[ -n "$cur_pos" ] && pos_bind=(--bind "load:pos($cur_pos)")
 selected=$(printf '%b' "$vals" | fzf --ansi --reverse --prompt "set $field: " \
   --border --border-label " Set $field " \
   --header "$hdr" \
