@@ -53,7 +53,7 @@ Every note moves through a lifecycle: **new** → **active** → **done**. Notes
 | active | Currently being worked on | green |
 | blocked | Waiting on something external | red |
 | done | Completed (archived by default) | dim |
-| removed | Soft-deleted | dim |
+| removed | Soft-deleted (tombstone, not part of the lifecycle or filter cycle) | dim |
 
 For **rituals**, statuses have a slightly different flavour: **active** means "part of my current routine," **new** means "considering adding this," and **done** means "I no longer do this" – not that it was completed once, but that the practice has been retired.
 

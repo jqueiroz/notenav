@@ -16,7 +16,7 @@ Not required, but progressively enhance the experience when installed.
 
 - **[zk](https://github.com/zk-org/zk):** faster indexed listing, body text search via `--match`, and link graph in preview pane. Available via [Homebrew](https://formulae.brew.sh/formula/zk), [AUR](https://aur.archlinux.org/packages/zk), or [GitHub releases](https://github.com/zk-org/zk/releases). Without zk, notenav uses its own frontmatter parser and `rg`/`grep` for search
 - **[bat](https://github.com/sharkdp/bat):** syntax-highlighted preview (default; called `batcat` on Debian/Ubuntu). Alternatives: [glow](https://github.com/charmbracelet/glow), [mdcat](https://codeberg.org/flausch/mdcat) – see [previewer configuration](configuration.md#previewer)
-- **curl:** required for [remote workflows](configuration.md#extending-a-remote-workflow) (`nn init https://...`). Pre-installed on most systems
+- **curl:** required for [remote workflows](configuration.md#remote-workflows) (`nn init https://...`). Pre-installed on most systems
 - **inotifywait** (Linux) or **fswatch** (macOS): enables real-time auto-refresh when notes change on disk (`refresh.mode = "watch"`). Without either, auto-refresh silently falls back to manual (`r` key). Install via `inotify-tools` (apt/dnf) or `fswatch` (Homebrew)
 
 ## Install

@@ -46,7 +46,7 @@ Every note moves through a lifecycle: **new** → **active** → **done**. Notes
 | active | Currently being worked on | green |
 | blocked | Waiting on something external | red |
 | done | Completed (archived by default) | dim |
-| removed | Soft-deleted | dim |
+| removed | Soft-deleted (tombstone, not part of the lifecycle or filter cycle) | dim |
 
 ### Lifecycle
 
