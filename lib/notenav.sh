@@ -3025,7 +3025,7 @@ while IFS= read -r new_line || [ -n "$new_line" ]; do
   path=$(printf '%s' "$new_line" | awk -F'\t' '{print $6}')
   [ -z "$path" ] && continue
   # Find matching original line by path
-  orig_line=$(awk -F'\t' -v p="$path" '$6 == p' "$orig")
+  orig_line=$(awk -F'\t' -v p="$path" '$6 == p { print; exit }' "$orig")
   [ -z "$orig_line" ] && continue
   # Compare fields
   new_type=$(printf '%s' "$new_line" | awk -F'\t' '{print $1}')
@@ -3093,7 +3093,7 @@ printf '# type\tstatus\tpriority\ttags\ttitle\tpath\n' >> "$tmpfile"
 # Read each path from .current and look up metadata in .raw
 while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   [ -z "$fpath" ] && continue
-  awk -F'\t' -v p="$fpath" '$6 == p { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6 }' "$dir/.raw" >> "$tmpfile"
+  awk -F'\t' -v p="$fpath" '$6 == p { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6; exit }' "$dir/.raw" >> "$tmpfile"
 done < <(awk '{a[NR]=$0} END{for(i=NR;i>0;i--)print a[i]}' "$dir/.current")
 # Footer with valid values from workflow
 printf '\n# type: %s\n' "$(paste -sd', ' "$dir/.schema_type_values")" >> "$tmpfile"
