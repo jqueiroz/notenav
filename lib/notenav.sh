@@ -3966,6 +3966,7 @@ if [ -f "$dir/.queries" ]; then
     # Build awk condition for this query
     sq_cond='length($1) > 0'
     [ -z "$farchive" ] && sq_cond="$sq_cond$archive_cond"
+    local _sq_tag_cond=""
     for a in $qargs; do
       _av=$(awk_esc "${a#*=}")
       case "$a" in
@@ -3973,10 +3974,16 @@ if [ -f "$dir/.queries" ]; then
         status=*) sq_cond="$sq_cond && \$2==\"$_av\"" ;;
         priority=none) sq_cond="$sq_cond && \$3==\"\"" ;;
         priority=*) sq_cond="$sq_cond && \$3==\"$_av\"" ;;
-        tag=*) sq_cond="$sq_cond && index(\" \" \$4 \" \", \" $_av \")" ;;
+        tag=*)
+          if [ -n "$_sq_tag_cond" ]; then
+            _sq_tag_cond="$_sq_tag_cond || index(\" \" \$4 \" \", \" $_av \")"
+          else
+            _sq_tag_cond="index(\" \" \$4 \" \", \" $_av \")"
+          fi ;;
         *) echo "bug: query stats: unknown arg '${a%%=*}'" >&2 ;;
       esac
     done
+    [ -n "$_sq_tag_cond" ] && sq_cond="$sq_cond && ($_sq_tag_cond)"
     sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw")
     label=$(printf '%d:%s(%d)' "$n" "$qname" "$sq_count")
     # visible length: " label " (spaces + content)
