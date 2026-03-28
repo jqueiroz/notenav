@@ -38,7 +38,7 @@ Rules and conventions for contributing to notenav.
 - Every value in `status.values` must have a color in `[status.colors]` and entries in `filter_cycle` (unless intentionally omitted, like tombstone statuses).
 - Lifecycle transitions (`forward`/`reverse`) must only reference values that exist in `status.values` or `priority.values`.
 - Query preset `args` must only reference valid note types, statuses, and priority values from the same workflow.
-- When adding a new built-in workflow, update these places: `config/workflows/` (TOML), `docs/workflows/` (doc page), the workflow table in `README.md`, the built-in workflow table in `docs/configuration.md`, the built-in name list in `nn init --help` (`lib/notenav.sh`), `docs/cli.md` (nn init argument description), the workflow file tables in `docs/install.md` and `docs/faq.md`, and the comment in `samples/user-config.toml`.
+- When adding a new built-in workflow, update these places: `config/workflows/` (TOML), `docs/workflows/` (doc page), the workflow table in `README.md`, the built-in workflow table in `docs/configuration.md`, the built-in name list in `nn init --help` (`lib/notenav.sh`), `docs/reference.md` (nn init argument description), the workflow file tables in `docs/install.md` and `docs/faq.md`, and the comment in `samples/user-config.toml`.
 
 ## Naming convention: `nn` vs `notenav`
 
@@ -80,8 +80,8 @@ Two names coexist by design – each is used where it fits best:
 - Keep workflow doc pages (`docs/workflows/*.md`) in sync with their TOML files – type tables, status tables, lifecycle diagrams, and query preset tables must match the config.
 - Status/type table descriptions should state what it *means*, not how to set it (avoid documenting keybinding mechanics in tables).
 - All relative links in markdown must resolve to existing files.
-- When adding or changing keybindings, update both the `--bind` strings in the fzf invocation and the keybinding table in `README.md`.
-- When adding CLI subcommands or options, update both the `--help` heredoc in `notenav_main()` and the CLI reference in `README.md`.
+- When adding or changing keybindings, update the `--bind` strings in the fzf invocation and the keybinding tables in `README.md` and `docs/tui.md`.
+- When adding CLI subcommands or options, update the `--help` heredoc in `notenav_main()`, the CLI reference in `README.md`, and `docs/reference.md`.
 
 ## Standards compliance
 

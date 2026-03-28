@@ -1,4 +1,4 @@
-# CLI Reference
+# Reference
 
 [Back to README](../README.md)
 
@@ -19,7 +19,7 @@ nn --help                           show usage
 
 notenav has three primary modes of operation:
 
-1. **Faceted browser** (`nn` with no arguments): full interactive TUI with filters, query presets, inline actions, and a live preview pane.
+1. **Faceted browser** (`nn` with no arguments): full interactive TUI with filters, query presets, inline actions, and a live preview pane. See [TUI Reference](tui.md) for keybindings and details.
 2. **Named query** (`nn <name>`): runs a query preset defined in config and outputs matching notes.
 3. **Ad-hoc query** (`nn key=value ...`): filters notes by frontmatter fields; add `-i` for an interactive fzf picker.
 
@@ -31,7 +31,7 @@ notenav has three primary modes of operation:
 
 Launches the faceted browser. Requires a terminal (`$TERM` must not be `dumb`).
 
-The TUI indexes all notes (via `zk list` when zk is installed, or via native frontmatter parsing otherwise), applies filters, and displays results in fzf with a preview pane showing note contents and – when zk is available – outgoing links and backlinks. All keybindings are displayed on-screen by default.
+The TUI indexes all notes (via `zk list` when zk is installed, or via native frontmatter parsing otherwise), applies filters, and displays results in fzf with a preview pane showing note contents and – when zk is available – outgoing links and backlinks. All keybindings are displayed on-screen by default. See [TUI Reference](tui.md) for the full keybinding reference.
 
 Notes are scoped by working directory: at the notebook root you see everything, from a subdirectory you see only that subtree.
 
@@ -200,128 +200,6 @@ notenav X.Y.Z
 ### `nn --help` / `nn -h`
 
 Prints a usage summary and exits.
-
----
-
-## TUI keybindings
-
-The faceted browser uses a modal system with four modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), and **display** (prefix `z`). Press `esc` to return to command mode from any prefix mode.
-
-### Command mode
-
-| Key | Action |
-|-----|--------|
-| `enter` | Open selected note in editor |
-| `e` | Edit selected note (same as `enter`) |
-| `n` | Create new note (title input, then type selection, then editor) |
-| `a` | Advance status forward (follows `status.lifecycle.forward`) |
-| `A` | Reverse status (follows `status.lifecycle.reverse`) |
-| `+` / `>` | Bump priority in the `+` direction (see `priority_plus` setting) |
-| `-` / `<` | Bump priority in the `-` direction |
-| `t` | Filter by type (cycles through types) |
-| `T` | Clear type filter |
-| `s` | Filter by status (cycles through `filter_cycle`) |
-| `S` | Clear status filter |
-| `p` | Filter by priority (cycles through `filter_cycle`, then `none`) |
-| `P` | Clear priority filter |
-| `tab` / `shift-tab` | Next / previous query preset |
-| `[` and `]` | Next / previous query preset (same as above) |
-| `g` | Go-to query preset (opens picker) |
-| `0` / `R` | Reset all filters, pins, marks, and display settings to defaults |
-| `1`–`9` | Jump to query preset by number |
-| `space` | Toggle multi-select on current item |
-| `r` | Refresh note list (re-index from disk) |
-| `b` | Bulk edit selected notes (opens editor with TSV of fields) |
-| `x` | Clear all pinned ghost rows |
-| `X` | Restore pins from last clear (one-shot undo) |
-| `j` / `k` | Move down / up |
-| `ctrl-j` / `ctrl-k` | Page down / up |
-| `J` / `K` | Scroll preview down / up |
-| `esc` | Clear search query (or exit prefix mode) |
-| `q` | Quit |
-
-### Change mode (prefix `c`)
-
-Press `c` to enter change mode. The prompt changes to `c `. Then press one of:
-
-| Key | Action |
-|-----|--------|
-| `s` | Change status of selected note(s) via picker |
-| `p` | Change priority of selected note(s) via picker |
-| `t` | Change type of selected note(s) via picker |
-| `esc` | Cancel, return to command mode |
-
-### Filter mode (prefix `f`)
-
-Press `f` to enter filter mode. The prompt changes to `f `. Then press one of:
-
-| Key | Action |
-|-----|--------|
-| `t` | Filter by tags (multi-select picker, OR logic) |
-| `c` | Filter by contents (live search of note body – uses `zk --match` when available, `rg`/`grep` otherwise) |
-| `n` | Filter by name (substring match on note title, case-insensitive) |
-| `esc` | Cancel, return to command mode |
-
-### Display mode (prefix `z`)
-
-Press `z` to enter display mode. The prompt changes to `z `. Then press one of:
-
-| Key | Action |
-|-----|--------|
-| `o` | Cycle sort order: created, modified, title, priority |
-| `r` | Toggle sort direction (ascending / descending) |
-| `g` | Cycle grouping: none, type, status |
-| `h` | Toggle visibility of archived statuses |
-| `w` | Toggle title wrapping in preview |
-| `esc` | Cancel, return to command mode |
-
-### Mark mode (prefix `m`)
-
-Press `m` to enter mark mode. The prompt changes to `m `. Then press one of:
-
-| Key | Action |
-|-----|--------|
-| `m` | Toggle mark on focused item |
-| `a` | Mark all selected items (or focused if none selected) |
-| `d` | Unmark all selected items (or focused if none selected) |
-| `D` | Clear all marks |
-| `f` | Toggle filter to show only marked items |
-| `esc` | Cancel, return to command mode |
-
-Marks are intentional, user-placed bookmarks – distinct from pins, which are automatic. Marked items display a magenta `marked` badge. Marks persist for the session; reset (`R` / `0`) clears them. A mark count appears in the border label when marks are present (e.g., `15/42 · 2 marked`). Unlike pins, marks are purely visual badges – they do not create ghost rows. Facet filters apply normally to marked items. Use `mf` to narrow the view to only your bookmarks.
-
-### Pinned ghost rows
-
-When you perform an inline action – advance status (`a`/`A`), bump priority (`+`/`-`), or change a field via the picker (`c` then `s`/`p`/`t`) – the acted-on note may no longer match your active filters. Rather than vanishing, it stays visible **in place** as a ghost row with a yellow `pinned` badge. The list never reorders and the cursor never jumps.
-
-**Accumulative:** each action adds to the set of pinned items. Advancing one note and then bumping another leaves both pinned.
-
-**Sticky:** pins survive filter changes (cycling type, status, priority, tags, or body search). They persist until you explicitly clear them.
-
-**Clearing pins:**
-
-- `x` – clear all pins (ghost rows disappear, everything else stays)
-- `X` – restore pins from the last clear (one-shot undo – the backup is consumed)
-- `R` / `0` – full reset (clears pins, marks, all filters, sort order, grouping, and display settings)
-
-**Grouping:** ghost rows appear in the group matching their *current* metadata. If you advance a task from "active" to "done" while filtering by status "active", the ghost row appears in the "done" group (when grouping by status is enabled).
-
-**Count:** the match count in the border label (e.g., `15/42`) reflects genuinely matching notes only – ghost rows are not counted. A separate pin count appears when pins are present (e.g., `15/42 · 2 pinned`).
-
-### Interactive ad-hoc mode (`-i`)
-
-A simplified set of keybindings for `nn key=value ... -i`:
-
-| Key | Action |
-|-----|--------|
-| `enter` | Open note in editor |
-| `/` | Enter search mode (type to filter) |
-| `j` / `k` | Move down / up |
-| `ctrl-j` / `ctrl-k` | Page down / up |
-| `J` / `K` | Scroll preview down / up |
-| `H` | Toggle title wrapping |
-| `esc` | Exit search mode or clear query |
-| `q` | Quit |
 
 ---
 

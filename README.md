@@ -184,7 +184,7 @@ nn --version                    # version info
 nn --help                       # show usage
 ```
 
-See [docs/cli.md](docs/cli.md) for the full CLI reference.
+See [docs/reference.md](docs/reference.md) for the full CLI reference and [docs/tui.md](docs/tui.md) for TUI keybindings and details.
 
 ## License
 

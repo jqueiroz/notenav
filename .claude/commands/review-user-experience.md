@@ -6,7 +6,8 @@ This is NOT a code quality audit (`/audit-code` covers that). Focus on what the 
 
 - `lib/notenav.sh`: all user-facing output, fzf configuration, keybindings, error messages, header/hints
 - `bin/nn`: entry point, argument parsing, help text
-- `docs/cli.md`: CLI reference (compare against actual behavior)
+- `docs/reference.md`: CLI reference (compare against actual behavior)
+- `docs/tui.md`: TUI keybinding reference (compare against actual behavior)
 - `config/base.toml`: defaults the user inherits
 - `config/workflows/*.toml`: what workflows look like out of the box
 - `curl/install.sh`: first-run experience

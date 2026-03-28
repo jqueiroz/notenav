@@ -13,7 +13,8 @@ config/
 curl/
   install.sh       # curl-pipe-sh installer script
 docs/
-  cli.md              # Full CLI reference (commands, flags, keybindings, environment)
+  reference.md         # CLI reference (commands, flags, environment, exit codes)
+  tui.md               # TUI reference (keybindings, pins, marks)
   configuration.md    # Config system + workflow reference
   adding-a-workflow.md # Guide for creating new built-in workflows
   install.md          # Full install instructions (requirements, all methods)
@@ -71,7 +72,8 @@ nn type=task -i                               # interactive ad-hoc
 ## Key References
 
 - [GUIDELINES.md](GUIDELINES.md): development conventions (architecture, shell scripting, keybindings, naming, config, docs, standards, **audit command inventory**)
-- [docs/cli.md](docs/cli.md): full CLI reference (commands, flags, keybindings, environment)
+- [docs/reference.md](docs/reference.md): CLI reference (commands, flags, environment, exit codes)
+- [docs/tui.md](docs/tui.md): TUI reference (keybindings, pins, marks)
 - [docs/configuration.md](docs/configuration.md): config system, workflow reference, and preferences
 - [docs/faq.md](docs/faq.md): directory discovery, note scoping, config file locations
 - [docs/install.md](docs/install.md): requirements and installation methods
@@ -81,7 +83,7 @@ nn type=task -i                               # interactive ad-hoc
 
 **Before adding or renaming config keys**, read the "Config key naming" section in [GUIDELINES.md](GUIDELINES.md#config-key-naming) – it covers enum-vs-boolean, naming direction, and structural conventions. New config keys must be added in ~5 places: `config/base.toml`, the `nn_cfg` call with `//` fallback, `nn_doctor()` known-key list + validation, `docs/configuration.md`, and `samples/user-config.toml`.
 
-**Before adding or changing keybindings**, read the keybinding rules in [GUIDELINES.md](GUIDELINES.md#keybindings) – no modifier keys (except `ctrl-j`/`ctrl-k`), never use `[ ]` inside `transform[...]` (use `test` instead), and fit new bindings into the modal pattern (`c`/`f`/`z` prefixes). Update both the `--bind` strings in `lib/notenav.sh` and the keybinding table in `README.md`.
+**Before adding or changing keybindings**, read the keybinding rules in [GUIDELINES.md](GUIDELINES.md#keybindings) – no modifier keys (except `ctrl-j`/`ctrl-k`), never use `[ ]` inside `transform[...]` (use `test` instead), and fit new bindings into the modal pattern (`c`/`f`/`z` prefixes). Update the `--bind` strings in `lib/notenav.sh`, the keybinding table in `README.md`, and `docs/tui.md`.
 
 **Shell portability (Linux + macOS):** Never use `sed -i` – write to a temp file and `mv`. See [GUIDELINES.md](GUIDELINES.md#portability-linux--macos) for other portability traps.
 

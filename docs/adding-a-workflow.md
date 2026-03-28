@@ -68,7 +68,7 @@ In `lib/notenav.sh`, find the `nn init` help text (search for `built-in name`) a
 | 3 | `README.md` | Add table row, update count, update `nn init` name list |
 | 4 | `docs/configuration.md` | Add table row, update count |
 | 5 | `lib/notenav.sh` | Update `nn init --help` workflow name list |
-| 6 | `docs/cli.md` | Update `nn init` argument workflow name list |
+| 6 | `docs/reference.md` | Update `nn init` argument workflow name list |
 | 7 | `docs/install.md` | Add row to built-in workflow file table |
 | 8 | `docs/faq.md` | Add row to built-in workflow file table |
 | 9 | `samples/user-config.toml` | Update workflow name list in comment |
