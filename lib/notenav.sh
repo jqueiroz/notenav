@@ -2815,6 +2815,7 @@ if [ "$has_zk" = "true" ]; then
   # Workaround: zk list <root> returns only root-level notes; omit the path.
   _zk_scope=("$scope_path")
   [ -d "$scope_path/.zk" ] && _zk_scope=()
+  zk index --quiet 2>/dev/null
   zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw.tmp" && mv "$dir/.raw.tmp" "$dir/.raw"
 else
   search_dir="$scope_path"
@@ -2885,6 +2886,15 @@ else
   BEGIN { NR_FILE = 0 }
   ' > "$dir/.raw.tmp" && mv "$dir/.raw.tmp" "$dir/.raw"
 fi
+
+# Prune satellite files: remove paths that no longer exist in .raw
+if [ -s "$dir/.raw" ]; then
+  for _sat in "$dir/.pinned" "$dir/.marked" "$dir/.f_match_paths"; do
+    [ -s "$_sat" ] || continue
+    awk -F'\t' 'NR==FNR{paths[$6]=1;next} ($0 in paths)' "$dir/.raw" "$_sat" > "$_sat.tmp" \
+      && mv "$_sat.tmp" "$_sat"
+  done
+fi
 ENDRELOAD
     chmod +x "$_nn_dir/reload_raw.sh"
 
@@ -2939,6 +2949,9 @@ elif [[ "$mode" = "poll" ]]; then
     notebook_root=$(cat "$dir/.notebook_root" 2>/dev/null)
     if [[ -n $(find "$notebook_root" -name '*.md' -newer "$dir/.raw" \
                 -print -quit 2>/dev/null) ]]; then
+      post_reload
+    elif [[ $(find "$notebook_root" -name '*.md' -type f 2>/dev/null | wc -l) \
+              -ne $(wc -l < "$dir/.raw" 2>/dev/null || echo 0) ]]; then
       post_reload
     fi
   done
