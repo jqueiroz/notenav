@@ -8,6 +8,24 @@ Workflows are fully customizable: define your own note types, statuses, prioriti
 
 Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/) – compatible with Obsidian, Dendron, Jekyll, and similar tools. For non-interactive usage (scripting, batch operations, LSP), we recommend that you use zk directly.
 
+## Try it out
+
+No install needed – SSH into a live demo with a sample notebook (27 notes tracking the crew operations of the starship *Heart of Gold*):
+
+```bash
+ssh notenav.sh
+```
+
+Cycle filters (`t`, `s`, `p`), try query presets (`tab`/`shift-tab`), search by typing, and advance statuses with `a` – everything works out of the box.
+
+Or, after [installing](#install) `nn`, try it locally with the [demo notebook](https://github.com/jqueiroz/notenav-demo):
+
+```bash
+git clone https://github.com/jqueiroz/notenav-demo
+cd notenav-demo
+nn
+```
+
 ## What you need
 
 `nn` is a single bash script[^2] that runs on **Linux** and **macOS** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The only required dependencies are:
@@ -52,18 +70,6 @@ ln -s ~/.local/share/notenav/bin/nn ~/.local/bin/nn
 ```
 
 Same dependencies as the one-liner. See [docs/install.md](docs/install.md) for details.
-
-## Try it out
-
-Want to see `nn` in action before setting up your own notebook? Clone the [demo notebook](https://github.com/jqueiroz/notenav-demo) – 27 notes tracking the crew operations of the starship *Heart of Gold*:
-
-```bash
-git clone https://github.com/jqueiroz/notenav-demo
-cd notenav-demo
-nn
-```
-
-Cycle filters (`t`, `s`, `p`), try query presets (`tab`/`shift-tab`), search by typing, and advance statuses with `a` – everything works out of the box.
 
 ## Getting started: the Zenith workflow
 
