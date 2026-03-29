@@ -2369,8 +2369,9 @@ fi
 
 # Collect links in parallel (requires zk)
 if [ "$_nn_has_zk" = "true" ]; then
-  tmp_links=$(mktemp) && tmp_back=$(mktemp) || exit 0
-  trap 'rm -f "$tmp_links" "$tmp_back"' EXIT
+  tmp_links=$(mktemp) || exit 0
+  trap 'rm -f "$tmp_links" "${tmp_back:-}"' EXIT
+  tmp_back=$(mktemp) || exit 0
   zk list --linked-by "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_links" &
   zk list --link-to "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_back" &
   wait
@@ -2754,7 +2755,7 @@ if [ "$has_zk" = "true" ]; then
   # Workaround: zk list <root> returns only root-level notes; omit the path.
   _zk_scope=("$scope_path")
   [ -d "$scope_path/.zk" ] && _zk_scope=()
-  zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw"
+  zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw.tmp" && mv "$dir/.raw.tmp" "$dir/.raw"
 else
   search_dir="$scope_path"
   _nn_find_md_with_mtime() {
@@ -2822,7 +2823,7 @@ else
     printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", type, status, priority, tags, title, file, mtime, created
   }
   BEGIN { NR_FILE = 0 }
-  ' > "$dir/.raw"
+  ' > "$dir/.raw.tmp" && mv "$dir/.raw.tmp" "$dir/.raw"
 fi
 ENDRELOAD
     chmod +x "$_nn_dir/reload_raw.sh"
@@ -2839,7 +2840,7 @@ mode=$(cat "$dir/.refresh_mode" 2>/dev/null)
 post_reload() {
   local action="transform($dir/reload_raw.sh $dir 2>/dev/null; $dir/filter.sh $dir refresh)"
   if command -v curl >/dev/null 2>&1; then
-    curl -s -X POST -d "$action" "http://127.0.0.1:$FZF_PORT" >/dev/null 2>&1
+    curl -s --connect-timeout 2 --max-time 5 -X POST -d "$action" "http://127.0.0.1:$FZF_PORT" >/dev/null 2>&1
   else
     printf 'POST / HTTP/1.0\r\nHost: localhost\r\nContent-Length: %d\r\n\r\n%s' \
       "${#action}" "$action" > /dev/tcp/127.0.0.1/"$FZF_PORT" 2>/dev/null
@@ -4263,10 +4264,10 @@ ENDEDIT
       --bind "-:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir; $_nn_dir/reload_at.sh $_nn_dir {1}; fi]" \
       --bind "<:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir; $_nn_dir/reload_at.sh $_nn_dir {1}; fi]" \
       --bind "n:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/namefilt.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test -z \"\$m\"; then echo 'execute($_nn_dir/newnote.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)'; fi]" \
-      --bind "c:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/match.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test \"\$m\" = c; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; else echo c > $_nn_dir/.nn-mode; echo 'change-prompt(c )+transform-header(cat $_nn_dir/.header-c)'; fi]" \
+      --bind "c:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+execute($_nn_dir/match.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test \"\$m\" = c; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; elif test -z \"\$m\"; then echo c > $_nn_dir/.nn-mode; echo 'change-prompt(c )+transform-header(cat $_nn_dir/.header-c)'; fi]" \
       --bind "e:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)'; fi]" \
-      --bind "f:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir mark-filter; elif test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; else echo f > $_nn_dir/.nn-mode; echo 'change-prompt(f )+transform-header(cat $_nn_dir/.header-f)'; fi]" \
-      --bind "z:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; else echo z > $_nn_dir/.nn-mode; echo 'change-prompt(z )+transform-header(cat $_nn_dir/.header-z)'; fi]" \
+      --bind "f:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir mark-filter; elif test \"\$m\" = f; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; elif test -z \"\$m\"; then echo f > $_nn_dir/.nn-mode; echo 'change-prompt(f )+transform-header(cat $_nn_dir/.header-f)'; fi]" \
+      --bind "z:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; echo 'change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; elif test -z \"\$m\"; then echo z > $_nn_dir/.nn-mode; echo 'change-prompt(z )+transform-header(cat $_nn_dir/.header-z)'; fi]" \
       --bind "o:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort; fi]" \
       --bind "r:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort-reverse; elif test -z \"\$m\"; then $_nn_dir/reload_raw.sh $_nn_dir 2>/dev/null; $_nn_dir/filter.sh $_nn_dir refresh; fi]" \
       --bind "w:transform[$_nn_dir/wrapkey.sh $_nn_dir '$NN_UI_COMMAND_PROMPT']" \
