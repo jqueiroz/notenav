@@ -2141,7 +2141,12 @@ EOF
           echo "notenav: unexpected argument: $1" >&2
           return 2
         fi
-        if [[ "$1" != https://* ]] && ! [[ "$1" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        if [[ "$1" == https://* ]]; then
+          if [[ "$1" == *'"'* || "$1" == *'\\'* ]]; then
+            echo "notenav: URL contains characters that cannot be embedded in TOML" >&2
+            return 2
+          fi
+        elif ! [[ "$1" =~ ^[a-zA-Z0-9._-]+$ ]]; then
           echo "notenav: invalid workflow name: $1 (must be alphanumeric, dash, underscore, or dot)" >&2
           return 2
         fi
@@ -2284,6 +2289,11 @@ _nn_init_user() {
            echo "notenav: created $target but failed to set default_workflow" >&2
            echo "notenav: edit it to set: default_workflow = \"$workflow_arg\"" >&2
            return 1; }
+    # Verify the awk substitution actually matched (guards against sample format changes)
+    if ! grep -q '^default_workflow = ' "$target"; then
+      echo "notenav: created $target but could not set default_workflow automatically" >&2
+      echo "notenav: add this line manually: default_workflow = \"$workflow_arg\"" >&2
+    fi
   fi
 
   echo "Created $target"
