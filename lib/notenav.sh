@@ -1761,6 +1761,8 @@ nn_doctor() {
           _warn "priority.labels.$_plk not in priority.values"
         fi
       done < <(nn_cfg '.priority.labels // {} | keys[]' 2>/dev/null)
+      # Validate priority.labels values are strings
+      local _bad_pl; _bad_pl=$(_all_strings '.priority.labels') || _warn "priority.labels: non-string value(s) for: $_bad_pl"
       # Validate priority sub-keys
       local _known_priority_keys="enabled values filter_cycle unset_position default_color colors labels lifecycle"
       local _prk
