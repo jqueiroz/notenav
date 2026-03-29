@@ -2129,6 +2129,9 @@ _nn_url_is_trusted() {
   [[ -f "$ts_file" ]] || return 1
   local line
   while IFS= read -r line || [[ -n "$line" ]]; do
+    # Trim leading/trailing whitespace (forgiving of hand-edited files)
+    line="${line#"${line%%[! ]*}"}"
+    line="${line%"${line##*[! ]}"}"
     [[ -z "$line" || "$line" == \#* ]] && continue
     [[ "$line" == "$url" ]] && return 0
   done < "$ts_file"
@@ -2265,7 +2268,7 @@ _nn_init_project() {
 
   echo "Created $wf_file (extends $workflow_name)"
   echo "Run 'nn' to launch the TUI, or 'nn doctor' to verify your setup."
-  if [[ "$workflow_name" != https://* ]]; then
+  if [[ -z "$workflow_arg" && "$workflow_name" != https://* ]]; then
     _nn_list_workflows "$notenav_root"
   fi
 }
