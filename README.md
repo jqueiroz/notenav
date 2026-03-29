@@ -16,7 +16,7 @@ No install needed – SSH into a live demo with a sample notebook (27 notes trac
 ssh notenav.sh
 ```
 
-Cycle filters (`t`, `s`, `p`), try query presets (`tab`/`shift-tab`), search by typing, and advance statuses with `a` – everything works out of the box.
+Cycle filters (`t`, `s`, `p`), try query presets (`tab`/`shift-tab`), create notes (`n`), and advance statuses with `a` – everything works out of the box.
 
 Alternatively, after [installing](#install) `nn`, try it locally with the [demo notebook](https://github.com/jqueiroz/notenav-demo):
 
