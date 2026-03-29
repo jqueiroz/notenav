@@ -335,14 +335,15 @@ _nn_gen_awk_bodies() {
   # for group ordering and stats display. Falls back to NN_*_VALUES if unset.
 
   # Type color+icon assignments
-  local _typ_awk="" _first=true
+  local _typ_awk="" _first=true _vesc
   for _v in "${NN_TYPE_VALUES[@]}"; do
     _esc=$(_nn_awk_esc "${NN_TYPE_ICONS[$_v]}")
     if $_first; then
       _typ_awk="tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${_esc}\""
       _first=false
     else
-      _typ_awk+=$'\n'"  if (\$1 == \"$_v\") { tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${_esc}\" }"
+      _vesc=$(_nn_awk_esc "$_v")
+      _typ_awk+=$'\n'"  if (\$1 == \"${_vesc}\") { tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${_esc}\" }"
     fi
   done
 
@@ -350,7 +351,8 @@ _nn_gen_awk_bodies() {
   local _sta_awk="sc = \"\\033[${NN_STATUS_DEFAULT_COLOR}m\""
   for _v in "${NN_STATUS_VALUES[@]}"; do
     [[ "${NN_STATUS_COLORS[$_v]}" == "$NN_STATUS_DEFAULT_COLOR" ]] && continue
-    _sta_awk+=$'\n'"  if (\$2 == \"$_v\") sc = \"\\033[${NN_STATUS_COLORS[$_v]}m\""
+    _vesc=$(_nn_awk_esc "$_v")
+    _sta_awk+=$'\n'"  if (\$2 == \"${_vesc}\") sc = \"\\033[${NN_STATUS_COLORS[$_v]}m\""
   done
 
   # Priority color + label assignments
@@ -362,14 +364,16 @@ _nn_gen_awk_bodies() {
       if [[ "$_v" =~ ^[0-9]+$ ]]; then
         _pri_awk+=$'\n'"  if (\$3+0 == $_v) pc = \"\\033[${NN_PRIORITY_COLORS[$_v]}m\""
       else
-        _pri_awk+=$'\n'"  if (\$3 == \"$_v\") pc = \"\\033[${NN_PRIORITY_COLORS[$_v]}m\""
+        _vesc=$(_nn_awk_esc "$_v")
+        _pri_awk+=$'\n'"  if (\$3 == \"${_vesc}\") pc = \"\\033[${NN_PRIORITY_COLORS[$_v]}m\""
       fi
     done
     _pri_awk+=$'\n''  pl = "P" $3'
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
       [[ "${NN_PRIORITY_LABELS[$_v]}" == "P$_v" ]] && continue
       _esc=$(_nn_awk_esc "${NN_PRIORITY_LABELS[$_v]}")
-      _pri_awk+=$'\n'"  if (\$3 == \"$_v\") pl = \"${_esc}\""
+      _vesc=$(_nn_awk_esc "$_v")
+      _pri_awk+=$'\n'"  if (\$3 == \"${_vesc}\") pl = \"${_esc}\""
     done
   fi
 
@@ -448,10 +452,12 @@ _nn_gen_awk_bodies() {
   local _stats_type_lookup="" _stats_status_lookup=""
   for _v in "${NN_TYPE_VALUES[@]}"; do
     _esc=$(_nn_awk_esc "${NN_TYPE_ICONS[$_v]}")
-    _stats_type_lookup+="icon[\"$_v\"] = \"${_esc}\"; clr[\"$_v\"] = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; "
+    _vesc=$(_nn_awk_esc "$_v")
+    _stats_type_lookup+="icon[\"${_vesc}\"] = \"${_esc}\"; clr[\"${_vesc}\"] = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; "
   done
   for _v in "${NN_STATUS_FILTER_CYCLE[@]}"; do
-    _stats_status_lookup+="sc[\"$_v\"] = \"\\033[${NN_STATUS_COLORS[$_v]}m\"; "
+    _vesc=$(_nn_awk_esc "$_v")
+    _stats_status_lookup+="sc[\"${_vesc}\"] = \"\\033[${NN_STATUS_COLORS[$_v]}m\"; "
   done
   NN_AWK_COLOR_STATS='{ types[$1]++; combos[$1, $2]++ } END {
   n = split("'"$_type_order_str"'", order, " ")
@@ -491,7 +497,8 @@ _nn_gen_awk_bodies() {
   NN_AWK_ICON_SETUP=""
   for _v in "${NN_TYPE_VALUES[@]}"; do
     _esc=$(_nn_awk_esc "${NN_TYPE_ICONS[$_v]}")
-    NN_AWK_ICON_SETUP+="icon[\"$_v\"] = \"${_esc}\"; "
+    _vesc=$(_nn_awk_esc "$_v")
+    NN_AWK_ICON_SETUP+="icon[\"${_vesc}\"] = \"${_esc}\"; "
   done
 }
 
@@ -1263,7 +1270,7 @@ nn_doctor() {
       for _mtv in "${_typ_values[@]}"; do
         _in_array "$_mtv" "${_typ_do_values[@]}" || _missing_typ+="$_mtv, "
       done
-      [[ -n "$_missing_typ" ]] && _warn "type.display_order missing: ${_missing_typ%, } (will be absent from grouped views)"
+      [[ -n "$_missing_typ" ]] && _warn "type.display_order missing: ${_missing_typ%, } (will appear in arbitrary order at end of grouped views)"
     fi
     # Validate type sub-table keys
     local _typ_known_subkeys="icon color description"
@@ -1463,7 +1470,7 @@ nn_doctor() {
       for _msv in "${_sta_values[@]}"; do
         _in_array "$_msv" "${_sta_do_values[@]}" || _missing_sta+="$_msv, "
       done
-      [[ -n "$_missing_sta" ]] && _warn "status.display_order missing: ${_missing_sta%, } (will be absent from grouped views)"
+      [[ -n "$_missing_sta" ]] && _warn "status.display_order missing: ${_missing_sta%, } (will appear in arbitrary order at end of grouped views)"
     fi
     # Validate status sub-keys
     local _known_status_keys="values initial archive filter_cycle default_color colors descriptions lifecycle display_order"
