@@ -1199,7 +1199,7 @@ nn_doctor() {
     local _typ_values _typ_ok=true _typ_count=0 _typ_issues=""
     mapfile -t _typ_values < <(nn_cfg '.type.values // [] | .[]')
     _typ_count=${#_typ_values[@]}
-    if _in_array "" "${_typ_values[@]}"; then
+    if [[ ${#_typ_values[@]} -gt 0 ]] && _in_array "" "${_typ_values[@]}"; then
       _warn "type.values contains an empty string"
     fi
     local _typ_dups
@@ -1302,7 +1302,7 @@ nn_doctor() {
     local _sta_values _sta_ok=true _sta_count=0
     mapfile -t _sta_values < <(nn_cfg '.status.values // [] | .[]')
     _sta_count=${#_sta_values[@]}
-    if _in_array "" "${_sta_values[@]}"; then
+    if [[ ${#_sta_values[@]} -gt 0 ]] && _in_array "" "${_sta_values[@]}"; then
       _warn "status.values contains an empty string"
     fi
     local _sta_dups
@@ -1468,7 +1468,7 @@ nn_doctor() {
       local _pri_values _pri_ok=true _pri_count=0
       mapfile -t _pri_values < <(nn_cfg '.priority.values // [] | .[]')
       _pri_count=${#_pri_values[@]}
-      if _in_array "" "${_pri_values[@]}"; then
+      if [[ ${#_pri_values[@]} -gt 0 ]] && _in_array "" "${_pri_values[@]}"; then
         _warn "priority.values contains an empty string"
       fi
       local _pri_dups
@@ -1813,8 +1813,12 @@ nn_doctor() {
     fi
     local _rf_max
     _rf_max=$(nn_cfg '.refresh.max_files // empty')
-    if [[ -n "$_rf_max" ]] && ! [[ "$_rf_max" =~ ^[0-9]+$ ]]; then
-      _warn "refresh.max_files '$_rf_max' is not a valid integer"
+    if [[ -n "$_rf_max" ]]; then
+      if ! [[ "$_rf_max" =~ ^[0-9]+$ ]]; then
+        _warn "refresh.max_files '$_rf_max' is not a valid integer"
+      elif [[ "$_rf_max" -eq 0 ]]; then
+        _warn "refresh.max_files is 0 (no files would be scanned)"
+      fi
     fi
     # Check for unrecognized keys in [refresh]
     local _known_refresh="mode poll_interval max_files"
@@ -1922,15 +1926,14 @@ nn_doctor() {
 
   # Backend status
   if [[ "$_has_zk" == "true" ]]; then
-    if zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
-      local _zk_count
-      _zk_count=$(zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
+    local _zk_count
+    _zk_count=$(zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
+    if [[ "$_zk_count" -gt 0 ]] 2>/dev/null; then
       _pass "Backend: zk ${_dim}(indexed listing, link graph, full-text search)${_reset}"
-      if [[ "$_zk_count" -gt 0 ]] 2>/dev/null; then
-        _pass "$_zk_count notes in zk index"
-      else
-        _warn "0 notes in zk index"
-      fi
+      _pass "$_zk_count notes in zk index"
+    elif zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
+      _pass "Backend: zk ${_dim}(indexed listing, link graph, full-text search)${_reset}"
+      _warn "0 notes in zk index"
     else
       _info "Backend: native ${_dim}(zk installed but no .zk/ notebook – run 'zk init' for faster indexing)${_reset}"
     fi
