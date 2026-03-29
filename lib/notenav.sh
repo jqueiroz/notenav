@@ -2365,7 +2365,7 @@ fi
 
 # Collect links in parallel (requires zk)
 if [ "$_nn_has_zk" = "true" ]; then
-  tmp_links=$(mktemp); tmp_back=$(mktemp)
+  tmp_links=$(mktemp) && tmp_back=$(mktemp) || exit 0
   trap 'rm -f "$tmp_links" "$tmp_back"' EXIT
   zk list --linked-by "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_links" &
   zk list --link-to "$file" --format "  {{title}}" --quiet 2>/dev/null > "$tmp_back" &
@@ -3674,7 +3674,7 @@ apply_sq() {
   [ -z "$line" ] && return
   name="${line%%	*}"; args="${line#*	}"
   # Reset filters then apply query preset's key=value pairs
-  ft=""; fs=""; fp=""; fname=""; fmatch=""; : > "$dir/.f_tags"; : > "$dir/.f_name"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
+  ft=""; fs=""; fp=""; fname=""; fmatch=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_name"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
   for a in $args; do
     case "$a" in
       type=*) ft="${a#*=}";; status=*) fs="${a#*=}";;
@@ -3991,7 +3991,7 @@ if [ -f "$dir/.queries" ]; then
     # Build awk condition for this query
     sq_cond='length($1) > 0'
     [ -z "$farchive" ] && sq_cond="$sq_cond$archive_cond"
-    local _sq_tag_cond=""
+    _sq_tag_cond=""
     for a in $qargs; do
       _av=$(awk_esc "${a#*=}")
       case "$a" in
