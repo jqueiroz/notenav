@@ -109,7 +109,7 @@ When you perform an inline action – advance status (`a`/`A`), bump priority (`
 
 ### Tags
 
-Tags are free-form labels for cross-cutting concerns that don't fit neatly into type, status, or priority. Where those three facets are workflow-defined and mutually exclusive (a note has exactly one type, one status, and one priority), tags are open-ended and combinable – a note can have any number of tags, and you define them as you go.
+Tags are free-form labels for cross-cutting concerns that don't fit neatly into type, status, or priority. Where those three facets are workflow-defined and single-valued (a note has exactly one type, one status, and at most one priority), tags are open-ended and combinable – a note can have any number of tags, and you define them as you go.
 
 **Motivation:** type, status, and priority answer *what*, *where*, and *how urgent*. Tags answer *about what* – they let you slice your notes by project, area, technology, context, or anything else that cuts across the workflow's built-in facets. For example, a task, an idea, and a reference might all be tagged `backend`; a GTD action and a project might both be tagged `@phone`.
 
@@ -130,7 +130,7 @@ Quoted values (`tags: ["backend", "api"]`) are also accepted – quotes are stri
 
 **Filtering in the TUI:** press `f` then `t` to open a multi-select tag picker. The picker lists every tag found in the notebook. Use `space`/`tab` to toggle tags, `enter` to apply. Previously selected tags appear at the top and are pre-selected.
 
-Tag filtering uses **OR logic** – selecting `backend` and `api` shows notes tagged with *either* (or both). Tags combine with other active filters using AND logic: if you also filter by `type=task`, you see tasks tagged `backend` OR `api`.
+Tag filtering uses **OR logic** – selecting `backend` and `api` shows notes tagged with *either* (or both). Tags combine with other active filters using AND logic: if you also filter by `type=task`, you see tasks tagged `backend` OR `api`. Active tags appear in magenta in the filter status line.
 
 **Filtering on the command line:** use `tag=` in ad-hoc queries or query presets:
 
@@ -150,11 +150,11 @@ args = "tag=backend"
 args = "type=task tag=backend tag=api"    # tasks tagged backend OR api
 ```
 
-**Clearing tags:** tag filters reset when you switch query presets, press `R`/`0` (full reset), or select new tags in the picker with none toggled. Tags also clear as part of any full filter reset.
+**Clearing tags:** tag filters reset when you switch query presets or press `R`/`0` (full reset). In the picker, pressing `enter` with nothing selected clears the tag filter; pressing `esc` cancels and leaves the current filter unchanged.
 
 **In bulk edit:** the bulk edit TSV (`b` key) shows tags as a space-separated column. Edit directly – changes are written back to frontmatter as a YAML inline array.
 
-**Tag conventions:** tags are free-form strings – notenav imposes no naming rules. Some patterns that work well:
+**Tag conventions:** tags are plain strings with no special naming rules. Avoid commas, brackets, and quotes in tag names – these characters are stripped during YAML parsing. Some patterns that work well:
 
 - **By area:** `backend`, `frontend`, `infra`, `docs`
 - **By project:** `project-alpha`, `migration`, `onboarding`

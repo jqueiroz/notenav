@@ -233,7 +233,7 @@ Which key maps to which lifecycle table depends on the [`priority_plus`](#priori
 
 ### Tags
 
-Tags are free-form labels stored in note frontmatter. Unlike type, status, and priority – which are workflow-defined and mutually exclusive – tags are open-ended: a note can have any number of tags, and you define new ones simply by using them.
+Tags are free-form labels stored in note frontmatter. Unlike type, status, and priority – which are workflow-defined and single-valued – tags are open-ended: a note can have any number of tags, and you define new ones simply by using them.
 
 **Why tags?** Type, status, and priority answer *what kind of note*, *where it is in the lifecycle*, and *how urgent*. Tags answer *about what* – they let you slice your notes by project, area, technology, context, or anything else that cuts across the workflow's built-in facets.
 
@@ -274,7 +274,7 @@ args = "type=task tag=backend tag=api"    # tasks tagged backend OR api
 
 **In bulk edit:** the bulk edit view (`b` key) includes a tags column (space-separated). Edits are written back to frontmatter as a YAML inline array.
 
-**No workflow definition needed:** unlike types and statuses, tags require no configuration. You don't declare valid tags anywhere – just use them in frontmatter. The tag picker auto-discovers every tag in the notebook.
+**No workflow definition needed:** unlike types and statuses, tags require no configuration. You don't declare valid tags anywhere – just use them in frontmatter. The tag picker auto-discovers every tag in the notebook. Avoid commas, brackets, and quotes in tag names – these characters are stripped during YAML parsing.
 
 ### `[queries]`
 
