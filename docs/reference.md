@@ -71,9 +71,14 @@ nn type=task status=active -i     # same, but interactive
 | `type` | any type from workflow config | exact match |
 | `status` | any status from workflow config | exact match |
 | `priority` | any priority level, or `none` | `none` matches notes without a priority set |
-| `tag` | any tag name | matches notes with that tag |
+| `tag` | any tag name | matches notes with that tag (OR when repeated) |
 
-Multiple filters are combined with AND logic. Multiple `tag=` filters are not supported in a single invocation – use the TUI's tag picker for multi-tag filtering.
+Multiple filters are combined with AND logic. Multiple `tag=` filters in the same invocation use OR logic – a note matches if it has *any* of the specified tags:
+
+```bash
+nn tag=backend tag=api              # notes tagged "backend" OR "api"
+nn type=task tag=backend tag=api    # tasks tagged "backend" OR "api"
+```
 
 **Options:**
 

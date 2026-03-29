@@ -114,6 +114,41 @@ Short name where you see it often, full name where discoverability matters. `.nn
 
 Yes. If there's no `.nn/workflow.toml`, notenav uses your `default_workflow` from `~/.config/notenav/config.toml` (defaults to Zenith) and treats the current directory as the notebook root. This works well for personal notebooks that don't need project-specific configuration.
 
+## How do tags work?
+
+Tags are free-form labels for cross-cutting concerns that don't fit into type, status, or priority. A note can have any number of tags, and you create new ones simply by adding them to frontmatter – no configuration needed.
+
+**Why tags?** Type, status, and priority are workflow-defined facets with fixed values. Tags let you slice notes by project, area, technology, context, or anything else that cuts across those facets. For example, a task, an idea, and a reference can all be tagged `backend`; a GTD action and a project can both be tagged `@phone`.
+
+**Frontmatter format** – either syntax works:
+
+```yaml
+tags: [backend, api, tech-debt]     # inline array
+tags:                                # multi-line list
+  - backend
+  - api
+  - tech-debt
+```
+
+**Filtering in the TUI:** press `f` then `t` to open a tag picker. Select multiple tags with `space`/`tab` – filtering uses OR logic (matches notes with *any* selected tag). Tags combine with other active filters using AND.
+
+**Filtering on the command line:**
+
+```bash
+nn tag=backend                      # notes tagged "backend"
+nn tag=backend tag=api              # "backend" OR "api"
+nn type=task tag=backend            # tasks tagged "backend"
+```
+
+**In query presets:**
+
+```toml
+[queries.backend]
+args = "tag=backend"
+```
+
+See [Configuration – Tags](configuration.md#tags) and [TUI Reference – Tags](tui.md#tags) for the full details.
+
 ## Can I use `nn` with Obsidian / Dendron / Jekyll / other tools?
 
 Yes. notenav works with any markdown files that use YAML frontmatter. It reads `type`, `status`, `priority`, and `tags` fields from the frontmatter – the rest of the file is untouched. notenav and Obsidian (or any other tool) can coexist on the same vault without conflicts.

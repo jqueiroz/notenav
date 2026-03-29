@@ -36,6 +36,13 @@
 # [queries.my-view]
 # order = 50                      # lower = earlier in the query bar (default: 100)
 # args = "type=task status=active"
+#
+# Tag-based presets – tags use OR logic when repeated:
+# [queries.backend]
+# args = "tag=backend"
+#
+# [queries.api-work]
+# args = "type=task tag=backend tag=api"
 
 # Override workflow colors – these merge on top, so only specify what you
 # want to change.

@@ -56,7 +56,7 @@ Press `f` to enter filter mode. The prompt changes to `f `. Then press one of:
 
 | Key | Action |
 |-----|--------|
-| `t` | Filter by tags (multi-select picker, OR logic) |
+| `t` | Filter by tags (multi-select picker; OR logic – matches notes with *any* selected tag) |
 | `c` | Filter by contents (live search of note body – uses `zk --match` when available, `rg`/`grep` otherwise) |
 | `n` | Filter by name (substring match on note title, case-insensitive) |
 | `esc` | Cancel, return to command mode |
@@ -106,6 +106,60 @@ When you perform an inline action – advance status (`a`/`A`), bump priority (`
 **Grouping:** ghost rows appear in the group matching their *current* metadata. If you advance a task from "active" to "done" while filtering by status "active", the ghost row appears in the "done" group (when grouping by status is enabled).
 
 **Count:** the match count in the border label (e.g., `15/42`) reflects genuinely matching notes only – ghost rows are not counted. A separate pin count appears when pins are present (e.g., `15/42 · 2 pinned`).
+
+### Tags
+
+Tags are free-form labels for cross-cutting concerns that don't fit neatly into type, status, or priority. Where those three facets are workflow-defined and mutually exclusive (a note has exactly one type, one status, and one priority), tags are open-ended and combinable – a note can have any number of tags, and you define them as you go.
+
+**Motivation:** type, status, and priority answer *what*, *where*, and *how urgent*. Tags answer *about what* – they let you slice your notes by project, area, technology, context, or anything else that cuts across the workflow's built-in facets. For example, a task, an idea, and a reference might all be tagged `backend`; a GTD action and a project might both be tagged `@phone`.
+
+**Frontmatter format:** tags are specified in YAML frontmatter using either inline array or multi-line list syntax:
+
+```yaml
+# Inline array (preferred for short lists)
+tags: [backend, api, tech-debt]
+
+# Multi-line list (equivalent)
+tags:
+  - backend
+  - api
+  - tech-debt
+```
+
+Quoted values (`tags: ["backend", "api"]`) are also accepted – quotes are stripped during parsing.
+
+**Filtering in the TUI:** press `f` then `t` to open a multi-select tag picker. The picker lists every tag found in the notebook. Use `space`/`tab` to toggle tags, `enter` to apply. Previously selected tags appear at the top and are pre-selected.
+
+Tag filtering uses **OR logic** – selecting `backend` and `api` shows notes tagged with *either* (or both). Tags combine with other active filters using AND logic: if you also filter by `type=task`, you see tasks tagged `backend` OR `api`.
+
+**Filtering on the command line:** use `tag=` in ad-hoc queries or query presets:
+
+```bash
+nn tag=backend                      # notes tagged "backend"
+nn tag=backend tag=api              # notes tagged "backend" OR "api"
+nn type=task tag=backend            # tasks tagged "backend"
+```
+
+**In query presets:**
+
+```toml
+[queries.backend]
+args = "tag=backend"
+
+[queries.api-work]
+args = "type=task tag=backend tag=api"    # tasks tagged backend OR api
+```
+
+**Clearing tags:** tag filters reset when you switch query presets, press `R`/`0` (full reset), or select new tags in the picker with none toggled. Tags also clear as part of any full filter reset.
+
+**In bulk edit:** the bulk edit TSV (`b` key) shows tags as a space-separated column. Edit directly – changes are written back to frontmatter as a YAML inline array.
+
+**Tag conventions:** tags are free-form strings – notenav imposes no naming rules. Some patterns that work well:
+
+- **By area:** `backend`, `frontend`, `infra`, `docs`
+- **By project:** `project-alpha`, `migration`, `onboarding`
+- **By context (GTD-style):** `@phone`, `@computer`, `@errands`
+- **By theme:** `tech-debt`, `security`, `performance`
 
 ### Interactive ad-hoc mode (`-i`)
 

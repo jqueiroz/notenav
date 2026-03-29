@@ -231,6 +231,51 @@ Values can be numeric (`"1"`, `"2"`, `"3"`) or named (`"critical"`, `"high"`, `"
 
 Which key maps to which lifecycle table depends on the [`priority_plus`](#priority-key-direction) setting in `[ui]`.
 
+### Tags
+
+Tags are free-form labels stored in note frontmatter. Unlike type, status, and priority – which are workflow-defined and mutually exclusive – tags are open-ended: a note can have any number of tags, and you define new ones simply by using them.
+
+**Why tags?** Type, status, and priority answer *what kind of note*, *where it is in the lifecycle*, and *how urgent*. Tags answer *about what* – they let you slice your notes by project, area, technology, context, or anything else that cuts across the workflow's built-in facets.
+
+**Frontmatter format:**
+
+```yaml
+# Inline array (preferred for short lists)
+tags: [backend, api, tech-debt]
+
+# Multi-line list (equivalent)
+tags:
+  - backend
+  - api
+  - tech-debt
+```
+
+Both formats are parsed identically. Quoted values (`["backend", "api"]`) are accepted – quotes are stripped. Internally, tags are stored as space-separated strings.
+
+**Filtering:** tag filtering uses **OR logic** – selecting multiple tags shows notes with *any* of them. Tags combine with other active filters (type, status, priority) using AND logic.
+
+```bash
+nn tag=backend                      # notes tagged "backend"
+nn tag=backend tag=api              # notes tagged "backend" OR "api"
+nn type=task tag=backend            # tasks tagged "backend"
+```
+
+In the TUI, press `f` then `t` to open a multi-select tag picker. See [TUI Reference – Tags](tui.md#tags) for details.
+
+**In query presets:** use `tag=` in the `args` string, just like other filter keys:
+
+```toml
+[queries.backend]
+args = "tag=backend"
+
+[queries.api-work]
+args = "type=task tag=backend tag=api"    # tasks tagged backend OR api
+```
+
+**In bulk edit:** the bulk edit view (`b` key) includes a tags column (space-separated). Edits are written back to frontmatter as a YAML inline array.
+
+**No workflow definition needed:** unlike types and statuses, tags require no configuration. You don't declare valid tags anywhere – just use them in frontmatter. The tag picker auto-discovers every tag in the notebook.
+
 ### `[queries]`
 
 Query presets are saved filtered views that appear in the TUI query bar. Each workflow ships with built-in presets, and you can add your own in user or project config.
