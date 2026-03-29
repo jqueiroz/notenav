@@ -706,6 +706,8 @@ nn_precompute_workflow() {
     *) echo "notenav: refresh.mode '$NN_REFRESH_MODE' invalid (must be 'watch', 'poll', or 'manual')" >&2; return 1 ;; esac
   case "$NN_DEFAULT_SORT" in created|modified|title|priority|"") ;;
     *) echo "notenav: defaults.sort_by '$NN_DEFAULT_SORT' invalid (must be 'created', 'modified', 'title', or 'priority')" >&2; return 1 ;; esac
+  if [[ "$NN_DEFAULT_SORT" == "priority" && "$NN_PRIORITY_ENABLED" == "false" ]]; then
+    echo "notenav: defaults.sort_by is 'priority' but priority is disabled" >&2; return 1; fi
   case "$NN_DEFAULT_GROUP" in type|status|"") ;;
     *) echo "notenav: defaults.group_by '$NN_DEFAULT_GROUP' invalid (must be 'type', 'status', or empty)" >&2; return 1 ;; esac
 
