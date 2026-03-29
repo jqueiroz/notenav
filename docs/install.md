@@ -28,7 +28,7 @@ Not required, but progressively enhance the experience when installed.
 **`nix profile` (imperative):**
 
 ```bash
-nix profile install github:jqueiroz/notenav
+nix profile install github:jqueiroz/notenav/stable
 ```
 
 **NixOS (`configuration.nix`):**
@@ -36,7 +36,7 @@ nix profile install github:jqueiroz/notenav
 ```nix
 # /etc/nixos/configuration.nix
 {
-  inputs.notenav.url = "github:jqueiroz/notenav";
+  inputs.notenav.url = "github:jqueiroz/notenav/stable";
 
   # then in your config:
   environment.systemPackages = [ inputs.notenav.packages.${pkgs.system}.default ];
@@ -48,7 +48,7 @@ nix profile install github:jqueiroz/notenav
 ```nix
 # home.nix or flake-based home-manager config
 {
-  inputs.notenav.url = "github:jqueiroz/notenav";
+  inputs.notenav.url = "github:jqueiroz/notenav/stable";
 
   # then in your home config:
   home.packages = [ inputs.notenav.packages.${pkgs.system}.default ];
@@ -58,7 +58,7 @@ nix profile install github:jqueiroz/notenav
 **Try without installing:**
 
 ```bash
-nix run github:jqueiroz/notenav
+nix run github:jqueiroz/notenav/stable
 ```
 
 ### Option 2: One-liner
