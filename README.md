@@ -72,7 +72,7 @@ Same dependencies as the one-liner. See [docs/install.md](docs/install.md) for d
 
 ## Getting started: the Zenith workflow
 
-Out of the box, `nn` uses **Zenith** – a simple workflow built around three note types, four statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
+Out of the box, `nn` uses **Zenith** – a simple workflow built around three note types, five statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
 
 **Note types:** every note is one of:
 - **task:** concrete, actionable unit of work
