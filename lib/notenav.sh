@@ -662,7 +662,7 @@ nn_precompute_workflow() {
   # Archive AWK condition (e.g. ' && $2!="done" && $2!="removed"')
   NN_ARCHIVE_COND=""
   for _v in "${NN_STATUS_ARCHIVE[@]}"; do
-    NN_ARCHIVE_COND+=" && \$2!=\"$_v\""
+    NN_ARCHIVE_COND+=" && \$2!=\"$(_nn_awk_esc "$_v")\""
   done
 }
 
@@ -2896,8 +2896,10 @@ for file in "$@"; do
   # Update field within YAML frontmatter (between first --- and second ---)
   awk -v field="$field" -v value="$value" '
     NR==1 && /^---/ { in_fm=1; print; next }
-    in_fm && /^---/ { in_fm=0; if (!found) print field ": " value; print; next }
-    in_fm && $0 ~ "^"field":( |$)" { print field ": " value; found=1; next }
+    in_fm && /^---/ { in_fm=0; if (!found) print field ": " value; print; skip_cont=0; next }
+    in_fm && skip_cont && /^[ \t]+-/ { next }
+    in_fm && skip_cont { skip_cont=0 }
+    in_fm && $0 ~ "^"field":( |$)" { print field ": " value; found=1; skip_cont=1; next }
     { print }
   ' "$file" > "$file.tmp" && mv "$file.tmp" "$file" && count=$((count + 1))
 done
@@ -3024,27 +3026,29 @@ awk -v set_type="$set_type" -v has_type="$has_type" \
     -v set_tags="$set_tags" -v has_tags="$has_tags" '
   NR==1 && /^---/ { in_fm=1; print; next }
   in_fm && /^---/ {
-    in_fm=0
+    in_fm=0; skip_cont=0
     if (has_type && !found_type && set_type != "") print "type: " set_type
     if (has_status && !found_status && set_status != "") print "status: " set_status
     if (has_priority && !found_priority && set_priority != "") print "priority: " set_priority
     if (has_tags && !found_tags && set_tags != "") print "tags: " set_tags
     print; next
   }
+  in_fm && skip_cont && /^[ \t]+-/ { next }
+  in_fm && skip_cont { skip_cont=0 }
   in_fm && /^type:/ {
-    if (has_type) { if (set_type != "") print "type: " set_type; found_type=1; next }
+    if (has_type) { if (set_type != "") print "type: " set_type; found_type=1; skip_cont=1; next }
     else { found_type=1 }
   }
   in_fm && /^status:/ {
-    if (has_status) { if (set_status != "") print "status: " set_status; found_status=1; next }
+    if (has_status) { if (set_status != "") print "status: " set_status; found_status=1; skip_cont=1; next }
     else { found_status=1 }
   }
   in_fm && /^priority:/ {
-    if (has_priority) { if (set_priority != "") print "priority: " set_priority; found_priority=1; next }
+    if (has_priority) { if (set_priority != "") print "priority: " set_priority; found_priority=1; skip_cont=1; next }
     else { found_priority=1 }
   }
   in_fm && /^tags:/ {
-    if (has_tags) { if (set_tags != "") print "tags: " set_tags; found_tags=1; next }
+    if (has_tags) { if (set_tags != "") print "tags: " set_tags; found_tags=1; skip_cont=1; next }
     else { found_tags=1 }
   }
   { print }
@@ -3579,8 +3583,9 @@ else
   else
     next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_status_fwd")
   fi
-  [ -z "$next" ] && next="$cur"
+  [ -z "$next" ] && exit 0
 fi
+[ "$next" = "$cur" ] && exit 0
 "$dir/action.sh" "$dir" status "$next" "$file"
 ENDCS
     chmod +x "$_nn_dir/cyclestatus.sh"
@@ -3679,6 +3684,7 @@ apply_sq() {
   name="${line%%	*}"; args="${line#*	}"
   # Reset filters then apply query preset's key=value pairs
   ft=""; fs=""; fp=""; fname=""; fmatch=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_name"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
+  set -f
   for a in $args; do
     case "$a" in
       type=*) ft="${a#*=}";; status=*) fs="${a#*=}";;
@@ -3686,6 +3692,7 @@ apply_sq() {
       *) echo "bug: apply_sq: unknown arg '${a%%=*}'" >&2 ;;
     esac
   done
+  set +f
   echo "$name" > "$dir/.f_sq"
 }
 ft=$(cat "$dir/.f_type"); fs=$(cat "$dir/.f_status")
@@ -3740,7 +3747,7 @@ case "$action" in
           cur_idx=$(( (cur_idx - 1 + positions) % positions ))
         fi
         if [ "$cur_idx" -eq 0 ]; then
-          ft=""; fs=""; fp=""; fname=""; fmatch=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_name"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
+          ft=""; fs=""; fp=""; fname=""; fmatch=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_name"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
         else
           apply_sq "$cur_idx"
         fi
@@ -3996,6 +4003,7 @@ if [ -f "$dir/.queries" ]; then
     sq_cond='length($1) > 0'
     [ -z "$farchive" ] && sq_cond="$sq_cond$archive_cond"
     _sq_tag_cond=""
+    set -f
     for a in $qargs; do
       _av=$(awk_esc "${a#*=}")
       case "$a" in
@@ -4012,6 +4020,7 @@ if [ -f "$dir/.queries" ]; then
         *) echo "bug: query stats: unknown arg '${a%%=*}'" >&2 ;;
       esac
     done
+    set +f
     [ -n "$_sq_tag_cond" ] && sq_cond="$sq_cond && ($_sq_tag_cond)"
     sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw")
     label=$(printf '%d:%s(%d)' "$n" "$qname" "$sq_count")
@@ -4143,7 +4152,8 @@ pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 mark_s=""; [ "$mark_count" -gt 0 ] && mark_s=" · ${mark_count} marked"
 last_action=""; [ -s "$dir/.last_action" ] && last_action=" · last change: $(cat "$dir/.last_action")"
-printf ' nn · %d/%d%s%s%s ' "$count" "$total" "$pin_s" "$mark_s" "$last_action" > "$dir/.border"
+_border=$(printf ' nn · %d/%d%s%s%s ' "$count" "$total" "$pin_s" "$mark_s" "$last_action")
+printf '%s' "${_border//)/}" > "$dir/.border"
 [ "$fwrap_was" != "$fwrap" ] && printf 'toggle-wrap+'
 # Use the mode-appropriate header so auto-refresh doesn't clobber prefix-mode hints
 _hdr="$dir/.header"
