@@ -64,7 +64,7 @@ nix run github:jqueiroz/notenav/stable
 ### Option 2: One-liner
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/curl/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/stable/curl/install.sh | sh
 ```
 
 This clones to `~/.local/share/notenav` and symlinks `nn` into `~/.local/bin`. Run it again to update (essentially `git pull --ff-only`). Set `NOTENAV_DIR` or `NOTENAV_BIN` to customize paths.
@@ -72,7 +72,7 @@ This clones to `~/.local/share/notenav` and symlinks `nn` into `~/.local/bin`. R
 ### Option 3: Manual installation
 
 ```bash
-git clone https://github.com/jqueiroz/notenav.git ~/.local/share/notenav
+git clone --branch stable https://github.com/jqueiroz/notenav.git ~/.local/share/notenav
 ln -s ~/.local/share/notenav/bin/nn ~/.local/bin/nn
 ```
 

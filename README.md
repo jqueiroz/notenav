@@ -56,7 +56,7 @@ This command uses Nix's imperative interface (`nix profile`). If you prefer a fu
 **Option 2: One-liner**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/curl/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/stable/curl/install.sh | sh
 ```
 
 Requires bash 4+, [fzf](https://github.com/junegunn/fzf) 0.44+, [yq](https://github.com/mikefarah/yq)[^3], and [jq](https://github.com/jqlang/jq) to be installed and available on the PATH. [zk](https://github.com/zk-org/zk) is optional but recommended for faster indexing and link graph.
@@ -65,7 +65,7 @@ See [docs/install.md](docs/install.md) for more details.
 **Option 3: Manual installation**
 
 ```bash
-git clone https://github.com/jqueiroz/notenav.git ~/.local/share/notenav
+git clone --branch stable https://github.com/jqueiroz/notenav.git ~/.local/share/notenav
 ln -s ~/.local/share/notenav/bin/nn ~/.local/bin/nn
 ```
 
