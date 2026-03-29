@@ -3081,6 +3081,14 @@ ENDWATCHER
 #!/usr/bin/env bash
 # Usage: action.sh <dir> <field> <value> <file1> [file2 ...]
 dir="$1"; field="$2"; value="$3"; shift 3
+# Validate value against workflow schema before writing
+if [ -n "$value" ]; then
+  case "$field" in
+    type)     grep -qxF "$value" "$dir/.schema_type_values" || { echo "notenav: refusing to write invalid type: $value" >&2; exit 1; } ;;
+    status)   grep -qxF "$value" "$dir/.schema_status_values" || { echo "notenav: refusing to write invalid status: $value" >&2; exit 1; } ;;
+    priority) grep -qxF "$value" "$dir/.schema_priority_values" || { echo "notenav: refusing to write invalid priority: $value" >&2; exit 1; } ;;
+  esac
+fi
 count=0
 for file in "$@"; do
   [ ! -f "$file" ] && continue
@@ -3213,6 +3221,17 @@ for arg in "$@"; do
     *) nn_assert "action: unknown field '$f'" ;;
   esac
 done
+# Validate values against workflow schema before writing
+_beu_dir=$(dirname "$0")
+if [ "$has_type" = 1 ] && [ -n "$set_type" ]; then
+  grep -qxF "$set_type" "$_beu_dir/.schema_type_values" || { echo "notenav: refusing to write invalid type: $set_type" >&2; exit 1; }
+fi
+if [ "$has_status" = 1 ] && [ -n "$set_status" ]; then
+  grep -qxF "$set_status" "$_beu_dir/.schema_status_values" || { echo "notenav: refusing to write invalid status: $set_status" >&2; exit 1; }
+fi
+if [ "$has_priority" = 1 ] && [ -n "$set_priority" ]; then
+  grep -qxF "$set_priority" "$_beu_dir/.schema_priority_values" || { echo "notenav: refusing to write invalid priority: $set_priority" >&2; exit 1; }
+fi
 awk -v set_type="$set_type" -v has_type="$has_type" \
     -v set_status="$set_status" -v has_status="$has_status" \
     -v set_priority="$set_priority" -v has_priority="$has_priority" \
