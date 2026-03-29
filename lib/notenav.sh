@@ -304,22 +304,22 @@ nn_load_config() {
     workflow_json=$(printf '%s' "$workflow_json" | jq 'del(.queries)' 2>/dev/null)
   fi
 
-  # Strip workflow-scoped keys from user config – queries and status
-  # descriptions belong to the project/workflow, not personal preferences.
-  user_json=$(printf '%s' "$user_json" | jq 'del(.queries, .status.descriptions)' 2>/dev/null)
+  # Whitelist: extract only user-owned keys from user config. Anything not
+  # listed here is silently dropped, so new workflow keys are safe by default.
+  user_json=$(printf '%s' "$user_json" | jq '{
+    default_workflow,
+    defaults,
+    ui,
+    refresh,
+    type: (.type // {} | with_entries(.value = {color: .value.color} | select(.value.color != null))),
+    status: {colors: .status.colors},
+    priority: {colors: .priority.colors}
+  } | del(.. | nulls)' 2>/dev/null)
 
   # Deep merge: base * workflow * user * project_queries
   # Later values win. Project queries applied last so they override user/workflow queries.
-  # meta.schema is pinned to the workflow's value – user config must not override it.
-  local _wf_schema
-  _wf_schema=$(printf '%s' "$workflow_json" | jq -r '.meta.schema // empty' 2>/dev/null)
   NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$base_json" "$workflow_json" "$user_json" "$project_queries" \
     | jq -s '.[0] * .[1] * .[2] * .[3] | del(.queries.inherit)' 2>/dev/null)
-  if [[ -n "$_wf_schema" ]]; then
-    local _pinned
-    _pinned=$(printf '%s' "$NN_CFG_JSON" | jq --argjson v "$_wf_schema" '.meta.schema = $v' 2>/dev/null)
-    [[ -n "$_pinned" ]] && NN_CFG_JSON="$_pinned"
-  fi
 
   if [[ -z "$NN_CFG_JSON" || "$NN_CFG_JSON" == "null" ]]; then
     echo "notenav: config merge failed" >&2
