@@ -150,7 +150,7 @@ args = "tag=backend"
 args = "type=task tag=backend tag=api"    # tasks tagged backend OR api
 ```
 
-**Clearing tags:** tag filters reset when you switch query presets or press `R`/`0` (full reset). In the picker, pressing `enter` with nothing selected clears the tag filter; pressing `esc` cancels and leaves the current filter unchanged.
+**Clearing tags:** tag filters reset when you switch query presets or press `R`/`0` (full reset). In the tag picker, `esc` cancels without changing the filter.
 
 **In bulk edit:** the bulk edit TSV (`b` key) shows tags as a space-separated column. Edit directly – changes are written back to frontmatter as a YAML inline array.
 
