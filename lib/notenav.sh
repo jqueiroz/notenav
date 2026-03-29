@@ -279,6 +279,20 @@ nn_load_config() {
     else
       # Full custom definition – the file IS the workflow (minus queries)
       workflow_json=$(printf '%s' "$project_wf_json" | jq 'del(.queries)' 2>/dev/null)
+      # Catch the common mistake: file has [meta] but no extends and no type definitions
+      if ! printf '%s' "$workflow_json" | jq -e '.type.values // empty | length > 0' &>/dev/null; then
+        local _meta_name
+        _meta_name=$(printf '%s' "$workflow_json" | jq -r '.meta.name // empty' 2>/dev/null)
+        local _lc_name="${_meta_name,,}"
+        if [[ -n "$_lc_name" && -f "$notenav_root/config/workflows/$_lc_name.toml" ]]; then
+          echo "notenav: .nn/workflow.toml has [meta] but no type definitions" >&2
+          echo "notenav: did you mean to add: extends = \"$_lc_name\"" >&2
+        else
+          echo "notenav: .nn/workflow.toml is missing required sections (type, status)" >&2
+          echo "notenav: either add 'extends = \"zenith\"' or define the full workflow" >&2
+        fi
+        return 1
+      fi
     fi
   fi
 
@@ -519,7 +533,7 @@ nn_precompute_workflow() {
   # Note types
   mapfile -t NN_TYPE_VALUES < <(nn_cfg '.type.values[]')
   if [[ ${#NN_TYPE_VALUES[@]} -eq 0 ]]; then
-    echo "notenav: no type values in config (is yq-go installed?)" >&2
+    echo "notenav: no type values in config (check workflow file; is yq-go installed?)" >&2
     return 1
   fi
   NN_TYPE_DEFAULT_COLOR=$(nn_cfg '.type.default_color // "36"')
