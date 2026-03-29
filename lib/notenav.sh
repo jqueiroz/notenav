@@ -2219,16 +2219,14 @@ _nn_init_project() {
     if [[ "$workflow_name" == https://* ]]; then
       # Check if the existing file extends this exact URL – if so, refresh cache
       local _existing_extends=""
-      if ! command -v yq >/dev/null 2>&1; then
-        echo "notenav: yq is required to check existing config for refresh" >&2
-        return 1
-      fi
-      _existing_extends=$(yq -p=toml '.extends' "$wf_file" 2>/dev/null)
-      [[ "$_existing_extends" == "null" ]] && _existing_extends=""
-      if [[ "$_existing_extends" == "$workflow_name" ]]; then
-        _nn_fetch_remote "$workflow_name" || return 1
-        echo "Refreshed cache for $workflow_name"
-        return 0
+      if command -v yq >/dev/null 2>&1; then
+        _existing_extends=$(yq -p=toml '.extends' "$wf_file" 2>/dev/null)
+        [[ "$_existing_extends" == "null" ]] && _existing_extends=""
+        if [[ "$_existing_extends" == "$workflow_name" ]]; then
+          _nn_fetch_remote "$workflow_name" || return 1
+          echo "Refreshed cache for $workflow_name"
+          return 0
+        fi
       fi
     fi
     echo "notenav: project config already exists: $wf_file" >&2
@@ -2274,16 +2272,14 @@ _nn_init_user() {
   if [[ -f "$target" ]]; then
     if [[ "$workflow_arg" == https://* ]]; then
       local _existing_default=""
-      if ! command -v yq >/dev/null 2>&1; then
-        echo "notenav: yq is required to check existing config for refresh" >&2
-        return 1
-      fi
-      _existing_default=$(yq -p=toml '.default_workflow' "$target" 2>/dev/null)
-      [[ "$_existing_default" == "null" ]] && _existing_default=""
-      if [[ "$_existing_default" == "$workflow_arg" ]]; then
-        _nn_fetch_remote "$workflow_arg" || return 1
-        echo "Refreshed cache for $workflow_arg"
-        return 0
+      if command -v yq >/dev/null 2>&1; then
+        _existing_default=$(yq -p=toml '.default_workflow' "$target" 2>/dev/null)
+        [[ "$_existing_default" == "null" ]] && _existing_default=""
+        if [[ "$_existing_default" == "$workflow_arg" ]]; then
+          _nn_fetch_remote "$workflow_arg" || return 1
+          echo "Refreshed cache for $workflow_arg"
+          return 0
+        fi
       fi
     fi
     echo "notenav: user config already exists: $target" >&2
