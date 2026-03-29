@@ -26,6 +26,7 @@ samples/
   workflows/            # Example .nn/workflow.toml files
 .claude/
   commands/           # Claude Code slash commands (best-practices, review-config, etc.)
+CHANGELOG.md        # Release notes (Keep a Changelog format)
 VERSION             # Single source of truth for version string
 flake.nix           # Nix package definition
 CLAUDE.md           # This file

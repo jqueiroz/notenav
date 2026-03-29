@@ -28,14 +28,14 @@ Each release gets a section in `CHANGELOG.md` at the repo root. The notes are wr
    git log --oneline                 # first release (no prior tag)
    ```
 
-2. Group commits under these headings (omit any heading with no entries):
+2. Group commits under `###` sub-headings (omit any with no entries):
 
-   - **Added** – new features and capabilities
-   - **Fixed** – bug fixes
-   - **Changed** – behaviour changes, refactors, improvements
-   - **Removed** – removed features or deprecated code
+   - `### Added`
+   - `### Fixed`
+   - `### Changed`
+   - `### Removed`
 
-3. Write each entry as a concise, user-facing bullet. Merge closely related commits into a single bullet. Drop commits that are invisible to users (typo fixes in comments, internal refactors with no behaviour change, CI tweaks).
+3. Write each entry as a concise, user-facing bullet. Merge closely related commits into a single bullet. Drop commits that are invisible to users (typo fixes in comments, internal refactors with no behavior change, CI tweaks).
 
 4. Add the new section at the top of `CHANGELOG.md` under a `## [X.Y.Z] – YYYY-MM-DD` heading.
 
