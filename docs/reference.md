@@ -137,7 +137,7 @@ nn init --user gtd                # user config, default_workflow = gtd
 
 ### `nn doctor` – Diagnostic checks
 
-Validates setup and reports problems. Runs before config loading, so it works even when configuration is broken.
+Validates setup and reports problems. Does not require a valid config, so it works even when configuration is broken.
 
 ```bash
 nn doctor
