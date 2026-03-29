@@ -36,6 +36,15 @@ for dep in bash fzf gawk sort sed git yq jq; do
   fi
 done
 
+# yq must be yq-go (mikefarah), not yq-python (kislyuk)
+if check_dep yq; then
+  if ! yq -p=toml -o=json '.' /dev/null >/dev/null 2>&1; then
+    warn "yq found but does not appear to be yq-go (github.com/mikefarah/yq)."
+    warn "notenav requires yq-go, not the Python yq. Install: https://github.com/mikefarah/yq#install"
+    missing="$missing yq-go"
+  fi
+fi
+
 # bat or batcat (optional – default previewer; alternatives: glow, mdcat)
 if ! check_dep bat && ! check_dep batcat; then
   warn "bat not found (optional – default previewer; alternatives: glow, mdcat)"

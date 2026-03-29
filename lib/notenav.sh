@@ -741,7 +741,7 @@ nn_precompute_workflow() {
     "{ $NN_AWK_COLOR_PINNED }" \
     "{ $NN_AWK_COLOR_MARKED }" \
     "$NN_AWK_COLOR_STATS"; do
-    if ! printf '' | awk -F'\t' "$_awk_check" 2>/dev/null; then
+    if ! printf '' | "$(_nn_resolve_gawk)" -F'\t' "$_awk_check" 2>/dev/null; then
       echo "notenav: generated AWK program has syntax errors (check config values for special characters)" >&2
       return 1
     fi
@@ -1202,7 +1202,13 @@ nn_doctor() {
       _dw=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null | jq -r '.default_workflow // empty' 2>/dev/null)
       if [[ -n "$_dw" ]]; then
         local _dw_found=false
-        if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_dw.toml" ]]; then
+        if [[ "$_dw" == https://* ]]; then
+          local _dw_cache
+          _dw_cache=$(_nn_url_cache_path "$_dw")
+          if [[ -f "$_dw_cache" ]]; then
+            _dw_found=true
+          fi
+        elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_dw.toml" ]]; then
           _dw_found=true
         elif [[ -f "$notenav_root/config/workflows/$_dw.toml" ]]; then
           _dw_found=true
@@ -1289,10 +1295,10 @@ nn_doctor() {
       local _cache_path
       _cache_path=$(_nn_url_cache_path "$_ts_url")
       if [[ -f "$_cache_path" ]]; then
-        # date -r (GNU coreutils + BSD/macOS), then stat -c as fallback
+        # GNU stat -c (Linux), then BSD stat -f (macOS) as fallback
         local _fetch_date
-        _fetch_date=$(date -r "$_cache_path" '+%Y-%m-%d' 2>/dev/null)
-        [[ -z "$_fetch_date" ]] && _fetch_date=$(stat -c '%y' "$_cache_path" 2>/dev/null | cut -d' ' -f1)
+        _fetch_date=$(stat -c '%y' "$_cache_path" 2>/dev/null | cut -d' ' -f1)
+        [[ -z "$_fetch_date" ]] && _fetch_date=$(stat -f '%Sm' -t '%Y-%m-%d' "$_cache_path" 2>/dev/null)
         _pass "$_ts_url ${_dim}(cached${_fetch_date:+ $_fetch_date})${_reset}"
       else
         _warn "$_ts_url ${_dim}(not cached)${_reset}"
@@ -3123,7 +3129,7 @@ if [ -n "$value" ]; then
     priority) grep -qxF "$value" "$dir/.schema_priority_values" || { echo "notenav: refusing to write invalid priority: $value" >&2; exit 1; } ;;
   esac
 fi
-count=0
+count=0; first_ok=""
 for file in "$@"; do
   [ ! -f "$file" ] && continue
   # Update field within YAML frontmatter (between first --- and second ---)
@@ -3135,12 +3141,13 @@ for file in "$@"; do
     in_fm && $0 ~ "^"field":( |$)" { print field ": " value; found=1; skip_cont=1; next }
     { print }
   ' "$file" > "$file.tmp" && mv "$file.tmp" "$file" && count=$((count + 1))
+  [ -z "$first_ok" ] && first_ok="$file"
 done
 # Pin acted-on files so they stay visible after filter (accumulative + dedup)
-{ cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$@"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
+{ cat "$dir/.pinned" 2>/dev/null; [ $# -gt 0 ] && printf '%s\n' "$@"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
 mv "$dir/.pinned.tmp" "$dir/.pinned"
 rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
-_la_title=$(p="$1" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+_la_title=$(p="${first_ok:-}" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
 _la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
 if [ "$count" -gt 1 ]; then _la_title="$_la_title +$((count - 1)) more"; fi
 printf '%s → %s · %s' "$field" "$value" "$_la_title" > "$dir/.last_action"
@@ -3940,6 +3947,7 @@ apply_sq() {
   line=$(sed -n "${num}p" "$dir/.queries")
   [ -z "$line" ] && return
   name="${line%%	*}"; args="${line#*	}"
+  [[ "$args" == "$name" ]] && args=""  # no tab found – name-only preset
   # Reset filters then apply query preset's key=value pairs
   ft=""; fs=""; fp=""; fname=""; fmatch=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_name"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
   set -f
