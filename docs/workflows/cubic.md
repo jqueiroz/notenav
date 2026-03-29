@@ -111,7 +111,7 @@ Cubic ships with five built-in query presets:
 | rituals | `type=ritual` | All rituals – your recurring practices |
 | all-active | `status=active` | Everything currently in progress |
 
-These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#queries) for details.
+These can be overridden or cleared in project config. See [Configuration](../configuration.md#queries) for details.
 
 ## When to Use Cubic
 

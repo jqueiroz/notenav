@@ -114,7 +114,7 @@ Zettelkasten ships with three built-in query presets:
 | fleeting | `type=fleeting` | Quick captures to process into literature or permanent notes |
 | review | `status=review` | Notes that need another look for clarity and linking |
 
-These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#queries) for details.
+These can be overridden or cleared in project config. See [Configuration](../configuration.md#queries) for details.
 
 ## When to Use Zettelkasten
 

@@ -124,7 +124,7 @@ GTD ships with four built-in query presets aligned to the core GTD lists:
 | waiting | `status=waiting` | Delegated items or things blocked on others |
 | someday | `status=someday` | Parked ideas – review during weekly review |
 
-These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#queries) for details.
+These can be overridden or cleared in project config. See [Configuration](../configuration.md#queries) for details.
 
 ## When to Use GTD
 

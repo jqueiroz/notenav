@@ -110,7 +110,7 @@ default_color = "33"           # yellow
 3 = "4"
 
 # --- Query presets ---
-# Built-in filtered views. Project/user configs can override or clear these.
+# Built-in filtered views. Project config can override or clear these.
 
 [queries.inbox]
 order = 10

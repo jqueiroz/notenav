@@ -1,6 +1,6 @@
 # notenav base configuration
 # Ships with notenav; user config overlays on top for preferences.
-# User config:    ~/.config/notenav/config.toml (preferences + personal queries)
+# User config:    ~/.config/notenav/config.toml (preferences)
 # Project:        .nn/workflow.toml (workflow definition + project queries)
 
 default_workflow = "zenith"

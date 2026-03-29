@@ -103,7 +103,7 @@ Zenith ships with five built-in query presets – filtered views that appear in 
 | p1-references | `type=reference priority=1` | High-priority references that need attention |
 | all-active | `status=active` | Everything currently in progress |
 
-These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#queries) for details.
+These can be overridden or cleared in project config. See [Configuration](../configuration.md#queries) for details.
 
 ## When to Use Zenith
 

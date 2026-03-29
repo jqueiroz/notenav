@@ -95,7 +95,7 @@ ADO ships with three built-in query presets:
 | p1-features | `type=feature priority=1` | Critical features that need attention |
 | new-items | `status=new` | Recently created items awaiting triage |
 
-These can be overridden or cleared in project/user config. See [Configuration](../configuration.md#queries) for details.
+These can be overridden or cleared in project config. See [Configuration](../configuration.md#queries) for details.
 
 ## When to Use ADO
 

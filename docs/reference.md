@@ -37,7 +37,7 @@ Notes are scoped by working directory: at the notebook root you see everything, 
 
 ### `nn <query-name>` – Named query
 
-Runs a saved query preset by name. Query presets are defined in workflow, user, or project config under `[queries]`.
+Runs a saved query preset by name. Query presets are defined in workflow or project config under `[queries]`.
 
 ```bash
 nn inbox              # run the "inbox" preset

@@ -86,7 +86,7 @@ Out of the box, `nn` uses **Zenith** – a simple workflow built around three no
 
 **Inbox and triage:** borrowing from [Getting Things Done](https://en.wikipedia.org/wiki/Getting_Things_Done): capture first, organize later. When you create a note, don't worry about priority – just get it down. Notes without a priority automatically appear in the **inbox** query preset. During triage, review the inbox and assign priorities; this moves notes into your working views, where they're visible alongside everything else you've already prioritized. The inbox empties as you triage, giving you a clear signal of what still needs attention.
 
-**Built-in query presets:** Zenith ships with `inbox`, `p1-tasks`, `p1-ideas`, `p1-references`, and `all-active`. You can add your own presets in project or user config.
+**Built-in query presets:** Zenith ships with `inbox`, `p1-tasks`, `p1-ideas`, `p1-references`, and `all-active`. You can add your own presets in project config.
 
 **Frontmatter:** notes are plain markdown with YAML frontmatter:
 
