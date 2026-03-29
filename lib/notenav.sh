@@ -356,6 +356,8 @@ nn_cfg() {
 # Escape a string for safe interpolation into an AWK double-quoted literal.
 # Handles backslash and double-quote (the two characters that break AWK strings).
 _nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+# Escape a string for safe interpolation into a jq double-quoted path segment.
+_nn_jq_esc() { local s="${1//\\/\\\\}"; printf '%s' "${s//\"/\\\"}"; }
 _nn_in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 
@@ -555,9 +557,10 @@ nn_precompute_workflow() {
   NN_TYPE_DEFAULT_COLOR=$(nn_cfg '.type.default_color // "36"')
   declare -gA NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS
   for _v in "${NN_TYPE_VALUES[@]}"; do
-    NN_TYPE_ICONS[$_v]=$(nn_cfg ".type.\"$_v\".icon // \"*\"")
-    NN_TYPE_COLORS[$_v]=$(nn_cfg ".type.\"$_v\".color // \"$NN_TYPE_DEFAULT_COLOR\"")
-    NN_TYPE_DESCS[$_v]=$(nn_cfg ".type.\"$_v\".description // \"\"")
+    local _jv; _jv=$(_nn_jq_esc "$_v")
+    NN_TYPE_ICONS[$_v]=$(nn_cfg ".type.\"$_jv\".icon // \"*\"")
+    NN_TYPE_COLORS[$_v]=$(nn_cfg ".type.\"$_jv\".color // \"$NN_TYPE_DEFAULT_COLOR\"")
+    NN_TYPE_DESCS[$_v]=$(nn_cfg ".type.\"$_jv\".description // \"\"")
   done
 
   # Statuses
@@ -567,8 +570,9 @@ nn_precompute_workflow() {
   NN_STATUS_DEFAULT_COLOR=$(nn_cfg '.status.default_color // "90"')
   declare -gA NN_STATUS_COLORS NN_STATUS_DESCS
   for _v in "${NN_STATUS_VALUES[@]}"; do
-    NN_STATUS_COLORS[$_v]=$(nn_cfg ".status.colors.\"$_v\" // \"$NN_STATUS_DEFAULT_COLOR\"")
-    NN_STATUS_DESCS[$_v]=$(nn_cfg ".status.descriptions.\"$_v\" // \"\"")
+    local _jv; _jv=$(_nn_jq_esc "$_v")
+    NN_STATUS_COLORS[$_v]=$(nn_cfg ".status.colors.\"$_jv\" // \"$NN_STATUS_DEFAULT_COLOR\"")
+    NN_STATUS_DESCS[$_v]=$(nn_cfg ".status.descriptions.\"$_jv\" // \"\"")
   done
 
   # Status initial (starting state for notes without a status)
@@ -595,9 +599,10 @@ nn_precompute_workflow() {
   # Status lifecycle
   declare -gA NN_STATUS_FWD NN_STATUS_REV
   for _v in "${NN_STATUS_VALUES[@]}"; do
-    local _fwd; _fwd=$(nn_cfg ".status.lifecycle.forward.\"$_v\" // empty")
+    local _jv; _jv=$(_nn_jq_esc "$_v")
+    local _fwd; _fwd=$(nn_cfg ".status.lifecycle.forward.\"$_jv\" // empty")
     [[ -n "$_fwd" ]] && NN_STATUS_FWD[$_v]=$_fwd
-    local _rev; _rev=$(nn_cfg ".status.lifecycle.reverse.\"$_v\" // empty")
+    local _rev; _rev=$(nn_cfg ".status.lifecycle.reverse.\"$_jv\" // empty")
     [[ -n "$_rev" ]] && NN_STATUS_REV[$_v]=$_rev
   done
 
@@ -625,14 +630,16 @@ nn_precompute_workflow() {
     fi
 
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
-      NN_PRIORITY_COLORS[$_v]=$(nn_cfg ".priority.colors.\"$_v\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")
-      local _label; _label=$(nn_cfg ".priority.labels.\"$_v\" // empty")
+      local _jv; _jv=$(_nn_jq_esc "$_v")
+      NN_PRIORITY_COLORS[$_v]=$(nn_cfg ".priority.colors.\"$_jv\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")
+      local _label; _label=$(nn_cfg ".priority.labels.\"$_jv\" // empty")
       NN_PRIORITY_LABELS[$_v]="${_label:-P$_v}"
     done
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
-      local _up; _up=$(nn_cfg ".priority.lifecycle.up.\"$_v\" // empty")
+      local _jv; _jv=$(_nn_jq_esc "$_v")
+      local _up; _up=$(nn_cfg ".priority.lifecycle.up.\"$_jv\" // empty")
       [[ -n "$_up" ]] && NN_PRIORITY_UP[$_v]=$_up
-      local _down; _down=$(nn_cfg ".priority.lifecycle.down.\"$_v\" // empty")
+      local _down; _down=$(nn_cfg ".priority.lifecycle.down.\"$_jv\" // empty")
       [[ -n "$_down" ]] && NN_PRIORITY_DOWN[$_v]=$_down
     done
   else
@@ -1270,9 +1277,9 @@ nn_doctor() {
     _typ_default_color=$(nn_cfg '.type.default_color // empty')
     local _ev
     for _ev in "${_typ_values[@]}"; do
-      local _icon _color
-      _icon=$(nn_cfg ".type.\"$_ev\".icon // empty")
-      _color=$(nn_cfg ".type.\"$_ev\".color // empty")
+      local _icon _color _jev; _jev=$(_nn_jq_esc "$_ev")
+      _icon=$(nn_cfg ".type.\"$_jev\".icon // empty")
+      _color=$(nn_cfg ".type.\"$_jev\".color // empty")
       if [[ -z "$_icon" ]]; then
         _typ_issues+="$_ev missing icon; "
         _typ_ok=false
@@ -1297,8 +1304,8 @@ nn_doctor() {
       _warn "type.default_color '$_typ_default_color' is not a valid ANSI code"
     fi
     for _ev in "${_typ_values[@]}"; do
-      local _color
-      _color=$(nn_cfg ".type.\"$_ev\".color // empty")
+      local _color _jev; _jev=$(_nn_jq_esc "$_ev")
+      _color=$(nn_cfg ".type.\"$_jev\".color // empty")
       if [[ -n "$_color" ]] && ! _valid_color "$_color"; then
         _warn "type.$_ev.color '$_color' is not a valid ANSI code"
       fi
@@ -1332,7 +1339,7 @@ nn_doctor() {
         if ! _in_array "$_esk" $_typ_known_subkeys; then
           _warn "type.$_ev: unrecognized key '$_esk'"
         fi
-      done < <(nn_cfg ".type.\"$_ev\" // {} | keys[]" 2>/dev/null)
+      done < <(nn_cfg ".type.\"$(_nn_jq_esc "$_ev")\" // {} | keys[]" 2>/dev/null)
     done
     # Warn on type-level keys that aren't in values or known top-level keys
     local _typ_known_toplevel="values default_color display_order"
@@ -1382,8 +1389,8 @@ nn_doctor() {
     _sta_default_color=$(nn_cfg '.status.default_color // empty')
     local _stv
     for _stv in "${_sta_values[@]}"; do
-      local _scolor
-      _scolor=$(nn_cfg ".status.colors.\"$_stv\" // empty")
+      local _scolor _jstv; _jstv=$(_nn_jq_esc "$_stv")
+      _scolor=$(nn_cfg ".status.colors.\"$_jstv\" // empty")
       if [[ -z "$_scolor" && -z "$_sta_default_color" ]]; then
         _sta_color_issues+="$_stv missing color; "
         _sta_ok=false
@@ -1466,8 +1473,8 @@ nn_doctor() {
       _pass "Statuses: $_sta_count values, lifecycle valid"
       # Show descriptions when defined (optional per-status)
       for _stv in "${_sta_values[@]}"; do
-        local _sdesc
-        _sdesc=$(nn_cfg ".status.descriptions.\"$_stv\" // empty")
+        local _sdesc _jstv; _jstv=$(_nn_jq_esc "$_stv")
+        _sdesc=$(nn_cfg ".status.descriptions.\"$_jstv\" // empty")
         [[ -n "$_sdesc" ]] && _info "    $_stv ${_dim}– $_sdesc${_reset}"
       done
     elif [[ $_sta_count -eq 0 ]]; then
@@ -1481,8 +1488,8 @@ nn_doctor() {
       _warn "status.default_color '$_sta_default_color' is not a valid ANSI code"
     fi
     for _stv in "${_sta_values[@]}"; do
-      local _scolor
-      _scolor=$(nn_cfg ".status.colors.\"$_stv\" // empty")
+      local _scolor _jstv; _jstv=$(_nn_jq_esc "$_stv")
+      _scolor=$(nn_cfg ".status.colors.\"$_jstv\" // empty")
       if [[ -n "$_scolor" ]] && ! _valid_color "$_scolor"; then
         _warn "status.colors.$_stv '$_scolor' is not a valid ANSI code"
       fi
@@ -1555,8 +1562,8 @@ nn_doctor() {
       _pri_default_color=$(nn_cfg '.priority.default_color // empty')
       local _pcv
       for _pcv in "${_pri_values[@]}"; do
-        local _pcolor
-        _pcolor=$(nn_cfg ".priority.colors.\"$_pcv\" // empty")
+        local _pcolor _jpcv; _jpcv=$(_nn_jq_esc "$_pcv")
+        _pcolor=$(nn_cfg ".priority.colors.\"$_jpcv\" // empty")
         if [[ -z "$_pcolor" && -z "$_pri_default_color" ]]; then
           _pri_color_issues+="$_pcv missing color; "
           _pri_ok=false
@@ -1626,8 +1633,8 @@ nn_doctor() {
         _warn "priority.default_color '$_pri_default_color' is not a valid ANSI code"
       fi
       for _pcv in "${_pri_values[@]}"; do
-        local _pcolor
-        _pcolor=$(nn_cfg ".priority.colors.\"$_pcv\" // empty")
+        local _pcolor _jpcv; _jpcv=$(_nn_jq_esc "$_pcv")
+        _pcolor=$(nn_cfg ".priority.colors.\"$_jpcv\" // empty")
         if [[ -n "$_pcolor" ]] && ! _valid_color "$_pcolor"; then
           _warn "priority.colors.$_pcv '$_pcolor' is not a valid ANSI code"
         fi
@@ -3082,7 +3089,7 @@ shown=0
 for f in "$@"; do
   [ ! -f "$f" ] && continue
   if [ $shown -lt 2 ]; then
-    t=$(awk -F'\t' -v p="$f" '$6 == p {print $5; exit}' "$dir/.raw")
+    t=$(p="$f" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
     [ -z "$t" ] && t=$(basename "$f" .md)
     [ $shown -eq 0 ] && ctx="$t" || ctx="$ctx, $t"
   fi
@@ -3092,8 +3099,8 @@ done
 # Determine current value from first selected file for pre-selection
 cur_pos=""
 if [ $# -gt 0 ] && [ -f "$1" ]; then
-  cur_val=$(awk -F'\t' -v p="$1" -v f="$field" \
-    'f=="type"&&$6==p{print $1;exit} f=="status"&&$6==p{print $2;exit} f=="priority"&&$6==p{print $3;exit}' "$dir/.raw")
+  cur_val=$(p="$1" f="$field" awk -F'\t' \
+    'ENVIRON["f"]=="type"&&$6==ENVIRON["p"]{print $1;exit} ENVIRON["f"]=="status"&&$6==ENVIRON["p"]{print $2;exit} ENVIRON["f"]=="priority"&&$6==ENVIRON["p"]{print $3;exit}' "$dir/.raw")
   if [ -n "$cur_val" ]; then
     case "$field" in
       type)     cur_pos=$(awk -F'\t' -v v="$cur_val" '$1==v{print NR;exit}' "$dir/.schema_types") ;;
@@ -3226,7 +3233,7 @@ while IFS= read -r new_line || [ -n "$new_line" ]; do
   path=$(printf '%s' "$new_line" | awk -F'\t' '{print $6}')
   [ -z "$path" ] && continue
   # Find matching original line by path
-  orig_line=$(awk -F'\t' -v p="$path" '$6 == p { print; exit }' "$orig")
+  orig_line=$(p="$path" awk -F'\t' '$6 == ENVIRON["p"] { print; exit }' "$orig")
   [ -z "$orig_line" ] && continue
   # Compare fields
   new_type=$(printf '%s' "$new_line" | awk -F'\t' '{print $1}')
@@ -3294,7 +3301,7 @@ printf '# type\tstatus\tpriority\ttags\ttitle\tpath\n' >> "$tmpfile"
 # Read each path from .current and look up metadata in .raw
 while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   [ -z "$fpath" ] && continue
-  awk -F'\t' -v p="$fpath" '$6 == p { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6; exit }' "$dir/.raw" >> "$tmpfile"
+  p="$fpath" awk -F'\t' '$6 == ENVIRON["p"] { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6; exit }' "$dir/.raw" >> "$tmpfile"
 done < <(awk '{a[NR]=$0} END{for(i=NR;i>0;i--)print a[i]}' "$dir/.current")
 # Footer with valid values from workflow
 printf '\n# type: %s\n' "$(paste -sd', ' "$dir/.schema_type_values")" >> "$tmpfile"
@@ -3731,7 +3738,7 @@ ENDNN
 #!/usr/bin/env bash
 dir="$1"; file="$2"; direction="${3:-fwd}"
 [ ! -f "$file" ] && exit 0
-cur=$(awk -F'\t' -v p="$file" '$6 == p {print $2; exit}' "$dir/.raw")
+cur=$(p="$file" awk -F'\t' '$6 == ENVIRON["p"] {print $2; exit}' "$dir/.raw")
 if [ -z "$cur" ]; then
   # No status set – assign the workflow's initial status
   next=$(cat "$dir/.schema_status_initial" 2>/dev/null)
@@ -3756,7 +3763,7 @@ nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"; file="$2"; direction="$3"
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
-cur=$(awk -F'\t' -v p="$file" '$6 == p {print $3; exit}' "$dir/.raw")
+cur=$(p="$file" awk -F'\t' '$6 == ENVIRON["p"] {print $3; exit}' "$dir/.raw")
 if [ -z "$cur" ]; then
   # No priority set – enter at lowest priority
   next=$(tail -1 "$dir/.schema_priority_values")
@@ -3778,7 +3785,7 @@ ENDBP
 #!/usr/bin/env bash
 dir="$1"; path="$2"
 n=""
-[ -n "$path" ] && n=$(awk -F'\t' -v p="$path" '$1==p{print NR;exit}' "$dir/.current")
+[ -n "$path" ] && n=$(p="$path" awk -F'\t' '$1==ENVIRON["p"]{print NR;exit}' "$dir/.current")
 border=$(cat "$dir/.border" 2>/dev/null || echo " nn ")
 printf 'reload(cat %s/.current)+pos(%s)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "${n:-1}" "$dir" "$border"
 ENDRA
