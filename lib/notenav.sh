@@ -2617,7 +2617,7 @@ EOF
   done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.order // 100)\t\(.value.args // "")"')
 
   # Validate query preset args against known workflow values
-  local _vq_name _vq_arg _vq_key _vq_val
+  local _vq_name _vq_arg _vq_key _vq_val _vq_err=0
   for _vq_name in "${!saved_queries[@]}"; do
     set -f
     for _vq_arg in ${saved_queries[$_vq_name]}; do
@@ -2626,25 +2626,26 @@ EOF
         type)
           _nn_in_array "$_vq_val" "${NN_TYPE_VALUES[@]}" || {
             echo "notenav: query '$_vq_name': unknown type '$_vq_val'" >&2
-            echo "notenav: valid types: ${NN_TYPE_VALUES[*]}" >&2; return 1; } ;;
+            echo "notenav: valid types: ${NN_TYPE_VALUES[*]}" >&2; _vq_err=1; break; } ;;
         status)
           _nn_in_array "$_vq_val" "${NN_STATUS_VALUES[@]}" || {
             echo "notenav: query '$_vq_name': unknown status '$_vq_val'" >&2
-            echo "notenav: valid statuses: ${NN_STATUS_VALUES[*]}" >&2; return 1; } ;;
+            echo "notenav: valid statuses: ${NN_STATUS_VALUES[*]}" >&2; _vq_err=1; break; } ;;
         priority)
           if [[ "$_vq_val" != "none" ]]; then
             if [[ "$NN_PRIORITY_ENABLED" == "false" ]]; then
-              echo "notenav: query '$_vq_name' filters by priority but priority is disabled" >&2; return 1; fi
+              echo "notenav: query '$_vq_name' filters by priority but priority is disabled" >&2; _vq_err=1; break; fi
             _nn_in_array "$_vq_val" "${NN_PRIORITY_VALUES[@]}" || {
               echo "notenav: query '$_vq_name': unknown priority '$_vq_val'" >&2
-              echo "notenav: valid priorities: ${NN_PRIORITY_VALUES[*]}" >&2; return 1; }
+              echo "notenav: valid priorities: ${NN_PRIORITY_VALUES[*]}" >&2; _vq_err=1; break; }
           fi ;;
         tag) ;;
         *) echo "notenav: query '$_vq_name': unknown filter key '$_vq_key'" >&2
-           echo "notenav: valid keys: type, status, priority, tag" >&2; return 1 ;;
+           echo "notenav: valid keys: type, status, priority, tag" >&2; _vq_err=1; break ;;
       esac
     done
     set +f
+    [[ $_vq_err -ne 0 ]] && return 1
   done
 
   # Format and color from config
