@@ -1119,18 +1119,22 @@ nn_doctor() {
       fi
     fi
 
-    # Unrecognized top-level keys
-    local _known_keys="meta type status priority queries defaults ui refresh extends default_workflow"
-    local _check_files=()
-    [[ -f "$user_cfg" ]] && _check_files+=("$user_cfg")
-    [[ -n "$project_wf_file" && -f "$project_wf_file" ]] && _check_files+=("$project_wf_file")
-    local _cfg_file
-    for _cfg_file in "${_check_files[@]}"; do
+    # Unrecognized top-level keys (scoped: extends is workflow-only, default_workflow is user-only)
+    local _known_keys_user="meta type status priority queries defaults ui refresh default_workflow"
+    local _known_keys_workflow="meta type status priority queries defaults ui refresh extends"
+    local _cfg_file _cfg_known
+    for _cfg_file in "$user_cfg" "$project_wf_file"; do
+      [[ -z "$_cfg_file" || ! -f "$_cfg_file" ]] && continue
+      if [[ "$_cfg_file" == "$user_cfg" ]]; then
+        _cfg_known="$_known_keys_user"
+      else
+        _cfg_known="$_known_keys_workflow"
+      fi
       local _unknown=""
       while IFS= read -r _key; do
         [[ -z "$_key" ]] && continue
         # shellcheck disable=SC2086  # intentional word-splitting of known-key list
-        if ! _in_array "$_key" $_known_keys; then
+        if ! _in_array "$_key" $_cfg_known; then
           [[ -n "$_unknown" ]] && _unknown+=", "
           _unknown+="$_key"
         fi
@@ -1326,8 +1330,7 @@ nn_doctor() {
     local _sta_init_issues="" _sta_initial
     _sta_initial=$(nn_cfg '.status.initial // empty')
     if [[ -z "$_sta_initial" && $_sta_count -gt 0 ]]; then
-      _sta_init_issues+="initial not set (new notes will have no status); "
-      _sta_ok=false
+      _warn "status.initial not set (new notes will have no status)"
     elif [[ -n "$_sta_initial" ]] && ! _in_array "$_sta_initial" "${_sta_values[@]}"; then
       _sta_init_issues+="initial '$_sta_initial' not in values; "
       _sta_ok=false
@@ -1363,9 +1366,10 @@ nn_doctor() {
       fi
     done
 
-    # Check initial is not in archive
+    # Check initial is not in archive (runtime rejects this with a hard error)
     if [[ -n "$_sta_initial" ]] && _in_array "$_sta_initial" "${_arc_values[@]}"; then
-      _warn "status.initial '$_sta_initial' is in status.archive (new notes would be hidden)"
+      _sta_init_issues+="initial '$_sta_initial' is in archive (new notes would be hidden); "
+      _sta_ok=false
     fi
 
     # Check lifecycle transitions reference valid values (both source keys and targets)
