@@ -326,7 +326,7 @@ nn init --user https://gist.githubusercontent.com/user/abc123/raw/workflow.toml
 
 On first use, you'll be prompted to trust the URL. Trusted URLs are stored in `~/.config/notenav/trusted-sources` (one per line). The downloaded file is validated as TOML and cached under `~/.cache/notenav/workflows/`.
 
-To refresh the project cache, run `nn init <url>` again – if `.nn/workflow.toml` already extends the same URL, the cache is refreshed without overwriting your project config.
+To refresh the cache, run `nn init <url>` again – if the existing config already references the same URL (`extends` in project mode, `default_workflow` in user mode), the cache is refreshed without touching the config file.
 
 **Paths:**
 

@@ -156,7 +156,7 @@ nn init gtd             # .nn/workflow.toml extending gtd
 nn init https://...     # fetch remote workflow, cache it, extend it
 ```
 
-If `.nn/workflow.toml` already exists, `nn init` refuses to overwrite it – edit the file directly or remove it first. As a special case, if the file already extends the same remote URL, `nn init <url>` refreshes the local cache without touching the config.
+If the config file already exists, `nn init` refuses to overwrite it – edit the file directly or remove it first. As a special case, if the existing config already references the same remote URL, `nn init <url>` (or `nn init --user <url>`) refreshes the local cache without touching the config.
 
 ### `nn init --user`
 

@@ -1839,8 +1839,6 @@ nn_doctor() {
     if [[ -n "$_rf_max" ]]; then
       if ! [[ "$_rf_max" =~ ^[0-9]+$ ]]; then
         _warn "refresh.max_files '$_rf_max' is not a valid integer"
-      elif [[ "$_rf_max" -eq 0 ]]; then
-        _warn "refresh.max_files is 0 (no files would be scanned)"
       fi
     fi
     # Check for unrecognized keys in [refresh]
@@ -2008,6 +2006,7 @@ _nn_url_is_trusted() {
   [[ -f "$ts_file" ]] || return 1
   local line
   while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
     [[ "$line" == "$url" ]] && return 0
   done < "$ts_file"
   return 1
@@ -2047,6 +2046,12 @@ EOF
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --user) user_mode=true; shift ;;
+      --*)
+        echo "notenav: unknown flag: $1" >&2
+        return 2 ;;
+      http://*)
+        echo "notenav: only https:// URLs are supported" >&2
+        return 2 ;;
       *)
         if [[ -n "$workflow_arg" ]]; then
           echo "notenav: unexpected argument: $1" >&2
@@ -2137,7 +2142,22 @@ _nn_init_user() {
   local notenav_root="$1" workflow_arg="$2"
   local target="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml"
 
+  # If file exists, check for URL refresh case (mirrors _nn_init_project)
   if [[ -f "$target" ]]; then
+    if [[ "$workflow_arg" == https://* ]]; then
+      local _existing_default=""
+      if ! command -v yq >/dev/null 2>&1; then
+        echo "notenav: yq is required to check existing config for refresh" >&2
+        return 1
+      fi
+      _existing_default=$(yq -p=toml '.default_workflow' "$target" 2>/dev/null)
+      [[ "$_existing_default" == "null" ]] && _existing_default=""
+      if [[ "$_existing_default" == "$workflow_arg" ]]; then
+        _nn_fetch_remote "$workflow_arg" || return 1
+        echo "Refreshed cache for $workflow_arg"
+        return 0
+      fi
+    fi
     echo "notenav: user config already exists: $target" >&2
     echo "notenav: edit it directly, or remove it and re-run nn init" >&2
     return 1
@@ -2263,7 +2283,7 @@ _nn_fetch_remote() {
   local tmpfile
   tmpfile=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
   trap 'rm -f "$tmpfile" "${_cache_tmp:-}"' RETURN
-  if ! curl -fsSL "$url" -o "$tmpfile"; then
+  if ! curl -fsSL --connect-timeout 10 --max-time 30 "$url" -o "$tmpfile"; then
     echo "notenav: failed to download $url" >&2
     return 1
   fi
@@ -3637,7 +3657,8 @@ ENDBP
     cat > "$_nn_dir/reload_at.sh" << 'ENDRA'
 #!/usr/bin/env bash
 dir="$1"; path="$2"
-n=$(awk -F'\t' -v p="$path" '$1==p{print NR;exit}' "$dir/.current")
+n=""
+[ -n "$path" ] && n=$(awk -F'\t' -v p="$path" '$1==p{print NR;exit}' "$dir/.current")
 border=$(cat "$dir/.border" 2>/dev/null || echo " nn ")
 printf 'reload(cat %s/.current)+pos(%s)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "${n:-1}" "$dir" "$border"
 ENDRA
