@@ -53,6 +53,18 @@ ln -s ~/.local/share/notenav/bin/nn ~/.local/bin/nn
 
 Same dependencies as the one-liner. See [docs/install.md](docs/install.md) for details.
 
+## Try it out
+
+Want to see `nn` in action before setting up your own notebook? Clone the [demo notebook](https://github.com/jqueiroz/notenav-demo) – 27 notes tracking the crew operations of the starship *Heart of Gold*:
+
+```bash
+git clone https://github.com/jqueiroz/notenav-demo
+cd notenav-demo
+nn
+```
+
+Cycle filters (`t`, `s`, `p`), try query presets (`tab`/`shift-tab`), search by typing, and advance statuses with `a` – everything works out of the box.
+
 ## Getting started: the Zenith workflow
 
 Out of the box, `nn` uses **Zenith** – a simple workflow built around three note types, four statuses, and four priority levels. This is enough structure to manage a project without getting in the way.

@@ -87,6 +87,14 @@ nn --version
 nn doctor        # check dependencies, config, and notebook
 ```
 
+If you'd like to explore the TUI before setting up your own notebook, try the [demo notebook](https://github.com/jqueiroz/notenav-demo):
+
+```bash
+git clone https://github.com/jqueiroz/notenav-demo
+cd notenav-demo
+nn
+```
+
 notenav works out of the box with the default [Zenith](workflows/zenith.md) workflow. To customize, use `nn init` to scaffold config files:
 
 ```bash

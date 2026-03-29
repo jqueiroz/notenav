@@ -2,6 +2,16 @@
 
 [Back to README](../README.md)
 
+## How do I try notenav without my own notes?
+
+Clone the [demo notebook](https://github.com/jqueiroz/notenav-demo) – a pre-configured notebook with sample notes that exercises every filter, query preset, and action:
+
+```bash
+git clone https://github.com/jqueiroz/notenav-demo
+cd notenav-demo
+nn
+```
+
 ## How does `nn` find my project configuration?
 
 The `.nn/` directory is found by walking up from your current working directory toward the filesystem root – the same way git finds `.git/`. The first `.nn/` directory found wins.
