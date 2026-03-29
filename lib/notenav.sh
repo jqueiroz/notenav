@@ -1688,6 +1688,11 @@ nn_doctor() {
     done < <(nn_cfg '.defaults // {} | keys[]' 2>/dev/null)
 
     # UI validation
+    local _ui_editor
+    _ui_editor=$(nn_cfg '.ui.editor // empty')
+    if [[ -n "$_ui_editor" ]] && ! command -v "$_ui_editor" >/dev/null 2>&1; then
+      _warn "ui.editor '$_ui_editor' not found on PATH"
+    fi
     local _ui_cp _ui_sp
     _ui_cp=$(nn_cfg '.ui.command_prompt // empty')
     _ui_sp=$(nn_cfg '.ui.search_prompt // empty')
