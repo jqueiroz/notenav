@@ -211,6 +211,9 @@ nn_load_config() {
     if [[ "$workflow_name" == http://* ]]; then
       echo "notenav: only https:// URLs are supported in extends (got $workflow_name)" >&2
       return 1
+    elif [[ "$workflow_name" != https://* ]] && ! [[ "$workflow_name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+      echo "notenav: invalid workflow name in config: $workflow_name" >&2
+      return 1
     elif [[ "$workflow_name" == https://* ]]; then
       local _cache_path
       _cache_path=$(_nn_url_cache_path "$workflow_name")
@@ -249,6 +252,9 @@ nn_load_config() {
       local _base_file=""
       if [[ "$_extends" == http://* ]]; then
         echo "notenav: only https:// URLs are supported in extends (got $_extends)" >&2
+        return 1
+      elif [[ "$_extends" != https://* ]] && ! [[ "$_extends" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        echo "notenav: invalid workflow name in extends chain: $_extends" >&2
         return 1
       elif [[ "$_extends" == https://* ]]; then
         _base_file=$(_nn_url_cache_path "$_extends")
@@ -2133,6 +2139,10 @@ EOF
           echo "notenav: unexpected argument: $1" >&2
           return 2
         fi
+        if [[ "$1" != https://* ]] && ! [[ "$1" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+          echo "notenav: invalid workflow name: $1 (must be alphanumeric, dash, underscore, or dot)" >&2
+          return 2
+        fi
         workflow_arg="$1"; shift ;;
     esac
   done
@@ -2350,7 +2360,7 @@ _nn_fetch_remote() {
       esac
     else
       echo "notenav: URL not trusted: $url" >&2
-      echo "notenav: run interactively or add to ${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources" >&2
+      echo "notenav: run interactively or add the URL to ${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources (one per line)" >&2
       return 1
     fi
   fi
@@ -2382,10 +2392,8 @@ _nn_fetch_remote() {
     cat "$tmpfile"
   } > "$_cache_tmp" && mv "$_cache_tmp" "$cache_path" || { rm -f "$_cache_tmp"; return 1; }
 
-  # Add to allow-list if not already trusted
-  if ! _nn_url_is_trusted "$url"; then
-    _nn_url_trust_add "$url"
-  fi
+  # Add to allow-list (idempotent – _nn_url_trust_add skips duplicates)
+  _nn_url_trust_add "$url"
 }
 
 # Write the shared preview script to a given path.
