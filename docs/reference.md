@@ -237,7 +237,8 @@ Prints a usage summary and exits.
 |------|---------|---------|
 | 0 | any | Success |
 | 1 | `nn doctor` | One or more checks failed |
-| 1 | `nn init` | Config already exists, invalid workflow name, or fetch failure |
+| 1 | `nn init` | Config already exists or fetch/write failure |
+| 2 | `nn init` | Invalid arguments (unknown flag, bad workflow name) |
 | 1 | `nn <query>` | Query preset recursion too deep |
 | 1 | `nn` (TUI) | Terminal not available (`$TERM` is `dumb`) |
 | 130 | `nn` (TUI) | User quit with `q` or `ctrl-c` (normal fzf exit) |
