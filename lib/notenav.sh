@@ -416,8 +416,12 @@ _nn_gen_awk_bodies() {
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
       [[ "${NN_PRIORITY_LABELS[$_v]}" == "P$_v" ]] && continue
       _esc=$(_nn_awk_esc "${NN_PRIORITY_LABELS[$_v]}")
-      _vesc=$(_nn_awk_esc "$_v")
-      _pri_awk+=$'\n'"  if (\$3 == \"${_vesc}\") pl = \"${_esc}\""
+      if [[ "$_v" =~ ^[0-9]+$ ]]; then
+        _pri_awk+=$'\n'"  if (\$3+0 == $_v) pl = \"${_esc}\""
+      else
+        _vesc=$(_nn_awk_esc "$_v")
+        _pri_awk+=$'\n'"  if (\$3 == \"${_vesc}\") pl = \"${_esc}\""
+      fi
     done
   fi
 
@@ -491,8 +495,15 @@ _nn_gen_awk_bodies() {
   NN_AWK_COLOR_MARKED="$_marked"
 
   # Stats AWK body
-  local _type_order_str="${NN_TYPE_DISPLAY_ORDER[*]:-${NN_TYPE_VALUES[*]}}"
-  local _status_fc_str="${NN_STATUS_FILTER_CYCLE[*]}"
+  local _type_order_arr=("${NN_TYPE_DISPLAY_ORDER[@]:-${NN_TYPE_VALUES[@]}}")
+  local _type_order_str="" _toi
+  for _toi in "${_type_order_arr[@]}"; do
+    _type_order_str+="${_type_order_str:+ }$(_nn_awk_esc "$_toi")"
+  done
+  local _status_fc_str="" _sfi
+  for _sfi in "${NN_STATUS_FILTER_CYCLE[@]}"; do
+    _status_fc_str+="${_status_fc_str:+ }$(_nn_awk_esc "$_sfi")"
+  done
   local _stats_type_lookup="" _stats_status_lookup=""
   for _v in "${NN_TYPE_VALUES[@]}"; do
     _esc=$(_nn_awk_esc "${NN_TYPE_ICONS[$_v]}")
@@ -2160,7 +2171,7 @@ EOF
           return 2
         fi
         if [[ "$1" == https://* ]]; then
-          if [[ "$1" == *'"'* || "$1" == *'\\'* ]]; then
+          if [[ "$1" == *'"'* || "$1" == *\\* ]]; then
             echo "notenav: URL contains characters that cannot be embedded in TOML" >&2
             return 2
           fi
@@ -2678,7 +2689,7 @@ EOF
       esac
     done
     set +f
-    [[ $_vq_err -ne 0 ]] && return 1
+    [[ $_vq_err -ne 0 ]] && { shopt -u nullglob; return 1; }
   done
 
   # Format and color from config
@@ -2705,7 +2716,7 @@ EOF
       else
         echo "notenav: found .nn/ at $_nn_root but it has no workflow.toml" >&2
         echo "notenav: run 'nn init' there, or remove the .nn/ directory" >&2
-        return 1
+        shopt -u nullglob; return 1
       fi
     fi
     [[ "$_nn_root" == "/" ]] && { _nn_root=""; break; }
@@ -2733,7 +2744,7 @@ EOF
     if [[ -z "$(find "$_search_target" -name '*.md' -type f -print -quit 2>/dev/null)" ]]; then
       echo "notenav: no markdown files found in $_search_target" >&2
       echo "notenav: run 'nn doctor' to diagnose" >&2
-      return 1
+      shopt -u nullglob; return 1
     fi
   fi
 
@@ -2741,7 +2752,7 @@ EOF
   if [[ $# -eq 0 ]]; then
     if [[ "${TERM:-dumb}" == "dumb" ]]; then
       echo "notenav: interactive TUI requires a terminal (TERM is 'dumb')" >&2
-      return 1
+      shopt -u nullglob; return 1
     fi
     local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX")
     trap '_p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "$_nn_dir"' EXIT
@@ -3372,10 +3383,10 @@ while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   p="$fpath" awk -F'\t' '$6 == ENVIRON["p"] { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6; exit }' "$dir/.raw" >> "$tmpfile"
 done < <(awk '{a[NR]=$0} END{for(i=NR;i>0;i--)print a[i]}' "$dir/.current")
 # Footer with valid values from workflow
-printf '\n# type: %s\n' "$(paste -sd', ' "$dir/.schema_type_values")" >> "$tmpfile"
-printf '# status: %s (or empty)\n' "$(paste -sd', ' "$dir/.schema_status_values")" >> "$tmpfile"
+printf '\n# type: %s\n' "$(awk '{printf "%s%s", NR>1?", ":"", $0}' "$dir/.schema_type_values")" >> "$tmpfile"
+printf '# status: %s (or empty)\n' "$(awk '{printf "%s%s", NR>1?", ":"", $0}' "$dir/.schema_status_values")" >> "$tmpfile"
 if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
-  printf '# priority: %s (or empty)\n' "$(paste -sd', ' "$dir/.schema_priority_values")" >> "$tmpfile"
+  printf '# priority: %s (or empty)\n' "$(awk '{printf "%s%s", NR>1?", ":"", $0}' "$dir/.schema_priority_values")" >> "$tmpfile"
 fi
 printf '# tags: space-separated\n' >> "$tmpfile"
 # Save original for diffing
@@ -4705,7 +4716,7 @@ ENDEDIT
           --bind "start:execute-silent(rm -f $_nn_sflag)" \
           --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,q:abort,change:clear-query' \
           --bind "/:unbind(j,k,q,change)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch $_nn_sflag)" \
-          --bind "esc:transform[test -f $_nn_sflag && rm $_nn_sflag && printf 'rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)']" \
+          --bind "esc:transform[test -f $_nn_sflag && rm $_nn_sflag && printf 'rebind(j,k,q,change)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)']" \
           --bind "::rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_sflag)" \
           --bind 'J:preview-page-down,K:preview-page-up' \
           --bind 'H:toggle-wrap' \
