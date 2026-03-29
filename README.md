@@ -26,7 +26,7 @@ cd notenav-demo
 nn
 ```
 
-## How it works
+## Under the hood
 
 `nn` is a single bash script[^2] that runs on **Linux** and **macOS** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The only required dependencies are:
 
