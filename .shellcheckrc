@@ -1,0 +1,12 @@
+# shellcheck configuration for notenav
+#
+# Project convention: bare $var (not ${var}), so disable brace-style checks.
+# AWK bodies live in single-quoted strings, so $-in-single-quotes is expected.
+# lib/notenav.sh is sourced by bin/nn, so cross-file variable refs are normal.
+
+# SC2250 (style)  – prefer ${var} braces; project uses bare $var consistently
+# SC2312 (info)   – mask return value in $(); handled correctly throughout
+# SC2016 (info)   – $ in single quotes; all AWK/jq strings, intentional
+# SC2153 (info)   – possible misspelling; false positive for sourced NOTENAV_ROOT
+# SC2310 (info)   – function in if/! disables set -e; intentional in installer
+disable=SC2250,SC2312,SC2016,SC2153,SC2310

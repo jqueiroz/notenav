@@ -5,7 +5,7 @@
 _realpath() {
   if readlink -f "$1" 2>/dev/null; then return; fi
   local path="$1"
-  while [ -L "$path" ]; do
+  while [[ -L "$path" ]]; do
     local dir; dir="$(cd "$(dirname "$path")" && pwd)"
     path="$(readlink "$path")"
     [[ "$path" != /* ]] && path="$dir/$path"
