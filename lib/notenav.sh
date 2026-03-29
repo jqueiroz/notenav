@@ -1982,7 +1982,8 @@ nn_doctor() {
     while IFS=$'\t' read -r _qname _qargs; do
       [[ -z "$_qname" ]] && continue
       (( _qp_count++ ))
-      local _arg
+      local _arg _noglob_was_off=false
+      [[ "$-" != *f* ]] && _noglob_was_off=true
       set -f
       for _arg in $_qargs; do
         local _key="${_arg%%=*}" _val="${_arg#*=}"
@@ -2008,7 +2009,7 @@ nn_doctor() {
           *) _qp_warns+="$_qname: unknown filter key '$_key'; " ;;
         esac
       done
-      set +f
+      "$_noglob_was_off" && set +f
     done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.args // "")"')
 
     if [[ -n "$_qp_warns" ]]; then
