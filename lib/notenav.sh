@@ -96,6 +96,20 @@ _nn_easteregg_decode() {
   return 1
 }
 
+# --- gawk resolution ---
+# notenav requires gawk (for mktime, strtonum, 3-arg match). On Nix, `awk`
+# is already gawk via wrapper; on Debian/Ubuntu, `awk` may be mawk while
+# `gawk` is installed separately. Resolve once and reuse.
+_nn_resolve_gawk() {
+  if awk --version 2>/dev/null | head -1 | grep -qiE 'GNU|gawk'; then
+    printf 'awk'
+  elif command -v gawk >/dev/null 2>&1; then
+    printf 'gawk'
+  else
+    printf 'awk'  # let it fail at runtime with a clear doctor message
+  fi
+}
+
 # --- Editor resolution ---
 # Fallback chain: config ui.editor > $EDITOR > nvim > vim > vi > nano > emacs
 # All in good spirit – emacs users, you know you can set $EDITOR.
@@ -808,7 +822,7 @@ _nn_find_md_with_mtime() {
 # and outputs 8-column TSV matching NN_ZK_FMT.
 # NOTE: the AWK body here must stay in sync with the copy in reload_raw.sh (heredoc).
 _nn_list_notes_native() {
-  awk -F'\t' '
+  "$_NN_GAWK" -F'\t' '
   {
     file = $1; mtime = $2
     type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
@@ -2562,6 +2576,10 @@ EOF
   local _NN_HAS_ZK=false
   command -v zk >/dev/null 2>&1 && _NN_HAS_ZK=true
 
+  # Resolve gawk binary (may differ from `awk` on Debian/Ubuntu)
+  local _NN_GAWK
+  _NN_GAWK=$(_nn_resolve_gawk)
+
   # Scope: always show notes from $(pwd) downward
   local _scope_path
   _scope_path=$(pwd)
@@ -2616,8 +2634,9 @@ EOF
     trap '_p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "$_nn_dir"' EXIT
     nn_write_workflow_files "$_nn_dir"
 
-    # Write backend detection flag and notebook root for helper scripts
+    # Write backend detection flag, gawk path, and notebook root for helper scripts
     printf '%s' "$_NN_HAS_ZK" > "$_nn_dir/.has_zk"
+    printf '%s' "$_NN_GAWK" > "$_nn_dir/.gawk"
     printf '%s' "$_nn_root" > "$_nn_dir/.notebook_root"
 
     # Get all notes
@@ -2695,6 +2714,7 @@ ENDTAGS
 #!/usr/bin/env bash
 dir="$1"; query="$2"
 has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 scope_path=$(cat "$dir/.scope_path")
 if [ "$has_zk" = "true" ]; then
   # Workaround: zk list <root> returns only root-level notes; omit the path.
@@ -2709,7 +2729,7 @@ else
   search_dir="$scope_path"
   # Title extractor: reads file paths on stdin, outputs "absPath\ttitle"
   _nn_extract_titles() {
-    awk '{
+    "$nn_gawk" '{
       file = $0; title = ""
       while ((getline line < file) > 0) {
         if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
@@ -2810,6 +2830,7 @@ ENDNAMEFILT
 #!/usr/bin/env bash
 dir="$1"
 has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 fmt=$(cat "$dir/.list_fmt")
 scope_path=$(cat "$dir/.scope_path")
 if [ "$has_zk" = "true" ]; then
@@ -2829,7 +2850,7 @@ else
     fi
   }
   # NOTE: this AWK body must stay in sync with _nn_list_notes_native() in lib/notenav.sh
-  _nn_find_md_with_mtime "$search_dir" | awk -F'\t' '
+  _nn_find_md_with_mtime "$search_dir" | "$nn_gawk" -F'\t' '
   {
     file = $1; mtime = $2
     type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
@@ -3728,6 +3749,7 @@ ENDQP
     cat > "$_nn_dir/filter.sh" << 'ENDFILTER'
 #!/usr/bin/env bash
 dir="$1"; action="$2"
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 cycle() {
   local dim="$1" direction="$2" cur="$3"
   local -a vals
@@ -3968,7 +3990,7 @@ awk_body=$(cat "$dir/.awk_color_body")
 pinned_awk=$(cat "$dir/.awk_color_pinned")
 marked_awk=$(cat "$dir/.awk_color_marked")
 if [ -s "$dir/.pinned" ] || [ -s "$dir/.marked" ]; then
-  do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" \
+  do_sort "$fsort" < "$_raw_input" | TZ=UTC "$nn_gawk" -F'\t' -v now="$now" \
     -v marked_file="$dir/.marked" -v pinned_file="$dir/.pinned" -v mfilt="$fmarked" '
     BEGIN {
       while ((getline line < marked_file) > 0) if (line != "") is_marked[line]=1
@@ -3983,7 +4005,7 @@ if [ -s "$dir/.pinned" ] || [ -s "$dir/.marked" ]; then
     !('"${cond}"') && ($6 in is_pinned) && !($6 in is_marked) { '"${pinned_awk}"' }
   ' > "$dir/.current"
 else
-  do_sort "$fsort" < "$_raw_input" | TZ=UTC awk -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
+  do_sort "$fsort" < "$_raw_input" | TZ=UTC "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
 fi
 # Pipeline: AWK filter → count → grouping → empty-view → border/output
 # Ghost rows (pinned items failing filters) are already in .current from the multi-rule AWK above.
