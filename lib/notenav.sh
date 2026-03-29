@@ -1197,9 +1197,28 @@ nn_doctor() {
       fi
     fi
 
+    # ── Known-key registries (derived from base.toml) ──
+    # base.toml is the single source of truth for preference key names.
+    # Schema-structural keys (type/status/priority/meta sub-keys) are
+    # hardcoded in the checks below because they define the workflow
+    # schema itself, not user-configurable preferences.
+    local _base_cfg_json=""
+    _base_cfg_json=$(yq -p=toml -o=json '.' "$notenav_root/config/base.toml" 2>/dev/null) || true
+    local _base_top="" _known_keys_user="" _known_keys_workflow=""
+    local _known_defaults="" _known_ui="" _known_pf="" _known_refresh=""
+    if [[ -n "$_base_cfg_json" ]]; then
+      local _schema_sections="meta type status priority"
+      _base_top=$(printf '%s' "$_base_cfg_json" | jq -r 'keys[]' 2>/dev/null | tr '\n' ' ')
+      _known_keys_user="$_base_top$_schema_sections"
+      _known_keys_workflow=$(printf '%s' "$_base_cfg_json" | jq -r 'keys[] | select(. != "default_workflow")' 2>/dev/null | tr '\n' ' ')
+      _known_keys_workflow+="$_schema_sections queries extends"
+      _known_defaults=$(printf '%s' "$_base_cfg_json" | jq -r '.defaults | keys[]' 2>/dev/null | tr '\n' ' ')
+      _known_ui=$(printf '%s' "$_base_cfg_json" | jq -r '.ui | keys[]' 2>/dev/null | tr '\n' ' ')
+      _known_pf=$(printf '%s' "$_base_cfg_json" | jq -r '.ui.previewer_flags | keys[]' 2>/dev/null | tr '\n' ' ')
+      _known_refresh=$(printf '%s' "$_base_cfg_json" | jq -r '.refresh | keys[]' 2>/dev/null | tr '\n' ' ')
+    fi
+
     # Unrecognized top-level keys (scoped: extends is workflow-only, default_workflow is user-only)
-    local _known_keys_user="meta type status priority defaults ui refresh default_workflow"
-    local _known_keys_workflow="meta type status priority queries defaults ui refresh extends"
     local _cfg_file _cfg_known
     for _cfg_file in "$user_cfg" "$project_wf_file"; do
       [[ -z "$_cfg_file" || ! -f "$_cfg_file" ]] && continue
@@ -1719,7 +1738,6 @@ nn_doctor() {
       _warn "defaults.wrap_preview '$_def_wrap' invalid (must be true or false)"
     fi
     # Check for unrecognized keys in [defaults]
-    local _known_defaults="sort_by sort_reverse group_by show_archive wrap_preview"
     local _dk
     while IFS= read -r _dk; do
       [[ -z "$_dk" ]] && continue
@@ -1867,7 +1885,6 @@ nn_doctor() {
       _warn "no configured previewer found (preview will use cat)"
     fi
     # Check for unrecognized keys in [ui]
-    local _known_ui="editor command_prompt search_prompt exit_message priority_plus after_create previewer previewer_custom_command previewer_flags"
     local _uk
     while IFS= read -r _uk; do
       [[ -z "$_uk" ]] && continue
@@ -1878,7 +1895,6 @@ nn_doctor() {
     done < <(nn_cfg '.ui // {} | keys[]' 2>/dev/null)
 
     # Validate ui.previewer_flags sub-keys
-    local _known_pf="bat glow mdcat"
     local _pfk _pfv
     while IFS= read -r _pfk; do
       [[ -z "$_pfk" ]] && continue
@@ -1925,7 +1941,6 @@ nn_doctor() {
       fi
     fi
     # Check for unrecognized keys in [refresh]
-    local _known_refresh="mode poll_interval max_files"
     local _rfk
     while IFS= read -r _rfk; do
       [[ -z "$_rfk" ]] && continue
@@ -2383,7 +2398,7 @@ _nn_fetch_remote() {
   local tmpfile
   tmpfile=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
   trap 'rm -f "$tmpfile" "${_cache_tmp:-}"' RETURN
-  if ! curl -fsSL --connect-timeout 10 --max-time 30 "$url" -o "$tmpfile"; then
+  if ! curl -fsSL --connect-timeout 10 --max-time 30 --max-filesize 1048576 "$url" -o "$tmpfile"; then
     echo "notenav: failed to download $url" >&2
     return 1
   fi
