@@ -2065,12 +2065,8 @@ _nn_init_project() {
         echo "notenav: yq is required to check existing config for refresh" >&2
         return 1
       fi
-      if ! command -v jq >/dev/null 2>&1; then
-        echo "notenav: jq is required to check existing config for refresh" >&2
-        return 1
-      fi
-      _existing_extends=$(yq -p=toml -o=json -I=0 '.' "$wf_file" 2>/dev/null \
-        | jq -r '.extends // empty' 2>/dev/null)
+      _existing_extends=$(yq -p=toml '.extends' "$wf_file" 2>/dev/null)
+      [[ "$_existing_extends" == "null" ]] && _existing_extends=""
       if [[ "$_existing_extends" == "$workflow_name" ]]; then
         _nn_fetch_remote "$workflow_name" || return 1
         echo "Refreshed cache for $workflow_name"
@@ -2214,6 +2210,10 @@ _nn_fetch_remote() {
     echo "notenav: yq is required for remote workflows" >&2
     return 1
   fi
+  if ! printf '' | _nn_sha256 >/dev/null 2>&1; then
+    echo "notenav: sha256sum or shasum is required for remote workflows" >&2
+    return 1
+  fi
 
   # Trust check
   if ! _nn_url_is_trusted "$url"; then
@@ -2235,7 +2235,7 @@ _nn_fetch_remote() {
 
   # Download to temp file
   local tmpfile
-  tmpfile=$(mktemp)
+  tmpfile=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
   trap 'rm -f "$tmpfile" "${_cache_tmp:-}"' RETURN
   if ! curl -fsSL "$url" -o "$tmpfile"; then
     echo "notenav: failed to download $url" >&2
@@ -2252,7 +2252,7 @@ _nn_fetch_remote() {
   local cache_path _cache_tmp
   cache_path=$(_nn_url_cache_path "$url")
   mkdir -p "$(dirname "$cache_path")" || { echo "notenav: could not create cache directory" >&2; return 1; }
-  _cache_tmp=$(mktemp)
+  _cache_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
   # shellcheck disable=SC2015  # intentional: || cleanup handles both write and mv failure
   {
     printf '# Cached from: %s\n' "$url"
