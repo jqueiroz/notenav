@@ -15,6 +15,8 @@ Rules and conventions for contributing to notenav.
 - Use `mktemp` for temp files – never predictable names in `/tmp`.
 - Sanitize user-supplied or config-derived values before interpolating into AWK/sed expressions (escape `\` and `"`).
 - Use `mv "$file.tmp" "$file"` for atomic writes.
+- Use `nn_assert "message"` for impossible states. Every `case` that branches on a config enum must have a `*) nn_assert "context: unknown value '$var'" ;;` catch-all. Generated helper scripts define their own local copy of `nn_assert`.
+- Enum config values (e.g. `sort_by`, `group_by`, `exit_message`, `priority_plus`, `after_create`, `refresh.mode`) are validated in `nn_precompute_workflow` at startup – runtime catch-alls are defense-in-depth, not the primary check.
 
 ### Portability (Linux + macOS)
 
@@ -63,7 +65,7 @@ Two names coexist by design – each is used where it fits best:
 - New config keys must have a fallback default in the `nn_cfg` call (the `// "value"` pattern) and a corresponding entry in `config/base.toml` or the workflow file.
 - Document new config keys in `docs/configuration.md`.
 - When adding or removing config properties, filter keys, or enum values, update the validation logic in `nn_doctor()` – it maintains hardcoded known-key lists and valid-value checks that must stay in sync.
-- Filter keys (currently `type`, `status`, `priority`, `tag`) are listed in four places that must stay in sync: `--help` text, ad-hoc query parser, query preset runtime (both `apply_sq` and the header stats builder), and `nn_doctor()` validation.
+- Filter keys (currently `type`, `status`, `priority`, `tag`) are listed in five places that must stay in sync: `--help` text, ad-hoc query parser, query preset startup validation, query preset runtime (both `apply_sq` and the header stats builder), and `nn_doctor()` validation.
 
 ### Config key naming
 

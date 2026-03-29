@@ -357,6 +357,7 @@ nn_cfg() {
 # Handles backslash and double-quote (the two characters that break AWK strings).
 _nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 _nn_in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
+nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 
 _nn_gen_awk_bodies() {
   local _v _i _esc
@@ -674,6 +675,20 @@ nn_precompute_workflow() {
   NN_REFRESH_MODE=$(nn_cfg '.refresh.mode // "watch"')
   NN_REFRESH_POLL_INTERVAL=$(nn_cfg '.refresh.poll_interval // 30')
   NN_REFRESH_MAX_FILES=$(nn_cfg '.refresh.max_files // 0')
+
+  # Validate UI/refresh enum values (fail fast on invalid config)
+  case "$NN_UI_EXIT_MESSAGE" in none|fortune) ;;
+    *) echo "notenav: ui.exit_message '$NN_UI_EXIT_MESSAGE' invalid (must be 'none' or 'fortune')" >&2; return 1 ;; esac
+  case "$NN_UI_PRIORITY_PLUS" in demote|promote) ;;
+    *) echo "notenav: ui.priority_plus '$NN_UI_PRIORITY_PLUS' invalid (must be 'demote' or 'promote')" >&2; return 1 ;; esac
+  case "$NN_UI_AFTER_CREATE" in edit|none) ;;
+    *) echo "notenav: ui.after_create '$NN_UI_AFTER_CREATE' invalid (must be 'edit' or 'none')" >&2; return 1 ;; esac
+  case "$NN_REFRESH_MODE" in watch|poll|manual) ;;
+    *) echo "notenav: refresh.mode '$NN_REFRESH_MODE' invalid (must be 'watch', 'poll', or 'manual')" >&2; return 1 ;; esac
+  case "$NN_DEFAULT_SORT" in created|modified|title|priority|"") ;;
+    *) echo "notenav: defaults.sort_by '$NN_DEFAULT_SORT' invalid (must be 'created', 'modified', 'title', or 'priority')" >&2; return 1 ;; esac
+  case "$NN_DEFAULT_GROUP" in type|status|"") ;;
+    *) echo "notenav: defaults.group_by '$NN_DEFAULT_GROUP' invalid (must be 'type', 'status', or empty)" >&2; return 1 ;; esac
 
   # ZK format (hardcoded – the entire pipeline assumes this exact column layout)
   NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
@@ -2579,6 +2594,37 @@ EOF
     saved_query_order[$_qname]="$_qorder"
   done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.order // 100)\t\(.value.args // "")"')
 
+  # Validate query preset args against known workflow values
+  local _vq_name _vq_arg _vq_key _vq_val
+  for _vq_name in "${!saved_queries[@]}"; do
+    set -f
+    for _vq_arg in ${saved_queries[$_vq_name]}; do
+      _vq_key="${_vq_arg%%=*}"; _vq_val="${_vq_arg#*=}"
+      case "$_vq_key" in
+        type)
+          _nn_in_array "$_vq_val" "${NN_TYPE_VALUES[@]}" || {
+            echo "notenav: query '$_vq_name': unknown type '$_vq_val'" >&2
+            echo "notenav: valid types: ${NN_TYPE_VALUES[*]}" >&2; return 1; } ;;
+        status)
+          _nn_in_array "$_vq_val" "${NN_STATUS_VALUES[@]}" || {
+            echo "notenav: query '$_vq_name': unknown status '$_vq_val'" >&2
+            echo "notenav: valid statuses: ${NN_STATUS_VALUES[*]}" >&2; return 1; } ;;
+        priority)
+          if [[ "$_vq_val" != "none" ]]; then
+            if [[ "$NN_PRIORITY_ENABLED" == "false" ]]; then
+              echo "notenav: query '$_vq_name' filters by priority but priority is disabled" >&2; return 1; fi
+            _nn_in_array "$_vq_val" "${NN_PRIORITY_VALUES[@]}" || {
+              echo "notenav: query '$_vq_name': unknown priority '$_vq_val'" >&2
+              echo "notenav: valid priorities: ${NN_PRIORITY_VALUES[*]}" >&2; return 1; }
+          fi ;;
+        tag) ;;
+        *) echo "notenav: query '$_vq_name': unknown filter key '$_vq_key'" >&2
+           echo "notenav: valid keys: type, status, priority, tag" >&2; return 1 ;;
+      esac
+    done
+    set +f
+  done
+
   # Format and color from config
   local _fmt="$NN_ZK_FMT"
   local _awk_color="$NN_AWK_COLOR"
@@ -2934,6 +2980,7 @@ ENDRELOAD
     # Watcher script: signals fzf to reload when files change on disk
     cat > "$_nn_dir/watcher.sh" << 'ENDWATCHER'
 #!/usr/bin/env bash
+nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"
 printf '%s' $$ > "$dir/.watcher_pid"
 
@@ -2988,6 +3035,8 @@ elif [[ "$mode" = "poll" ]]; then
       post_reload
     fi
   done
+else
+  nn_assert "watcher: unknown refresh mode '$mode'"
 fi
 ENDWATCHER
     chmod +x "$_nn_dir/watcher.sh"
@@ -3024,6 +3073,7 @@ ENDACTION
     # Field picker: opens sub-fzf to choose a value, writes to .f_pick_val
     cat > "$_nn_dir/fieldpick.sh" << 'ENDFP'
 #!/usr/bin/env bash
+nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"; field="$2"; shift 2
 # Build context header from file paths
 ctx=""
@@ -3063,7 +3113,7 @@ case "$field" in
       [ -n "$vals" ] && vals="$vals\n"
       vals="$vals$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
     done < "$dir/.schema_types" ;;
-  *) echo "bug: set_field: unknown field '$field'" >&2; exit 2 ;;
+  *) nn_assert "set_field: unknown field '$field'" ;;
 esac
 hdr="Enter apply · Esc cancel"
 [ -n "$ctx" ] && hdr=$(printf '%s\n%s' "$ctx" "$hdr")
@@ -3105,6 +3155,7 @@ ENDBS
     # Bulk edit: multi-field frontmatter updater (single awk pass)
     cat > "$_nn_dir/bulkedit_update.sh" << 'ENDBEU'
 #!/usr/bin/env bash
+nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 # Usage: bulkedit_update.sh <file> field=value [field=value ...]
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
@@ -3124,7 +3175,7 @@ for arg in "$@"; do
         set_tags=$(echo "$v" | sed 's/  */ /g; s/^ //; s/ $//' | tr ' ' '\n' | paste -sd, | sed 's/^/[/; s/$/]/')
       fi
       ;;
-    *) echo "bug: action: unknown field '$f'" >&2; exit 2 ;;
+    *) nn_assert "action: unknown field '$f'" ;;
   esac
 done
 awk -v set_type="$set_type" -v has_type="$has_type" \
@@ -3265,6 +3316,7 @@ ENDBE
     # Quick note creation: inline title prompt → type selection → zk new → editor
     cat > "$_nn_dir/newnote.sh" << 'ENDNN'
 #!/usr/bin/env bash
+nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"
 cols=$(tput cols 2>/dev/null || printf '80')
 inner=$(( cols - 6 ))
@@ -3656,21 +3708,21 @@ fi
 
 after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)
 rel_path="${new_path#$PWD/}"
-if [ "$after_create" = "edit" ]; then
-  printf '\n  %s%s %s · %s – Created!\033[0m Opening in editor...\n  \033[90m%s\033[0m\n\n' "$tc" "$icon" "$selected" "$title" "$rel_path" > /dev/tty
-else
-  printf '\n  %s%s %s · %s – Created!\033[0m\n  \033[90m%s\033[0m\n\n' "$tc" "$icon" "$selected" "$title" "$rel_path" > /dev/tty
-fi
+case "$after_create" in
+  edit) printf '\n  %s%s %s · %s – Created!\033[0m Opening in editor...\n  \033[90m%s\033[0m\n\n' "$tc" "$icon" "$selected" "$title" "$rel_path" > /dev/tty ;;
+  none) printf '\n  %s%s %s · %s – Created!\033[0m\n  \033[90m%s\033[0m\n\n' "$tc" "$icon" "$selected" "$title" "$rel_path" > /dev/tty ;;
+  *) nn_assert "newnote: unknown after_create '$after_create'" ;;
+esac
 # Regenerate raw
 _la_title="${title//[()]/}"; [ ${#_la_title} -gt 40 ] && _la_title="${_la_title:0:37}..."
 printf 'new %s → %s' "$selected" "$_la_title" > "$dir/.last_action"
 "$dir/reload_raw.sh" "$dir"
 "$dir/filter.sh" "$dir" refresh > /dev/null
 # Open in editor
-if [ "$after_create" = "edit" ]; then
-  nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
-  ${nn_editor:-vi} "$new_path" < /dev/tty > /dev/tty
-fi
+case "$after_create" in
+  edit) nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
+        ${nn_editor:-vi} "$new_path" < /dev/tty > /dev/tty ;;
+esac
 ENDNN
     chmod +x "$_nn_dir/newnote.sh"
 
@@ -3700,6 +3752,7 @@ ENDCS
     # Quick priority bump: increase/decrease urgency
     cat > "$_nn_dir/bumppri.sh" << 'ENDBP'
 #!/usr/bin/env bash
+nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"; file="$2"; direction="$3"
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
@@ -3712,7 +3765,7 @@ else
   case "$direction" in
     up)   next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_up") ;;
     down) next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_down") ;;
-    *) echo "bug: bumppri: unknown direction '$direction'" >&2; exit 2 ;;
+    *) nn_assert "bumppri: unknown direction '$direction'" ;;
   esac
   [ -z "$next" ] && exit 0
 fi
@@ -3759,6 +3812,7 @@ ENDQP
     # Faceted filter helper script
     cat > "$_nn_dir/filter.sh" << 'ENDFILTER'
 #!/usr/bin/env bash
+nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"; action="$2"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 cycle() {
@@ -3775,7 +3829,7 @@ cycle() {
       vals=("created" "modified" "title")
       [ "$(cat "$dir/.schema_priority_enabled")" != "false" ] && vals+=("priority") ;;
     group)    vals=("" "type" "status") ;;
-    *) echo "bug: cycle: unknown dimension '$dim'" >&2; exit 2 ;;
+    *) nn_assert "cycle: unknown dimension '$dim'" ;;
   esac
   local total=${#vals[@]} idx=0 i
   for i in "${!vals[@]}"; do
@@ -3798,7 +3852,7 @@ apply_sq() {
     case "$a" in
       type=*) ft="${a#*=}";; status=*) fs="${a#*=}";;
       priority=*) fp="${a#*=}";; tag=*) echo "${a#*=}" >> "$dir/.f_tags";;
-      *) echo "bug: apply_sq: unknown arg '${a%%=*}'" >&2 ;;
+      *) nn_assert "apply_sq: unknown arg '${a%%=*}'" ;;
     esac
   done
   set +f
@@ -3916,7 +3970,7 @@ case "$action" in
   mark-filter)
     if [ -n "$fmarked" ]; then fmarked=""; else fmarked="on"; fi ;;
   refresh) ;;  # just re-apply filters (after tag picker)
-  *) echo "bug: filter: unknown action '$action'" >&2; exit 2 ;;
+  *) nn_assert "filter: unknown action '$action'" ;;
 esac
 echo "$ft" > "$dir/.f_type"; echo "$fs" > "$dir/.f_status"
 echo "$fp" > "$dir/.f_priority"
@@ -3964,14 +4018,15 @@ do_sort() {
   case "$1" in
     priority)
       local unset_pos; unset_pos=$(cat "$dir/.schema_priority_unset_pos")
-      local placeholder=999999; [ "$unset_pos" = "first" ] && placeholder=-999999
+      local placeholder
+      case "$unset_pos" in first) placeholder=-999999 ;; last) placeholder=999999 ;; *) nn_assert "do_sort: unknown unset_position '$unset_pos'" ;; esac
       local _pdir=n; [ -n "$_rev" ] && _pdir=nr
       awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' | sort -t'	' -k3,3${_pdir} -s | awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3==p)$3="";print}' ;;
     modified) if [ -n "$_rev" ]; then sort -t'	' -k7,7 -s; else sort -t'	' -k7,7r -s; fi ;;
     created)  if [ -n "$_rev" ]; then sort -t'	' -k8,8 -s; else sort -t'	' -k8,8r -s; fi ;;
     title)    if [ -n "$_rev" ]; then sort -t'	' -k5,5r -s; else sort -t'	' -k5,5 -s; fi ;;
     "")       cat ;;
-    *)        echo "bug: do_sort: unknown field '$1'" >&2; cat ;;
+    *)        nn_assert "do_sort: unknown field '$1'" ;;
   esac
 }
 now=$(date +%s)
@@ -4023,7 +4078,7 @@ fi
 count=$(awk -F'\t' "${cond}{n++} END{print n+0}" "$_count_input")
 # Grouping post-processing: insert separator headers between groups
 if [ -n "$fgroup" ]; then
-  case "$fgroup" in type) gcol=1 ;; status) gcol=2 ;; *) echo "bug: unknown group '$fgroup'" >&2; exit 2 ;; esac
+  case "$fgroup" in type) gcol=1 ;; status) gcol=2 ;; *) nn_assert "unknown group '$fgroup'" ;; esac
   awk -F'\t' -v gcol="$gcol" '
     NR==FNR { key[$6] = $gcol; next }
     { path=$1; gk=key[path]; print gk "\t" $0 }
@@ -4126,7 +4181,7 @@ if [ -f "$dir/.queries" ]; then
           else
             _sq_tag_cond="index(\" \" \$4 \" \", \" $_av \")"
           fi ;;
-        *) echo "bug: query stats: unknown arg '${a%%=*}'" >&2 ;;
+        *) nn_assert "query stats: unknown arg '${a%%=*}'" ;;
       esac
     done
     set +f
@@ -4183,7 +4238,7 @@ case "$fsort" in
   title)            if [ -n "$fsort_rev" ]; then sort_dir="Z–A"; else sort_dir="A–Z"; fi ;;
   priority)         if [ -n "$fsort_rev" ]; then sort_dir="lowest first"; else sort_dir="highest first"; fi ;;
   "")               sort_dir="" ;;
-  *)                echo "bug: unknown sort '$fsort'" >&2; sort_dir="" ;;
+  *)                nn_assert "unknown sort '$fsort'" ;;
 esac
 sort_desc="$sort_hint"; [ -n "$sort_dir" ] && sort_desc="$sort_hint, $sort_dir"
 zorder_s=$(printf '       \033[36m[z]\033[0m then \033[36m[o]\033[0mrder-by: \033[1m%s\033[0m' "$sort_desc")
@@ -4276,11 +4331,12 @@ ENDFILTER
     "$_nn_dir/filter.sh" "$_nn_dir" refresh > /dev/null
 
     # Priority key direction: "demote" = + lowers urgency, "promote" = + raises urgency
-    local _nn_plus_dir="down" _nn_minus_dir="up"
-    if [[ "$NN_UI_PRIORITY_PLUS" == "promote" ]]; then
-      _nn_plus_dir="up"
-      _nn_minus_dir="down"
-    fi
+    local _nn_plus_dir _nn_minus_dir
+    case "$NN_UI_PRIORITY_PLUS" in
+      demote)  _nn_plus_dir="down"; _nn_minus_dir="up" ;;
+      promote) _nn_plus_dir="up";   _nn_minus_dir="down" ;;
+      *) nn_assert "unknown priority_plus '$NN_UI_PRIORITY_PLUS'" ;;
+    esac
 
     # Mode file: empty = command mode, "c" = change, "f" = filter-by, "z" = display, "m" = mark
     : > "$_nn_dir/.nn-mode"
@@ -4402,7 +4458,11 @@ ENDEDIT
     trap - EXIT
     rm -rf "$_nn_dir"
     shopt -u nullglob
-    [[ "$NN_UI_EXIT_MESSAGE" == "fortune" ]] && echo "So long, and thanks for all the notes."
+    case "$NN_UI_EXIT_MESSAGE" in
+      fortune) echo "So long, and thanks for all the notes." ;;
+      none) ;;
+      *) nn_assert "unknown exit_message '$NN_UI_EXIT_MESSAGE'" ;;
+    esac
     return
   fi
 
@@ -4516,7 +4576,7 @@ ENDEDIT
     case "$NN_DEFAULT_SORT" in
       priority)
         if [[ "$NN_PRIORITY_ENABLED" == "false" ]]; then cat; return; fi
-        local _ph=999999; [[ "$NN_PRIORITY_UNSET_POS" == "first" ]] && _ph=-999999
+        local _ph; case "$NN_PRIORITY_UNSET_POS" in first) _ph=-999999 ;; last) _ph=999999 ;; *) nn_assert "_nn_adhoc_sort: unknown unset_position '$NN_PRIORITY_UNSET_POS'" ;; esac
         local _pdir=n; [[ -n "$_rev" ]] && _pdir=nr
         awk -F'\t' -v p="$_ph" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' \
           | sort -t'	' "-k3,3${_pdir}" -s \
@@ -4525,7 +4585,7 @@ ENDEDIT
       created)  if [[ -n "$_rev" ]]; then sort -t'	' -k8,8 -s; else sort -t'	' -k8,8r -s; fi ;;
       title)    if [[ -n "$_rev" ]]; then sort -t'	' -k5,5r -s; else sort -t'	' -k5,5 -s; fi ;;
       "")       cat ;;
-      *)        echo "bug: _nn_adhoc_sort: unknown field '$NN_DEFAULT_SORT'" >&2; cat ;;
+      *)        nn_assert "_nn_adhoc_sort: unknown field '$NN_DEFAULT_SORT'" ;;
     esac
   }
 
