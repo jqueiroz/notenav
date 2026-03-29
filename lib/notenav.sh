@@ -3141,8 +3141,8 @@ mv "$dir/.pinned.tmp" "$dir/.pinned"
 rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
 _la_title=$(p="$1" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
 _la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
-if [ "$count" -gt 1 ]; then _la_title="$_la_title (+$((count - 1)) more)"; fi
-printf '%s → %s (%s)' "$field" "$value" "$_la_title" > "$dir/.last_action"
+if [ "$count" -gt 1 ]; then _la_title="$_la_title +$((count - 1)) more"; fi
+printf '%s → %s · %s' "$field" "$value" "$_la_title" > "$dir/.last_action"
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
 "$dir/filter.sh" "$dir" refresh > /dev/null
