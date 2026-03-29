@@ -1289,7 +1289,7 @@ nn_doctor() {
       local _cache_path
       _cache_path=$(_nn_url_cache_path "$_ts_url")
       if [[ -f "$_cache_path" ]]; then
-        # BSD date -r (macOS) first, then GNU stat (Linux) as fallback
+        # date -r (GNU coreutils + BSD/macOS), then stat -c as fallback
         local _fetch_date
         _fetch_date=$(date -r "$_cache_path" '+%Y-%m-%d' 2>/dev/null)
         [[ -z "$_fetch_date" ]] && _fetch_date=$(stat -c '%y' "$_cache_path" 2>/dev/null | cut -d' ' -f1)
