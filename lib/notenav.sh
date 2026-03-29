@@ -208,7 +208,10 @@ nn_load_config() {
   # Step 4: Load base workflow and resolve extends chain
   if [[ -n "$workflow_name" ]]; then
     local workflow_file=""
-    if [[ "$workflow_name" == https://* ]]; then
+    if [[ "$workflow_name" == http://* ]]; then
+      echo "notenav: only https:// URLs are supported in extends (got $workflow_name)" >&2
+      return 1
+    elif [[ "$workflow_name" == https://* ]]; then
       local _cache_path
       _cache_path=$(_nn_url_cache_path "$workflow_name")
       if [[ ! -f "$_cache_path" ]]; then
@@ -244,7 +247,10 @@ nn_load_config() {
     _extends=$(printf '%s' "$workflow_json" | jq -r '.extends // empty' 2>/dev/null)
     while [[ -n "$_extends" && $_depth -lt 5 ]]; do
       local _base_file=""
-      if [[ "$_extends" == https://* ]]; then
+      if [[ "$_extends" == http://* ]]; then
+        echo "notenav: only https:// URLs are supported in extends (got $_extends)" >&2
+        return 1
+      elif [[ "$_extends" == https://* ]]; then
         _base_file=$(_nn_url_cache_path "$_extends")
         if [[ ! -f "$_base_file" ]]; then
           echo "notenav: remote workflow not cached: $_extends" >&2
@@ -2086,6 +2092,7 @@ _nn_url_trust_add() {
   local url="$1"
   local ts_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources"
   mkdir -p "$(dirname "$ts_file")" || { echo "notenav: cannot create directory for trusted-sources" >&2; return 1; }
+  _nn_url_is_trusted "$url" && return 0
   echo "$url" >> "$ts_file" || { echo "notenav: cannot write to $ts_file" >&2; return 1; }
 }
 
