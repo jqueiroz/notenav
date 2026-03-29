@@ -67,7 +67,7 @@ if [ -d "$NOTENAV_DIR/.git" ]; then
 else
   echo "Installing notenav..."
   mkdir -p "$(dirname "$NOTENAV_DIR")"
-  git clone https://github.com/jqueiroz/notenav.git "$NOTENAV_DIR"
+  git clone --branch stable https://github.com/jqueiroz/notenav.git "$NOTENAV_DIR"
 fi
 
 # --- symlink ---
