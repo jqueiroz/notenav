@@ -18,7 +18,7 @@ ssh notenav.sh
 
 Cycle filters (`t`, `s`, `p`), try query presets (`tab`/`shift-tab`), search by typing, and advance statuses with `a` – everything works out of the box.
 
-Or, after [installing](#install) `nn`, try it locally with the [demo notebook](https://github.com/jqueiroz/notenav-demo):
+Alternatively, after [installing](#install) `nn`, try it locally with the [demo notebook](https://github.com/jqueiroz/notenav-demo):
 
 ```bash
 git clone https://github.com/jqueiroz/notenav-demo
