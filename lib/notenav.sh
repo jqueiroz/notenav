@@ -2053,7 +2053,7 @@ nn_init() {
 Usage: nn init [workflow]        create project config (.nn/workflow.toml)
        nn init --user [workflow] create user config (~/.config/notenav/config.toml)
 
-Workflow can be a built-in name (zenith, cubic, ado, gtd, zettelkasten),
+Workflow can be a built-in name (zenith, cuboid, ado, gtd, zettelkasten),
 a user-defined workflow, or an https:// URL.
 If omitted, defaults to zenith.
 

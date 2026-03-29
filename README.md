@@ -154,7 +154,7 @@ Ships with five built-in workflows. Use a preset as-is, extend it with overrides
 | Workflow | Overview | Config |
 |----------|----------|--------|
 | **zenith** (default) | [docs/workflows/zenith.md](docs/workflows/zenith.md) | [config/workflows/zenith.toml](config/workflows/zenith.toml) |
-| **cubic** | [docs/workflows/cubic.md](docs/workflows/cubic.md) | [config/workflows/cubic.toml](config/workflows/cubic.toml) |
+| **cuboid** | [docs/workflows/cuboid.md](docs/workflows/cuboid.md) | [config/workflows/cuboid.toml](config/workflows/cuboid.toml) |
 | **ado** | [docs/workflows/ado.md](docs/workflows/ado.md) | [config/workflows/ado.toml](config/workflows/ado.toml) |
 | **gtd** | [docs/workflows/gtd.md](docs/workflows/gtd.md) | [config/workflows/gtd.toml](config/workflows/gtd.toml) |
 | **zettelkasten** | [docs/workflows/zettelkasten.md](docs/workflows/zettelkasten.md) | [config/workflows/zettelkasten.toml](config/workflows/zettelkasten.toml) |
@@ -165,7 +165,7 @@ See [docs/configuration.md](docs/configuration.md) for the full config and workf
 
 ### `nn init`
 
-Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name: one of the built-in workflows (`zenith`, `cubic`, `ado`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `zenith` when no workflow is specified.
+Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name: one of the built-in workflows (`zenith`, `cuboid`, `ado`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `zenith` when no workflow is specified.
 
 ```bash
 nn init                 # .nn/workflow.toml extending zenith

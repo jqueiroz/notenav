@@ -9,7 +9,7 @@ bin/nn              # Entry point: resolves root, sources lib, calls notenav_mai
 lib/notenav.sh      # Full implementation (~4000 LOC)
 config/
   base.toml        # Base config (ships with notenav; user/project configs overlay on top)
-  workflows/       # Built-in workflows: zenith, cubic, ado, gtd, zettelkasten
+  workflows/       # Built-in workflows: zenith, cuboid, ado, gtd, zettelkasten
 curl/
   install.sh       # curl-pipe-sh installer script
 docs/
@@ -20,7 +20,7 @@ docs/
   install.md          # Full install instructions (requirements, all methods)
   faq.md              # Frequently asked questions
   releasing.md        # Release process and versioning
-  workflows/          # Per-workflow documentation (zenith.md, cubic.md, ado.md, etc.)
+  workflows/          # Per-workflow documentation (zenith.md, cuboid.md, ado.md, etc.)
 samples/
   user-config.toml      # Template for ~/.config/notenav/config.toml (all values commented out)
   workflows/            # Example .nn/workflow.toml files

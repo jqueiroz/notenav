@@ -1,10 +1,10 @@
-# Cubic – 4×4×4 notenav workflow
-# Four note types, four statuses, four priority levels – a symmetrical structure
-# for personal wikis and mixed-purpose notebooks.
+# Cuboid – 4×5×4 notenav workflow
+# Four note types, five statuses, four priority levels – an asymmetric extension
+# of Zenith for personal wikis and mixed-purpose notebooks.
 
 [meta]
-name = "Cubic"
-description = "Symmetrical 4×4×4 workflow for personal wikis and mixed notebooks"
+name = "Cuboid"
+description = "4×5×4 workflow for personal wikis and mixed notebooks"
 schema = 1
 
 # --- Note types ---

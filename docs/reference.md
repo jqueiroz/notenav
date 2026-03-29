@@ -109,7 +109,7 @@ nn init --help
 
 | Argument | Description |
 |----------|-------------|
-| `workflow` | Built-in workflow name (`zenith`, `cubic`, `ado`, `gtd`, `zettelkasten`) or HTTPS URL. Defaults to `zenith`. |
+| `workflow` | Built-in workflow name (`zenith`, `cuboid`, `ado`, `gtd`, `zettelkasten`) or HTTPS URL. Defaults to `zenith`. |
 
 **Flags:**
 

@@ -1,24 +1,24 @@
-# Cubic Workflow
+# Cuboid Workflow
 
-A symmetrical 4×4×4 workflow – four note types, four statuses, four priority levels. Designed for personal wikis and mixed-purpose notebooks where you need one extra note type beyond the Zenith basics: the **ritual**.
+A 4×5×4 workflow – four note types, five statuses, four priority levels. Designed for personal wikis and mixed-purpose notebooks where you need one extra note type beyond the Zenith basics: the **ritual**.
 
-**Workflow file:** [`config/workflows/cubic.toml`](../../config/workflows/cubic.toml)
+**Workflow file:** [`config/workflows/cuboid.toml`](../../config/workflows/cuboid.toml)
 
 ```toml
 # Per-project – .nn/workflow.toml
-extends = "cubic"
+extends = "cuboid"
 ```
 
 ```toml
 # As default for all projects – ~/.config/notenav/config.toml
-default_workflow = "cubic"
+default_workflow = "cuboid"
 ```
 
 ## Philosophy
 
-Cubic extends Zenith's three-type model with a fourth type – **ritual** – for recurring practices and routines you want to keep top of mind. A ritual is something you revisit regularly as part of your rhythm: review your inbox, water the plants, check on a long-running deploy, journal before bed. It's not a task (there's no finish line) and it's not a reference (you act on it, not just read it).
+Cuboid extends Zenith's three-type model with a fourth type – **ritual** – for recurring practices and routines you want to keep top of mind. A ritual is something you revisit regularly as part of your rhythm: review your inbox, water the plants, check on a long-running deploy, journal before bed. It's not a task (there's no finish line) and it's not a reference (you act on it, not just read it).
 
-The 4×4×4 structure is easy to remember and covers the full range of personal knowledge work:
+The four note types cover the full range of personal knowledge work:
 
 - **Ideas** capture early insights
 - **Tasks** track concrete work
@@ -101,7 +101,7 @@ created: 2026-03-25
 
 ## Query Presets
 
-Cubic ships with five built-in query presets:
+Cuboid ships with five built-in query presets:
 
 | Preset | Filter | Purpose |
 |--------|--------|---------|
@@ -113,12 +113,11 @@ Cubic ships with five built-in query presets:
 
 These can be overridden or cleared in project config. See [Configuration](../configuration.md#queries) for details.
 
-## When to Use Cubic
+## When to Use Cuboid
 
-Cubic is a good fit when:
+Cuboid is a good fit when:
 
 - You want Zenith's simplicity but need a place for recurring routines and habits
 - Your notebook mixes tasks, ideas, documentation, and rituals
-- You like the symmetry of a 4×4×4 structure
 
 If you don't need rituals, [Zenith](zenith.md) is simpler. For software development, see [ADO](ado.md). For a process-oriented approach, see [GTD](gtd.md).
