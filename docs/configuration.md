@@ -134,7 +134,7 @@ description = "Concrete, actionable unit of work"
 
 | Value | Behavior |
 |-------|----------|
-| `show_defined` | Only notes whose type matches a value in `type.values`. Notes without a type field or with an unknown type are hidden. |
+| `show_defined` | Only notes that have a type field in their frontmatter. Notes without a type are hidden; notes with an unknown type value still appear. |
 | `show_untyped` | *(default)* Also shows notes that have no `type` field in their frontmatter. These appear with a dim `·` icon. Useful when migrating an existing vault or mixing typed and untyped notes. |
 | `show_all` | Shows all notes regardless of type, including notes with type values not defined in the workflow. Unknown types appear with dim styling. |
 

@@ -337,7 +337,7 @@ nn_load_config() {
     defaults,
     ui,
     refresh,
-    type: (.type // {} | with_entries(.value = {color: .value.color} | select(.value.color != null))),
+    type: ((.type // {} | to_entries | map(select(.value | type == "object")) | map({key, value: {color: .value.color}}) | map(select(.value.color != null)) | from_entries) + {visibility: .type.visibility} | del(.visibility | nulls)),
     status: {colors: .status.colors},
     priority: {colors: .priority.colors}
   } | del(.. | nulls)' 2>/dev/null)
@@ -533,6 +533,7 @@ _nn_gen_awk_bodies() {
   for (o = 1; o <= n; o++) {
     t = order[o]
     if (!(t in types)) continue
+    printed[t] = 1
     if (!first) printf " \033[90m·\033[0m "
     first = 0
     tc = (t in clr) ? clr[t] : "\033[36m"
@@ -552,6 +553,13 @@ _nn_gen_awk_bodies() {
       printf "%s%d %s\033[0m", scolor, combos[key], s
     }
     printf ")"
+  }
+  unknown = 0
+  for (t in types) { if (t != "" && !(t in printed)) unknown += types[t] }
+  if (unknown > 0) {
+    if (!first) printf " \033[90m·\033[0m "
+    first = 0
+    printf "\033[90m· %d unknown\033[0m", unknown
   }
   if ("" in types) {
     if (!first) printf " \033[90m·\033[0m "
@@ -772,7 +780,7 @@ nn_precompute_workflow() {
   done
 
   # Type visibility base condition
-  # show_defined: non-empty type required (current default behavior)
+  # show_defined: non-empty type required (pre-visibility-setting behavior)
   # show_untyped: empty type OK, but unknown types still excluded
   # show_all:     any note with a file path
   case "$NN_TYPE_VISIBILITY" in
