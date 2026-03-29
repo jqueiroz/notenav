@@ -8,7 +8,7 @@ Workflows are fully customizable: define your own note types, statuses, prioriti
 
 Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/): compatible with Obsidian, Dendron, Jekyll, and similar tools.
 
-![demo](https://raw.githubusercontent.com/jqueiroz/notenav-assets/main/demo.gif)
+![demo](https://raw.githubusercontent.com/jqueiroz/notenav-assets/main/media/demo.gif)
 
 ## Try it out
 
@@ -213,6 +213,6 @@ MIT
 [^1]: Well, not _all_ code editing. We're talking about the kind that sparks joy.
 [^2]: The feeling of writing a faceted note navigator purely in Bash is almost, but not quite, entirely unlike joy. As you may have noticed from the messy commit history, Claude mostly deprived me of this feeling, and for that I am grateful.
 
-    *Rest assured: no LLMs were harmed in the making of notenav.*
+    *Rest assured: [no LLMs were harmed in the making of notenav](https://raw.githubusercontent.com/jqueiroz/notenav-assets/main/media/no_llms_were_harmed.jpg).*
 [^3]: This means Mike Farah's Go implementation – not the Python wrapper (kislyuk/yq). On Fedora, Arch, and Homebrew `yq` is the right one. On Ubuntu/Debian, `apt install yq` gives you the wrong one – use `snap install yq` or grab the binary from [GitHub releases](https://github.com/mikefarah/yq/releases).
 [^4]: All in good spirit – emacs users, you know you can set `$EDITOR`.
