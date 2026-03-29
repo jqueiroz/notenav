@@ -2216,7 +2216,7 @@ _nn_init_project() {
     echo '# Add project-specific query presets below.'
     echo '# [queries.backlog]'
     echo '# args = "tag=backlog"'
-  } > "$wf_file"
+  } > "$wf_file" || { echo "notenav: failed to write $wf_file" >&2; return 1; }
 
   echo "Created $wf_file (extends $workflow_name)"
   if [[ "$workflow_name" != https://* ]]; then
@@ -2266,7 +2266,7 @@ _nn_init_user() {
     return 1
   fi
   mkdir -p "$(dirname "$target")" || { echo "notenav: cannot create directory: $(dirname "$target")" >&2; return 1; }
-  cp "$_sample" "$target"
+  cp "$_sample" "$target" || { echo "notenav: failed to copy sample config to $target" >&2; return 1; }
 
   # Uncomment and set default_workflow if a name/URL was given.
   # Uses awk to avoid sed delimiter injection from URLs or special characters.
