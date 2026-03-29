@@ -1968,6 +1968,7 @@ nn_doctor() {
       [[ -z "$_qname" ]] && continue
       (( _qp_count++ ))
       local _arg
+      set -f
       for _arg in $_qargs; do
         local _key="${_arg%%=*}" _val="${_arg#*=}"
         case "$_key" in
@@ -1992,6 +1993,7 @@ nn_doctor() {
           *) _qp_warns+="$_qname: unknown filter key '$_key'; " ;;
         esac
       done
+      set +f
     done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.args // "")"')
 
     if [[ -n "$_qp_warns" ]]; then
@@ -3946,7 +3948,9 @@ case "$action" in
   clear-type) ft=""; : > "$dir/.f_sq" ;;
   clear-status) fs=""; : > "$dir/.f_sq" ;;
   clear-priority) fp=""; : > "$dir/.f_sq" ;;
-  clear-sort) IFS= read -r fsort < "$dir/.schema_defaults"; fsort_rev="" ;;
+  clear-sort) { IFS= read -r fsort; IFS= read -r _; IFS= read -r _; IFS= read -r _sr; } < "$dir/.schema_defaults"
+    [ "$_sr" = "true" ] && fsort_rev="rev" || fsort_rev=""
+    echo "$fsort_rev" > "$dir/.f_sort_rev" ;;
   next|prev)  # [/]: cycle through query presets
     if [ -f "$dir/.queries" ]; then
       total=$(wc -l < "$dir/.queries")
