@@ -35,8 +35,8 @@ nn
 
 Everything else is optional and progressively enhances the experience:
 
-- **[zk](https://github.com/zk-org/zk)** – faster indexed listing and link graph in preview
 - **[bat](https://github.com/sharkdp/bat)** – syntax-highlighted markdown preview
+- **[zk](https://github.com/zk-org/zk)** – faster indexed listing and link graph in preview
 - [and a few more](docs/install.md#optional-dependencies)
 
 The Nix install path handles all of this automatically.
