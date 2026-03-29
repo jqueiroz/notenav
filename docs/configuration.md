@@ -23,10 +23,10 @@ At startup, two things happen:
    |-------|--------|---------|
    | 1. Base config | `$NOTENAV_ROOT/config/base.toml` | – (base) |
    | 2. Workflow | Built-in or extended workflow definition | Base defaults |
-   | 3. User config | `$XDG_CONFIG_HOME/notenav/config.toml` | Everything above |
+   | 3. User config | `$XDG_CONFIG_HOME/notenav/config.toml` | Preferences only |
    | 4. Project queries | `[queries]` from `.nn/workflow.toml` | All queries |
 
-   User preferences can override individual workflow values (like colors) without replacing the entire workflow. Project queries are applied last so they always win on name collisions.
+   User preferences can override cosmetic values (like colors) without replacing the workflow. Workflow-scoped keys – query presets and status descriptions – are ignored in user config. Project queries are applied last so they always win on name collisions.
 
 The `.nn/` directory is found by walking up from the current directory.
 
@@ -294,12 +294,11 @@ args = "type=task status=active"
 **Merge order** (later wins on name collisions):
 
 1. **Workflow:** built-in presets from the active workflow
-2. **User config** (`~/.config/notenav/config.toml`): personal queries, available everywhere
-3. **Project config** (`.nn/workflow.toml`): team-shared, project-specific
+2. **Project config** (`.nn/workflow.toml`): team-shared, project-specific
 
-Same-name queries at a later layer fully replace the earlier one. For example, defining `[queries.inbox]` in your project config overrides the workflow's `inbox` preset.
+Same-name queries at a later layer fully replace the earlier one. For example, defining `[queries.inbox]` in your project config overrides the workflow's `inbox` preset. Query presets are not available in user config – they belong to the workflow or project.
 
-**Clearing workflow presets:** If you want to start fresh without the workflow's built-in queries, set `inherit = false` in your project or user config:
+**Clearing workflow presets:** If you want to start fresh without the workflow's built-in queries, set `inherit = false` in your project config:
 
 ```toml
 # .nn/workflow.toml – clear workflow presets, define only your own
@@ -310,7 +309,7 @@ inherit = false
 args = "type=task status=active"
 ```
 
-This removes all workflow-level queries before merging. Queries defined in the same file (or higher layers) still apply. The `inherit` key itself is stripped from the final config. Setting `inherit = false` in user config (`~/.config/notenav/config.toml`) strips workflow queries globally across all projects.
+This removes all workflow-level queries before merging. Queries defined in the same file still apply. The `inherit` key itself is stripped from the final config.
 
 ## Built-in workflows
 

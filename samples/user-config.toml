@@ -32,18 +32,6 @@
 # poll_interval = 30          # seconds between polls (poll mode only)
 # max_files = 0               # disable auto-refresh above this note count (0 = no limit)
 
-# Personal query presets – available in all projects.
-# [queries.my-view]
-# order = 50                      # lower = earlier in the query bar (default: 100)
-# args = "type=task status=active"
-#
-# Tag-based presets – tags use OR logic when repeated:
-# [queries.backend]
-# args = "tag=backend"
-#
-# [queries.api-work]
-# args = "type=task tag=backend tag=api"
-
 # Override workflow colors – these merge on top, so only specify what you
 # want to change.
 #
@@ -52,9 +40,6 @@
 #
 # [status.colors]
 # active = "32;1"               # bold green for active
-#
-# [status.descriptions]
-# active = "Currently being worked on"
 #
 # [priority.colors]
 # 1 = "31"                      # non-bold red for P1

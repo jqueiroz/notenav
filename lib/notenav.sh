@@ -296,16 +296,17 @@ nn_load_config() {
     fi
   fi
 
-  # Handle queries.inherit: if false in project or user config,
+  # Handle queries.inherit: if false in project config,
   # strip workflow queries so only explicit queries survive
   local _inherit
   _inherit=$(printf '%s' "$project_wf_json" | jq -r '.queries.inherit // empty' 2>/dev/null)
-  if [[ -z "$_inherit" ]]; then
-    _inherit=$(printf '%s' "$user_json" | jq -r '.queries.inherit // empty' 2>/dev/null)
-  fi
   if [[ "$_inherit" == "false" ]]; then
     workflow_json=$(printf '%s' "$workflow_json" | jq 'del(.queries)' 2>/dev/null)
   fi
+
+  # Strip workflow-scoped keys from user config – queries and status
+  # descriptions belong to the project/workflow, not personal preferences.
+  user_json=$(printf '%s' "$user_json" | jq 'del(.queries, .status.descriptions)' 2>/dev/null)
 
   # Deep merge: base * workflow * user * project_queries
   # Later values win. Project queries applied last so they override user/workflow queries.
@@ -1141,7 +1142,7 @@ nn_doctor() {
     fi
 
     # Unrecognized top-level keys (scoped: extends is workflow-only, default_workflow is user-only)
-    local _known_keys_user="meta type status priority queries defaults ui refresh default_workflow"
+    local _known_keys_user="meta type status priority defaults ui refresh default_workflow"
     local _known_keys_workflow="meta type status priority queries defaults ui refresh extends"
     local _cfg_file _cfg_known
     for _cfg_file in "$user_cfg" "$project_wf_file"; do
