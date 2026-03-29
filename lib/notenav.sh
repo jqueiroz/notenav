@@ -1000,6 +1000,8 @@ nn_doctor() {
   _valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
   _in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
   _dupes() { local -A _seen; local _d="" _v; for _v; do if [[ -n "${_seen[$_v]+x}" ]]; then [[ "${_seen[$_v]}" == d ]] || { _d+="$_v, "; _seen[$_v]=d; }; else _seen[$_v]=1; fi; done; printf '%s' "${_d%, }"; }
+  _is_array() { local _t; _t=$(nn_cfg "$1 // null | type" 2>/dev/null); [[ "$_t" == "array" ]]; }
+  _all_strings() { local _bad; _bad=$(nn_cfg "$1 // {} | to_entries[] | select(.value | type != \"string\") | .key" 2>/dev/null); [[ -z "$_bad" ]] && return 0; printf '%s' "$_bad"; return 1; }
 
   # ── Phase 1: Dependencies ──
   echo "Dependencies:"
@@ -1214,7 +1216,11 @@ nn_doctor() {
           _dw_found=true
         fi
         if [[ "$_dw_found" == "false" ]]; then
-          _warn "default_workflow '$_dw' – workflow not found"
+          if [[ "$_dw" == https://* ]]; then
+            _warn "default_workflow '$_dw' – not cached (run 'nn refresh')"
+          else
+            _warn "default_workflow '$_dw' – workflow not found"
+          fi
         fi
       fi
     fi
@@ -1320,7 +1326,12 @@ nn_doctor() {
 
     # Type checks
     local _typ_values _typ_ok=true _typ_count=0 _typ_issues=""
-    mapfile -t _typ_values < <(nn_cfg '.type.values // [] | .[]')
+    if ! _is_array '.type.values'; then
+      _fail "type.values must be an array"
+      _typ_values=()
+    else
+      mapfile -t _typ_values < <(nn_cfg '.type.values // [] | .[]')
+    fi
     _typ_count=${#_typ_values[@]}
     if [[ ${#_typ_values[@]} -gt 0 ]] && _in_array "" "${_typ_values[@]}"; then
       _warn "type.values contains an empty string"
@@ -1367,7 +1378,13 @@ nn_doctor() {
     done
     # Validate type display_order
     local _typ_do_values
-    mapfile -t _typ_do_values < <(nn_cfg '.type.display_order // [] | .[]')
+    if ! _is_array '.type.display_order'; then
+      local _tdo_type; _tdo_type=$(nn_cfg '.type.display_order // null | type' 2>/dev/null)
+      [[ "$_tdo_type" != "null" ]] && _fail "type.display_order must be an array"
+      _typ_do_values=()
+    else
+      mapfile -t _typ_do_values < <(nn_cfg '.type.display_order // [] | .[]')
+    fi
     local _edo_dups
     _edo_dups=$(_dupes "${_typ_do_values[@]}")
     [[ -n "$_edo_dups" ]] && _warn "type.display_order has duplicates: $_edo_dups"
@@ -1430,7 +1447,12 @@ nn_doctor() {
 
     # Status checks
     local _sta_values _sta_ok=true _sta_count=0
-    mapfile -t _sta_values < <(nn_cfg '.status.values // [] | .[]')
+    if ! _is_array '.status.values'; then
+      _fail "status.values must be an array"
+      _sta_values=()
+    else
+      mapfile -t _sta_values < <(nn_cfg '.status.values // [] | .[]')
+    fi
     _sta_count=${#_sta_values[@]}
     if [[ ${#_sta_values[@]} -gt 0 ]] && _in_array "" "${_sta_values[@]}"; then
       _warn "status.values contains an empty string"
@@ -1464,7 +1486,11 @@ nn_doctor() {
 
     # Check filter_cycle values exist in values
     local _fc_values _fc_issues="" _fcv
-    mapfile -t _fc_values < <(nn_cfg '.status.filter_cycle // [] | .[]')
+    if ! _is_array '.status.filter_cycle'; then
+      _fail "status.filter_cycle must be an array"; _fc_values=(); _sta_ok=false
+    else
+      mapfile -t _fc_values < <(nn_cfg '.status.filter_cycle // [] | .[]')
+    fi
     if [[ ${#_fc_values[@]} -eq 0 && $_sta_count -gt 0 ]]; then
       _fc_issues+="filter_cycle is empty; "
       _sta_ok=false
@@ -1481,7 +1507,11 @@ nn_doctor() {
 
     # Check archive values exist in values
     local _arc_values _arc_issues="" _arcv
-    mapfile -t _arc_values < <(nn_cfg '.status.archive // [] | .[]')
+    if ! _is_array '.status.archive'; then
+      _fail "status.archive must be an array"; _arc_values=(); _sta_ok=false
+    else
+      mapfile -t _arc_values < <(nn_cfg '.status.archive // [] | .[]')
+    fi
     local _arc_dups
     _arc_dups=$(_dupes "${_arc_values[@]}")
     [[ -n "$_arc_dups" ]] && _warn "status.archive has duplicates: $_arc_dups"
@@ -1557,6 +1587,8 @@ nn_doctor() {
         _warn "status.colors.$_sck not in status.values"
       fi
     done < <(nn_cfg '.status.colors // {} | keys[]' 2>/dev/null)
+    # Validate status.colors values are strings
+    local _bad_sc; _bad_sc=$(_all_strings '.status.colors') || _warn "status.colors: non-string value(s) for: $_bad_sc"
     # Validate status.descriptions keys reference valid values
     local _sdk
     while IFS= read -r _sdk; do
@@ -1565,9 +1597,17 @@ nn_doctor() {
         _warn "status.descriptions.$_sdk not in status.values"
       fi
     done < <(nn_cfg '.status.descriptions // {} | keys[]' 2>/dev/null)
+    # Validate status.descriptions values are strings
+    local _bad_sd; _bad_sd=$(_all_strings '.status.descriptions') || _warn "status.descriptions: non-string value(s) for: $_bad_sd"
     # Validate status display_order
     local _sta_do_values
-    mapfile -t _sta_do_values < <(nn_cfg '.status.display_order // [] | .[]')
+    if ! _is_array '.status.display_order'; then
+      local _sdo_type; _sdo_type=$(nn_cfg '.status.display_order // null | type' 2>/dev/null)
+      [[ "$_sdo_type" != "null" ]] && _fail "status.display_order must be an array"
+      _sta_do_values=()
+    else
+      mapfile -t _sta_do_values < <(nn_cfg '.status.display_order // [] | .[]')
+    fi
     local _sdo_dups
     _sdo_dups=$(_dupes "${_sta_do_values[@]}")
     [[ -n "$_sdo_dups" ]] && _warn "status.display_order has duplicates: $_sdo_dups"
@@ -1603,7 +1643,12 @@ nn_doctor() {
     fi
     if [[ "$_pri_enabled" != "false" ]]; then
       local _pri_values _pri_ok=true _pri_count=0
-      mapfile -t _pri_values < <(nn_cfg '.priority.values // [] | .[]')
+      if ! _is_array '.priority.values'; then
+        _fail "priority.values must be an array"
+        _pri_values=()
+      else
+        mapfile -t _pri_values < <(nn_cfg '.priority.values // [] | .[]')
+      fi
       _pri_count=${#_pri_values[@]}
       if [[ ${#_pri_values[@]} -gt 0 ]] && _in_array "" "${_pri_values[@]}"; then
         _warn "priority.values contains an empty string"
@@ -1626,7 +1671,11 @@ nn_doctor() {
       done
 
       local _pri_fc_values _pri_fc_issues="" _pfcv
-      mapfile -t _pri_fc_values < <(nn_cfg '.priority.filter_cycle // [] | .[]')
+      if ! _is_array '.priority.filter_cycle'; then
+        _fail "priority.filter_cycle must be an array"; _pri_fc_values=(); _pri_ok=false
+      else
+        mapfile -t _pri_fc_values < <(nn_cfg '.priority.filter_cycle // [] | .[]')
+      fi
       if [[ ${#_pri_fc_values[@]} -eq 0 && $_pri_count -gt 0 ]]; then
         _pri_fc_issues+="filter_cycle is empty; "
         _pri_ok=false
@@ -1702,6 +1751,8 @@ nn_doctor() {
           _warn "priority.colors.$_prck not in priority.values"
         fi
       done < <(nn_cfg '.priority.colors // {} | keys[]' 2>/dev/null)
+      # Validate priority.colors values are strings
+      local _bad_pc; _bad_pc=$(_all_strings '.priority.colors') || _warn "priority.colors: non-string value(s) for: $_bad_pc"
       # Validate priority label keys reference valid values
       local _plk
       while IFS= read -r _plk; do
@@ -1772,8 +1823,8 @@ nn_doctor() {
     # UI validation
     local _ui_editor
     _ui_editor=$(nn_cfg '.ui.editor // empty')
-    if [[ -n "$_ui_editor" ]] && ! command -v "$_ui_editor" >/dev/null 2>&1; then
-      _warn "ui.editor '$_ui_editor' not found on PATH"
+    if [[ -n "$_ui_editor" ]] && ! command -v "${_ui_editor%% *}" >/dev/null 2>&1; then
+      _warn "ui.editor '${_ui_editor%% *}' not found on PATH"
     fi
     local _ui_cp _ui_sp
     _ui_cp=$(nn_cfg '.ui.command_prompt // empty')
@@ -3143,8 +3194,7 @@ for file in "$@"; do
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":( |$)" { print field ": " value; found=1; skip_cont=1; next }
     { print }
-  ' "$file" > "$file.tmp" && mv "$file.tmp" "$file" && count=$((count + 1))
-  [ -z "$first_ok" ] && first_ok="$file"
+  ' "$file" > "$file.tmp" && mv "$file.tmp" "$file" && count=$((count + 1)) && [ -z "$first_ok" ] && first_ok="$file"
 done
 # Pin acted-on files so they stay visible after filter (accumulative + dedup)
 { cat "$dir/.pinned" 2>/dev/null; [ $# -gt 0 ] && printf '%s\n' "$@"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
