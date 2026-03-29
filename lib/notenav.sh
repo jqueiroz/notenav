@@ -1254,10 +1254,10 @@ nn_doctor() {
       local _cache_path
       _cache_path=$(_nn_url_cache_path "$_ts_url")
       if [[ -f "$_cache_path" ]]; then
-        # GNU stat (Linux) first, then BSD date -r (macOS) as fallback
+        # BSD date -r (macOS) first, then GNU stat (Linux) as fallback
         local _fetch_date
-        _fetch_date=$(stat -c '%y' "$_cache_path" 2>/dev/null | cut -d' ' -f1)
-        [[ -z "$_fetch_date" ]] && _fetch_date=$(date -r "$_cache_path" '+%Y-%m-%d' 2>/dev/null)
+        _fetch_date=$(date -r "$_cache_path" '+%Y-%m-%d' 2>/dev/null)
+        [[ -z "$_fetch_date" ]] && _fetch_date=$(stat -c '%y' "$_cache_path" 2>/dev/null | cut -d' ' -f1)
         _pass "$_ts_url ${_dim}(cached${_fetch_date:+ $_fetch_date})${_reset}"
       else
         _warn "$_ts_url ${_dim}(not cached)${_reset}"
