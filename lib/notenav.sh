@@ -2028,11 +2028,14 @@ nn_doctor() {
     # Query preset validation (warnings only)
     local _qp_count=0 _qp_warns=""
 
-    # Validate queries.inherit if present
-    local _qi
-    _qi=$(nn_cfg '.queries.inherit // empty')
-    if [[ -n "$_qi" && "$_qi" != "true" && "$_qi" != "false" ]]; then
-      _qp_warns+="inherit must be true or false (got '$_qi'); "
+    # Validate queries.inherit if present (read raw TOML – nn_load_config deletes the key)
+    if [[ -n "$project_wf_file" && -f "$project_wf_file" ]]; then
+      local _qi
+      _qi=$(yq -p=toml -o=json -I=0 '.queries.inherit // empty' "$project_wf_file" 2>/dev/null)
+      _qi="${_qi//\"/}"  # strip JSON string quotes
+      if [[ -n "$_qi" && "$_qi" != "true" && "$_qi" != "false" ]]; then
+        _qp_warns+="inherit must be true or false (got '$_qi'); "
+      fi
     fi
 
     # Check for unrecognized keys in query presets
