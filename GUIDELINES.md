@@ -59,7 +59,7 @@ Two names coexist by design – each is used where it fits best:
 
 ## Config system
 
-- Project config (`.nn/workflow.toml`) and user config (`~/.config/notenav/config.toml`) are orthogonal – project defines the workflow, user defines personal preferences. Neither inherits from nor overrides the other.
+- Project config (`.nn/workflow.toml`) and user config (`~/.config/notenav/config.toml`) are layered independently and almost entirely orthogonal – project defines the workflow, user defines personal preferences. The only intersection is colors: user color overrides merge on top of the workflow's palette.
 - New config keys must have a fallback default in the `nn_cfg` call (the `// "value"` pattern) and a corresponding entry in `config/base.toml` or the workflow file.
 - Document new config keys in `docs/configuration.md`.
 - When adding or removing config properties, filter keys, or enum values, update the validation logic in `nn_doctor()` – it maintains hardcoded known-key lists and valid-value checks that must stay in sync.
