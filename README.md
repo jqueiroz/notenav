@@ -10,7 +10,7 @@ Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/d
 
 ## Try it out
 
-No install needed – SSH into a live demo with a sample notebook (27 notes tracking the crew operations of the starship *Heart of Gold*):
+No install needed – SSH into a live demo with a sample notebook (27 notes tracking the crew operations of the starship [*Heart of Gold*](https://hitchhikers.fandom.com/wiki/Heart_of_Gold)):
 
 ```bash
 ssh notenav.sh
