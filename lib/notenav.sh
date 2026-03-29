@@ -390,6 +390,17 @@ _nn_gen_awk_bodies() {
       _typ_awk+=$'\n'"  if (\$1 == \"${_vesc}\") { tc = \"\\033[${NN_TYPE_COLORS[$_v]}m\"; ic = \"${_esc}\" }"
     fi
   done
+  # Dim fallback for untyped/unknown notes (overrides the first-type default above)
+  if [[ "$NN_TYPE_VISIBILITY" != "show_defined" ]]; then
+    # Build a condition that matches notes outside the known type set
+    local _known_cond=""
+    for _v in "${NN_TYPE_VALUES[@]}"; do
+      _vesc=$(_nn_awk_esc "$_v")
+      [[ -n "$_known_cond" ]] && _known_cond+=" && "
+      _known_cond+="\$1 != \"${_vesc}\""
+    done
+    _typ_awk+=$'\n'"  if (${_known_cond}) { tc = \"\\033[90m\"; ic = \"·\" }"
+  fi
 
   # Status color assignments
   local _sta_awk="sc = \"\\033[${NN_STATUS_DEFAULT_COLOR}m\""
@@ -542,6 +553,10 @@ _nn_gen_awk_bodies() {
     }
     printf ")"
   }
+  if ("" in types) {
+    if (!first) printf " \033[90m·\033[0m "
+    printf "\033[90m· %d untyped\033[0m", types[""]
+  }
 }'
 
   # Group ordering strings (use display_order)
@@ -583,6 +598,9 @@ nn_precompute_workflow() {
     return 1
   fi
   NN_TYPE_DEFAULT_COLOR=$(nn_cfg '.type.default_color // "36"')
+  NN_TYPE_VISIBILITY=$(nn_cfg '.type.visibility // "show_untyped"')
+  case "$NN_TYPE_VISIBILITY" in show_defined|show_untyped|show_all) ;;
+    *) echo "notenav: type.visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" >&2; return 1 ;; esac
   declare -gA NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS
   for _v in "${NN_TYPE_VALUES[@]}"; do
     local _jv; _jv=$(_nn_jq_esc "$_v")
@@ -752,6 +770,24 @@ nn_precompute_workflow() {
   for _v in "${NN_STATUS_ARCHIVE[@]}"; do
     NN_ARCHIVE_COND+=" && \$2!=\"$(_nn_awk_esc "$_v")\""
   done
+
+  # Type visibility base condition
+  # show_defined: non-empty type required (current default behavior)
+  # show_untyped: empty type OK, but unknown types still excluded
+  # show_all:     any note with a file path
+  case "$NN_TYPE_VISIBILITY" in
+    show_defined)
+      NN_TYPE_VIS_COND='length($1) > 0' ;;
+    show_untyped)
+      # Accept empty $1 OR $1 matching a known type
+      local _known_cond="\$1 == \"\""
+      for _v in "${NN_TYPE_VALUES[@]}"; do
+        _known_cond+=" || \$1 == \"$(_nn_awk_esc "$_v")\""
+      done
+      NN_TYPE_VIS_COND="($_known_cond) && length(\$6) > 0" ;;
+    show_all)
+      NN_TYPE_VIS_COND='length($6) > 0' ;;
+  esac
 }
 
 nn_write_workflow_files() {
@@ -850,6 +886,10 @@ nn_write_workflow_files() {
     _archive_label+="$_v"
   done
   printf '%s' "$_archive_label" > "$dir/.schema_archive_label"
+
+  # Type visibility
+  printf '%s' "$NN_TYPE_VISIBILITY" > "$dir/.schema_type_visibility"
+  printf '%s' "$NN_TYPE_VIS_COND" > "$dir/.schema_type_vis_cond"
 }
 
 # --- Native listing (zk-free backend) ---
@@ -1414,7 +1454,7 @@ nn_doctor() {
       done < <(nn_cfg ".type.\"$(_nn_jq_esc "$_ev")\" // {} | keys[]" 2>/dev/null)
     done
     # Warn on type-level keys that aren't in values or known top-level keys
-    local _typ_known_toplevel="values default_color display_order"
+    local _typ_known_toplevel="values default_color display_order visibility"
     local _ek
     while IFS= read -r _ek; do
       [[ -z "$_ek" ]] && continue
@@ -1423,6 +1463,15 @@ nn_doctor() {
         _warn "type.$_ek is not in type.values (typo?)"
       fi
     done < <(nn_cfg '.type // {} | keys[]' 2>/dev/null)
+    # Validate type.visibility
+    local _typ_vis
+    _typ_vis=$(nn_cfg '.type.visibility // empty')
+    if [[ -n "$_typ_vis" ]]; then
+      case "$_typ_vis" in
+        show_defined|show_untyped|show_all) ;;
+        *) _warn "type.visibility '$_typ_vis' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" ;;
+      esac
+    fi
 
     # Meta sub-key validation
     local _known_meta_keys="name description schema"
@@ -2698,7 +2747,7 @@ EOF
 
     # Seal all workflow variables – accidental mutation is now a hard error
     # shellcheck disable=SC2034  # associative arrays are used via key lookup, not direct reference
-    readonly NN_TYPE_VALUES NN_TYPE_DEFAULT_COLOR NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS \
+    readonly NN_TYPE_VALUES NN_TYPE_DEFAULT_COLOR NN_TYPE_VISIBILITY NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS \
       NN_STATUS_VALUES NN_STATUS_ARCHIVE NN_STATUS_FILTER_CYCLE NN_STATUS_DEFAULT_COLOR \
       NN_STATUS_INITIAL NN_STATUS_COLORS NN_STATUS_DESCS NN_STATUS_FWD NN_STATUS_REV \
       NN_PRIORITY_ENABLED NN_PRIORITY_VALUES NN_PRIORITY_FILTER_CYCLE \
@@ -2712,7 +2761,7 @@ EOF
       NN_UI_PREVIEWER_FLAGS_BAT NN_UI_PREVIEWER_FLAGS_GLOW NN_UI_PREVIEWER_FLAGS_MDCAT \
       NN_REFRESH_MODE NN_REFRESH_POLL_INTERVAL NN_REFRESH_MAX_FILES \
       NN_ZK_FMT NN_AWK_COLOR NN_AWK_COLOR_BODY NN_AWK_COLOR_PINNED NN_AWK_COLOR_MARKED NN_AWK_COLOR_STATS \
-      NN_TYPE_ORDER_STR NN_STATUS_ORDER_STR NN_AWK_ICON_SETUP NN_ARCHIVE_COND \
+      NN_TYPE_ORDER_STR NN_STATUS_ORDER_STR NN_AWK_ICON_SETUP NN_ARCHIVE_COND NN_TYPE_VIS_COND \
       NN_CFG_JSON
     _NN_SEALED=1
   fi
@@ -4145,7 +4194,8 @@ echo "$fmarked" > "$dir/.f_marked"
 # Build awk condition
 # Sanitize values for safe interpolation into awk expressions
 awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
-cond='length($1) > 0'
+vis_cond=$(cat "$dir/.schema_type_vis_cond")
+cond="$vis_cond"
 [ -n "$ft" ] && cond="$cond && \$1==\"$(awk_esc "$ft")\""
 [ -n "$fs" ] && cond="$cond && \$2==\"$(awk_esc "$fs")\""
 # Hide archived statuses unless archive toggle is on or status is explicitly filtered
@@ -4311,7 +4361,7 @@ fi
 active_sq=$(cat "$dir/.f_sq" 2>/dev/null)
 cols=$(tput cols 2>/dev/null || echo 80)
 # Count matches for "all" (respects archive toggle)
-all_cond='length($1) > 0'
+all_cond="$vis_cond"
 [ -z "$farchive" ] && all_cond="$all_cond$archive_cond"
 all_count=$(awk -F'\t' "$all_cond"'{n++} END{print n+0}' "$dir/.raw")
 # 0:all highlights only when no filters, no tags, no query preset, defaults
@@ -4327,7 +4377,7 @@ if [ -f "$dir/.queries" ]; then
   while IFS='	' read -r qname qargs || [ -n "$qname" ]; do
     n=$((n + 1))
     # Build awk condition for this query
-    sq_cond='length($1) > 0'
+    sq_cond="$vis_cond"
     [ -z "$farchive" ] && sq_cond="$sq_cond$archive_cond"
     _sq_tag_cond=""
     set -f
@@ -4466,7 +4516,7 @@ printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$fil
 [ -f "$dir/.empty_easteregg_override" ] && cat "$dir/.empty_easteregg_override" > "$dir/.empty_placeholder"
 # Show Adams placeholder + dummy entry when view is truly empty (skip if pinned items present)
 if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
-  raw_total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
+  raw_total=$(awk -F'\t' "$vis_cond" "$dir/.raw" | wc -l)
   if [ "$raw_total" -eq 0 ]; then
     printf '\n  [90m╭─────────────────────────────────────────────────╮[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                   [1;33mDON'\''T PANIC[0m                   [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    ───────────────────────────────────────────  [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    No notes here – yet.                         [90m│[0m\n  [90m│[0m    Press [36mn[0m to create your first note.           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m              [31m·[0m       [35m✦[0m                          [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m         [36m✦[0m                [32m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                  [1;37m·[0m                              [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m             [35m✦[0m            [34m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: check out the keybinding[0m                [90m│[0m\n  [90m│[0m    [37mindications on the footer, and[0m               [90m│[0m\n  [90m│[0m    [37mhappy note-taking![0m                           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
   else
@@ -4485,7 +4535,7 @@ if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
 fi
 # Measure placeholder visible width (strip ANSI, find longest line) for preview.sh centering
 awk 'BEGIN{esc=sprintf("%c",27)} {gsub(esc"\\[[0-9;]*m",""); if(length>m) m=length} END{print m+0}' "$dir/.empty_placeholder" > "$dir/.empty_placeholder_width"
-total=$(awk -F'\t' 'length($1) > 0' "$dir/.raw" | wc -l)
+total=$(awk -F'\t' "$vis_cond" "$dir/.raw" | wc -l)
 pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "$dir/.pinned")
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 mark_s=""; [ "$mark_count" -gt 0 ] && mark_s=" · ${mark_count} marked"
@@ -4778,7 +4828,7 @@ ENDEDIT
     printf '#!/usr/bin/env bash\nnn_editor=$(cat "%s" 2>/dev/null)\n[ -f "$1" ] && ${nn_editor:-vi} "$1"\n' "$_nn_edit.editor" > "$_nn_edit"
     chmod +x "$_nn_edit"
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
-      | awk -F'\t' "$awk_cond && length(\$1) > 0" \
+      | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
       | _nn_adhoc_sort \
       | awk -F'\t' "$_awk_color" > "$nn_tmp"
     fzf --ansi --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
@@ -4814,7 +4864,7 @@ ENDEDIT
       _adhoc_fmt='{printf "[%s] [%s] %s\n", $1, $2, $5}'
     fi
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
-      | awk -F'\t' "$awk_cond && length(\$1) > 0" \
+      | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
       | _nn_adhoc_sort \
       | awk -F'\t' "$_adhoc_fmt"
   fi

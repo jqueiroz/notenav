@@ -122,12 +122,23 @@ description = "Concrete, actionable unit of work"
 |-----|------|-------------|
 | `values` | array | Valid note types; array order is used as the default display order |
 | `default_color` | string | ANSI color code used for types not explicitly listed |
+| `visibility` | string | Which notes appear based on their type field (default: `"show_untyped"`) |
 | `display_order` | array | *(optional)* Override display order (group headers and stats bar); defaults to `values` order |
 | `[type.<name>].icon` | string | Single character displayed in the list |
 | `[type.<name>].color` | string | ANSI color code (e.g. `"31"` = red, `"32"` = green) |
 | `[type.<name>].description` | string | What this type represents |
 
 **Common ANSI color codes:** `31` red, `32` green, `33` yellow, `34` blue, `35` magenta, `36` cyan, `90` dim gray. Append `;1` for bold (e.g. `"31;1"` = bold red).
+
+**`type.visibility`** controls which notes appear based on their type field:
+
+| Value | Behavior |
+|-------|----------|
+| `show_defined` | Only notes whose type matches a value in `type.values`. Notes without a type field or with an unknown type are hidden. |
+| `show_untyped` | *(default)* Also shows notes that have no `type` field in their frontmatter. These appear with a dim `·` icon. Useful when migrating an existing vault or mixing typed and untyped notes. |
+| `show_all` | Shows all notes regardless of type, including notes with type values not defined in the workflow. Unknown types appear with dim styling. |
+
+When filtering by a specific type (`t` key or `type=task`), only notes matching that type are shown regardless of this setting.
 
 ### `[status]`
 

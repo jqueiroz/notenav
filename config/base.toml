@@ -5,6 +5,9 @@
 
 default_workflow = "zenith"
 
+[type]
+visibility = "show_untyped"  # "show_defined" | "show_untyped" | "show_all"
+
 [defaults]
 sort_by = "created"
 sort_reverse = false
