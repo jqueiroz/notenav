@@ -546,7 +546,12 @@ _nn_gen_awk_bodies() {
 
   # Group ordering strings (use display_order)
   NN_TYPE_ORDER_STR="$_type_order_str"
-  NN_STATUS_ORDER_STR="${NN_STATUS_DISPLAY_ORDER[*]:-${NN_STATUS_VALUES[*]}}"
+  local _status_order_arr=("${NN_STATUS_DISPLAY_ORDER[@]:-${NN_STATUS_VALUES[@]}}")
+  NN_STATUS_ORDER_STR=""
+  local _soi
+  for _soi in "${_status_order_arr[@]}"; do
+    NN_STATUS_ORDER_STR+="${NN_STATUS_ORDER_STR:+ }$(_nn_awk_esc "$_soi")"
+  done
 
   # Type icon AWK snippet for grouping
   NN_AWK_ICON_SETUP=""
@@ -2918,7 +2923,7 @@ if [ $rc -eq 0 ] && [ -n "$query" ]; then
       grep -Frl --include='*.md' "$query" "$search_dir" 2>/dev/null > "$dir/.f_match_paths"
     fi
   fi
-  echo "$query" > "$dir/.f_match"
+  printf '%s\n' "$query" > "$dir/.f_match"
 elif [ $rc -eq 0 ]; then
   : > "$dir/.f_match"
   : > "$dir/.f_match_paths"
@@ -4072,7 +4077,7 @@ echo "$ft" > "$dir/.f_type"; echo "$fs" > "$dir/.f_status"
 echo "$fp" > "$dir/.f_priority"
 echo "$fsort" > "$dir/.f_sort"; echo "$fsort_rev" > "$dir/.f_sort_rev"; echo "$fgroup" > "$dir/.f_group"
 echo "$farchive" > "$dir/.f_archive"
-echo "$fmatch" > "$dir/.f_match"
+printf '%s\n' "$fmatch" > "$dir/.f_match"
 printf '%s\n' "$fname" > "$dir/.f_name"
 echo "$fmarked" > "$dir/.f_marked"
 # Build awk condition
@@ -4254,7 +4259,7 @@ if [ -z "$active_sq" ] && [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && ! $has
 else
   sq_lines=$(printf '\033[90m 0:all(%d) \033[0m' "$all_count")
 fi
-line_len=$((8 + ${#all_count}))
+line_len=$((9 + ${#all_count}))
 if [ -f "$dir/.queries" ]; then
   n=0
   while IFS='	' read -r qname qargs || [ -n "$qname" ]; do
@@ -4721,7 +4726,7 @@ ENDEDIT
           --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,q:abort,change:clear-query' \
           --bind "/:unbind(j,k,q,change)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch $_nn_sflag)" \
           --bind "esc:transform[test -f $_nn_sflag && rm $_nn_sflag && printf 'rebind(j,k,q,change)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)']" \
-          --bind "::rebind(j,k,q)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_sflag)" \
+          --bind "::rebind(j,k,q,change)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_sflag)" \
           --bind 'J:preview-page-down,K:preview-page-up' \
           --bind 'H:toggle-wrap' \
           --bind "enter:execute($_nn_edit {1})+refresh-preview"
@@ -4735,7 +4740,12 @@ ENDEDIT
       for _v in "${NN_PRIORITY_VALUES[@]}"; do
         [[ "${NN_PRIORITY_LABELS[$_v]}" == "P$_v" ]] && continue
         local _esc_label; _esc_label=$(_nn_awk_esc "${NN_PRIORITY_LABELS[$_v]}")
-        _adhoc_pl+="; if (\$3 == \"$_v\") pl = \"${_esc_label}\""
+        if [[ "$_v" =~ ^[0-9]+$ ]]; then
+          _adhoc_pl+="; if (\$3+0 == $_v) pl = \"${_esc_label}\""
+        else
+          local _esc_v; _esc_v=$(_nn_awk_esc "$_v")
+          _adhoc_pl+="; if (\$3 == \"${_esc_v}\") pl = \"${_esc_label}\""
+        fi
       done
       _adhoc_fmt="{ $_adhoc_pl; "'printf "[%s] [%s] [%s] %s\n", $1, pl, $2, $5 }'
     else
