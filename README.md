@@ -4,7 +4,7 @@ Your notes deserve a proper interface. Not a browser tab, not an Electron app â€
 
 Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions; select a note and edit it in your favorite editor â€“ all without leaving the terminal. Friendly learning curve: with the default configuration, every keybinding is displayed on-screen.
 
-Workflows are fully customizable: define your own note types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with built-in presets for common workflows.
+Workflows are fully customizable: define your own note types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with five built-in workflows for common patterns.
 
 Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/): compatible with Obsidian, Dendron, Jekyll, and similar tools.
 
@@ -149,7 +149,7 @@ All configuration is TOML. Project and user configuration are layered independen
 
 The `.nn/` directory is found by walking up from your current directory (like `.git/`), so `nn` works from any subdirectory. Notes are discovered recursively: at the notebook root you see everything, from a subdirectory you see only that subtree.
 
-Ships with five built-in workflows. Use a preset as-is, extend it with overrides, or write your own. The built-in config files are self-documenting and the best way to learn the format.
+Ships with five built-in workflows. Use one as-is, extend it with overrides, or write your own. The built-in config files are self-documenting and the best way to learn the format.
 
 | Workflow | Overview | Config |
 |----------|----------|--------|
