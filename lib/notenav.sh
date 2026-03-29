@@ -2950,7 +2950,7 @@ elif [[ "$mode" = "poll" ]]; then
     if [[ -n $(find "$notebook_root" -name '*.md' -newer "$dir/.raw" \
                 -print -quit 2>/dev/null) ]]; then
       post_reload
-    elif [[ $(find "$notebook_root" -name '*.md' -type f 2>/dev/null | wc -l) \
+    elif [[ $(find "$(cat "$dir/.scope_path")" -name '*.md' -type f 2>/dev/null | wc -l) \
               -ne $(wc -l < "$dir/.raw" 2>/dev/null || echo 0) ]]; then
       post_reload
     fi
