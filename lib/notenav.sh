@@ -4347,7 +4347,7 @@ ENDEDIT
       --bind "r:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir sort-reverse; elif test -z \"\$m\"; then $_nn_dir/reload_raw.sh $_nn_dir 2>/dev/null; $_nn_dir/filter.sh $_nn_dir refresh; fi]" \
       --bind "w:transform[$_nn_dir/wrapkey.sh $_nn_dir '$NN_UI_COMMAND_PROMPT']" \
       --multi \
-      --bind "b:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bulkedit.sh $_nn_dir)+refresh-preview+transform($_nn_dir/reload_at.sh $_nn_dir)+deselect-all'; fi]" \
+      --bind "b:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bulkedit.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)+deselect-all+refresh-preview'; fi]" \
       --bind "x:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-pins; fi]" \
       --bind "X:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\" && test -s $_nn_dir/.pinned.bak; then $_nn_dir/filter.sh $_nn_dir restore-pins; fi]" \
       --bind "m:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir mark-toggle {1}; elif test -z \"\$m\"; then echo m > $_nn_dir/.nn-mode; echo 'change-prompt(m )+transform-header(cat $_nn_dir/.header-m)'; fi]" \
