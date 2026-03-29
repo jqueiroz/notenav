@@ -3420,7 +3420,8 @@ _nn_read_title() {
             title=""
             printf '\n' > /dev/tty
             break ;;
-          *) ;;  # Ignore other sequences
+          *)  # Extended sequence (e.g. Ctrl+Arrow) – drain remaining bytes
+            while IFS= read -rsn1 -t 0.01 _ < /dev/tty; do :; done ;;
         esac ;;
       $'\001')  # Ctrl+A → Home
         if [ "$pos" -gt 0 ]; then
@@ -3638,7 +3639,10 @@ else
         case "$rest" in
           '[A') key=up ;;
           '[B') key=down ;;
-          *)    key=esc ;;
+          '')   key=esc ;;
+          *)    # Extended sequence – drain remaining bytes
+                while IFS= read -rsn1 -t 0.01 _ < /dev/tty; do :; done
+                continue ;;
         esac ;;
       j) key=down ;; k) key=up ;;
       '') key=enter ;; *) continue ;;
@@ -4506,7 +4510,7 @@ ENDEDIT
     local _nn_qdepth=${_NN_QUERY_DEPTH:-0}
     if (( _nn_qdepth >= 5 )); then
       echo "notenav: query preset recursion too deep (circular reference?)" >&2
-      return 1
+      shopt -u nullglob; return 1
     fi
     _NN_QUERY_DEPTH=$(( _nn_qdepth + 1 ))
     local saved="$1"; shift
@@ -4528,7 +4532,7 @@ ENDEDIT
       echo "notenav: available presets: ${_pnames%, }" >&2
     fi
     echo "notenav: run 'nn --help' for usage" >&2
-    return 1
+    shopt -u nullglob; return 1
   fi
 
   # ---- AD-HOC QUERY ----
@@ -4545,7 +4549,7 @@ ENDEDIT
           local _fk="${1%%=*}"
           case "$_fk" in type|status|priority|tag) ;; *)
             echo "notenav: unknown filter key '$_fk'" >&2
-            echo "notenav: valid keys: type, status, priority, tag" >&2; return 1 ;; esac
+            echo "notenav: valid keys: type, status, priority, tag" >&2; shopt -u nullglob; return 1 ;; esac
           if [[ "$_fk" == "tag" ]]; then
             filter_tags+=("${1#*=}")
           else
@@ -4567,20 +4571,20 @@ ENDEDIT
   if [[ -n "${filters[type]+x}" && -n "${filters[type]}" ]]; then
     _nn_in_array "${filters[type]}" "${NN_TYPE_VALUES[@]}" || {
       echo "notenav: unknown type '${filters[type]}'" >&2
-      echo "notenav: valid types: ${NN_TYPE_VALUES[*]}" >&2; return 1; }
+      echo "notenav: valid types: ${NN_TYPE_VALUES[*]}" >&2; shopt -u nullglob; return 1; }
   fi
   if [[ -n "${filters[status]+x}" && -n "${filters[status]}" ]]; then
     _nn_in_array "${filters[status]}" "${NN_STATUS_VALUES[@]}" || {
       echo "notenav: unknown status '${filters[status]}'" >&2
-      echo "notenav: valid statuses: ${NN_STATUS_VALUES[*]}" >&2; return 1; }
+      echo "notenav: valid statuses: ${NN_STATUS_VALUES[*]}" >&2; shopt -u nullglob; return 1; }
   fi
   if [[ -n "${filters[priority]+x}" && -n "${filters[priority]}" && "${filters[priority]}" != "none" ]]; then
     if [[ "$NN_PRIORITY_ENABLED" == "false" ]]; then
-      echo "notenav: priority filtering not available (priority is disabled)" >&2; return 1
+      echo "notenav: priority filtering not available (priority is disabled)" >&2; shopt -u nullglob; return 1
     fi
     _nn_in_array "${filters[priority]}" "${NN_PRIORITY_VALUES[@]}" || {
       echo "notenav: unknown priority '${filters[priority]}'" >&2
-      echo "notenav: valid priorities: ${NN_PRIORITY_VALUES[*]}" >&2; return 1; }
+      echo "notenav: valid priorities: ${NN_PRIORITY_VALUES[*]}" >&2; shopt -u nullglob; return 1; }
   fi
 
   local awk_cond="1"
@@ -4627,12 +4631,12 @@ ENDEDIT
   if $interactive; then
     if [[ "${TERM:-dumb}" == "dumb" ]]; then
       echo "notenav: interactive mode requires a terminal (TERM is 'dumb')" >&2
-      return 1
+      shopt -u nullglob; return 1
     fi
-    local nn_tmp; nn_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
-    local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed" >&2; return 1; }
-    local _nn_edit; _nn_edit=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev"; echo "notenav: mktemp failed" >&2; return 1; }
-    local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed" >&2; return 1; }
+    local nn_tmp; nn_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
+    local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
+    local _nn_edit; _nn_edit=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
+    local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
     trap 'rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_sflag"' EXIT
     _nn_write_preview "$_nn_prev"
     printf '%s' "$_nn_editor" > "$_nn_edit.editor"

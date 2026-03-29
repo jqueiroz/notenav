@@ -27,7 +27,8 @@ for dep in bash fzf gawk sort sed git yq jq; do
       awk_impl=$(awk --version 2>/dev/null | head -1)
       case "$awk_impl" in
         *GNU*|*gawk*) ;;
-        *) warn "awk found but notenav requires gawk (GNU awk)" ;;
+        *) warn "awk found but notenav requires gawk (GNU awk)"
+           missing="$missing gawk" ;;
       esac
     else
       missing="$missing $dep"
@@ -55,6 +56,9 @@ if check_dep bash; then
 fi
 
 if [ -n "$missing" ]; then
+  case "$missing" in
+    *git*) err "git is required to install notenav. Install git and try again." ;;
+  esac
   warn "Missing dependencies:$missing"
   warn "notenav will be installed but may not work until these are available."
   echo >&2
@@ -64,6 +68,8 @@ fi
 if [ -d "$NOTENAV_DIR/.git" ]; then
   echo "Updating notenav..."
   git -C "$NOTENAV_DIR" pull --ff-only
+elif [ -d "$NOTENAV_DIR" ]; then
+  err "$NOTENAV_DIR already exists but is not a git repository. Remove it and try again."
 else
   echo "Installing notenav..."
   mkdir -p "$(dirname "$NOTENAV_DIR")"
