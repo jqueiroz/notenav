@@ -2255,6 +2255,7 @@ _nn_init_project() {
   } > "$wf_file" || { echo "notenav: failed to write $wf_file" >&2; return 1; }
 
   echo "Created $wf_file (extends $workflow_name)"
+  echo "Run 'nn' to launch the TUI, or 'nn doctor' to verify your setup."
   if [[ "$workflow_name" != https://* ]]; then
     _nn_list_workflows "$notenav_root"
   fi
@@ -2326,7 +2327,7 @@ _nn_init_user() {
   fi
 
   echo "Created $target"
-  echo "Edit it to customize your preferences."
+  echo "Edit it to customize your preferences. Run 'nn doctor' to verify your setup."
 }
 
 # Checks if a workflow name exists in built-in or user workflow directories.
@@ -2743,7 +2744,7 @@ EOF
     local _search_target="$_scope_path"
     if [[ -z "$(find "$_search_target" -name '*.md' -type f -print -quit 2>/dev/null)" ]]; then
       echo "notenav: no markdown files found in $_search_target" >&2
-      echo "notenav: run 'nn doctor' to diagnose" >&2
+      echo "notenav: run 'nn init' to set up a notebook, or 'nn doctor' to diagnose" >&2
       shopt -u nullglob; return 1
     fi
   fi
@@ -3138,7 +3139,10 @@ done
 { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$@"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
 mv "$dir/.pinned.tmp" "$dir/.pinned"
 rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
-printf '%s → %s' "$field" "$value" > "$dir/.last_action"
+_la_title=$(p="$1" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+_la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
+if [ "$count" -gt 1 ]; then _la_title="$_la_title (+$((count - 1)) more)"; fi
+printf '%s → %s (%s)' "$field" "$value" "$_la_title" > "$dir/.last_action"
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
 "$dir/filter.sh" "$dir" refresh > /dev/null

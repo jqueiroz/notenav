@@ -95,3 +95,4 @@ esac
 
 echo
 info "Done. Run 'nn --version' to verify."
+info "Then: cd to your notes directory and run 'nn init' to get started."
