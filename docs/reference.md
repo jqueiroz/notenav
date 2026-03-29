@@ -149,6 +149,7 @@ nn doctor
    - sort, sed
    - zk (optional – faster indexing and link graph)
    - curl (optional – needed for remote workflows)
+   - inotifywait or fswatch (optional – auto-refresh in watch mode)
    - bat or batcat (optional – default previewer; alternatives: glow, mdcat)
 
 2. **Config:** validates configuration files:
@@ -162,11 +163,11 @@ nn doctor
 
 4. **Workflow integrity:** validates the merged workflow definition:
    - **Meta**: `schema` version is a supported positive integer, no unrecognized sub-keys
-   - **Types**: all types have icon and color, no duplicates, `display_order` references valid types, no unrecognized sub-keys
-   - **Statuses**: all statuses have colors, `initial` exists in values, `filter_cycle` and `archive` reference valid values, lifecycle transitions reference valid statuses, description keys reference valid statuses, no unrecognized sub-keys
+   - **Types**: all types have icon and color, no duplicates, `display_order` references valid types and covers all values, no unrecognized sub-keys
+   - **Statuses**: all statuses have colors, `initial` exists in values, `filter_cycle` and `archive` reference valid values, lifecycle transitions reference valid statuses, `display_order` covers all values, description keys reference valid statuses, no unrecognized sub-keys
    - **Priority**: levels have colors, `filter_cycle` references valid values, lifecycle transitions valid, `unset_position` is `first` or `last`, no unrecognized sub-keys
    - **Defaults**: `sort_by`, `sort_reverse`, `group_by`, `show_archive`, and `wrap_preview` have valid values
-   - **UI**: `exit_message`, `priority_plus`, `after_create`, `previewer`, and `previewer_flags` have valid values; configured previewer tools are available
+   - **UI**: `command_prompt` and `search_prompt` do not contain characters stripped at runtime; `exit_message`, `priority_plus`, `after_create`, `previewer`, and `previewer_flags` have valid values; configured previewer tools (bat/batcat, glow, mdcat, custom) are checked for availability
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
    - ANSI color codes are syntactically valid throughout
 

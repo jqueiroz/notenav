@@ -1258,6 +1258,13 @@ nn_doctor() {
         _warn "type.display_order '$_edov' not in type.values"
       fi
     done
+    if [[ ${#_typ_do_values[@]} -gt 0 ]]; then
+      local _missing_typ="" _mtv
+      for _mtv in "${_typ_values[@]}"; do
+        _in_array "$_mtv" "${_typ_do_values[@]}" || _missing_typ+="$_mtv, "
+      done
+      [[ -n "$_missing_typ" ]] && _warn "type.display_order missing: ${_missing_typ%, } (will be absent from grouped views)"
+    fi
     # Validate type sub-table keys
     local _typ_known_subkeys="icon color description"
     for _ev in "${_typ_values[@]}"; do
@@ -1451,6 +1458,13 @@ nn_doctor() {
         _warn "status.display_order '$_sdov' not in status.values"
       fi
     done
+    if [[ ${#_sta_do_values[@]} -gt 0 ]]; then
+      local _missing_sta="" _msv
+      for _msv in "${_sta_values[@]}"; do
+        _in_array "$_msv" "${_sta_do_values[@]}" || _missing_sta+="$_msv, "
+      done
+      [[ -n "$_missing_sta" ]] && _warn "status.display_order missing: ${_missing_sta%, } (will be absent from grouped views)"
+    fi
     # Validate status sub-keys
     local _known_status_keys="values initial archive filter_cycle default_color colors descriptions lifecycle display_order"
     local _stk
@@ -1638,6 +1652,11 @@ nn_doctor() {
     done < <(nn_cfg '.defaults // {} | keys[]' 2>/dev/null)
 
     # UI validation
+    local _ui_cp _ui_sp
+    _ui_cp=$(nn_cfg '.ui.command_prompt // empty')
+    _ui_sp=$(nn_cfg '.ui.search_prompt // empty')
+    [[ -n "$_ui_cp" && "$_ui_cp" == *")"* ]] && _warn "ui.command_prompt contains ')' which will be stripped (breaks fzf prompt syntax)"
+    [[ -n "$_ui_sp" && "$_ui_sp" == *")"* ]] && _warn "ui.search_prompt contains ')' which will be stripped (breaks fzf prompt syntax)"
     local _ui_exit
     _ui_exit=$(nn_cfg '.ui.exit_message // empty')
     if [[ -n "$_ui_exit" ]]; then
