@@ -900,8 +900,14 @@ _nn_list_notes() {
     [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
     zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null
   else
-    local search_dir="${1:-.}"
-    _nn_find_md_with_mtime "$search_dir" | _nn_list_notes_native
+    if [[ $# -eq 0 ]]; then
+      _nn_find_md_with_mtime "." | _nn_list_notes_native
+    else
+      local _d
+      for _d in "$@"; do
+        _nn_find_md_with_mtime "$_d"
+      done | _nn_list_notes_native
+    fi
   fi
 }
 
@@ -3958,7 +3964,7 @@ do_sort() {
   case "$1" in
     priority)
       local unset_pos; unset_pos=$(cat "$dir/.schema_priority_unset_pos")
-      local placeholder=9; [ "$unset_pos" = "first" ] && placeholder=0
+      local placeholder=999999; [ "$unset_pos" = "first" ] && placeholder=-999999
       local _pdir=n; [ -n "$_rev" ] && _pdir=nr
       awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' | sort -t'	' -k3,3${_pdir} -s | awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3==p)$3="";print}' ;;
     modified) if [ -n "$_rev" ]; then sort -t'	' -k7,7 -s; else sort -t'	' -k7,7r -s; fi ;;
@@ -3995,7 +4001,7 @@ awk_body=$(cat "$dir/.awk_color_body")
 pinned_awk=$(cat "$dir/.awk_color_pinned")
 marked_awk=$(cat "$dir/.awk_color_marked")
 if [ -s "$dir/.pinned" ] || [ -s "$dir/.marked" ]; then
-  do_sort "$fsort" < "$_raw_input" | TZ=UTC "$nn_gawk" -F'\t' -v now="$now" \
+  do_sort "$fsort" < "$_raw_input" | "$nn_gawk" -F'\t' -v now="$now" \
     -v marked_file="$dir/.marked" -v pinned_file="$dir/.pinned" -v mfilt="$fmarked" '
     BEGIN {
       while ((getline line < marked_file) > 0) if (line != "") is_marked[line]=1
@@ -4010,7 +4016,7 @@ if [ -s "$dir/.pinned" ] || [ -s "$dir/.marked" ]; then
     !('"${cond}"') && ($6 in is_pinned) && !($6 in is_marked) { '"${pinned_awk}"' }
   ' > "$dir/.current"
 else
-  do_sort "$fsort" < "$_raw_input" | TZ=UTC "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
+  do_sort "$fsort" < "$_raw_input" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
 fi
 # Pipeline: AWK filter → count → grouping → empty-view → border/output
 # Ghost rows (pinned items failing filters) are already in .current from the multi-rule AWK above.
@@ -4510,7 +4516,7 @@ ENDEDIT
     case "$NN_DEFAULT_SORT" in
       priority)
         if [[ "$NN_PRIORITY_ENABLED" == "false" ]]; then cat; return; fi
-        local _ph=9; [[ "$NN_PRIORITY_UNSET_POS" == "first" ]] && _ph=0
+        local _ph=999999; [[ "$NN_PRIORITY_UNSET_POS" == "first" ]] && _ph=-999999
         local _pdir=n; [[ -n "$_rev" ]] && _pdir=nr
         awk -F'\t' -v p="$_ph" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' \
           | sort -t'	' "-k3,3${_pdir}" -s \
