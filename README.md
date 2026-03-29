@@ -13,7 +13,8 @@ Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/d
 No install needed – SSH into a live demo with a sample notebook (27 notes tracking the crew operations of the starship [*Heart of Gold*](https://hitchhikers.fandom.com/wiki/Heart_of_Gold)):
 
 ```bash
-ssh notenav.sh
+ssh notenav.sh            # default editor: nvim (for editing note files)
+ssh nano@notenav.sh       # or: vim, nvim, nano, emacs
 ```
 
 Cycle filters (`t`, `s`, `p`), try query presets (`tab`/`shift-tab`), create notes (`n`), and advance statuses with `a` – everything works out of the box.
