@@ -26,7 +26,8 @@ The faceted browser uses a modal system with five modes: **command** (default), 
 | `tab` / `shift-tab` | Next / previous query preset |
 | `[` and `]` | Next / previous query preset (same as above) |
 | `g` | Go-to query preset (opens picker) |
-| `0` / `R` | Reset all filters, pins, marks, and display settings to defaults |
+| `0` | Clear all filters and return to the "all" view (preserves display settings, pins, and marks) |
+| `R` | Full reset: clear all filters, pins, marks, and display settings to defaults |
 | `1`–`9` | Jump to query preset by number |
 | `space` | Toggle multi-select on current item |
 | `r` | Refresh note list (re-index from disk) |
@@ -87,7 +88,7 @@ Press `m` to enter mark mode. The prompt changes to `m `. Then press one of:
 | `f` | Toggle filter to show only marked items |
 | `esc` | Cancel, return to command mode |
 
-Marks are intentional, user-placed bookmarks – distinct from pins, which are automatic. Marked items display a magenta `marked` badge. Marks persist for the session; reset (`R` / `0`) clears them. A mark count appears in the border label when marks are present (e.g., `15/42 · 2 marked`). Unlike pins, marks are purely visual badges – they do not create ghost rows. Facet filters apply normally to marked items. Use `mf` to narrow the view to only your bookmarks.
+Marks are intentional, user-placed bookmarks – distinct from pins, which are automatic. Marked items display a magenta `marked` badge. Marks persist for the session; full reset (`R`) clears them. A mark count appears in the border label when marks are present (e.g., `15/42 · 2 marked`). Unlike pins, marks are purely visual badges – they do not create ghost rows. Facet filters apply normally to marked items. Use `mf` to narrow the view to only your bookmarks.
 
 ### Pinned ghost rows
 
@@ -101,7 +102,7 @@ When you perform an inline action – advance status (`a`/`A`), bump priority (`
 
 - `x` – clear all pins (ghost rows disappear, everything else stays)
 - `X` – restore pins from the last clear (one-shot undo – the backup is consumed)
-- `R` / `0` – full reset (clears pins, marks, all filters, sort order, grouping, and display settings)
+- `R` – full reset (clears pins, marks, all filters, sort order, grouping, and display settings)
 
 **Grouping:** ghost rows appear in the group matching their *current* metadata. If you advance a task from "active" to "done" while filtering by status "active", the ghost row appears in the "done" group (when grouping by status is enabled).
 
@@ -150,7 +151,7 @@ args = "tag=backend"
 args = "type=task tag=backend tag=api"    # tasks tagged backend OR api
 ```
 
-**Clearing tags:** tag filters reset when you switch query presets or press `R`/`0` (full reset). In the tag picker, `esc` cancels without changing the filter.
+**Clearing tags:** tag filters reset when you switch query presets, press `0` (clear preset), or press `R` (full reset). In the tag picker, `esc` cancels without changing the filter.
 
 **In bulk edit:** the bulk edit TSV (`b` key) shows tags as a space-separated column. Edit directly – changes are written back to frontmatter as a YAML inline array.
 

@@ -2227,6 +2227,105 @@ nn_doctor() {
     _info "Backend: native ${_dim}(install zk for faster indexing and link graph)${_reset}"
   fi
 
+  # ── Phase 6: Note frontmatter quality ──
+  # Scan markdown files and flag notes with unknown type or status values.
+  # Only runs when the workflow loaded successfully (NN_CFG_JSON is set).
+
+  if [[ -n "${NN_CFG_JSON:-}" && "$_note_count" -gt 0 ]] 2>/dev/null; then
+    echo ""
+    echo "Notes:"
+
+    # Build known-value sets from the loaded workflow
+    local -A _fm_known_types _fm_known_statuses
+    local _fmv
+    while IFS= read -r _fmv; do [[ -n "$_fmv" ]] && _fm_known_types[$_fmv]=1; done < <(nn_cfg '.type.values // [] | .[]')
+    while IFS= read -r _fmv; do [[ -n "$_fmv" ]] && _fm_known_statuses[$_fmv]=1; done < <(nn_cfg '.status.values // [] | .[]')
+
+    # Scan frontmatter with a single gawk pass over all .md files
+    local _fm_gawk
+    _fm_gawk=$(_nn_resolve_gawk)
+    local _fm_scan
+    _fm_scan=$(find "$_nn_root" \( -name .git -o -name .zk -o -name .obsidian -o -name node_modules \) -prune \
+      -o -name '*.md' -type f -print 2>/dev/null \
+      | head -2000 \
+      | "$_fm_gawk" '
+      {
+        file = $0; type = ""; status = ""; in_fm = 0
+        while ((getline line < file) > 0) {
+          if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
+          NR_FILE++
+          if (in_fm) {
+            if (line == "---") break
+            if (match(line, /^type:[ \t]*(.*)$/, m)) {
+              val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
+              type = val
+            }
+            if (match(line, /^status:[ \t]*(.*)$/, m)) {
+              val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
+              status = val
+            }
+          } else break
+        }
+        close(file); NR_FILE = 0
+        printf "%s\t%s\t%s\n", type, status, file
+      }
+      BEGIN { NR_FILE = 0 }')
+
+    local _fm_unknown_types=0 _fm_unknown_statuses=0 _fm_no_type=0 _fm_no_status=0
+    local -A _fm_seen_bad_types _fm_seen_bad_statuses
+    local _fm_bad_types="" _fm_bad_statuses=""
+    while IFS=$'\t' read -r _fm_type _fm_status _fm_file; do
+      [[ -z "$_fm_file" ]] && continue
+      # Check type
+      if [[ -z "$_fm_type" ]]; then
+        (( _fm_no_type++ )) || true
+      elif [[ -z "${_fm_known_types[$_fm_type]+x}" ]]; then
+        (( _fm_unknown_types++ )) || true
+        if [[ -z "${_fm_seen_bad_types[$_fm_type]+x}" ]]; then
+          _fm_seen_bad_types[$_fm_type]=1
+          [[ -n "$_fm_bad_types" ]] && _fm_bad_types+=", "
+          _fm_bad_types+="$_fm_type"
+        fi
+      fi
+      # Check status
+      if [[ -z "$_fm_status" ]]; then
+        (( _fm_no_status++ )) || true
+      elif [[ -z "${_fm_known_statuses[$_fm_status]+x}" ]]; then
+        (( _fm_unknown_statuses++ )) || true
+        if [[ -z "${_fm_seen_bad_statuses[$_fm_status]+x}" ]]; then
+          _fm_seen_bad_statuses[$_fm_status]=1
+          [[ -n "$_fm_bad_statuses" ]] && _fm_bad_statuses+=", "
+          _fm_bad_statuses+="$_fm_status"
+        fi
+      fi
+    done <<< "$_fm_scan"
+
+    local _fm_issues=false
+    if [[ $_fm_unknown_types -gt 0 ]]; then
+      _warn "$_fm_unknown_types note(s) have unrecognized type values: $_fm_bad_types"
+      _fm_issues=true
+    fi
+    if [[ $_fm_unknown_statuses -gt 0 ]]; then
+      _warn "$_fm_unknown_statuses note(s) have unrecognized status values: $_fm_bad_statuses"
+      _fm_issues=true
+    fi
+    if [[ "$_fm_issues" == "false" ]]; then
+      _pass "All notes have valid frontmatter values"
+    fi
+    if [[ $_fm_no_type -gt 0 || $_fm_no_status -gt 0 ]]; then
+      local _fm_info_parts=""
+      [[ $_fm_no_type -gt 0 ]] && _fm_info_parts+="$_fm_no_type without type"
+      [[ $_fm_no_status -gt 0 ]] && {
+        [[ -n "$_fm_info_parts" ]] && _fm_info_parts+=", "
+        _fm_info_parts+="$_fm_no_status without status"
+      }
+      _info "$_fm_info_parts ${_dim}(may be intentional)${_reset}"
+    fi
+    if [[ "$_note_count" -gt 2000 ]]; then
+      _info "Scanned first 2000 of $_note_count files"
+    fi
+  fi
+
   # Summary
   echo ""
   if [[ $fails -eq 0 && $warns -eq 0 ]]; then
@@ -4228,6 +4327,7 @@ case "$action" in
     fi ;;
   sq*) apply_sq "${action#sq}" ;;
   pick) [ -f "$dir/.f_pick" ] && apply_sq "$(cat "$dir/.f_pick")" && rm -f "$dir/.f_pick" ;;
+  clear-preset) ft=""; fs=""; fp=""; fmatch=""; fname=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_name" ;;
   reset) ft=""; fs=""; fp=""; fmatch=""; fname=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_name"
     { IFS= read -r fsort; IFS= read -r fgroup; IFS= read -r _a; IFS= read -r _sr; IFS= read -r _w; } < "$dir/.schema_defaults"
     [ "$_a" = "true" ] && farchive="show" || farchive=""
@@ -4765,7 +4865,7 @@ ENDEDIT
       --bind "7:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq7; fi]" \
       --bind "8:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq8; fi]" \
       --bind "9:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq9; fi]" \
-      --bind "0:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir reset; fi]" \
+      --bind "0:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-preset; fi]" \
       --bind "R:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir reset; fi]" \
       --bind "g:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir group; elif test -z \"\$m\"; then echo 'execute($_nn_dir/querypick.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir pick)'; fi]" \
       --bind "a:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.m_sel; printf 'change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir mark-add; elif test -z \"\$m\"; then $_nn_dir/cyclestatus.sh $_nn_dir {1} fwd; $_nn_dir/reload_at.sh $_nn_dir {1}; printf +refresh-preview; fi]" \

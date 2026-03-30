@@ -117,7 +117,8 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `t` | Filter by [**t**]ype (`T` to clear) |
 | `s` | Filter by [**s**]tatus (`S` to clear) |
 | `p` | Filter by [**p**]riority (`P` to clear) |
-| `0` or `R` | [**R**]eset all filters, pins, marks, and display settings |
+| `0` | Clear all filters (return to "all" view; preserves display settings, pins, and marks) |
+| `R` | [**R**]eset everything: filters, pins, marks, and display settings |
 | `tab` / `shift-tab` | Next / previous query preset |
 | `[` and `]` | Next / previous query preset (same as above) |
 | `g` | [**g**]o-to query preset |

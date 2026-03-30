@@ -178,6 +178,8 @@ nn doctor
 
 5. **Notebook:** confirms a notebook is reachable from the current directory by looking for `.nn/workflow.toml`. Reports the notebook root, markdown file count, and active backend (zk or native).
 
+6. **Notes:** scans markdown files and checks frontmatter values against the workflow definition. Reports notes with unrecognized type or status values (summary counts plus the unknown values found). Notes with no type or status are reported as informational. Scans up to 2000 files.
+
 **Output markers:**
 
 | Marker | Meaning |
