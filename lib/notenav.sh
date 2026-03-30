@@ -4635,7 +4635,7 @@ if [ -f "$dir/.queries" ]; then
     sq_cond="$vis_cond"
     [ -z "$farchive" ] && sq_cond="$sq_cond$archive_cond"
     _sq_tag_cond=""
-    local -a _sq_badge_arr
+    _sq_badge_arr=()
     read -ra _sq_badge_arr <<< "$qargs"
     for a in "${_sq_badge_arr[@]}"; do
       _av=$(awk_esc "${a#*=}")
