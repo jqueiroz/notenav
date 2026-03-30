@@ -2721,15 +2721,15 @@ EOF
     if [[ $_nn_rc -eq 3 ]]; then
       echo "Sorry, you need sha256sum installed and on the PATH." >&2; return 1
     elif [[ $_nn_rc -eq 2 ]]; then
-      echo "You must set n!"; return 1
+      echo "You must set n!" >&2; return 1
     elif [[ $_nn_rc -ne 0 ]]; then
-      echo "Invalid n!"; return 1
+      echo "Invalid n!" >&2; return 1
     fi
     local _ee_dir; _ee_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn-ee.XXXXXX")
     if _nn_easteregg_decode "$_ee_dir" "$_nn_k"; then
       cat "$_ee_dir/.empty_easteregg_override" 2>/dev/null && echo
     else
-      echo "Invalid n!"
+      echo "Invalid n!" >&2
     fi
     rm -rf "$_ee_dir"
     return 0

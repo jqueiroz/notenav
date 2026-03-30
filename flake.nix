@@ -70,7 +70,7 @@
         let runtimeDeps = runtimeDepsFor pkgs;
         in {
           default = pkgs.mkShell {
-            packages = runtimeDeps;
+            packages = runtimeDeps ++ [ pkgs.git ];
 
             shellHook = ''
               export PATH="$PWD/bin:$PATH"
