@@ -51,7 +51,7 @@ Workflows define what note types, statuses, and priorities are available and how
 extends = "gtd"
 
 [status.colors]
-next = "32;1"       # bold green instead of default
+next = "bold-green"  # bold green instead of default
 ```
 
 **2. Use a built-in as-is:** just the `extends` key, nothing else:
@@ -64,7 +64,7 @@ extends = "ado"
 extends = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"
 
 [priority.colors]
-1 = "31"            # override on top of the remote workflow
+1 = "red"           # override on top of the remote workflow
 ```
 
 Remote workflows require explicit trust via an allow-list and use a local cache – see [Remote workflows](#remote-workflows) below. Use `nn init <url>` to fetch and cache a remote workflow.
@@ -347,7 +347,7 @@ extends = "zenith"
 # Override just what you need
 [type.bug]
 icon = "✖"
-color = "31"
+color = "red"
 description = "Defect to fix"
 ```
 

@@ -174,7 +174,7 @@ nn doctor
    - **Defaults**: `sort_by`, `sort_reverse`, `group_by`, `show_archive`, and `wrap_preview` have valid values
    - **UI**: `command_prompt` and `search_prompt` do not contain characters stripped at runtime; `exit_message`, `priority_plus`, `after_create`, `previewer`, and `previewer_flags` have valid values; configured previewer tools (bat/batcat, glow, mdcat, custom) are checked for availability
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
-   - ANSI color codes are syntactically valid throughout
+   - Color values are valid (named colors or ANSI codes) throughout
 
 5. **Notebook:** confirms a notebook is reachable from the current directory by looking for `.nn/workflow.toml`. Reports the notebook root, markdown file count, and active backend (zk or native).
 

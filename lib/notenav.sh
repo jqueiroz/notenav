@@ -642,7 +642,7 @@ nn_precompute_workflow() {
     return 1
   fi
   NN_TYPE_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.type.default_color // "36"')")
-  _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be a color name or ANSI code, e.g. 'cyan' or '36')" >&2; return 1; }
+  _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be a color name or ANSI code)" >&2; return 1; }
   NN_TYPE_VISIBILITY=$(nn_cfg '.type.visibility // "show_untyped"')
   case "$NN_TYPE_VISIBILITY" in show_defined|show_untyped|show_all) ;;
     *) echo "notenav: type.visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" >&2; return 1 ;; esac
