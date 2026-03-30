@@ -8,7 +8,7 @@ Workflows are fully customizable: define your own note types, statuses, prioriti
 
 Works with any markdown files that use [YAML frontmatter](https://jekyllrb.com/docs/front-matter/): compatible with Obsidian, Dendron, Jekyll, and similar tools.
 
-![demo](https://raw.githubusercontent.com/jqueiroz/notenav-assets/main/media/demo.gif)
+![demo](https://raw.githubusercontent.com/jqueiroz/notenav-assets/main/media/demo.webp)
 
 ## Try it out
 
