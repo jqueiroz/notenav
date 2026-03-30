@@ -11,22 +11,22 @@ schema = 1
 # fleeting (quick capture) → literature (source notes) → permanent (atomic ideas)
 
 [type]
-default_color = "36"   # cyan
+default_color = "cyan"
 values = ["fleeting", "literature", "permanent"]
 
 [type.fleeting]
 icon = "◇"
-color = "33"           # yellow
+color = "yellow"
 description = "Quick capture, to be processed"
 
 [type.literature]
 icon = "▪"
-color = "34"           # blue
+color = "blue"
 description = "Notes from a source"
 
 [type.permanent]
 icon = "◆"
-color = "36"           # cyan
+color = "cyan"
 description = "Atomic, fully developed idea"
 
 # --- Statuses ---
@@ -38,13 +38,13 @@ values = ["review", "draft", "mature", "archived"]
 initial = "draft"
 archive = ["archived"]
 filter_cycle = ["draft", "review", "mature", "archived"]
-default_color = "90"   # dim
+default_color = "dim"
 
 [status.colors]
-draft = "33"           # yellow
-review = "34"          # blue
-mature = "32"          # green
-archived = "90"        # dim
+draft = "yellow"
+review = "blue"
+mature = "green"
+archived = "dim"
 
 [status.descriptions]
 draft = "Initial capture, not yet developed"

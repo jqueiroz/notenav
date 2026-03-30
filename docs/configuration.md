@@ -109,26 +109,26 @@ Note types are the categories of notes (e.g. task, idea, bug). Each type is a su
 
 ```toml
 [type]
-default_color = "36"                          # fallback ANSI color
+default_color = "cyan"                        # fallback color
 values = ["task", "idea", "reference"]        # valid types; array order = display order
 
 [type.task]
 icon = "◆"
-color = "36"           # ANSI color code
+color = "cyan"
 description = "Concrete, actionable unit of work"
 ```
 
 | Key | Type | Description |
 |-----|------|-------------|
 | `values` | array | Valid note types; array order is used as the default display order |
-| `default_color` | string | ANSI color code used for types not explicitly listed |
+| `default_color` | string | Fallback color for types not explicitly listed |
 | `visibility` | string | Which notes appear based on their type field (default: `"show_untyped"`) |
 | `display_order` | array | *(optional)* Override display order (group headers and stats bar); defaults to `values` order |
 | `[type.<name>].icon` | string | Single character displayed in the list |
-| `[type.<name>].color` | string | ANSI color code (e.g. `"31"` = red, `"32"` = green) |
+| `[type.<name>].color` | string | Color name or ANSI code (e.g. `"cyan"`, `"bold-red"`, `"31;1"`) |
 | `[type.<name>].description` | string | What this type represents |
 
-**Common ANSI color codes:** `31` red, `32` green, `33` yellow, `34` blue, `35` magenta, `36` cyan, `90` dim gray. Append `;1` for bold (e.g. `"31;1"` = bold red).
+**Named colors:** `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `dim`. Prefix with `bold-` for bold (e.g. `"bold-red"`) or `bright-` for the bright variant (e.g. `"bright-cyan"`). Raw ANSI codes (`"31"`, `"31;1"`) are also accepted. Named colors map to ANSI palette slots – actual appearance depends on your terminal theme.
 
 **`type.visibility`** controls which notes appear based on their type field:
 
@@ -150,14 +150,14 @@ values = ["new", "active", "blocked", "done", "removed"]
 initial = "new"
 archive = ["done", "removed"]
 filter_cycle = ["new", "active", "blocked", "done"]
-default_color = "90"
+default_color = "dim"
 
 [status.colors]
-new = "90"
-active = "32"
-blocked = "31"
-done = "90"
-removed = "90"
+new = "dim"
+active = "green"
+blocked = "red"
+done = "dim"
+removed = "dim"
 
 [status.descriptions]
 new = "Not yet started"
@@ -186,8 +186,8 @@ blocked = "new"
 | `display_order` | array | *(optional)* Override display order (group headers); defaults to `values` order |
 | `archive` | array | Statuses hidden by default; press `zh` to toggle visibility |
 | `filter_cycle` | array | Order when pressing `s` to cycle the filter (`"all"` is auto-prepended) |
-| `default_color` | string | Fallback ANSI color for statuses not in `[status.colors]` |
-| `[status.colors]` | table | ANSI color per status |
+| `default_color` | string | Fallback color for statuses not in `[status.colors]` |
+| `[status.colors]` | table | Color name or ANSI code per status |
 | `[status.descriptions]` | table | *(optional)* Human-readable description per status; shown in `nn doctor` |
 | `[status.lifecycle.forward]` | table | Transition map for `a` key (advance status) |
 | `[status.lifecycle.reverse]` | table | Transition map for `A` key (reverse status) |
@@ -203,13 +203,13 @@ Priority levels for ranking notes. Can be disabled entirely.
 values = ["1", "2", "3", "4"]
 filter_cycle = ["1", "2", "3", "4"]
 unset_position = "last"
-default_color = "33"
+default_color = "yellow"
 
 [priority.colors]
-1 = "31;1"       # bold red
-2 = "33"         # yellow
-3 = "33"
-4 = "33"
+1 = "bold-red"
+2 = "yellow"
+3 = "yellow"
+4 = "yellow"
 
 [priority.labels]    # optional
 1 = "P!"
@@ -232,8 +232,8 @@ default_color = "33"
 | `values` | array | Valid priority levels; array order = sort order (first = highest) |
 | `filter_cycle` | array | Order when pressing `p` to cycle the filter (`"all"` is auto-prepended) |
 | `unset_position` | string | Where unprioritized notes sort: `"first"` or `"last"` |
-| `default_color` | string | Fallback ANSI color for priorities not in `[priority.colors]` |
-| `[priority.colors]` | table | ANSI color per priority level |
+| `default_color` | string | Fallback color for priorities not in `[priority.colors]` |
+| `[priority.colors]` | table | Color name or ANSI code per priority level |
 | `[priority.labels]` | table | Optional short display labels; omit to show `P{value}` (e.g. "P1") |
 | `[priority.lifecycle.up]` | table | Transition map: move toward higher urgency (lower number) |
 | `[priority.lifecycle.down]` | table | Transition map: move toward lower urgency (higher number) |
@@ -557,13 +557,13 @@ You can override individual colors without writing a full custom workflow. In `.
 extends = "zenith"
 
 [type.task]
-color = "34"          # change tasks from cyan to blue
+color = "blue"        # change tasks from cyan to blue
 
 [status.colors]
-active = "32;1"       # bold green for active
+active = "bold-green" # bold green for active
 
 [priority.colors]
-1 = "31"              # non-bold red for P1
+1 = "red"             # non-bold red for P1
 ```
 
 User config can also override colors – these merge on top of the workflow values:
@@ -571,5 +571,5 @@ User config can also override colors – these merge on top of the workflow valu
 ```toml
 # ~/.config/notenav/config.toml
 [status.colors]
-active = "32;1"       # personal preference, applies to all projects
+active = "bold-green" # personal preference, applies to all projects
 ```

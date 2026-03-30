@@ -9,22 +9,22 @@ schema = 1
 # --- Note types ---
 
 [type]
-default_color = "36"   # cyan
+default_color = "cyan"
 values = ["feature", "task", "bug"]
 
 [type.feature]
 icon = "◇"
-color = "35"           # magenta
+color = "magenta"
 description = "Planned capability or improvement"
 
 [type.task]
 icon = "◆"
-color = "36"           # cyan
+color = "cyan"
 description = "Discrete unit of work"
 
 [type.bug]
 icon = "✖"
-color = "31"           # red
+color = "red"
 description = "Defect to fix"
 
 # --- Statuses ---
@@ -36,14 +36,14 @@ values = ["active", "new", "resolved", "closed", "removed"]
 initial = "new"
 archive = ["closed", "removed"]
 filter_cycle = ["new", "active", "resolved", "closed"]
-default_color = "90"   # dim
+default_color = "dim"
 
 [status.colors]
-new = "90"             # dim
-active = "32"          # green
-resolved = "34"        # blue
-closed = "90"          # dim
-removed = "90"         # dim
+new = "dim"
+active = "green"
+resolved = "blue"
+closed = "dim"
+removed = "dim"
 
 [status.descriptions]
 new = "Not yet triaged"
@@ -73,13 +73,13 @@ new = "closed"
 values = ["1", "2", "3", "4"]
 filter_cycle = ["1", "2", "3", "4"]
 unset_position = "last"
-default_color = "33"           # yellow
+default_color = "yellow"
 
 [priority.colors]
-1 = "31;1"             # bold red – critical
-2 = "33"               # yellow – high
-3 = "33"               # yellow – medium
-4 = "90"               # dim – low
+1 = "bold-red"         # critical
+2 = "yellow"           # high
+3 = "yellow"           # medium
+4 = "dim"              # low
 
 [priority.lifecycle.up]
 4 = "3"

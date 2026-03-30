@@ -10,26 +10,27 @@ schema = 1
 # Each type represents a kind of note. Shown as icon + name in the TUI.
 # values: valid types; array order = display order in grouped view
 # icon: single character displayed in the list
-# color: ANSI color code (31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan)
+# color: named color (red, green, yellow, blue, magenta, cyan, dim, bold-red, etc.)
+#   Raw ANSI codes ("31", "31;1") also accepted.
 # default_color: fallback for types not explicitly listed
 
 [type]
-default_color = "36"   # cyan
+default_color = "cyan"
 values = ["task", "idea", "reference"]
 
 [type.task]
 icon = "◆"
-color = "36"           # cyan
+color = "cyan"
 description = "Concrete, actionable unit of work"
 
 [type.idea]
 icon = "✦"
-color = "35"           # magenta
+color = "magenta"
 description = "Needs further exploration/research (may subsequently evolve into one or more tasks)"
 
 [type.reference]
 icon = "▪"
-color = "33"           # yellow
+color = "yellow"
 description = "Living documentation; continually updated as understanding grows"
 
 # --- Statuses ---
@@ -45,14 +46,14 @@ values = ["active", "blocked", "new", "done", "removed"]
 initial = "new"
 archive = ["done", "removed"]
 filter_cycle = ["new", "active", "blocked", "done"]
-default_color = "90"   # dim
+default_color = "dim"
 
 [status.colors]
-new = "90"             # dim
-active = "32"          # green
-blocked = "31"         # red
-done = "90"            # dim
-removed = "90"         # dim
+new = "dim"
+active = "green"
+blocked = "red"
+done = "dim"
+removed = "dim"
 
 [status.descriptions]
 new = "Not yet started"
@@ -88,13 +89,13 @@ blocked = "new"
 values = ["1", "2", "3", "4"]
 filter_cycle = ["1", "2", "3", "4"]
 unset_position = "last"
-default_color = "33"           # yellow
+default_color = "yellow"
 
 [priority.colors]
-1 = "31;1"             # bold red
-2 = "33"               # yellow
-3 = "33"               # yellow (default)
-4 = "33"               # yellow (default)
+1 = "bold-red"
+2 = "yellow"
+3 = "yellow"
+4 = "yellow"
 
 # Lifecycle for priority up (raise urgency) and down (lower urgency).
 # Which key (+/-) maps to which direction depends on ui.priority_plus.

@@ -376,6 +376,35 @@ _nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 # Escape a string for safe interpolation into a jq double-quoted path segment.
 _nn_jq_esc() { local s="${1//\\/\\\\}"; printf '%s' "${s//\"/\\\"}"; }
 _nn_in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
+# Resolve a color value (named alias or raw ANSI code) to a raw ANSI code.
+# Named colors map to ANSI palette slots; actual appearance depends on terminal theme.
+# Accepts: "red", "bold-red", "bright-red", "31", "31;1", "".
+# Unknown names pass through unchanged (caught by _nn_valid_color downstream).
+_nn_resolve_color() {
+  local c="$1"
+  [[ -z "$c" ]] && return 0
+  # Digit-start: raw ANSI passthrough
+  [[ "$c" =~ ^[0-9] ]] && { printf '%s' "$c"; return 0; }
+  # Strip modifier prefix
+  local mod="" base="$c"
+  case "$c" in
+    bold-*)   mod=";1"; base="${c#bold-}" ;;
+    bright-*) base="${c#bright-}" ;;
+  esac
+  # Base color lookup
+  local code
+  case "$base" in
+    black) code=30 ;; red)     code=31 ;; green) code=32 ;;
+    yellow) code=33 ;; blue)   code=34 ;; magenta) code=35 ;;
+    cyan)  code=36 ;; white)   code=37 ;; dim)   code=90 ;;
+    *) printf '%s' "$c"; return 0 ;;
+  esac
+  # bright- shifts base colors (30-37) into the 90-range
+  if [[ -n "${c##bold-*}" ]] && [[ "$c" == bright-* ]] && (( code <= 37 )); then
+    (( code += 60 ))
+  fi
+  printf '%s' "${code}${mod}"
+}
 # Validate an ANSI color code for safe interpolation into AWK (digits and semicolons only)
 _nn_valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
@@ -612,8 +641,8 @@ nn_precompute_workflow() {
     echo "notenav: no type values in config (check workflow file; is yq-go installed?)" >&2
     return 1
   fi
-  NN_TYPE_DEFAULT_COLOR=$(nn_cfg '.type.default_color // "36"')
-  _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be ANSI code, e.g. '36' or '1;32')" >&2; return 1; }
+  NN_TYPE_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.type.default_color // "36"')")
+  _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be a color name or ANSI code, e.g. 'cyan' or '36')" >&2; return 1; }
   NN_TYPE_VISIBILITY=$(nn_cfg '.type.visibility // "show_untyped"')
   case "$NN_TYPE_VISIBILITY" in show_defined|show_untyped|show_all) ;;
     *) echo "notenav: type.visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" >&2; return 1 ;; esac
@@ -621,8 +650,8 @@ nn_precompute_workflow() {
   for _v in "${NN_TYPE_VALUES[@]}"; do
     local _jv; _jv=$(_nn_jq_esc "$_v")
     NN_TYPE_ICONS[$_v]=$(nn_cfg ".type.\"$_jv\".icon // \"*\"")
-    NN_TYPE_COLORS[$_v]=$(nn_cfg ".type.\"$_jv\".color // \"$NN_TYPE_DEFAULT_COLOR\"")
-    _nn_valid_color "${NN_TYPE_COLORS[$_v]}" || { echo "notenav: type.$_v.color '${NN_TYPE_COLORS[$_v]}' invalid (must be ANSI code)" >&2; return 1; }
+    NN_TYPE_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".type.\"$_jv\".color // \"$NN_TYPE_DEFAULT_COLOR\"")")
+    _nn_valid_color "${NN_TYPE_COLORS[$_v]}" || { echo "notenav: type.$_v.color '${NN_TYPE_COLORS[$_v]}' invalid (must be a color name or ANSI code)" >&2; return 1; }
     NN_TYPE_DESCS[$_v]=$(nn_cfg ".type.\"$_jv\".description // \"\"")
   done
 
@@ -630,13 +659,13 @@ nn_precompute_workflow() {
   mapfile -t NN_STATUS_VALUES < <(nn_cfg '.status.values[]')
   mapfile -t NN_STATUS_ARCHIVE < <(nn_cfg '.status.archive // [] | .[]')
   mapfile -t NN_STATUS_FILTER_CYCLE < <(nn_cfg '.status.filter_cycle // [] | .[]')
-  NN_STATUS_DEFAULT_COLOR=$(nn_cfg '.status.default_color // "90"')
-  _nn_valid_color "$NN_STATUS_DEFAULT_COLOR" || { echo "notenav: status.default_color '$NN_STATUS_DEFAULT_COLOR' invalid (must be ANSI code)" >&2; return 1; }
+  NN_STATUS_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.status.default_color // "90"')")
+  _nn_valid_color "$NN_STATUS_DEFAULT_COLOR" || { echo "notenav: status.default_color '$NN_STATUS_DEFAULT_COLOR' invalid (must be a color name or ANSI code)" >&2; return 1; }
   declare -gA NN_STATUS_COLORS NN_STATUS_DESCS
   for _v in "${NN_STATUS_VALUES[@]}"; do
     local _jv; _jv=$(_nn_jq_esc "$_v")
-    NN_STATUS_COLORS[$_v]=$(nn_cfg ".status.colors.\"$_jv\" // \"$NN_STATUS_DEFAULT_COLOR\"")
-    _nn_valid_color "${NN_STATUS_COLORS[$_v]}" || { echo "notenav: status.colors.$_v '${NN_STATUS_COLORS[$_v]}' invalid (must be ANSI code)" >&2; return 1; }
+    NN_STATUS_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".status.colors.\"$_jv\" // \"$NN_STATUS_DEFAULT_COLOR\"")")
+    _nn_valid_color "${NN_STATUS_COLORS[$_v]}" || { echo "notenav: status.colors.$_v '${NN_STATUS_COLORS[$_v]}' invalid (must be a color name or ANSI code)" >&2; return 1; }
     NN_STATUS_DESCS[$_v]=$(nn_cfg ".status.descriptions.\"$_jv\" // \"\"")
   done
 
@@ -677,8 +706,8 @@ nn_precompute_workflow() {
   if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
     mapfile -t NN_PRIORITY_VALUES < <(nn_cfg '.priority.values[]')
     mapfile -t NN_PRIORITY_FILTER_CYCLE < <(nn_cfg '.priority.filter_cycle // [] | .[]')
-    NN_PRIORITY_DEFAULT_COLOR=$(nn_cfg '.priority.default_color // "33"')
-    _nn_valid_color "$NN_PRIORITY_DEFAULT_COLOR" || { echo "notenav: priority.default_color '$NN_PRIORITY_DEFAULT_COLOR' invalid (must be ANSI code)" >&2; return 1; }
+    NN_PRIORITY_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.priority.default_color // "33"')")
+    _nn_valid_color "$NN_PRIORITY_DEFAULT_COLOR" || { echo "notenav: priority.default_color '$NN_PRIORITY_DEFAULT_COLOR' invalid (must be a color name or ANSI code)" >&2; return 1; }
     NN_PRIORITY_UNSET_POS=$(nn_cfg '.priority.unset_position // "last"')
 
     # -- Priority invariants --
@@ -697,8 +726,8 @@ nn_precompute_workflow() {
 
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
       local _jv; _jv=$(_nn_jq_esc "$_v")
-      NN_PRIORITY_COLORS[$_v]=$(nn_cfg ".priority.colors.\"$_jv\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")
-      _nn_valid_color "${NN_PRIORITY_COLORS[$_v]}" || { echo "notenav: priority.colors.$_v '${NN_PRIORITY_COLORS[$_v]}' invalid (must be ANSI code)" >&2; return 1; }
+      NN_PRIORITY_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".priority.colors.\"$_jv\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")")
+      _nn_valid_color "${NN_PRIORITY_COLORS[$_v]}" || { echo "notenav: priority.colors.$_v '${NN_PRIORITY_COLORS[$_v]}' invalid (must be a color name or ANSI code)" >&2; return 1; }
       local _label; _label=$(nn_cfg ".priority.labels.\"$_jv\" // empty")
       NN_PRIORITY_LABELS[$_v]="${_label:-P$_v}"
     done
@@ -1075,7 +1104,7 @@ nn_doctor() {
   _info() { echo "${_dim}[-]${_reset} $*"; }
   _warn() { echo "${_yellow}[!]${_reset} $*"; (( warns++ )) || true; }
   _fail() { echo "${_red}[✗]${_reset} $*"; (( fails++ )) || true; }
-  _valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
+  _valid_color() { local _r; _r=$(_nn_resolve_color "$1"); [[ -z "$_r" || "$_r" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
   _in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
   _dupes() { local -A _seen; local _d="" _v; for _v; do if [[ -n "${_seen[$_v]+x}" ]]; then [[ "${_seen[$_v]}" == d ]] || { _d+="$_v, "; _seen[$_v]=d; }; else _seen[$_v]=1; fi; done; printf '%s' "${_d%, }"; }
   _is_array() { local _t; _t=$(nn_cfg "$1 // null | type" 2>/dev/null); [[ "$_t" == "array" ]]; }
@@ -1445,13 +1474,13 @@ nn_doctor() {
     fi
     # Warn on invalid color formats
     if [[ -n "$_typ_default_color" ]] && ! _valid_color "$_typ_default_color"; then
-      _warn "type.default_color '$_typ_default_color' is not a valid ANSI code"
+      _warn "type.default_color '$_typ_default_color' is not a valid color name or ANSI code"
     fi
     for _ev in "${_typ_values[@]}"; do
       local _color _jev; _jev=$(_nn_jq_esc "$_ev")
       _color=$(nn_cfg ".type.\"$_jev\".color // empty")
       if [[ -n "$_color" ]] && ! _valid_color "$_color"; then
-        _warn "type.$_ev.color '$_color' is not a valid ANSI code"
+        _warn "type.$_ev.color '$_color' is not a valid color name or ANSI code"
       fi
     done
     # Validate type display_order
@@ -1657,13 +1686,13 @@ nn_doctor() {
     fi
     # Warn on invalid color formats
     if [[ -n "$_sta_default_color" ]] && ! _valid_color "$_sta_default_color"; then
-      _warn "status.default_color '$_sta_default_color' is not a valid ANSI code"
+      _warn "status.default_color '$_sta_default_color' is not a valid color name or ANSI code"
     fi
     for _stv in "${_sta_values[@]}"; do
       local _scolor _jstv; _jstv=$(_nn_jq_esc "$_stv")
       _scolor=$(nn_cfg ".status.colors.\"$_jstv\" // empty")
       if [[ -n "$_scolor" ]] && ! _valid_color "$_scolor"; then
-        _warn "status.colors.$_stv '$_scolor' is not a valid ANSI code"
+        _warn "status.colors.$_stv '$_scolor' is not a valid color name or ANSI code"
       fi
     done
     # Validate status.colors keys reference valid values
@@ -1821,13 +1850,13 @@ nn_doctor() {
       fi
       # Warn on invalid color formats
       if [[ -n "$_pri_default_color" ]] && ! _valid_color "$_pri_default_color"; then
-        _warn "priority.default_color '$_pri_default_color' is not a valid ANSI code"
+        _warn "priority.default_color '$_pri_default_color' is not a valid color name or ANSI code"
       fi
       for _pcv in "${_pri_values[@]}"; do
         local _pcolor _jpcv; _jpcv=$(_nn_jq_esc "$_pcv")
         _pcolor=$(nn_cfg ".priority.colors.\"$_jpcv\" // empty")
         if [[ -n "$_pcolor" ]] && ! _valid_color "$_pcolor"; then
-          _warn "priority.colors.$_pcv '$_pcolor' is not a valid ANSI code"
+          _warn "priority.colors.$_pcv '$_pcolor' is not a valid color name or ANSI code"
         fi
       done
       # Validate priority.colors keys reference valid values

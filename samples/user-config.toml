@@ -39,10 +39,10 @@
 # want to change.
 #
 # [type.task]
-# color = "34"                  # change tasks from cyan to blue
+# color = "blue"                # change tasks from cyan to blue
 #
 # [status.colors]
-# active = "32;1"               # bold green for active
+# active = "bold-green"         # bold green for active
 #
 # [priority.colors]
-# 1 = "31"                      # non-bold red for P1
+# 1 = "red"                     # non-bold red for P1

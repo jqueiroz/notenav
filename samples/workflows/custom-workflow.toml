@@ -9,26 +9,27 @@ schema = 1
 # Define your note types (note categories).
 # values: valid types; array order = display order in grouped view
 # icon: single character shown in the list
-# color: ANSI color code (e.g. 31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan)
+# color: named color (red, green, yellow, blue, magenta, cyan, dim, bold-red, etc.)
+#   Raw ANSI codes ("31", "31;1") also accepted.
 # default_color: used for types not listed below
 
 [type]
-default_color = "36"
+default_color = "cyan"
 values = ["feature", "bug", "doc"]
 
 [type.feature]
 icon = "◆"
-color = "36"
+color = "cyan"
 description = "New feature"
 
 [type.bug]
 icon = "✖"
-color = "31"
+color = "red"
 description = "Bug fix"
 
 [type.doc]
 icon = "▪"
-color = "33"
+color = "yellow"
 description = "Documentation"
 
 # Status values and their lifecycle transitions.
@@ -41,13 +42,13 @@ values = ["in-progress", "review", "open", "done"]
 initial = "open"
 archive = ["done"]
 filter_cycle = ["open", "in-progress", "review", "done"]
-default_color = "90"   # used for statuses not listed below
+default_color = "dim"   # used for statuses not listed below
 
 [status.colors]
-open = "90"
-in-progress = "32"
-review = "34"
-done = "90"
+open = "dim"
+in-progress = "green"
+review = "blue"
+done = "dim"
 
 [status.descriptions]
 open = "Not yet started"
@@ -76,7 +77,7 @@ open = "done"
 values = ["critical", "high", "low"]
 filter_cycle = ["critical", "high", "low"]
 unset_position = "last"
-default_color = "33"
+default_color = "yellow"
 
 [priority.labels]
 critical = "P!"
@@ -84,9 +85,9 @@ high = "P+"
 low = "P-"
 
 [priority.colors]
-critical = "31;1"
-high = "33"
-low = "90"
+critical = "bold-red"
+high = "yellow"
+low = "dim"
 
 [priority.lifecycle.up]
 low = "high"

@@ -9,22 +9,22 @@ schema = 1
 # --- Note types ---
 
 [type]
-default_color = "36"   # cyan
+default_color = "cyan"
 values = ["action", "project", "reference"]
 
 [type.action]
 icon = "◆"
-color = "36"           # cyan
+color = "cyan"
 description = "Single concrete action"
 
 [type.project]
 icon = "◈"
-color = "35"           # magenta
+color = "magenta"
 description = "Multi-step outcome"
 
 [type.reference]
 icon = "▪"
-color = "33"           # yellow
+color = "yellow"
 description = "Non-actionable reference material"
 
 # --- Statuses ---
@@ -37,15 +37,15 @@ values = ["next", "waiting", "inbox", "someday", "done", "dropped"]
 initial = "inbox"
 archive = ["done", "dropped"]
 filter_cycle = ["inbox", "next", "waiting", "someday", "done"]
-default_color = "90"   # dim
+default_color = "dim"
 
 [status.colors]
-inbox = "33"           # yellow – needs processing
-next = "32"            # green – ready to do
-waiting = "34"         # blue – blocked on someone else
-someday = "90"         # dim – parked
-done = "90"            # dim
-dropped = "90"         # dim
+inbox = "yellow"       # needs processing
+next = "green"         # ready to do
+waiting = "blue"       # blocked on someone else
+someday = "dim"        # parked
+done = "dim"
+dropped = "dim"
 
 [status.descriptions]
 inbox = "Captured but not yet clarified"
@@ -80,12 +80,12 @@ dropped = "done"
 values = ["1", "2", "3"]
 filter_cycle = ["1", "2", "3"]
 unset_position = "last"
-default_color = "33"           # yellow
+default_color = "yellow"
 
 [priority.colors]
-1 = "31;1"             # bold red
-2 = "33"               # yellow
-3 = "90"               # dim
+1 = "bold-red"
+2 = "yellow"
+3 = "dim"
 
 [priority.lifecycle.up]
 3 = "2"
