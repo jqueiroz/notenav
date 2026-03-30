@@ -2265,10 +2265,15 @@ nn_doctor() {
     echo "Notes:"
 
     # Build known-value sets from the loaded workflow
-    local -A _fm_known_types _fm_known_statuses
+    local -A _fm_known_types _fm_known_statuses _fm_known_priorities
     local _fmv
     while IFS= read -r _fmv; do [[ -n "$_fmv" ]] && _fm_known_types[$_fmv]=1; done < <(nn_cfg '.type.values // [] | .[]')
     while IFS= read -r _fmv; do [[ -n "$_fmv" ]] && _fm_known_statuses[$_fmv]=1; done < <(nn_cfg '.status.values // [] | .[]')
+    local _fm_pri_enabled
+    _fm_pri_enabled=$(nn_cfg '.priority.enabled // true')
+    if [[ "$_fm_pri_enabled" != "false" ]]; then
+      while IFS= read -r _fmv; do [[ -n "$_fmv" ]] && _fm_known_priorities[$_fmv]=1; done < <(nn_cfg '.priority.values // [] | .[]')
+    fi
 
     # Scan frontmatter with a single gawk pass over all .md files
     local _fm_gawk
@@ -2279,7 +2284,7 @@ nn_doctor() {
       | head -2000 \
       | "$_fm_gawk" '
       {
-        file = $0; type = ""; status = ""; in_fm = 0
+        file = $0; type = ""; status = ""; priority = ""; in_fm = 0
         while ((getline line < file) > 0) {
           if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
           NR_FILE++
@@ -2293,17 +2298,22 @@ nn_doctor() {
               val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
               status = val
             }
+            if (match(line, /^priority:[ \t]*(.*)$/, m)) {
+              val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
+              priority = val
+            }
           } else break
         }
         close(file); NR_FILE = 0
-        printf "%s\t%s\t%s\n", type, status, file
+        printf "%s\t%s\t%s\t%s\n", type, status, priority, file
       }
       BEGIN { NR_FILE = 0 }')
 
-    local _fm_unknown_types=0 _fm_unknown_statuses=0 _fm_no_type=0 _fm_no_status=0
-    local -A _fm_seen_bad_types _fm_seen_bad_statuses
-    local _fm_bad_types="" _fm_bad_statuses=""
-    while IFS=$'\t' read -r _fm_type _fm_status _fm_file; do
+    local _fm_unknown_types=0 _fm_unknown_statuses=0 _fm_unknown_priorities=0
+    local _fm_no_type=0 _fm_no_status=0
+    local -A _fm_seen_bad_types _fm_seen_bad_statuses _fm_seen_bad_priorities
+    local _fm_bad_types="" _fm_bad_statuses="" _fm_bad_priorities=""
+    while IFS=$'\t' read -r _fm_type _fm_status _fm_priority _fm_file; do
       [[ -z "$_fm_file" ]] && continue
       # Check type
       if [[ -z "$_fm_type" ]]; then
@@ -2327,6 +2337,17 @@ nn_doctor() {
           _fm_bad_statuses+="$_fm_status"
         fi
       fi
+      # Check priority (only when enabled and value is non-empty)
+      if [[ "$_fm_pri_enabled" != "false" && -n "$_fm_priority" ]]; then
+        if [[ -z "${_fm_known_priorities[$_fm_priority]+x}" ]]; then
+          (( _fm_unknown_priorities++ )) || true
+          if [[ -z "${_fm_seen_bad_priorities[$_fm_priority]+x}" ]]; then
+            _fm_seen_bad_priorities[$_fm_priority]=1
+            [[ -n "$_fm_bad_priorities" ]] && _fm_bad_priorities+=", "
+            _fm_bad_priorities+="$_fm_priority"
+          fi
+        fi
+      fi
     done <<< "$_fm_scan"
 
     local _fm_issues=false
@@ -2336,6 +2357,10 @@ nn_doctor() {
     fi
     if [[ $_fm_unknown_statuses -gt 0 ]]; then
       _warn "$_fm_unknown_statuses note(s) have unrecognized status values: $_fm_bad_statuses"
+      _fm_issues=true
+    fi
+    if [[ $_fm_unknown_priorities -gt 0 ]]; then
+      _warn "$_fm_unknown_priorities note(s) have unrecognized priority values: $_fm_bad_priorities"
       _fm_issues=true
     fi
     if [[ "$_fm_issues" == "false" ]]; then
