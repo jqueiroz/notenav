@@ -1102,7 +1102,7 @@ nn_doctor() {
       _fail "fzf ${fzf_ver:-unknown} (requires 0.44+)"
     fi
   else
-    _fail "fzf not found"
+    _fail "fzf not found (https://github.com/junegunn/fzf)"
   fi
 
   # zk (optional – enhances performance and enables link graph)
@@ -1126,10 +1126,10 @@ nn_doctor() {
       _pass "yq ${yq_ver:-installed} (yq-go)"
       _has_yq=true
     else
-      _fail "yq ${yq_ver:-installed} appears to be yq-python, not yq-go"
+      _fail "yq ${yq_ver:-installed} appears to be yq-python, not yq-go (https://github.com/mikefarah/yq)"
     fi
   else
-    _fail "yq not found"
+    _fail "yq not found (https://github.com/mikefarah/yq)"
   fi
 
   # jq
@@ -1140,7 +1140,7 @@ nn_doctor() {
     _pass "jq ${jq_ver:-installed}"
     _has_jq=true
   else
-    _fail "jq not found"
+    _fail "jq not found (https://github.com/jqlang/jq)"
   fi
 
   # awk (gawk required – notenav uses mktime() and strtonum())
@@ -4397,7 +4397,8 @@ if [ -n "$fgroup" ]; then
   | sort -t'	' -k1,1 -s \
   | awk -F'\t' -v gmode="$fgroup" \
     -v type_order="$(cat "$dir/.schema_type_order")" \
-    -v status_order="$(cat "$dir/.schema_status_order")" '
+    -v status_order="$(cat "$dir/.schema_status_order")" \
+    -v no_color="${NO_COLOR+1}" '
     { gk=$1; sub(/^[^\t]*\t/, "")
       counts[gk]++; lines[gk] = lines[gk] $0 "\n"
     } END {
@@ -4406,18 +4407,20 @@ if [ -n "$fgroup" ]; then
       else
         n = split(type_order, order, " ")
       '"$(cat "$dir/.schema_icon_setup")"'
+      pre = (no_color != "") ? "" : "\033[90;1m"
+      suf = (no_color != "") ? "" : "\033[0m"
       for (i=1; i<=n; i++) {
         g = order[i]
         if (!(g in counts)) continue
         printed[g] = 1
         ic = (g in icon) ? icon[g] " " : ""
-        printf "\t\033[90;1m── %s%s (%d) ──\033[0m\n", ic, g, counts[g]
+        printf "\t%s── %s%s (%d) ──%s\n", pre, ic, g, counts[g], suf
         printf "%s", lines[g]
       }
       for (g in counts) {
         if (g in printed) continue
         label = (g == "") ? "(none)" : g
-        printf "\t\033[90;1m── %s (%d) ──\033[0m\n", label, counts[g]
+        printf "\t%s── %s (%d) ──%s\n", pre, label, counts[g], suf
         printf "%s", lines[g]
       }
     }' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
@@ -4950,9 +4953,7 @@ ENDEDIT
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
       | _nn_adhoc_sort \
       | awk -F'\t' "$_awk_color" > "$nn_tmp"
-    local _nn_adhoc_ansi=(--ansi)
-    [[ -n "${NO_COLOR+x}" ]] && _nn_adhoc_ansi=()
-    fzf "${_nn_adhoc_ansi[@]}" --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
+    fzf --ansi --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
           --preview "$_nn_prev {1}" \
           --prompt "$NN_UI_COMMAND_PROMPT" \
           --bind "start:execute-silent(rm -f $_nn_sflag)" \
