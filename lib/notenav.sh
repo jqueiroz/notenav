@@ -138,9 +138,14 @@ _nn_resolve_editor() {
 nn_load_config() {
   local notenav_root="$1"
 
-  # Require yq and jq
+  # Require yq (must be yq-go, not yq-python) and jq
   if ! command -v yq >/dev/null 2>&1; then
     echo "notenav: yq is required for config loading (install yq-go)" >&2
+    return 1
+  fi
+  if ! yq -p=toml -o=json '.' /dev/null >/dev/null 2>&1; then
+    echo "notenav: yq appears to be yq-python, not yq-go (github.com/mikefarah/yq)" >&2
+    echo "notenav: install yq-go: https://github.com/mikefarah/yq#install" >&2
     return 1
   fi
   if ! command -v jq >/dev/null 2>&1; then
@@ -371,6 +376,8 @@ _nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 # Escape a string for safe interpolation into a jq double-quoted path segment.
 _nn_jq_esc() { local s="${1//\\/\\\\}"; printf '%s' "${s//\"/\\\"}"; }
 _nn_in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
+# Validate an ANSI color code for safe interpolation into AWK (digits and semicolons only)
+_nn_valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 
 _nn_gen_awk_bodies() {
@@ -606,6 +613,7 @@ nn_precompute_workflow() {
     return 1
   fi
   NN_TYPE_DEFAULT_COLOR=$(nn_cfg '.type.default_color // "36"')
+  _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be ANSI code, e.g. '36' or '1;32')" >&2; return 1; }
   NN_TYPE_VISIBILITY=$(nn_cfg '.type.visibility // "show_untyped"')
   case "$NN_TYPE_VISIBILITY" in show_defined|show_untyped|show_all) ;;
     *) echo "notenav: type.visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" >&2; return 1 ;; esac
@@ -614,6 +622,7 @@ nn_precompute_workflow() {
     local _jv; _jv=$(_nn_jq_esc "$_v")
     NN_TYPE_ICONS[$_v]=$(nn_cfg ".type.\"$_jv\".icon // \"*\"")
     NN_TYPE_COLORS[$_v]=$(nn_cfg ".type.\"$_jv\".color // \"$NN_TYPE_DEFAULT_COLOR\"")
+    _nn_valid_color "${NN_TYPE_COLORS[$_v]}" || { echo "notenav: type.$_v.color '${NN_TYPE_COLORS[$_v]}' invalid (must be ANSI code)" >&2; return 1; }
     NN_TYPE_DESCS[$_v]=$(nn_cfg ".type.\"$_jv\".description // \"\"")
   done
 
@@ -622,10 +631,12 @@ nn_precompute_workflow() {
   mapfile -t NN_STATUS_ARCHIVE < <(nn_cfg '.status.archive // [] | .[]')
   mapfile -t NN_STATUS_FILTER_CYCLE < <(nn_cfg '.status.filter_cycle // [] | .[]')
   NN_STATUS_DEFAULT_COLOR=$(nn_cfg '.status.default_color // "90"')
+  _nn_valid_color "$NN_STATUS_DEFAULT_COLOR" || { echo "notenav: status.default_color '$NN_STATUS_DEFAULT_COLOR' invalid (must be ANSI code)" >&2; return 1; }
   declare -gA NN_STATUS_COLORS NN_STATUS_DESCS
   for _v in "${NN_STATUS_VALUES[@]}"; do
     local _jv; _jv=$(_nn_jq_esc "$_v")
     NN_STATUS_COLORS[$_v]=$(nn_cfg ".status.colors.\"$_jv\" // \"$NN_STATUS_DEFAULT_COLOR\"")
+    _nn_valid_color "${NN_STATUS_COLORS[$_v]}" || { echo "notenav: status.colors.$_v '${NN_STATUS_COLORS[$_v]}' invalid (must be ANSI code)" >&2; return 1; }
     NN_STATUS_DESCS[$_v]=$(nn_cfg ".status.descriptions.\"$_jv\" // \"\"")
   done
 
@@ -667,6 +678,7 @@ nn_precompute_workflow() {
     mapfile -t NN_PRIORITY_VALUES < <(nn_cfg '.priority.values[]')
     mapfile -t NN_PRIORITY_FILTER_CYCLE < <(nn_cfg '.priority.filter_cycle // [] | .[]')
     NN_PRIORITY_DEFAULT_COLOR=$(nn_cfg '.priority.default_color // "33"')
+    _nn_valid_color "$NN_PRIORITY_DEFAULT_COLOR" || { echo "notenav: priority.default_color '$NN_PRIORITY_DEFAULT_COLOR' invalid (must be ANSI code)" >&2; return 1; }
     NN_PRIORITY_UNSET_POS=$(nn_cfg '.priority.unset_position // "last"')
 
     # -- Priority invariants --
@@ -686,6 +698,7 @@ nn_precompute_workflow() {
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
       local _jv; _jv=$(_nn_jq_esc "$_v")
       NN_PRIORITY_COLORS[$_v]=$(nn_cfg ".priority.colors.\"$_jv\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")
+      _nn_valid_color "${NN_PRIORITY_COLORS[$_v]}" || { echo "notenav: priority.colors.$_v '${NN_PRIORITY_COLORS[$_v]}' invalid (must be ANSI code)" >&2; return 1; }
       local _label; _label=$(nn_cfg ".priority.labels.\"$_jv\" // empty")
       NN_PRIORITY_LABELS[$_v]="${_label:-P$_v}"
     done
@@ -772,6 +785,16 @@ nn_precompute_workflow() {
       return 1
     fi
   done
+
+  # NO_COLOR: strip ANSI escape sequences from AWK bodies (https://no-color.org/)
+  if [[ -n "${NO_COLOR+x}" ]]; then
+    local _nc_strip='s/\\033\[[0-9;]*m//g'
+    NN_AWK_COLOR=$(sed "$_nc_strip" <<< "$NN_AWK_COLOR")
+    NN_AWK_COLOR_BODY=$(sed "$_nc_strip" <<< "$NN_AWK_COLOR_BODY")
+    NN_AWK_COLOR_PINNED=$(sed "$_nc_strip" <<< "$NN_AWK_COLOR_PINNED")
+    NN_AWK_COLOR_MARKED=$(sed "$_nc_strip" <<< "$NN_AWK_COLOR_MARKED")
+    NN_AWK_COLOR_STATS=$(sed "$_nc_strip" <<< "$NN_AWK_COLOR_STATS")
+  fi
 
   # Archive AWK condition (e.g. ' && $2!="done" && $2!="removed"')
   NN_ARCHIVE_COND=""
@@ -887,6 +910,12 @@ nn_write_workflow_files() {
   printf '%s' "$(_nn_resolve_editor "$NN_UI_EDITOR")" > "$dir/.schema_editor"
   printf '%s' "$NN_UI_AFTER_CREATE" > "$dir/.schema_after_create"
   printf '%s' "$NN_UI_PRIORITY_PLUS" > "$dir/.schema_priority_plus"
+
+  # Sort/group options (one per line)
+  { printf '%s\n' "created" "modified" "title"
+    [[ "$NN_PRIORITY_ENABLED" != "false" ]] && printf '%s\n' "priority"
+  } > "$dir/.schema_sort_options"
+  printf '%s\n' "" "type" "status" > "$dir/.schema_group_options"
 
   # Archive label (slash-separated status names for header display)
   local _archive_label=""
@@ -2118,10 +2147,10 @@ nn_doctor() {
     while IFS=$'\t' read -r _qname _qargs; do
       [[ -z "$_qname" ]] && continue
       (( _qp_count++ ))
-      local _arg _noglob_was_off=false
-      [[ "$-" != *f* ]] && _noglob_was_off=true
-      set -f
-      for _arg in $_qargs; do
+      local -a _qp_arr
+      read -ra _qp_arr <<< "$_qargs"
+      local _arg
+      for _arg in "${_qp_arr[@]}"; do
         local _key="${_arg%%=*}" _val="${_arg#*=}"
         case "$_key" in
           type)
@@ -2145,7 +2174,6 @@ nn_doctor() {
           *) _qp_warns+="$_qname: unknown filter key '$_key'; " ;;
         esac
       done
-      "$_noglob_was_off" && set +f
     done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.args // "")"')
 
     if [[ -n "$_qp_warns" ]]; then
@@ -2618,22 +2646,28 @@ for _p in ${_nn_previewer:-bat glow mdcat}; do
     bat)
       _bat=$(command -v bat || command -v batcat || true)
       if [ -n "$_bat" ]; then
+        _bat_color=always
+        [ -n "${NO_COLOR+x}" ] && _bat_color=never
         # shellcheck disable=SC2086
-        "$_bat" -p --color always $_nn_previewer_flags_bat "$file" 2>/dev/null || cat "$file"
+        "$_bat" -p --color "$_bat_color" $_nn_previewer_flags_bat "$file" 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
     glow)
       if command -v glow >/dev/null 2>&1; then
+        _glow_env=()
+        [ -z "${NO_COLOR+x}" ] && _glow_env=(CLICOLOR_FORCE=1)
         # shellcheck disable=SC2086
-        CLICOLOR_FORCE=1 glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" $_nn_previewer_flags_glow "$file" < /dev/null 2>/dev/null || cat "$file"
+        env "${_glow_env[@]}" glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" $_nn_previewer_flags_glow "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
     mdcat)
       if command -v mdcat >/dev/null 2>&1; then
+        _mdcat_env=()
+        [ -z "${NO_COLOR+x}" ] && _mdcat_env=(CLICOLOR_FORCE=1)
         # shellcheck disable=SC2086
-        CLICOLOR_FORCE=1 mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" $_nn_previewer_flags_mdcat "$file" < /dev/null 2>/dev/null || cat "$file"
+        env "${_mdcat_env[@]}" mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" $_nn_previewer_flags_mdcat "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
@@ -2726,13 +2760,16 @@ EOF
       echo "Invalid n!" >&2; return 1
     fi
     local _ee_dir; _ee_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn-ee.XXXXXX")
+    chmod 700 "$_ee_dir"
+    local _ee_rc=0
     if _nn_easteregg_decode "$_ee_dir" "$_nn_k"; then
       cat "$_ee_dir/.empty_easteregg_override" 2>/dev/null && echo
     else
       echo "Invalid n!" >&2
+      _ee_rc=1
     fi
     rm -rf "$_ee_dir"
-    return 0
+    return "$_ee_rc"
   fi
 
   # nn doctor: diagnostic checks (dispatched before config loading)
@@ -2751,6 +2788,23 @@ EOF
   # Load config (workflow + user preferences)
   # Guard: skip on recursive re-entry (named query dispatch calls notenav_main again)
   if [[ -z "${_NN_SEALED:-}" ]]; then
+    # Runtime dependency checks
+    if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
+      echo "notenav: bash 4+ required (found ${BASH_VERSION})" >&2
+      echo "notenav: on macOS, install via: brew install bash" >&2
+      return 1
+    fi
+    if ! command -v fzf >/dev/null 2>&1; then
+      echo "notenav: fzf is required but not found" >&2
+      return 1
+    fi
+    local _nn_fzf_ver
+    _nn_fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.44"; then
+      echo "notenav: fzf 0.44+ required (found $_nn_fzf_ver)" >&2
+      return 1
+    fi
+
     nn_load_config "$NOTENAV_ROOT" || { echo "notenav: config loading failed" >&2; return 1; }
     nn_precompute_workflow || return 1
 
@@ -2788,8 +2842,9 @@ EOF
   # Validate query preset args against known workflow values
   local _vq_name _vq_arg _vq_key _vq_val _vq_err=0
   for _vq_name in "${!saved_queries[@]}"; do
-    set -f
-    for _vq_arg in ${saved_queries[$_vq_name]}; do
+    local -a _vq_arr
+    read -ra _vq_arr <<< "${saved_queries[$_vq_name]}"
+    for _vq_arg in "${_vq_arr[@]}"; do
       _vq_key="${_vq_arg%%=*}"; _vq_val="${_vq_arg#*=}"
       case "$_vq_key" in
         type)
@@ -2813,7 +2868,6 @@ EOF
            echo "notenav: valid keys: type, status, priority, tag" >&2; _vq_err=1; break ;;
       esac
     done
-    set +f
     [[ $_vq_err -ne 0 ]] && { shopt -u nullglob; return 1; }
   done
 
@@ -2880,6 +2934,7 @@ EOF
       shopt -u nullglob; return 1
     fi
     local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX")
+    chmod 700 "$_nn_dir"
     trap '_p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "$_nn_dir"' EXIT
     nn_write_workflow_files "$_nn_dir"
 
@@ -2932,7 +2987,11 @@ tags=$(awk -F'\t' 'length($4) > 0 {
   n=split($4, arr, " "); for(i=1;i<=n;i++) t[arr[i]]=1
 } END { for(k in t) print k }' "$dir/.raw" | sort)
 if [ -z "$tags" ]; then
-  printf '\n  \033[33mNo tags found in notebook.\033[0m\n\n' > /dev/tty
+  if [ -n "${NO_COLOR+x}" ]; then
+    printf '\n  No tags found in notebook.\n\n' > /dev/tty
+  else
+    printf '\n  \033[33mNo tags found in notebook.\033[0m\n\n' > /dev/tty
+  fi
   sleep 1
   exit 0
 fi
@@ -2948,8 +3007,16 @@ else
   ordered="$tags"
   start_bind=""
 fi
+_fzf_ansi=(--ansi)
+[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+if [ -n "${NO_COLOR+x}" ]; then
+  _hdr='Filter the view to only include notes matching the selected tags.
+Space/Tab toggle · Enter apply · Esc cancel'
+else
+  _hdr=$'Filter the view to only include notes matching the selected tags.\n\033[36mSpace\033[0m/\033[36mTab\033[0m toggle \033[90m·\033[0m \033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel'
+fi
 selected=$(echo "$ordered" | fzf --multi --reverse --prompt 'tags: ' \
-  --ansi --header $'Filter the view to only include notes matching the selected tags.\n\033[36mSpace\033[0m/\033[36mTab\033[0m toggle \033[90m·\033[0m \033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
+  "${_fzf_ansi[@]}" --header "$_hdr" \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,space:toggle' ${start_bind:+--bind "$start_bind"})
 if [ $? -eq 0 ]; then
   if [ -n "$selected" ]; then echo "$selected" > "$dir/.f_tags"
@@ -3015,9 +3082,17 @@ dir="$1"
 has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
 cur=""
 [ -s "$dir/.f_match" ] && cur=$(cat "$dir/.f_match")
-result=$(: | fzf --ansi --disabled --query "$cur" \
+_fzf_ansi=(--ansi)
+[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+if [ -n "${NO_COLOR+x}" ]; then
+  _hdr='Filter the view to only include notes whose body matches the query.
+Enter apply · Esc cancel'
+else
+  _hdr=$'Filter the view to only include notes whose body matches the query.\n\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel'
+fi
+result=$(: | fzf "${_fzf_ansi[@]}" --disabled --query "$cur" \
   --prompt 'search contents: ' \
-  --header $'Filter the view to only include notes whose body matches the query.\n\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
+  --header "$_hdr" \
   --bind "start:reload:$dir/match_search.sh $dir {q}" \
   --bind "change:reload:$dir/match_search.sh $dir {q}" \
   --preview "$dir/preview.sh {1}" \
@@ -3056,12 +3131,22 @@ ENDMATCH
 dir="$1"
 cur=""
 [ -s "$dir/.f_name" ] && cur=$(cat "$dir/.f_name")
-result=$(: | fzf --ansi --disabled --query "$cur" \
+_fzf_ansi=(--ansi)
+[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+if [ -n "${NO_COLOR+x}" ]; then
+  _hdr='Filter the view to only include notes whose title matches the query.
+Enter apply · Esc cancel'
+  _color=()
+else
+  _hdr=$'Filter the view to only include notes whose title matches the query.\n\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel'
+  _color=(--color 'border:yellow')
+fi
+result=$(: | fzf "${_fzf_ansi[@]}" --disabled --query "$cur" \
   --prompt 'filter name: ' \
-  --header $'Filter the view to only include notes whose title matches the query.\n\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel' \
+  --header "$_hdr" \
   --print-query \
   --bind 'j:down,k:up' \
-  --reverse --border --color 'border:yellow')
+  --reverse --border "${_color[@]}")
 rc=$?
 query=$(printf '%s' "$result" | head -1)
 if [ $rc -ne 130 ]; then
@@ -3314,7 +3399,11 @@ case "$field" in
     vals=""
     while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
       [ -n "$vals" ] && vals="$vals\n"
-      vals="$vals$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
+      if [ -n "${NO_COLOR+x}" ]; then
+        vals="$vals$ic $v"
+      else
+        vals="$vals$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
+      fi
     done < "$dir/.schema_types" ;;
   *) nn_assert "set_field: unknown field '$field'" ;;
 esac
@@ -3322,7 +3411,9 @@ hdr="Enter apply · Esc cancel"
 [ -n "$ctx" ] && hdr=$(printf '%s\n%s' "$ctx" "$hdr")
 pos_bind=()
 [ -n "$cur_pos" ] && pos_bind=(--bind "load:pos($cur_pos)")
-selected=$(printf '%b' "$vals" | fzf --ansi --reverse --prompt "set $field: " \
+_fzf_ansi=(--ansi)
+[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+selected=$(printf '%b' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $field: " \
   --border --border-label " Set $field " \
   --header "$hdr" \
   "${pos_bind[@]}" \
@@ -4043,10 +4134,8 @@ cycle() {
       if [ "$(cat "$dir/.schema_priority_enabled")" = "false" ]; then vals=(""); else
         mapfile -t vals < "$dir/.schema_priority_filter_cycle"; vals=("" "${vals[@]}" "none")
       fi ;;
-    sort)
-      vals=("created" "modified" "title")
-      [ "$(cat "$dir/.schema_priority_enabled")" != "false" ] && vals+=("priority") ;;
-    group)    vals=("" "type" "status") ;;
+    sort)     mapfile -t vals < "$dir/.schema_sort_options" ;;
+    group)    mapfile -t vals < "$dir/.schema_group_options" ;;
     *) nn_assert "cycle: unknown dimension '$dim'" ;;
   esac
   local total=${#vals[@]} idx=0 i
@@ -4066,15 +4155,15 @@ apply_sq() {
   [[ "$args" == "$name" ]] && args=""  # no tab found – name-only preset
   # Reset filters then apply query preset's key=value pairs
   ft=""; fs=""; fp=""; fname=""; fmatch=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_name"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
-  set -f
-  for a in $args; do
+  local -a _sq_arr
+  read -ra _sq_arr <<< "$args"
+  for a in "${_sq_arr[@]}"; do
     case "$a" in
       type=*) ft="${a#*=}";; status=*) fs="${a#*=}";;
       priority=*) fp="${a#*=}";; tag=*) echo "${a#*=}" >> "$dir/.f_tags";;
       *) nn_assert "apply_sq: unknown arg '${a%%=*}'" ;;
     esac
   done
-  set +f
   echo "$name" > "$dir/.f_sq"
 }
 ft=$(cat "$dir/.f_type"); fs=$(cat "$dir/.f_status")
@@ -4549,7 +4638,11 @@ if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
       cat "$dir/.empty_placeholder"
     } > "$dir/.empty_placeholder.tmp" && mv "$dir/.empty_placeholder.tmp" "$dir/.empty_placeholder"
   fi
-  printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
+  if [ -n "${NO_COLOR+x}" ]; then
+    printf '%s\t  ~\n' "$dir/.empty_placeholder" > "$dir/.current"
+  else
+    printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
+  fi
 fi
 # Measure placeholder visible width (strip ANSI, find longest line) for preview.sh centering
 awk 'BEGIN{esc=sprintf("%c",27)} {gsub(esc"\\[[0-9;]*m",""); if(length>m) m=length} END{print m+0}' "$dir/.empty_placeholder" > "$dir/.empty_placeholder_width"
@@ -4560,6 +4653,13 @@ mark_s=""; [ "$mark_count" -gt 0 ] && mark_s=" · ${mark_count} marked"
 last_action=""; [ -s "$dir/.last_action" ] && last_action=" · last change: $(cat "$dir/.last_action")"
 _border=$(printf ' nn · %d/%d%s%s%s ' "$count" "$total" "$pin_s" "$mark_s" "$last_action")
 printf '%s' "${_border//)/}" > "$dir/.border"
+# NO_COLOR: strip ANSI escape sequences from header/placeholder files
+if [ -n "${NO_COLOR+x}" ]; then
+  _nc_esc=$(printf '\033')
+  for _nc_f in "$dir/.header" "$dir/.header-c" "$dir/.header-f" "$dir/.header-z" "$dir/.header-m" "$dir/.empty_placeholder"; do
+    [ -f "$_nc_f" ] && sed "s/${_nc_esc}\[[0-9;]*m//g" "$_nc_f" > "$_nc_f.tmp" && mv "$_nc_f.tmp" "$_nc_f"
+  done
+fi
 [ "$fwrap_was" != "$fwrap" ] && printf 'toggle-wrap+'
 # Use the mode-appropriate header so auto-refresh doesn't clobber prefix-mode hints
 _hdr="$dir/.header"
@@ -4609,6 +4709,8 @@ ENDEDIT
 
     local _nn_fzf_wrap=()
     [[ "$NN_DEFAULT_WRAP" == "true" ]] && _nn_fzf_wrap=(--wrap)
+    local _nn_fzf_ansi=(--ansi)
+    [[ -n "${NO_COLOR+x}" ]] && _nn_fzf_ansi=()
 
     # Resolve effective refresh mode (watch → manual if no watcher tool)
     local _nn_raw_count
@@ -4633,7 +4735,7 @@ ENDEDIT
       _nn_fzf_start_watcher="+execute-silent($_nn_dir/watcher.sh $_nn_dir &)"
     fi
 
-    fzf --ansi --delimiter $'\t' --with-nth 2.. < "$_nn_dir/.current" \
+    fzf "${_nn_fzf_ansi[@]}" --delimiter $'\t' --with-nth 2.. < "$_nn_dir/.current" \
       "${_nn_fzf_listen[@]}" \
       --header '' --header-first \
       --border rounded \
@@ -4718,11 +4820,10 @@ ENDEDIT
     _NN_QUERY_DEPTH=$(( _nn_qdepth + 1 ))
     local saved="$1"; shift
     local _saved_args="${saved_queries[$saved]}"
+    local -a _saved_arr
+    read -ra _saved_arr <<< "$_saved_args"
     shopt -u nullglob
-    set -f
-    # shellcheck disable=SC2086  # intentional word-splitting of saved query args
-    notenav_main $_saved_args "$@"
-    set +f
+    notenav_main "${_saved_arr[@]}" "$@"
     return
   fi
 
@@ -4849,7 +4950,9 @@ ENDEDIT
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
       | _nn_adhoc_sort \
       | awk -F'\t' "$_awk_color" > "$nn_tmp"
-    fzf --ansi --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
+    local _nn_adhoc_ansi=(--ansi)
+    [[ -n "${NO_COLOR+x}" ]] && _nn_adhoc_ansi=()
+    fzf "${_nn_adhoc_ansi[@]}" --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
           --preview "$_nn_prev {1}" \
           --prompt "$NN_UI_COMMAND_PROMPT" \
           --bind "start:execute-silent(rm -f $_nn_sflag)" \
