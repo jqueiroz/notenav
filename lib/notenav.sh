@@ -4581,8 +4581,9 @@ if [ -f "$dir/.queries" ]; then
     sq_cond="$vis_cond"
     [ -z "$farchive" ] && sq_cond="$sq_cond$archive_cond"
     _sq_tag_cond=""
-    set -f
-    for a in $qargs; do
+    local -a _sq_badge_arr
+    read -ra _sq_badge_arr <<< "$qargs"
+    for a in "${_sq_badge_arr[@]}"; do
       _av=$(awk_esc "${a#*=}")
       case "$a" in
         type=*) sq_cond="$sq_cond && \$1==\"$_av\"" ;;
@@ -4598,7 +4599,6 @@ if [ -f "$dir/.queries" ]; then
         *) nn_assert "query stats: unknown arg '${a%%=*}'" ;;
       esac
     done
-    set +f
     [ -n "$_sq_tag_cond" ] && sq_cond="$sq_cond && ($_sq_tag_cond)"
     sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw")
     label=$(printf '%d:%s(%d)' "$n" "$qname" "$sq_count")
