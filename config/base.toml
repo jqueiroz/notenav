@@ -18,7 +18,7 @@ wrap_preview = false
 [ui]
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = ": "    # prompt in normal (command) mode
-search_prompt = "/ "     # prompt in ad-hoc interactive mode
+search_prompt = "/ "     # prompt in search mode (/ key and ad-hoc -i)
 exit_message = "none"    # "none" or "fortune" (show a fun quote on exit)
 priority_plus = "demote" # what + key does: "demote" = lower urgency (P1→P2), "promote" = raise urgency (P2→P1)
 after_create = "edit"    # "edit" (open in editor) or "none" (just create)

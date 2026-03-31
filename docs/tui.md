@@ -4,7 +4,7 @@
 
 ## Keybindings
 
-The faceted browser uses a modal system with five modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), **display** (prefix `z`), and **mark** (prefix `m`). Press `esc` to return to command mode from any prefix mode.
+The faceted browser uses a modal system with seven modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), **display** (prefix `z`), **mark** (prefix `m`), **search** (`/`), and **content search** (`?`). Press `esc` to return to command mode from any other mode.
 
 ### Command mode
 
@@ -37,7 +37,9 @@ The faceted browser uses a modal system with five modes: **command** (default), 
 | `j` / `k` | Move down / up |
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `J` / `K` | Scroll preview down / up |
-| `esc` | Clear search query (or exit prefix mode) |
+| `/` | Enter search mode – fuzzy-filter the list by typing |
+| `?` | Enter content search – live grep of note bodies |
+| `esc` | Exit search / prefix mode, or clear query |
 | `q` | Quit |
 
 ### Change mode (prefix `c`)
@@ -58,8 +60,6 @@ Press `f` to enter filter mode. The prompt changes to `f `. Then press one of:
 | Key | Action |
 |-----|--------|
 | `t` | Filter by tags (multi-select picker; OR logic – matches notes with *any* selected tag) |
-| `c` | Filter by contents (live search of note body – uses `zk --match` when available, `rg`/`grep` otherwise) |
-| `n` | Filter by name (substring match on note title, case-insensitive) |
 | `esc` | Cancel, return to command mode |
 
 ### Display mode (prefix `z`)
@@ -96,7 +96,7 @@ When you perform an inline action – advance status (`a`/`A`), bump priority (`
 
 **Accumulative:** each action adds to the set of pinned items. Advancing one note and then bumping another leaves both pinned.
 
-**Sticky:** pins survive filter changes (cycling type, status, priority, tags, or body search). They persist until you explicitly clear them.
+**Sticky:** pins survive filter changes (cycling type, status, priority, tags, or content search). They persist until you explicitly clear them.
 
 **Clearing pins:**
 
@@ -161,6 +161,30 @@ args = "type=task tag=backend tag=api"    # tasks tagged backend OR api
 - **By project:** `project-alpha`, `migration`, `onboarding`
 - **By context (GTD-style):** `@phone`, `@computer`, `@errands`
 - **By theme:** `tech-debt`, `security`, `performance`
+
+### Search mode (`/`)
+
+Press `/` to enter search mode. The prompt changes to `/ ` and the header collapses to show search-specific help. Type to fuzzy-filter the visible note list. Arrow keys and `ctrl-j`/`ctrl-k` still navigate during search.
+
+| Key | Action |
+|-----|--------|
+| `enter` | Open the focused note, clear query, return to command mode |
+| `tab` | Keep the fuzzy filter active and return to command mode |
+| `esc` | Cancel search, clear query, return to command mode |
+
+When you exit search mode via `tab`, the query stays in fzf's input – the list remains filtered. Press `esc` in command mode to clear it. This lets you quickly narrow the list by title: type a query, press `tab`, then do normal command-mode actions on the narrowed set.
+
+### Content search mode (`?`)
+
+Press `?` to enter content search mode. The prompt changes to `? ` and fzf switches to live-grep mode – each keystroke searches note bodies using `rg`/`grep` (or `zk --match` when available). The list updates to show only notes containing the query. If a content filter is already active, the query is pre-filled so you can refine or replace it.
+
+| Key | Action |
+|-----|--------|
+| `enter` | Open the focused note, return to command mode |
+| `tab` | Persist the content filter and return to command mode |
+| `esc` | Cancel search, return to command mode |
+
+When you exit via `tab`, the content query is saved as a pipeline-level filter (shown as `[?] content:` in the header). This filter survives reloads and individual filter changes (cycling type, status, priority, tags). It is cleared by preset switches (`tab`/`shift-tab`, `1`–`9`), `0` (clear preset), or `R` (full reset). You can also clear it by entering `?` with an empty query and pressing `tab`.
 
 ### Interactive ad-hoc mode (`-i`)
 

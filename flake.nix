@@ -16,6 +16,7 @@
         zk  # optional but bundled – enables faster indexing and link graph
         fzf
         bat
+        ripgrep  # optional but bundled – faster content search
         gawk
         gnused
         coreutils
