@@ -16,6 +16,7 @@ show_archive = false
 wrap_preview = false
 
 [ui]
+header = "auto"          # "auto" | "full" | "compact" – auto uses compact when terminal is short
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode (/ key and ad-hoc -i)

@@ -15,6 +15,7 @@
 # wrap_preview = false          # true to wrap the preview pane by default
 
 # [ui]
+# header = "auto"               # "auto" | "full" | "compact" – auto compacts on short terminals
 # editor = ""                   # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 # command_prompt = ": "         # prompt in normal (command) mode
 # search_prompt = "/ "          # prompt in search mode (/ key and ad-hoc -i)
