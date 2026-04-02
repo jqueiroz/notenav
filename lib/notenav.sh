@@ -2423,6 +2423,12 @@ nn_doctor() {
     # Scan frontmatter with a single gawk pass over all .md files
     local _fm_gawk
     _fm_gawk=$(_nn_resolve_gawk)
+
+    # The scan uses 3-arg match() which requires gawk; skip if unavailable
+    if ! "$_fm_gawk" 'BEGIN { match("x", /x/, m) }' /dev/null 2>/dev/null; then
+      _info "Frontmatter validation skipped (requires gawk)"
+    else
+
     local _fm_scan
     _fm_scan=$(find "$_nn_root" \( -name .git -o -name .zk -o -name .obsidian -o -name node_modules -o -name .nn \) -prune \
       -o -name '*.md' -type f -print 2>/dev/null \
@@ -2523,6 +2529,7 @@ nn_doctor() {
     if [[ "$_note_count" -gt 2000 ]]; then
       _info "Scanned first 2000 of $_note_count files"
     fi
+    fi  # end gawk guard
   fi
 
   # Summary
@@ -2768,7 +2775,7 @@ _nn_init_user() {
       || { rm -f "$_tmp"
            echo "notenav: created $target but failed to set default_workflow" >&2
            echo "notenav: edit it to set: default_workflow = \"$workflow_arg\"" >&2
-           return 1; }
+           return 0; }
     # Verify the awk substitution actually matched (guards against sample format changes)
     if ! grep -q '^default_workflow = ' "$target"; then
       echo "notenav: created $target but could not set default_workflow automatically" >&2
@@ -4269,7 +4276,7 @@ if [ "$_nn_has_zk" = "true" ]; then
       }
       in_fm && /^type:( |$)/    { found_type=1 }
       in_fm && /^status:( |$)/  { found_status=1 }
-      in_fm && /^created:( |$)/ { print "created: " nn_created; found_created=1; next }
+      in_fm && /^created:( |$)/ { found_created=1 }
       { print }
     ' "$new_path" > "$new_path.tmp" && mv "$new_path.tmp" "$new_path"
   else

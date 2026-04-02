@@ -76,7 +76,7 @@ fi
 # --- install or update ---
 if [ -d "$NOTENAV_DIR/.git" ]; then
   echo "Updating notenav..."
-  git -C "$NOTENAV_DIR" pull --ff-only
+  git -C "$NOTENAV_DIR" pull --ff-only origin stable
 elif [ -d "$NOTENAV_DIR" ]; then
   err "$NOTENAV_DIR already exists but is not a git repository. Remove it and try again."
 else
