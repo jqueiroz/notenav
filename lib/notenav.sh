@@ -542,14 +542,15 @@ _nn_gen_awk_bodies() {
   NN_AWK_COLOR_MARKED="$_marked"
 
   # Stats AWK body
+  local _sep=$'\x1e'  # ASCII Record Separator – safe delimiter for values containing spaces
   local _type_order_arr=("${NN_TYPE_DISPLAY_ORDER[@]:-${NN_TYPE_VALUES[@]}}")
   local _type_order_str="" _toi
   for _toi in "${_type_order_arr[@]}"; do
-    _type_order_str+="${_type_order_str:+ }$(_nn_awk_esc "$_toi")"
+    _type_order_str+="${_type_order_str:+$_sep}$(_nn_awk_esc "$_toi")"
   done
   local _status_fc_str="" _sfi
   for _sfi in "${NN_STATUS_FILTER_CYCLE[@]}"; do
-    _status_fc_str+="${_status_fc_str:+ }$(_nn_awk_esc "$_sfi")"
+    _status_fc_str+="${_status_fc_str:+$_sep}$(_nn_awk_esc "$_sfi")"
   done
   local _stats_type_lookup="" _stats_status_lookup=""
   for _v in "${NN_TYPE_VALUES[@]}"; do
@@ -562,7 +563,7 @@ _nn_gen_awk_bodies() {
     _stats_status_lookup+="sc[\"${_vesc}\"] = \"\\033[${NN_STATUS_COLORS[$_v]}m\"; "
   done
   NN_AWK_COLOR_STATS='{ types[$1]++; combos[$1, $2]++ } END {
-  n = split("'"$_type_order_str"'", order, " ")
+  n = split("'"$_type_order_str"'", order, "\\036")
   '"$_stats_type_lookup"'
   '"$_stats_status_lookup"'
   first = 1
@@ -577,7 +578,7 @@ _nn_gen_awk_bodies() {
     tl = t; if (types[t] != 1) tl = t "s"
     printf "%s%s %d %s\033[0m", tc, ic, types[t], tl
     printf " ("
-    sn = split("'"$_status_fc_str"'", statuses, " ")
+    sn = split("'"$_status_fc_str"'", statuses, "\\036")
     sfirst = 1
     for (si = 1; si <= sn; si++) {
       s = statuses[si]
@@ -609,7 +610,7 @@ _nn_gen_awk_bodies() {
   NN_STATUS_ORDER_STR=""
   local _soi
   for _soi in "${_status_order_arr[@]}"; do
-    NN_STATUS_ORDER_STR+="${NN_STATUS_ORDER_STR:+ }$(_nn_awk_esc "$_soi")"
+    NN_STATUS_ORDER_STR+="${NN_STATUS_ORDER_STR:+$_sep}$(_nn_awk_esc "$_soi")"
   done
 
   # Type icon AWK snippet for grouping
@@ -2881,7 +2882,7 @@ _nn_fetch_remote() {
       local reply
       read -r reply
       case "$reply" in
-        [yY]|[yY][eE][sS]) ;;
+        [yY]|[yY][eE][sS]) _nn_url_trust_add "$url" ;;
         *) echo "Aborted."; return 1 ;;
       esac
     else
@@ -2918,8 +2919,6 @@ _nn_fetch_remote() {
     cat "$tmpfile"
   } > "$_cache_tmp" && mv "$_cache_tmp" "$cache_path" || { rm -f "$_cache_tmp"; return 1; }
 
-  # Add to allow-list (idempotent – _nn_url_trust_add skips duplicates)
-  _nn_url_trust_add "$url"
 }
 
 # Write the shared preview script to a given path.
@@ -4718,9 +4717,9 @@ if [ -n "$fgroup" ]; then
       counts[gk]++; lines[gk] = lines[gk] $0 "\n"
     } END {
       if (gmode == "status")
-        n = split(status_order, order, " ")
+        n = split(status_order, order, "\\036")
       else
-        n = split(type_order, order, " ")
+        n = split(type_order, order, "\\036")
       '"$(cat "$dir/.schema_icon_setup")"'
       pre = (no_color != "") ? "" : "\033[90;1m"
       suf = (no_color != "") ? "" : "\033[0m"
