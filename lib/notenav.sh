@@ -5338,7 +5338,7 @@ ENDEDIT
           --bind "::rebind(j,k,q,change)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_sflag)" \
           --bind 'J:preview-page-down,K:preview-page-up' \
           --bind 'H:toggle-wrap' \
-          --bind "enter:execute-silent(printf '%s' {1} > $_nn_edit.target)+execute($_nn_edit)+refresh-preview"
+          --bind "enter:transform[printf '%s' {1} > $_nn_edit.target; echo 'execute($_nn_edit)+refresh-preview']"
     rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"
     trap - EXIT
   else
