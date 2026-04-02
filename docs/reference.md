@@ -228,8 +228,55 @@ Prints a usage summary and exits.
 |------|------|---------|
 | Project config | `.nn/workflow.toml` | Workflow definition and project queries |
 | User config | `$XDG_CONFIG_HOME/notenav/config.toml` | Personal preferences |
+| Ignore file | `.nnignore` | Exclude files/directories from the index |
 | Trusted sources | `$XDG_CONFIG_HOME/notenav/trusted-sources` | Allow-list for remote workflow URLs |
 | Remote cache | `$XDG_CACHE_HOME/notenav/workflows/` | Cached remote workflow files |
+
+### `.nnignore`
+
+Place a `.nnignore` file at the notebook root (next to `.nn/`) to exclude files
+and directories from notenav's index. Works with both the native and zk
+backends, and applies to all three modes (TUI, named query, ad-hoc).
+
+`CLAUDE.md` files are always excluded by default, even without a `.nnignore`
+file. Standard metadata directories (`.git`, `.zk`, `.obsidian`,
+`node_modules`, `.nn`) are also always pruned.
+
+**Pattern syntax** – one pattern per line:
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `name` | Exclude files with this exact basename | `README.md` |
+| `name/` | Prune directory (skip everything under it) | `templates/` |
+| `*.glob` | Shell glob on basename (`*` and `?`) | `*.draft.md` |
+| `path/to/file` | Match relative path suffix | `old/archive.md` |
+
+Notes:
+
+- `#` begins a comment – everything from `#` to end of line is ignored.
+  Inline comments are supported: `templates/  # skip these` works.
+  Literal `#` in filenames is not supported.
+- Blank lines and whitespace-only lines are ignored.
+- Glob patterns are matched against the **basename** only.
+  Patterns like `foo/*.md` (glob + path) are not supported – use a
+  directory pattern (`foo/`) or an exact path pattern instead.
+
+**Example `.nnignore`:**
+
+```
+# Skip templates and archive
+templates/
+archive/
+
+# Ignore draft files
+*.draft.md
+
+# Ignore a specific file
+notes/scratch/old-ideas.md
+```
+
+Run `nn doctor` to verify your `.nnignore` is being picked up and how many
+patterns it contains.
 
 ---
 

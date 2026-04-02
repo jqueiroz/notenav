@@ -8,8 +8,9 @@ All configuration is TOML. Project and user configuration are layered independen
 
 - **Project configuration** (`.nn/workflow.toml`): defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
 - **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`): personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback workflow, used in directories without project configuration.
+- **Ignore file** (`.nnignore`, optional): excludes files and directories from the index. Placed at the notebook root, next to `.nn/`. See the [`.nnignore` reference](reference.md#nnignore) for pattern syntax.
 
-Both scopes are layered on top of notenav's base defaults, so you only need to specify what you want to change.
+Both config scopes are layered on top of notenav's base defaults, so you only need to specify what you want to change.
 
 ## Config resolution
 

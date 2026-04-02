@@ -153,7 +153,7 @@ All configuration is TOML. Project and user configuration are layered independen
 - **Project configuration** (`.nn/workflow.toml`): defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
 - **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`): personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback workflow (used only when `nn` is invoked in directories lacking project configuration).
 
-The `.nn/` directory is found by walking up from your current directory (like `.git/`), so `nn` works from any subdirectory. Notes are discovered recursively: at the notebook root you see everything, from a subdirectory you see only that subtree.
+The `.nn/` directory is found by walking up from your current directory (like `.git/`), so `nn` works from any subdirectory. Notes are discovered recursively: at the notebook root you see everything, from a subdirectory you see only that subtree. To exclude files or directories from the index, add a `.nnignore` file at the notebook root (see [docs/reference.md](docs/reference.md#nnignore)).
 
 Ships with five built-in workflows. Use one as-is, extend it with overrides, or write your own. The built-in config files are self-documenting and the best way to learn the format.
 

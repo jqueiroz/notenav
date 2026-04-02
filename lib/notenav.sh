@@ -972,12 +972,133 @@ nn_write_workflow_files() {
 # GNU find uses -printf; BSD find + stat fallback for macOS.
 _nn_find_md_with_mtime() {
   local dir="$1"
+  # Prune standard metadata/dependency dirs + any custom dirs from .nnignore
+  local -a prune=(-name .git -o -name .zk -o -name .obsidian -o -name node_modules -o -name .nn)
+  local _ign
+  for _ign in "${_NN_IGNORE_DIRS[@]}"; do
+    prune+=(-o -name "$_ign")
+  done
   if find "$dir" -maxdepth 0 -printf '' 2>/dev/null; then
     # GNU find – space-separated date to match zk's {{modified}} format
-    find "$dir" -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
+    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
   else
     # BSD find + stat (macOS)
-    find "$dir" -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
+    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
+  fi
+}
+
+# Parses .nnignore and sets globals for ignore filtering.
+# Reads $root/.nnignore (if present), always excludes CLAUDE.md by default.
+# Sets: _NN_IGNORE_DIRS (array of dir names for find pruning)
+#        _NN_IGNORE_AWK (awk program string for post-filtering TSV by path in $6)
+_nn_load_nnignore() {
+  local root="$1"
+  _NN_IGNORE_DIRS=()
+  _NN_IGNORE_AWK=""
+
+  # Default exclusions (always applied, even without .nnignore)
+  local -a name_pats=("CLAUDE.md") dir_pats=() glob_pats=() path_pats=()
+
+  if [[ -f "$root/.nnignore" ]]; then
+    local line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      line="${line%%#*}"                          # strip inline comments
+      line="${line#"${line%%[![:space:]]*}"}"      # trim leading whitespace
+      line="${line%"${line##*[![:space:]]}"}"      # trim trailing whitespace
+      [[ -z "$line" ]] && continue
+      if [[ "$line" == */ ]]; then
+        local _dname="${line%/}"
+        if [[ "$_dname" == */* ]]; then
+          echo "notenav: .nnignore: nested directory pattern '$line' – use a simple name like '${_dname##*/}/' instead" >&2
+          continue
+        fi
+        if [[ "$_dname" == *[\*\?]* ]]; then
+          echo "notenav: .nnignore: directory pattern '$line' contains wildcards – use a glob pattern instead" >&2
+          continue
+        fi
+        dir_pats+=("$_dname")
+      elif [[ "$line" == *\** || "$line" == *\?* ]]; then
+        glob_pats+=("$line")
+      elif [[ "$line" == */* ]]; then
+        if [[ "$line" == /* ]]; then
+          echo "notenav: .nnignore: absolute path '$line' – use a relative path instead" >&2
+          continue
+        fi
+        path_pats+=("$line")
+      else
+        name_pats+=("$line")
+      fi
+    done < "$root/.nnignore"
+  fi
+
+  _NN_IGNORE_DIRS=("${dir_pats[@]}")
+
+  # Build awk conditions – each produces a boolean that, when true, means "skip this row"
+  local -a conds=()
+
+  # Name exact matches: _b == "pattern"
+  local n_pat en
+  for n_pat in "${name_pats[@]}"; do
+    en="${n_pat//\\/\\\\}"; en="${en//\"/\\\"}"
+    conds+=("_b == \"$en\"")
+  done
+
+  # Dir matches: path contains /dirname/
+  local d_pat ed
+  for d_pat in "${dir_pats[@]}"; do
+    ed="${d_pat//\\/\\\\}"; ed="${ed//\"/\\\"}"
+    conds+=("index(\$6, \"/$ed/\") > 0")
+  done
+
+  # Path suffix matches: path ends with /relative/path
+  local p_pat ep suf slen
+  for p_pat in "${path_pats[@]}"; do
+    ep="${p_pat//\\/\\\\}"; ep="${ep//\"/\\\"}"
+    suf="/$ep"
+    slen=$(( ${#p_pat} + 1 ))
+    conds+=("substr(\$6, length(\$6) - $slen + 1) == \"$suf\"")
+  done
+
+  # Glob matches: basename matches shell glob converted to awk regex
+  local g_pat re
+  for g_pat in "${glob_pats[@]}"; do
+    # Globs are matched against the basename only; patterns containing /
+    # (e.g. "foo/*.md") would silently never match.
+    if [[ "$g_pat" == */* ]]; then
+      echo "notenav: .nnignore: glob pattern '$g_pat' contains '/' – use a path pattern without wildcards, or a directory pattern (trailing /) instead" >&2
+      continue
+    fi
+    # Warn about characters that are valid in shell globs but would break the
+    # awk regex (brackets, parens, pipes, etc.)
+    if [[ "$g_pat" == *[\[\]\(\)\+\|\{\}\^\$\\]* ]]; then
+      echo "notenav: .nnignore: unsupported regex characters in glob pattern '$g_pat' – skipping" >&2
+      continue
+    fi
+    re="$g_pat"
+    re="${re//./\\.}"       # escape dots
+    re="${re//\*/[^/]*}"    # * -> non-slash chars
+    re="${re//\?/[^/]}"     # ? -> single non-slash char
+    conds+=("_b ~ /^${re}\$/")
+  done
+
+  if [[ ${#conds[@]} -gt 0 ]]; then
+    local sep="" joined_conds="" c
+    for c in "${conds[@]}"; do
+      joined_conds+="${sep}${c}"
+      sep=" || "
+    done
+    _NN_IGNORE_AWK="{n=split(\$6,_ig,\"/\"); _b=_ig[n]; if ($joined_conds) next; print}"
+  fi
+}
+
+# Pipeline filter: removes rows whose path ($6) matches loaded .nnignore
+# patterns.  Falls back to cat when no patterns are active (defensive – the
+# default CLAUDE.md exclusion means the awk path normally always runs).
+_nn_ignore_pipe() {
+  if [[ -n "${_NN_IGNORE_AWK:-}" ]]; then
+    "${_NN_GAWK:-awk}" -F'\t' "$_NN_IGNORE_AWK"
+  else
+    cat
   fi
 }
 
@@ -1056,22 +1177,24 @@ _nn_list_notes_native() {
 _nn_list_notes() {
   local has_zk="$1" fmt="$2"
   shift 2
-  if [[ "$has_zk" == "true" ]]; then
-    # Workaround: zk list <path> returns only direct children (non-recursive)
-    # when <path> is the zk notebook root; omit the path in that case.
-    local _zk_scope=("$@")
-    [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
-    zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null
-  else
-    if [[ $# -eq 0 ]]; then
-      _nn_find_md_with_mtime "." | _nn_list_notes_native
+  {
+    if [[ "$has_zk" == "true" ]]; then
+      # Workaround: zk list <path> returns only direct children (non-recursive)
+      # when <path> is the zk notebook root; omit the path in that case.
+      local _zk_scope=("$@")
+      [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
+      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null
     else
-      local _d
-      for _d in "$@"; do
-        _nn_find_md_with_mtime "$_d"
-      done | _nn_list_notes_native
+      if [[ $# -eq 0 ]]; then
+        _nn_find_md_with_mtime "." | _nn_list_notes_native
+      else
+        local _d
+        for _d in "$@"; do
+          _nn_find_md_with_mtime "$_d"
+        done | _nn_list_notes_native
+      fi
     fi
-  fi
+  } | _nn_ignore_pipe
 }
 
 # --- Doctor ---
@@ -2245,11 +2368,20 @@ nn_doctor() {
   fi
 
   local _note_count
-  _note_count=$(find "$_nn_root" \( -name .git -o -name .zk -o -name .obsidian -o -name node_modules \) -prune -o -name '*.md' -type f -print 2>/dev/null | wc -l | tr -d ' ')
+  _note_count=$(find "$_nn_root" \( -name .git -o -name .zk -o -name .obsidian -o -name node_modules -o -name .nn \) -prune -o -name '*.md' -type f -print 2>/dev/null | wc -l | tr -d ' ')
   if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
     _pass "$_note_count markdown files found"
   else
     _warn "No markdown files found"
+  fi
+
+  # .nnignore status
+  if [[ -f "$_nn_root/.nnignore" ]]; then
+    local _ign_count
+    _ign_count=$(grep -cvE '^[[:space:]]*(#|$)' "$_nn_root/.nnignore" 2>/dev/null) || _ign_count=0
+    _pass ".nnignore: $_ign_count pattern(s) ${_dim}(+ default CLAUDE.md exclusion)${_reset}"
+  else
+    _info "No .nnignore ${_dim}(CLAUDE.md excluded by default)${_reset}"
   fi
 
   # Backend status
@@ -2292,7 +2424,7 @@ nn_doctor() {
     local _fm_gawk
     _fm_gawk=$(_nn_resolve_gawk)
     local _fm_scan
-    _fm_scan=$(find "$_nn_root" \( -name .git -o -name .zk -o -name .obsidian -o -name node_modules \) -prune \
+    _fm_scan=$(find "$_nn_root" \( -name .git -o -name .zk -o -name .obsidian -o -name node_modules -o -name .nn \) -prune \
       -o -name '*.md' -type f -print 2>/dev/null \
       | head -2000 \
       | "$_fm_gawk" '
@@ -2909,6 +3041,7 @@ Example: nn type=task status=active
 Config:
   Project:  .nn/workflow.toml
   User:     ~/.config/notenav/config.toml
+  Ignore:   .nnignore (optional, at notebook root)
 EOF
     return 0
   fi
@@ -3071,6 +3204,9 @@ EOF
   # fell back to default_workflow in nn_load_config)
   [[ -z "$_nn_root" ]] && _nn_root="$PWD"
 
+  # Load .nnignore patterns (default: excludes CLAUDE.md)
+  _nn_load_nnignore "$_nn_root"
+
   # Resolve editor
   local _nn_editor
   _nn_editor="$(_nn_resolve_editor "$NN_UI_EDITOR")"
@@ -3108,6 +3244,12 @@ EOF
     printf '%s' "$_NN_HAS_ZK" > "$_nn_dir/.has_zk"
     printf '%s' "$_NN_GAWK" > "$_nn_dir/.gawk"
     printf '%s' "$_nn_root" > "$_nn_dir/.notebook_root"
+    printf '%s' "${_NN_IGNORE_AWK:-}" > "$_nn_dir/.ignore_awk"
+    if [[ ${#_NN_IGNORE_DIRS[@]} -gt 0 ]]; then
+      printf '%s\n' "${_NN_IGNORE_DIRS[@]}" > "$_nn_dir/.ignore_dirs"
+    else
+      : > "$_nn_dir/.ignore_dirs"
+    fi
 
     # Get all notes
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "$_scope_path" > "$_nn_dir/.raw"
@@ -3264,20 +3406,47 @@ has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 fmt=$(cat "$dir/.list_fmt")
 scope_path=$(cat "$dir/.scope_path")
+
+# Apply .nnignore filter to .raw.tmp (non-fatal: falls back to unfiltered data)
+_nn_apply_ignore() {
+  local d="$1"
+  local _ign
+  _ign=$(cat "$d/.ignore_awk" 2>/dev/null) || true
+  [ -z "$_ign" ] && return 0
+  if "$nn_gawk" -F'\t' "$_ign" "$d/.raw.tmp" > "$d/.raw.ign"; then
+    mv "$d/.raw.ign" "$d/.raw.tmp"
+  else
+    rm -f "$d/.raw.ign"
+  fi
+  return 0
+}
+
+# Build find prune args: standard dirs + custom dirs from .nnignore
+_prune_args=(-name .git -o -name .zk -o -name .obsidian -o -name node_modules -o -name .nn)
+if [ -s "$dir/.ignore_dirs" ]; then
+  while IFS= read -r _igd; do
+    [ -n "$_igd" ] && _prune_args+=(-o -name "$_igd")
+  done < "$dir/.ignore_dirs"
+fi
+
 if [ "$has_zk" = "true" ]; then
   # Workaround: zk list <root> returns only root-level notes; omit the path.
   _zk_scope=("$scope_path")
   [ -d "$scope_path/.zk" ] && _zk_scope=()
   zk index --quiet 2>/dev/null
-  zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw.tmp" && mv "$dir/.raw.tmp" "$dir/.raw"
+  zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw.tmp" \
+    && _nn_apply_ignore "$dir" \
+    && mv "$dir/.raw.tmp" "$dir/.raw"
 else
   search_dir="$scope_path"
   _nn_find_md_with_mtime() {
     local d="$1"
     if find "$d" -maxdepth 0 -printf '' 2>/dev/null; then
-      find "$d" -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
+      find "$d" \( "${_prune_args[@]}" \) \
+        -prune -o -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
     else
-      find "$d" -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
+      find "$d" \( "${_prune_args[@]}" \) \
+        -prune -o -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
     fi
   }
   # NOTE: this AWK body must stay in sync with _nn_list_notes_native() in lib/notenav.sh
@@ -3337,7 +3506,9 @@ else
     printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", type, status, priority, tags, title, file, mtime, created
   }
   BEGIN { NR_FILE = 0 }
-  ' > "$dir/.raw.tmp" && mv "$dir/.raw.tmp" "$dir/.raw"
+  ' > "$dir/.raw.tmp" \
+    && _nn_apply_ignore "$dir" \
+    && mv "$dir/.raw.tmp" "$dir/.raw"
 fi
 
 # Prune satellite files: remove paths that no longer exist in .raw
@@ -3399,14 +3570,33 @@ elif [[ "$mode" = "poll" ]]; then
   trap 'exit' EXIT TERM
   interval=$(cat "$dir/.refresh_interval" 2>/dev/null)
   interval=${interval:-30}
+  # Build prune args for find (standard dirs + custom .nnignore dirs)
+  _wp_prune=(-name .git -o -name .zk -o -name .obsidian -o -name node_modules -o -name .nn)
+  if [[ -s "$dir/.ignore_dirs" ]]; then
+    while IFS= read -r _wd; do
+      [[ -n "$_wd" ]] && _wp_prune+=(-o -name "$_wd")
+    done < "$dir/.ignore_dirs"
+  fi
+  # Track previous file count to detect additions/deletions.  Comparing against
+  # .raw line count would fail when .nnignore filters out files (permanent
+  # count mismatch → continuous spurious reloads).
+  _prev_md_count=""
   while sleep "$interval"; do
     notebook_root=$(cat "$dir/.notebook_root" 2>/dev/null)
-    if [[ -n $(find "$notebook_root" -name '*.md' -newer "$dir/.raw" \
+    if [[ -n $(find "$notebook_root" \
+                \( "${_wp_prune[@]}" \) \
+                -prune -o -name '*.md' -type f -newer "$dir/.raw" \
                 -print -quit 2>/dev/null) ]]; then
       post_reload
-    elif [[ $(find "$(cat "$dir/.scope_path")" -name '*.md' -type f 2>/dev/null | wc -l) \
-              -ne $(wc -l < "$dir/.raw" 2>/dev/null || echo 0) ]]; then
-      post_reload
+      _prev_md_count=""
+    else
+      _cur_md_count=$(find "$(cat "$dir/.scope_path")" \
+                \( "${_wp_prune[@]}" \) \
+                -prune -o -name '*.md' -type f -print 2>/dev/null | wc -l)
+      if [[ -n "$_prev_md_count" && "$_cur_md_count" -ne "$_prev_md_count" ]]; then
+        post_reload
+      fi
+      _prev_md_count=$_cur_md_count
     fi
   done
 else
