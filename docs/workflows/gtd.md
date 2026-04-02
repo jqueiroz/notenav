@@ -40,7 +40,7 @@ Each status maps to a GTD list:
 
 | Status | GTD List | Meaning | Color |
 |--------|----------|---------|-------|
-| inbox | Inbox | Captured but not yet processed | yellow |
+| inbox | Inbox | Captured but not yet clarified | yellow |
 | next | Next Actions | Ready to do – the immediate to-do list | green |
 | waiting | Waiting For | Delegated or blocked on someone else | blue |
 | someday | Someday/Maybe | Interesting but not committed to now | dim |

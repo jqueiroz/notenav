@@ -63,6 +63,9 @@ Press `a` to advance maturity, `A` to reverse:
         └─────────────────────────────────┘
 ```
 
+- **Forward (a):** draft → review → mature → archived → draft (loop).
+- **Reverse (A):** archived → mature → review → draft → archived (loop).
+
 All statuses participate in the lifecycle – there are no tombstones. Archived notes can be brought back to draft for reworking.
 
 ## Priority
