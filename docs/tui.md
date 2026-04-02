@@ -4,7 +4,7 @@
 
 ## Keybindings
 
-The faceted browser uses a modal system with seven modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), **display** (prefix `z`), **mark** (prefix `m`), **search** (`/`), and **content search** (`?`). Press `esc` to return to command mode from any other mode.
+The faceted browser uses a modal system with seven modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), **display** (prefix `z`), **mark** (prefix `m`), **search** (`/`), and **content search** (`?`). Press `esc` to return to command mode from any other mode. Navigation keys (`j`/`k`, `ctrl-j`/`ctrl-k`, `space`) also exit the current prefix mode and perform their normal action.
 
 ### Command mode
 
@@ -51,7 +51,7 @@ Press `c` to enter change mode. The prompt changes to `c `. Then press one of:
 | `s` | Change status of selected note(s) via picker |
 | `p` | Change priority of selected note(s) via picker |
 | `t` | Change type of selected note(s) via picker |
-| `esc` | Cancel, return to command mode |
+| `c` or `esc` | Cancel, return to command mode |
 
 ### Filter mode (prefix `f`)
 
@@ -60,7 +60,7 @@ Press `f` to enter filter mode. The prompt changes to `f `. Then press one of:
 | Key | Action |
 |-----|--------|
 | `t` | Filter by tags (multi-select picker; OR logic – matches notes with *any* selected tag) |
-| `esc` | Cancel, return to command mode |
+| `f` or `esc` | Cancel, return to command mode |
 
 ### Display mode (prefix `z`)
 
@@ -73,7 +73,7 @@ Press `z` to enter display mode. The prompt changes to `z `. Then press one of:
 | `g` | Cycle grouping: none, type, status |
 | `h` | Toggle visibility of archived statuses |
 | `w` | Toggle title wrapping in preview |
-| `esc` | Cancel, return to command mode |
+| `z` or `esc` | Cancel, return to command mode |
 
 ### Mark mode (prefix `m`)
 
@@ -194,6 +194,7 @@ A simplified set of keybindings for `nn key=value ... -i`:
 |-----|--------|
 | `enter` | Open note in editor |
 | `/` | Enter search mode (type to filter) |
+| `tab` | Keep search filter active and return to browsing |
 | `j` / `k` | Move down / up |
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `J` / `K` | Scroll preview down / up |
