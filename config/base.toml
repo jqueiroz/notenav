@@ -3,7 +3,7 @@
 # User config:    ~/.config/notenav/config.toml (preferences)
 # Project:        .nn/workflow.toml (workflow definition + project queries)
 
-default_workflow = "zenith"  # fallback when no .nn/workflow.toml: zenith, cuboid, ado, gtd, zettelkasten
+default_workflow = "zenith"  # "zenith" | "cuboid" | "ado" | "gtd" | "zettelkasten"
 
 [type]
 visibility = "show_untyped"  # "show_defined" | "show_untyped" | "show_all"
