@@ -2464,6 +2464,8 @@ nn_doctor() {
     local _fm_no_type=0 _fm_no_status=0
     local -A _fm_seen_bad_types _fm_seen_bad_statuses _fm_seen_bad_priorities
     local _fm_bad_types="" _fm_bad_statuses="" _fm_bad_priorities=""
+    local -a _fm_example_type_files=() _fm_example_status_files=() _fm_example_priority_files=()
+    local _fm_max_examples=5
     while IFS=$'\t' read -r _fm_type _fm_status _fm_priority _fm_file; do
       [[ -z "$_fm_file" ]] && continue
       # Check type
@@ -2476,6 +2478,9 @@ nn_doctor() {
           [[ -n "$_fm_bad_types" ]] && _fm_bad_types+=", "
           _fm_bad_types+="$_fm_type"
         fi
+        if [[ ${#_fm_example_type_files[@]} -lt $_fm_max_examples ]]; then
+          _fm_example_type_files+=("${_fm_file#"$_nn_root"/}")
+        fi
       fi
       # Check status
       if [[ -z "$_fm_status" ]]; then
@@ -2487,6 +2492,9 @@ nn_doctor() {
           [[ -n "$_fm_bad_statuses" ]] && _fm_bad_statuses+=", "
           _fm_bad_statuses+="$_fm_status"
         fi
+        if [[ ${#_fm_example_status_files[@]} -lt $_fm_max_examples ]]; then
+          _fm_example_status_files+=("${_fm_file#"$_nn_root"/}")
+        fi
       fi
       # Check priority (only when enabled and value is non-empty)
       if [[ "$_fm_pri_enabled" != "false" && -n "$_fm_priority" ]]; then
@@ -2497,21 +2505,40 @@ nn_doctor() {
             [[ -n "$_fm_bad_priorities" ]] && _fm_bad_priorities+=", "
             _fm_bad_priorities+="$_fm_priority"
           fi
+          if [[ ${#_fm_example_priority_files[@]} -lt $_fm_max_examples ]]; then
+            _fm_example_priority_files+=("${_fm_file#"$_nn_root"/}")
+          fi
         fi
       fi
     done <<< "$_fm_scan"
 
+    # Helper: print example file paths indented under a warning
+    _fm_show_examples() {
+      local total="$1"; shift
+      local -a files=("$@")
+      local _f
+      for _f in "${files[@]}"; do
+        echo "          $_f"
+      done
+      if [[ $total -gt ${#files[@]} ]]; then
+        echo "          ${_dim}(+$(( total - ${#files[@]} )) more)${_reset}"
+      fi
+    }
+
     local _fm_issues=false
     if [[ $_fm_unknown_types -gt 0 ]]; then
       _warn "$_fm_unknown_types note(s) have unrecognized type values: $_fm_bad_types"
+      _fm_show_examples "$_fm_unknown_types" "${_fm_example_type_files[@]}"
       _fm_issues=true
     fi
     if [[ $_fm_unknown_statuses -gt 0 ]]; then
       _warn "$_fm_unknown_statuses note(s) have unrecognized status values: $_fm_bad_statuses"
+      _fm_show_examples "$_fm_unknown_statuses" "${_fm_example_status_files[@]}"
       _fm_issues=true
     fi
     if [[ $_fm_unknown_priorities -gt 0 ]]; then
       _warn "$_fm_unknown_priorities note(s) have unrecognized priority values: $_fm_bad_priorities"
+      _fm_show_examples "$_fm_unknown_priorities" "${_fm_example_priority_files[@]}"
       _fm_issues=true
     fi
     if [[ "$_fm_issues" == "false" ]]; then
@@ -3231,7 +3258,7 @@ EOF
     local _search_target="$_scope_path"
     if [[ -z "$(find "$_search_target" -name '*.md' -type f -print -quit 2>/dev/null)" ]]; then
       echo "notenav: no markdown files found in $_search_target" >&2
-      echo "notenav: run 'nn init' to set up a notebook, or 'nn doctor' to diagnose" >&2
+      echo "notenav: create some .md files first, then run 'nn init' to set up a notebook" >&2
       shopt -u nullglob; return 1
     fi
   fi
