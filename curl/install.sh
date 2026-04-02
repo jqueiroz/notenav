@@ -24,7 +24,7 @@ for dep in bash fzf gawk sort sed git yq jq; do
   if ! check_dep "$dep"; then
     # Accept awk as fallback for gawk, but warn if it's not GNU awk
     if [ "$dep" = "gawk" ] && check_dep awk; then
-      awk_impl=$(awk --version 2>/dev/null | head -1)
+      awk_impl=$(awk --version </dev/null 2>/dev/null | head -1)
       case "$awk_impl" in
         *GNU*|*gawk*) ;;
         *) warn "awk found but notenav requires gawk (GNU awk)"
@@ -107,8 +107,9 @@ echo
 info "Installed nn -> $NOTENAV_BIN/nn"
 
 # --- PATH check ---
+_norm_bin="${NOTENAV_BIN%/}"
 case ":$PATH:" in
-  *":$NOTENAV_BIN:"*) ;;
+  *":$_norm_bin:"*|*":$_norm_bin/:"*) ;;
   *)
     warn "$NOTENAV_BIN is not on your PATH."
     info "Add this to your shell profile:"

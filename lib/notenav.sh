@@ -62,7 +62,7 @@ _nn_easteregg_decode() {
     # Allowed: printable ASCII (32-126), newline (10), and valid ANSI CSI
     # sequences (ESC [ <digits/semicolons> <letter>). Rejects bare ESC,
     # control chars, and raw high bytes.
-    decrypted=$(echo "$blob" | awk -v ks="$keystream" '{
+    decrypted=$(echo "$blob" | "$(_nn_resolve_gawk)" -v ks="$keystream" '{
       len = length($0) / 2; valid = 1
       for (i = 0; i < len; i++) {
         enc = strtonum("0x" substr($0, i*2+1, 2))
@@ -3961,6 +3961,7 @@ if [ "$type_count" -eq 1 ] || [ -n "$cur_type" ]; then
   else
     auto_type=$(head -1 "$dir/.schema_types" | cut -f1)
   fi
+  auto_icon="·"; auto_color="90"; auto_desc=""
   while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
     if [ "$v" = "$auto_type" ]; then
       auto_icon="$ic"; auto_color="$clr"; auto_desc="$desc"; break
@@ -5318,10 +5319,10 @@ ENDEDIT
     local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
     local _nn_edit; _nn_edit=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
     local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
-    trap 'rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_sflag"' EXIT
+    trap 'rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"' EXIT
     _nn_write_preview "$_nn_prev"
     printf '%s' "$_nn_editor" > "$_nn_edit.editor"
-    printf '#!/usr/bin/env bash\nnn_editor=$(cat "%s" 2>/dev/null)\n[ -f "$1" ] && ${nn_editor:-vi} "$1"\n' "$_nn_edit.editor" > "$_nn_edit"
+    printf '#!/usr/bin/env bash\nnn_editor=$(cat "%s" 2>/dev/null)\ntarget=$(cat "%s" 2>/dev/null)\n[ -f "$target" ] && ${nn_editor:-vi} "$target"\n' "$_nn_edit.editor" "$_nn_edit.target" > "$_nn_edit"
     chmod +x "$_nn_edit"
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
@@ -5337,8 +5338,8 @@ ENDEDIT
           --bind "::rebind(j,k,q,change)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_sflag)" \
           --bind 'J:preview-page-down,K:preview-page-up' \
           --bind 'H:toggle-wrap' \
-          --bind "enter:execute($_nn_edit {1})+refresh-preview"
-    rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_sflag"
+          --bind "enter:execute-silent(printf '%s' {1} > $_nn_edit.target)+execute($_nn_edit)+refresh-preview"
+    rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"
     trap - EXIT
   else
     local _adhoc_fmt
