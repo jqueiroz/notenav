@@ -81,7 +81,7 @@ Press `m` to enter mark mode. The prompt changes to `m `. Then press one of:
 
 | Key | Action |
 |-----|--------|
-| `m` | Toggle mark on focused item |
+| `m` | Toggle mark on focused item and return to command mode |
 | `a` | Mark all selected items (or focused if none selected) |
 | `d` | Unmark all selected items (or focused if none selected) |
 | `D` | Clear all marks |
