@@ -31,10 +31,11 @@ nn
 
 ## Under the hood
 
-`nn` is a single bash script[^2] that runs on **Linux** and **macOS** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The only required dependencies are:
+`nn` is a single bash script[^2] that runs on **Linux** and **macOS** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The required dependencies are:
 
 - **[fzf](https://github.com/junegunn/fzf)** 0.44+ – the TUI engine and beloved fuzzy finder
 - **[yq](https://github.com/mikefarah/yq)**[^3], **[jq](https://github.com/jqlang/jq)** – config parsing
+- **gawk** – GNU awk (macOS and some Linux distros ship a different awk)
 
 Everything else is optional and progressively enhances the experience:
 
@@ -113,7 +114,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `e` | [**e**]dit note |
 | `n` | Create [**n**]ew note |
 | `a` / `A` | Advance / reverse status |
-| `+` / `-` (or `<` / `>`) | Adjust priority up / down |
+| `+` or `>` / `-` or `<` | Adjust priority up / down |
 | `t` | Filter by [**t**]ype (`T` to clear) |
 | `s` | Filter by [**s**]tatus (`S` to clear) |
 | `p` | Filter by [**p**]riority (`P` to clear) |

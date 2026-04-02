@@ -151,10 +151,11 @@ nn doctor
    - yq (yq-go, **not** yq-python)
    - jq
    - gawk (GNU awk – required for `mktime()` and `strtonum()`)
-   - sort, sed
+   - sort, sed, tput
    - zk (optional – faster indexing and link graph)
    - curl (optional – needed for remote workflows)
    - inotifywait or fswatch (optional – auto-refresh in watch mode)
+   - ripgrep (optional – faster content search when zk is not installed or configured)
    - bat or batcat (optional – default previewer; alternatives: glow, mdcat)
 
 2. **Config:** validates configuration files:

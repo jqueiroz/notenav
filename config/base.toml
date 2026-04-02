@@ -3,17 +3,17 @@
 # User config:    ~/.config/notenav/config.toml (preferences)
 # Project:        .nn/workflow.toml (workflow definition + project queries)
 
-default_workflow = "zenith"
+default_workflow = "zenith"  # fallback when no .nn/workflow.toml: zenith, cuboid, ado, gtd, zettelkasten
 
 [type]
 visibility = "show_untyped"  # "show_defined" | "show_untyped" | "show_all"
 
 [defaults]
-sort_by = "created"
-sort_reverse = false
-group_by = ""
-show_archive = false
-wrap_preview = false
+sort_by = "created"       # "created" | "modified" | "title" | "priority"
+sort_reverse = false       # true to reverse the default sort direction
+group_by = ""              # "" (none) | "type" | "status"
+show_archive = false       # true to show done/removed by default
+wrap_preview = false       # true to wrap the preview pane by default
 
 [ui]
 header = "auto"          # "auto" | "full" | "compact" – auto uses compact when terminal is short
