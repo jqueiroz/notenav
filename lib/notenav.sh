@@ -2273,7 +2273,7 @@ nn_doctor() {
     fi
     if [[ "$_rf_mode" == "watch" ]]; then
       if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
-        _warn "refresh.mode is 'watch' but neither inotifywait nor fswatch is installed (will fall back to manual)"
+        _warn "refresh.mode is 'watch' but neither inotifywait nor fswatch is installed (the note list will not auto-refresh; press r to refresh manually)"
       fi
     fi
     local _rf_interval
