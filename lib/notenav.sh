@@ -4046,7 +4046,7 @@ _nn_read_title() {
   pos=${#title}
   [ "$pos" -gt 0 ] && printf '%s' "$title" > /dev/tty
   while true; do
-    IFS= read -rsN1 ch < /dev/tty
+    IFS= read -rsn1 ch < /dev/tty
     case "$ch" in
       $'\033')
         IFS= read -rsn2 -t 0.05 rest < /dev/tty
@@ -4106,7 +4106,7 @@ _nn_read_title() {
           printf '\033[D%s ' "$after" > /dev/tty
           printf '\033[%dD' "$(( ${#after} + 1 ))" > /dev/tty
         fi ;;
-      ''|$'\n'|$'\r')  # Enter → accept
+      '')  # Enter → accept
         printf '\n' > /dev/tty
         break ;;
       *)  # Regular character → insert at cursor
@@ -4289,7 +4289,7 @@ else
   # Navigation loop
   selected=""
   while true; do
-    IFS= read -rsN1 key < /dev/tty
+    IFS= read -rsn1 key < /dev/tty
     case "$key" in
       $'\033')
         IFS= read -rsn2 -t 0.05 rest < /dev/tty
@@ -4302,7 +4302,7 @@ else
                 continue ;;
         esac ;;
       j) key=down ;; k) key=up ;;
-      ''|$'\n'|$'\r') key=enter ;; *) continue ;;
+      '') key=enter ;; *) continue ;;
     esac
     case "$key" in
       up)    sel=$(( sel > 0 ? sel - 1 : type_count - 1 )) ;;
