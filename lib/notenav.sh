@@ -2450,12 +2450,13 @@ nn_doctor() {
       | head -2000 \
       | "$_fm_gawk" '
       {
-        file = $0; type = ""; status = ""; priority = ""; in_fm = 0
+        file = $0; type = ""; status = ""; priority = ""; in_fm = 0; fm_lines = 0
         while ((getline line < file) > 0) {
           if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
           NR_FILE++
           if (in_fm) {
             if (line == "---") break
+            if (++fm_lines > 200) break
             if (match(line, /^type:[ \t]*(.*)$/, m)) {
               val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
               type = val
@@ -3692,8 +3693,9 @@ for file in "$@"; do
   fi
   # Update field within YAML frontmatter (between first --- and second ---)
   awk -v field="$field" -v value="$value" '
-    NR==1 && /^---/ { in_fm=1; print; next }
+    NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
     in_fm && /^---/ { in_fm=0; if (!found) print field ": " value; print; skip_cont=0; next }
+    in_fm && ++fm_lines > 200 { in_fm=0; print; next }
     in_fm && skip_cont && /^[ \t]+-/ { next }
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":( |$)" { print field ": " value; found=1; skip_cont=1; next }
@@ -3855,7 +3857,7 @@ awk -v set_type="$set_type" -v has_type="$has_type" \
     -v set_status="$set_status" -v has_status="$has_status" \
     -v set_priority="$set_priority" -v has_priority="$has_priority" \
     -v set_tags="$set_tags" -v has_tags="$has_tags" '
-  NR==1 && /^---/ { in_fm=1; print; next }
+  NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
   in_fm && /^---/ {
     in_fm=0; skip_cont=0
     if (has_type && !found_type && set_type != "") print "type: " set_type
@@ -3864,6 +3866,7 @@ awk -v set_type="$set_type" -v has_type="$has_type" \
     if (has_tags && !found_tags && set_tags != "") print "tags: " set_tags
     print; next
   }
+  in_fm && ++fm_lines > 200 { in_fm=0; print; next }
   in_fm && skip_cont && /^[ \t]+-/ { next }
   in_fm && skip_cont { skip_cont=0 }
   in_fm && /^type:/ {
