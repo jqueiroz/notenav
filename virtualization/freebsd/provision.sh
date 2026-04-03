@@ -5,8 +5,8 @@
 # Run this inside the VM (as root):
 #   sh provision.sh
 #
-# Or pipe over SSH from the host:
-#   ssh -p 2222 localhost 'sh -s' < provision.sh
+# Or pipe over SSH from the host (from the repo root):
+#   ssh -p 2222 root@localhost 'sh -s' < virtualization/freebsd/provision.sh
 
 set -eu
 

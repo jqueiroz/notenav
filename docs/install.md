@@ -18,7 +18,7 @@ Not required, but progressively enhance the experience when installed.
 - **[ripgrep](https://github.com/BurntSushi/ripgrep)** (`rg`): faster content search (`?` key) when zk is not installed or configured. Without rg, notenav falls back to `grep`. Recommended for large notebooks
 - **[bat](https://github.com/sharkdp/bat):** syntax-highlighted preview (default; called `batcat` on Debian/Ubuntu). Alternatives: [glow](https://github.com/charmbracelet/glow), [mdcat](https://codeberg.org/flausch/mdcat) – see [previewer configuration](configuration.md#previewer)
 - **curl:** required for [remote workflows](configuration.md#remote-workflows) (`nn init https://...`). Pre-installed on most systems
-- **inotifywait** (Linux), **fswatch** (macOS), or **fswatch** (FreeBSD): enables real-time auto-refresh when notes change on disk (`refresh.mode = "watch"`). Without any, auto-refresh silently falls back to manual (`r` key). Install via `inotify-tools` (apt/dnf), `fswatch` (Homebrew), or `pkg install fswatch` (FreeBSD)
+- **inotifywait** (Linux) or **fswatch** (macOS/FreeBSD): enables real-time auto-refresh when notes change on disk (`refresh.mode = "watch"`). Without either, auto-refresh silently falls back to manual (`r` key). Install via `inotify-tools` (apt/dnf), `fswatch` (Homebrew), or `pkg install fswatch` (FreeBSD)
 
 ## Install
 

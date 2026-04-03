@@ -24,11 +24,12 @@ freebsd/launch.sh
 The VM boots to a serial console in your terminal. On first boot you need to set up the root account and enable SSH from the serial console:
 
 ```sh
-# Set root password (default: freebsd)
+# Set root password
 passwd root
 
-# Enable root SSH login
+# Enable root SSH login with password
 sed 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config > /tmp/sshd_config && mv /tmp/sshd_config /etc/ssh/sshd_config
+sed 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config > /tmp/sshd_config && mv /tmp/sshd_config /etc/ssh/sshd_config
 service sshd restart
 ```
 
@@ -46,11 +47,8 @@ ssh -p 2222 root@localhost 'sh -s' < virtualization/freebsd/provision.sh
 # Copy notenav into the VM (only tracked files, skips VM images)
 git archive HEAD | ssh -p 2222 root@localhost 'mkdir -p /root/notenav && tar xf - -C /root/notenav'
 
-# SSH in
+# SSH in and test (provision.sh adds nn to PATH via .profile)
 ssh -p 2222 root@localhost
-
-# Inside the VM: add nn to PATH and test
-export PATH="/root/notenav/bin:$PATH"
 nn doctor
 nn --version
 ```

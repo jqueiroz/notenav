@@ -10,7 +10,7 @@
 # (password: freebsd), then run provision.sh inside the VM.
 #
 # SSH is forwarded: ssh -p 2222 localhost
-# To copy files in: scp -P 2222 file localhost:/root/
+# To copy files in: git archive HEAD | ssh -p 2222 root@localhost 'tar xf - -C /root/notenav'
 # To quit QEMU:     Ctrl-a x
 
 set -euo pipefail
@@ -30,9 +30,9 @@ SSH_PORT="${SSH_PORT:-2222}"
 QEMU="$(command -v qemu-system-x86_64)" \
   || { echo "qemu-system-x86_64 not found. Run: nix-shell (or apt install qemu-system-x86)"; exit 1; }
 
-KVM_FLAG=""
+KVM_ARGS=()
 if [[ -e /dev/kvm ]]; then
-  KVM_FLAG="-enable-kvm"
+  KVM_ARGS+=("-enable-kvm")
 fi
 
 download_image() {
@@ -81,7 +81,7 @@ echo "  Login: root / freebsd"
 echo ""
 
 sudo "$QEMU" \
-  $KVM_FLAG \
+  "${KVM_ARGS[@]}" \
   -m "$RAM" \
   -smp "$CPUS" \
   -nographic \
