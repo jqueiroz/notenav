@@ -545,7 +545,7 @@ max_files = 0          # disable auto-refresh above this note count (0 = no limi
 
 **Mode details:**
 
-- **`watch`** (default) – uses `inotifywait` (Linux) or `fswatch` (macOS) to detect `.md` file changes in real time, with 1-second debouncing. If neither tool is installed, silently degrades to `manual` at runtime.
+- **`watch`** (default) – uses `inotifywait` (Linux) or `fswatch` (macOS/FreeBSD) to detect `.md` file changes in real time, with 1-second debouncing. If neither tool is installed, silently degrades to `manual` at runtime.
 - **`poll`** – checks every `poll_interval` seconds whether any `.md` file is newer than the last index. Only triggers a reload when something actually changed.
 - **`manual`** – no automatic refresh. Press `r` in command mode to reload.
 
