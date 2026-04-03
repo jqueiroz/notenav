@@ -6,7 +6,7 @@
 #   sh provision.sh
 #
 # Or pipe over SSH from the host (from the repo root):
-#   ssh -p 2223 ubuntu@localhost 'sh -s' < virtualization/ubuntu/provision.sh
+#   ssh -p 2223 ubuntu@localhost 'sh -s' < virtualization/ubuntu/guest/provision.sh
 
 set -eu
 

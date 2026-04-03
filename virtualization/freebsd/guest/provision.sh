@@ -6,7 +6,7 @@
 #   sh provision.sh
 #
 # Or pipe over SSH from the host (from the repo root):
-#   ssh -p 2222 root@localhost 'sh -s' < virtualization/freebsd/provision.sh
+#   ssh -p 2222 root@localhost 'sh -s' < virtualization/freebsd/guest/provision.sh
 
 set -eu
 

@@ -40,7 +40,7 @@ Once SSH is enabled, it's easier to work from a second terminal:
 
 ```bash
 # Provision the VM (installs gawk, fzf, jq, yq, etc.)
-ssh -p 2222 root@localhost 'sh -s' < virtualization/freebsd/provision.sh
+ssh -p 2222 root@localhost 'sh -s' < virtualization/freebsd/guest/provision.sh
 
 # Sync notenav into the VM (safe to run from anywhere in the repo)
 virtualization/freebsd/sync.sh
@@ -71,7 +71,7 @@ Cloud-init configures the VM on first boot (takes ~30 seconds). Login: `ubuntu` 
 
 ```bash
 # Provision the VM (installs gawk, fzf, jq, yq, etc.)
-ssh -p 2223 ubuntu@localhost 'sh -s' < virtualization/ubuntu/provision.sh
+ssh -p 2223 ubuntu@localhost 'sh -s' < virtualization/ubuntu/guest/provision.sh
 
 # Sync notenav into the VM (safe to run from anywhere in the repo)
 virtualization/ubuntu/sync.sh

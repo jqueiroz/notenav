@@ -7,7 +7,7 @@
 #   ./launch.sh --fresh    # re-download the image before booting
 #
 # The VM boots to a serial console in your terminal. Log in as root
-# (password: freebsd), then run provision.sh inside the VM.
+# (password: freebsd), then run guest/provision.sh inside the VM.
 #
 # SSH is forwarded: ssh -p 2222 localhost
 # To sync files in: ./sync.sh
