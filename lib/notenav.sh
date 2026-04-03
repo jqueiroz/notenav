@@ -3276,15 +3276,6 @@ EOF
       _NN_HAS_ZK=false
     fi
   fi
-  if [[ "$_NN_HAS_ZK" != "true" ]]; then
-    local _search_target="$_scope_path"
-    if [[ -z "$(find "$_search_target" -name '*.md' -type f -print -quit 2>/dev/null)" ]]; then
-      echo "notenav: no markdown files found in $_search_target" >&2
-      echo "notenav: create some .md files first, then run 'nn init' to set up a notebook" >&2
-      shopt -u nullglob; return 1
-    fi
-  fi
-
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
     if [[ "${TERM:-dumb}" == "dumb" ]]; then
