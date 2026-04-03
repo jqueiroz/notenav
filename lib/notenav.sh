@@ -3379,7 +3379,7 @@ selected=$(echo "$ordered" | fzf --multi --reverse --prompt 'tags: ' \
   "${_fzf_ansi[@]}" --header "$_hdr" \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,space:toggle' ${start_bind:+--bind "$start_bind"})
 if [ $? -eq 0 ]; then
-  if [ -n "$selected" ]; then echo "$selected" > "$dir/.f_tags"
+  if [ -n "$selected" ]; then printf '%s\n' "$selected" > "$dir/.f_tags"
   else : > "$dir/.f_tags"; fi
 fi
 ENDTAGS
@@ -3783,8 +3783,8 @@ selected=$(printf '%b' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $
 [ -z "$selected" ] && exit 1
 # Strip icon prefix (e.g. "◆ task" → "task"); use last word in case icon is empty
 selected=$(echo "$selected" | awk '{print $NF}')
-echo "$field" > "$dir/.fp_field"
-echo "$selected" > "$dir/.fp_value"
+printf '%s\n' "$field" > "$dir/.fp_field"
+printf '%s\n' "$selected" > "$dir/.fp_value"
 ENDFP
     chmod +x "$_nn_dir/fieldpick.sh"
 
@@ -4547,7 +4547,7 @@ apply_sq() {
       *) nn_assert "apply_sq: unknown arg '${a%%=*}'" ;;
     esac
   done
-  echo "$name" > "$dir/.f_sq"
+  printf '%s\n' "$name" > "$dir/.f_sq"
 }
 ft=$(cat "$dir/.f_type"); fs=$(cat "$dir/.f_status")
 fp=$(cat "$dir/.f_priority")
@@ -4664,12 +4664,12 @@ case "$action" in
   refresh) ;;  # just re-apply filters (after tag picker)
   *) nn_assert "filter: unknown action '$action'" ;;
 esac
-echo "$ft" > "$dir/.f_type"; echo "$fs" > "$dir/.f_status"
-echo "$fp" > "$dir/.f_priority"
-echo "$fsort" > "$dir/.f_sort"; echo "$fsort_rev" > "$dir/.f_sort_rev"; echo "$fgroup" > "$dir/.f_group"
-echo "$farchive" > "$dir/.f_archive"
+printf '%s\n' "$ft" > "$dir/.f_type"; printf '%s\n' "$fs" > "$dir/.f_status"
+printf '%s\n' "$fp" > "$dir/.f_priority"
+printf '%s\n' "$fsort" > "$dir/.f_sort"; printf '%s\n' "$fsort_rev" > "$dir/.f_sort_rev"; printf '%s\n' "$fgroup" > "$dir/.f_group"
+printf '%s\n' "$farchive" > "$dir/.f_archive"
 printf '%s\n' "$fmatch" > "$dir/.f_match"
-echo "$fmarked" > "$dir/.f_marked"
+printf '%s\n' "$fmarked" > "$dir/.f_marked"
 # Build awk condition
 # Sanitize values for safe interpolation into awk expressions
 awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
