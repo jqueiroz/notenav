@@ -26,6 +26,9 @@ RAM="${RAM:-2G}"
 CPUS="${CPUS:-2}"
 SSH_PORT="${SSH_PORT:-2222}"
 
+QEMU="$(command -v qemu-system-x86_64)" \
+  || { echo "qemu-system-x86_64 not found. Run: nix-shell (or apt install qemu-system-x86)"; exit 1; }
+
 KVM_FLAG=""
 if [[ -e /dev/kvm ]]; then
   KVM_FLAG="-enable-kvm"
@@ -51,7 +54,7 @@ echo "Booting FreeBSD ${FREEBSD_VERSION} (${RAM} RAM, ${CPUS} CPUs, SSH on port 
 echo "  Quit: Ctrl-a x  |  SSH: ssh -p ${SSH_PORT} localhost"
 echo ""
 
-qemu-system-x86_64 \
+sudo "$QEMU" \
   $KVM_FLAG \
   -m "$RAM" \
   -smp "$CPUS" \
