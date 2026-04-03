@@ -26,6 +26,11 @@ RAM="${RAM:-2G}"
 CPUS="${CPUS:-2}"
 SSH_PORT="${SSH_PORT:-2222}"
 
+KVM_FLAG=""
+if [[ -e /dev/kvm ]]; then
+  KVM_FLAG="-enable-kvm"
+fi
+
 download_image() {
   mkdir -p "$IMAGE_DIR"
   echo "Downloading FreeBSD ${FREEBSD_VERSION} VM image..."
@@ -47,6 +52,7 @@ echo "  Quit: Ctrl-a x  |  SSH: ssh -p ${SSH_PORT} localhost"
 echo ""
 
 qemu-system-x86_64 \
+  $KVM_FLAG \
   -m "$RAM" \
   -smp "$CPUS" \
   -nographic \
