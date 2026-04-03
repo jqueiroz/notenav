@@ -19,10 +19,7 @@ nix-shell
 # Boot the FreeBSD VM (downloads the image on first run, ~350 MB)
 freebsd/launch.sh
 
-# --- inside the VM (log in as root, no password on first boot) ---
-# Fetch the provisioning script and run it
-fetch http://10.0.2.2:8080/provision.sh  # if you serve it, or:
-# just paste/type it, or use SSH from the host (see below)
+# --- inside the VM (log in as root / freebsd) ---
 sh provision.sh
 ```
 
@@ -42,7 +39,7 @@ ssh -p 2222 localhost
 cd /root/notenav && bash bin/nn doctor
 ```
 
-Default root password after provisioning: `freebsd`
+Default login: `root` / `freebsd` (set by the cloud-init seed ISO on first boot)
 
 ### Configuration
 
