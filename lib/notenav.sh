@@ -101,7 +101,7 @@ _nn_easteregg_decode() {
 # is already gawk via wrapper; on Debian/Ubuntu, `awk` may be mawk while
 # `gawk` is installed separately. Resolve once and reuse.
 _nn_resolve_gawk() {
-  if awk --version 2>/dev/null | head -1 | grep -qiE 'GNU|gawk'; then
+  if awk --version < /dev/null 2>/dev/null | head -1 | grep -qiE 'GNU|gawk'; then
     printf 'awk'
   elif command -v gawk >/dev/null 2>&1; then
     printf 'gawk'
