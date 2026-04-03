@@ -40,8 +40,8 @@ Once SSH is enabled, it's easier to work from a second terminal:
 # Provision the VM (installs gawk, fzf, jq, yq, etc.)
 ssh -p 2222 root@localhost 'sh -s' < freebsd/provision.sh
 
-# Copy notenav into the VM
-scp -r -P 2222 "$(git rev-parse --show-toplevel)" root@localhost:/root/notenav
+# Copy notenav into the VM (only tracked files, skips VM images)
+git archive HEAD | ssh -p 2222 root@localhost 'mkdir -p /root/notenav && tar xf - -C /root/notenav'
 
 # SSH in and test
 ssh -p 2222 root@localhost
