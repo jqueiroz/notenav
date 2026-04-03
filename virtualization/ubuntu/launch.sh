@@ -1,31 +1,31 @@
 #!/usr/bin/env bash
 #
-# Launch a FreeBSD VM for interactive testing.
+# Launch an Ubuntu VM for interactive testing.
 #
 # Usage:
 #   ./launch.sh            # boot (downloads image on first run)
 #   ./launch.sh --fresh    # re-download the image before booting
 #
-# The VM boots to a serial console in your terminal. Log in as root
-# (password: freebsd), then run guest/provision.sh inside the VM.
+# The VM boots to a serial console in your terminal.
+# Login: ubuntu / ubuntu
 #
-# SSH is forwarded: ssh -p 2222 localhost
+# SSH is forwarded: ssh -p 2223 ubuntu@localhost
 # To sync files in: ./sync.sh
 # To quit QEMU:     Ctrl-a x
 
 set -euo pipefail
 cd "$(dirname "$0")"
 
-FREEBSD_VERSION="14.4"
-IMAGE_BASE="FreeBSD-${FREEBSD_VERSION}-RELEASE-amd64-BASIC-CLOUDINIT-ufs.qcow2"
-IMAGE_URL="https://download.freebsd.org/releases/VM-IMAGES/${FREEBSD_VERSION}-RELEASE/amd64/Latest/${IMAGE_BASE}.xz"
+UBUNTU_RELEASE="noble"
+IMAGE_BASE="${UBUNTU_RELEASE}-server-cloudimg-amd64.img"
+IMAGE_URL="https://cloud-images.ubuntu.com/${UBUNTU_RELEASE}/current/${IMAGE_BASE}"
 IMAGE_DIR="./images"
 IMAGE_PATH="${IMAGE_DIR}/${IMAGE_BASE}"
 SEED_ISO="${IMAGE_DIR}/seed.iso"
 
 RAM="${RAM:-2G}"
 CPUS="${CPUS:-2}"
-SSH_PORT="${SSH_PORT:-2222}"
+SSH_PORT="${SSH_PORT:-2223}"
 
 QEMU="$(command -v qemu-system-x86_64)" \
   || { echo "qemu-system-x86_64 not found. Run: nix-shell (or apt install qemu-system-x86)"; exit 1; }
@@ -37,10 +37,8 @@ fi
 
 download_image() {
   mkdir -p "$IMAGE_DIR"
-  echo "Downloading FreeBSD ${FREEBSD_VERSION} VM image..."
-  curl -L -o "${IMAGE_PATH}.xz" "$IMAGE_URL"
-  echo "Decompressing..."
-  xz -d "${IMAGE_PATH}.xz"
+  echo "Downloading Ubuntu ${UBUNTU_RELEASE} cloud image..."
+  curl -L -o "$IMAGE_PATH" "$IMAGE_URL"
   echo "Image ready: ${IMAGE_PATH}"
 }
 
@@ -49,15 +47,20 @@ build_seed_iso() {
   tmp="$(mktemp -d)"
   cat > "${tmp}/meta-data" <<EOF
 instance-id: notenav-test
-local-hostname: freebsd-test
+local-hostname: ubuntu-test
 EOF
   cat > "${tmp}/user-data" <<EOF
 #cloud-config
 ssh_pwauth: true
 chpasswd:
   list: |
-    root:freebsd
+    ubuntu:ubuntu
   expire: false
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
 EOF
   genisoimage -output "$SEED_ISO" -volid cidata -joliet -rock \
     "${tmp}/meta-data" "${tmp}/user-data" 2>/dev/null
@@ -65,7 +68,7 @@ EOF
 }
 
 if [[ "${1:-}" == "--fresh" ]]; then
-  rm -f "$IMAGE_PATH" "${IMAGE_PATH}.xz" "$SEED_ISO"
+  rm -f "$IMAGE_PATH" "$SEED_ISO"
   download_image
 elif [[ ! -f "$IMAGE_PATH" ]]; then
   download_image
@@ -75,9 +78,9 @@ if [[ ! -f "$SEED_ISO" ]]; then
   build_seed_iso
 fi
 
-echo "Booting FreeBSD ${FREEBSD_VERSION} (${RAM} RAM, ${CPUS} CPUs, SSH on port ${SSH_PORT})..."
-echo "  Quit: Ctrl-a x  |  SSH: ssh -p ${SSH_PORT} localhost"
-echo "  Login: root / freebsd"
+echo "Booting Ubuntu ${UBUNTU_RELEASE} (${RAM} RAM, ${CPUS} CPUs, SSH on port ${SSH_PORT})..."
+echo "  Quit: Ctrl-a x  |  SSH: ssh -p ${SSH_PORT} ubuntu@localhost"
+echo "  Login: ubuntu / ubuntu"
 echo ""
 
 sudo "$QEMU" \

@@ -5,8 +5,8 @@
 # Run this inside the VM (as root):
 #   sh provision.sh
 #
-# Or pipe over SSH from the host:
-#   ssh -p 2222 localhost 'sh -s' < provision.sh
+# Or pipe over SSH from the host (from the repo root):
+#   ssh -p 2222 root@localhost 'sh -s' < virtualization/freebsd/guest/provision.sh
 
 set -eu
 
@@ -41,10 +41,18 @@ sed 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' "$sed_file" > "$
 service sshd restart
 
 echo ""
+echo "==> Adding notenav to PATH..."
+profile_line='export PATH="/root/notenav/bin:$PATH"'
+if ! grep -qF "$profile_line" /root/.profile 2>/dev/null; then
+  echo "$profile_line" >> /root/.profile
+fi
+
+echo ""
 echo "==> Done!"
 echo ""
-echo "From the host, copy notenav into the VM:"
-echo "  scp -r -P 2222 /path/to/notenav localhost:/root/notenav"
+echo "From the host, sync notenav into the VM:"
+echo "  virtualization/freebsd/sync.sh"
 echo ""
-echo "Then inside the VM:"
-echo "  cd /root/notenav && bash bin/nn doctor"
+echo "Then SSH in and test:"
+echo "  ssh -p 2222 root@localhost"
+echo "  nn doctor"

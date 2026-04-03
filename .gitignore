@@ -6,3 +6,4 @@
 .direnv
 result
 virtualization/freebsd/images/
+virtualization/ubuntu/images/
