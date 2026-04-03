@@ -1270,11 +1270,11 @@ nn_doctor() {
     if [[ -n "$fzf_ver" ]] && _nn_ver_cmp "$fzf_ver" "0.45"; then
       _pass "fzf $fzf_ver"
     else
-      local _fzf_dr_hint="requires 0.45+ – install from https://github.com/junegunn/fzf"
+      _fail "fzf ${fzf_ver:-unknown} (requires 0.45+)"
       if [[ -f /etc/os-release ]] && grep -qi ubuntu /etc/os-release; then
-        _fzf_dr_hint="requires 0.45+ – Ubuntu's apt package is outdated; install from https://github.com/junegunn/fzf"
+        echo "        Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
+        echo "        curl -L https://github.com/junegunn/fzf/releases/latest/download/fzf-linux_amd64.tar.gz | sudo tar xz -C /usr/local/bin" >&2
       fi
-      _fail "fzf ${fzf_ver:-unknown} (${_fzf_dr_hint})"
     fi
   else
     _fail "fzf not found (https://github.com/junegunn/fzf)"
@@ -3164,11 +3164,14 @@ EOF
     local _nn_fzf_ver
     _nn_fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
     if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.45"; then
-      local _fzf_hint="install from https://github.com/junegunn/fzf"
+      echo "notenav: fzf 0.45+ required (found $_nn_fzf_ver)" >&2
       if [[ -f /etc/os-release ]] && grep -qi ubuntu /etc/os-release; then
-        _fzf_hint="Ubuntu's apt package is outdated; ${_fzf_hint}"
+        echo "  Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
+        echo "  curl -L https://github.com/junegunn/fzf/releases/latest/download/fzf-linux_amd64.tar.gz | sudo tar xz -C /usr/local/bin" >&2
+      else
+        echo "  Install from https://github.com/junegunn/fzf" >&2
       fi
-      echo "notenav: fzf 0.45+ required (found $_nn_fzf_ver). ${_fzf_hint}" >&2
+      echo "  For more information, see https://github.com/jqueiroz/notenav/blob/main/docs/install.md" >&2
       return 1
     fi
     # gawk capability probe – mktime/strtonum/3-arg match are required
