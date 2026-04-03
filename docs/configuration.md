@@ -510,7 +510,7 @@ The `previewer_flags` table lets you pass extra CLI flags to the built-in previe
 ```toml
 [ui.previewer_flags]
 bat = "--theme=Nord"              # appended after: bat -p --color always
-glow = "-s light"                 # appended after: glow -s dark -w $cols
+glow = "-s dark"                  # appended after: glow -w $cols
 mdcat = "--local"                 # appended after: mdcat --columns $cols
 ```
 
@@ -519,10 +519,10 @@ notenav always passes a minimal set of flags for correct operation:
 | Previewer | Core flags (always passed) |
 |-----------|---------------------------|
 | bat | `-p --color always` |
-| glow | `-s dark -w $cols` |
+| glow | `-w $cols` |
 | mdcat | `--columns $cols` |
 
-Your flags are appended after these defaults. Most CLI tools use last-flag-wins, so you can override style flags – for example, `-s light` overrides the default `-s dark` for glow.
+Your flags are appended after these defaults. Most CLI tools use last-flag-wins, so you can override built-in flags – for example, `-s dark` forces dark mode for glow (which defaults to auto-detection).
 
 Leave a key empty or omit it entirely for default behavior.
 

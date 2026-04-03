@@ -28,7 +28,7 @@ previewer_custom_command = "" # command when previewer = "custom" (file path pas
 
 [ui.previewer_flags]
 bat = ""       # extra flags appended to bat (notenav always passes -p --color always)
-glow = ""      # extra flags appended to glow (notenav always passes -s dark -w $cols)
+glow = ""      # extra flags appended to glow (notenav always passes -w $cols)
 mdcat = ""     # extra flags appended to mdcat (notenav always passes --columns $cols)
 
 [refresh]

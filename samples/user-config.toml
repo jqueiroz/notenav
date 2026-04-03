@@ -28,7 +28,7 @@
 
 # [ui.previewer_flags]
 # bat = ""                        # extra flags appended to bat (e.g. "--theme=Nord")
-# glow = ""                       # extra flags appended to glow (e.g. "-s light")
+# glow = ""                       # extra flags appended to glow (e.g. "-s dark")
 # mdcat = ""                      # extra flags appended to mdcat (e.g. "--local")
 
 # [refresh]

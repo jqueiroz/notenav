@@ -3015,7 +3015,7 @@ for _p in ${_nn_previewer:-bat glow mdcat}; do
         _glow_env=()
         [ -z "${NO_COLOR+x}" ] && _glow_env=(CLICOLOR_FORCE=1)
         # shellcheck disable=SC2086
-        env "${_glow_env[@]}" glow -s dark -w "${FZF_PREVIEW_COLUMNS:-0}" $_nn_previewer_flags_glow "$file" < /dev/null 2>/dev/null || cat "$file"
+        env "${_glow_env[@]}" glow -w "${FZF_PREVIEW_COLUMNS:-0}" $_nn_previewer_flags_glow "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
