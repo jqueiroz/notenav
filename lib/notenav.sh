@@ -1262,10 +1262,10 @@ nn_doctor() {
   if command -v fzf >/dev/null 2>&1; then
     local fzf_ver
     fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
-    if [[ -n "$fzf_ver" ]] && _nn_ver_cmp "$fzf_ver" "0.44"; then
+    if [[ -n "$fzf_ver" ]] && _nn_ver_cmp "$fzf_ver" "0.45"; then
       _pass "fzf $fzf_ver"
     else
-      _fail "fzf ${fzf_ver:-unknown} (requires 0.44+)"
+      _fail "fzf ${fzf_ver:-unknown} (requires 0.45+)"
     fi
   else
     _fail "fzf not found (https://github.com/junegunn/fzf)"
@@ -3147,8 +3147,8 @@ EOF
     fi
     local _nn_fzf_ver
     _nn_fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
-    if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.44"; then
-      echo "notenav: fzf 0.44+ required (found $_nn_fzf_ver)" >&2
+    if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.45"; then
+      echo "notenav: fzf 0.45+ required (found $_nn_fzf_ver)" >&2
       return 1
     fi
     # gawk capability probe – mktime/strtonum/3-arg match are required

@@ -5,7 +5,7 @@
 ## Requirements
 
 - **bash 4+:** notenav is a bash script (your default shell can be anything; bash 4+ just needs to be installed). macOS ships with bash 3.2; use the Nix install path or `brew install bash`
-- **[fzf](https://github.com/junegunn/fzf)** 0.44+: TUI framework
+- **[fzf](https://github.com/junegunn/fzf)** 0.45+: TUI framework
 - **[yq](https://github.com/mikefarah/yq)** (yq-go): TOML→JSON conversion for config/workflow loading. **Must be [Mike Farah's yq](https://github.com/mikefarah/yq)** (written in Go), not the [Python yq wrapper](https://github.com/kislyuk/yq) – they are different tools that share the same name. Install via `brew install yq`, `go install github.com/mikefarah/yq/v4@latest`, or your package manager. Verify with `yq --version` (should show `v4.x.x`)
 - **[jq](https://github.com/jqlang/jq):** JSON merging/querying for config system
 - **awk**, **sort**, **sed**, **tput:** standard unix tools (gawk required – notenav uses `mktime()` and `strtonum()`)

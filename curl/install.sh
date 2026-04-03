@@ -36,15 +36,15 @@ for dep in bash fzf gawk sort sed git yq jq; do
   fi
 done
 
-# fzf version check (need 0.44+)
+# fzf version check (need 0.45+)
 if check_dep fzf; then
   fzf_version=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
   if [ -n "$fzf_version" ]; then
     fzf_major="${fzf_version%%.*}"
     fzf_rest="${fzf_version#*.}"
     fzf_minor="${fzf_rest%%.*}"
-    if [ "$fzf_major" -eq 0 ] 2>/dev/null && [ "$fzf_minor" -lt 44 ] 2>/dev/null; then
-      warn "fzf $fzf_version found but notenav requires fzf 0.44+."
+    if [ "$fzf_major" -eq 0 ] 2>/dev/null && [ "$fzf_minor" -lt 45 ] 2>/dev/null; then
+      warn "fzf $fzf_version found but notenav requires fzf 0.45+."
       warn "Upgrade: https://github.com/junegunn/fzf#installation"
     fi
   fi
