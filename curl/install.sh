@@ -118,5 +118,10 @@ case ":$PATH:" in
 esac
 
 echo
+if [ -n "$missing" ]; then
+  warn "Missing required dependencies:$missing"
+  info "Run 'nn doctor' for install links."
+  echo
+fi
 info "Done. Run 'nn --version' to verify."
 info "Then: cd to your notes directory and run 'nn init' to get started."
