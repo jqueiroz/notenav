@@ -1366,7 +1366,7 @@ nn_doctor() {
   elif command -v fswatch >/dev/null 2>&1; then
     _pass "fswatch"
   else
-    _info "inotifywait/fswatch not found ${_dim}(optional – needed for refresh.mode=watch)${_reset}"
+    _info "inotifywait/fswatch not found ${_dim}(optional – refresh.mode=watch uses these to auto-refresh when notes change on disk)${_reset}"
   fi
 
   # ripgrep (optional – faster content search when zk is not installed/configured)
@@ -1485,7 +1485,7 @@ nn_doctor() {
         fi
         if [[ "$_dw_found" == "false" ]]; then
           if [[ "$_dw" == https://* ]]; then
-            _warn "default_workflow '$_dw' – not cached (run 'nn refresh')"
+            _warn "default_workflow '$_dw' – not yet downloaded (run 'nn init $_dw' to fetch)"
           else
             _warn "default_workflow '$_dw' – workflow not found"
           fi
@@ -1575,7 +1575,7 @@ nn_doctor() {
         [[ -z "$_fetch_date" ]] && _fetch_date=$(stat -f '%Sm' -t '%Y-%m-%d' "$_cache_path" 2>/dev/null)
         _pass "$_ts_url ${_dim}(cached${_fetch_date:+ $_fetch_date})${_reset}"
       else
-        _warn "$_ts_url ${_dim}(not cached)${_reset}"
+        _warn "$_ts_url ${_dim}(not yet downloaded – run 'nn init $_ts_url' to fetch)${_reset}"
       fi
     done < "$_ts_file"
     if [[ $_ts_count -eq 0 ]]; then
@@ -2234,7 +2234,7 @@ nn_doctor() {
     if [[ "$_prev_any_found" == "true" ]]; then
       echo "  ${_dim}→ using: ${_prev_active}${_reset}"
     else
-      _warn "no configured previewer found (preview will use cat)"
+      _warn "no configured previewer found (preview will show plain text; install bat, glow, or mdcat for rich preview)"
     fi
     # Check for unrecognized keys in [ui]
     local _uk
@@ -2268,7 +2268,7 @@ nn_doctor() {
     if [[ -n "$_rf_mode" ]]; then
       case "$_rf_mode" in
         watch|poll|manual) ;;
-        *) _warn "refresh.mode '$_rf_mode' invalid (must be 'watch', 'poll', or 'manual')" ;;
+        *) _warn "refresh.mode '$_rf_mode' invalid (must be 'watch' for filesystem events, 'poll' for periodic check, or 'manual' for r-key only)" ;;
       esac
     fi
     if [[ "$_rf_mode" == "watch" ]]; then
@@ -2418,7 +2418,7 @@ nn_doctor() {
       _pass "$_zk_count notes in zk index"
     elif zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
       _pass "Backend: zk ${_dim}(indexed listing, link graph, full-text search)${_reset}"
-      _warn "0 notes in zk index"
+      _warn "0 notes in zk index (run 'zk index' to rebuild)"
     else
       _info "Backend: native ${_dim}(zk installed but no .zk/ notebook – run 'zk init' for faster indexing)${_reset}"
     fi
