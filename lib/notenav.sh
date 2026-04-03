@@ -149,7 +149,7 @@ nn_load_config() {
     return 1
   fi
   if ! command -v jq >/dev/null 2>&1; then
-    echo "notenav: jq is required for config loading" >&2
+    echo "notenav: jq is required for config loading (https://github.com/jqlang/jq)" >&2
     return 1
   fi
 
@@ -1111,12 +1111,15 @@ _nn_list_notes_native() {
   {
     file = $1; mtime = $2
     type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
-    in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0
+    in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
     while ((getline line < file) > 0) {
       if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
       NR_FILE++
       if (in_fm) {
         if (line == "---") { in_fm = 0; continue }
+        # Safety limit: treat unclosed frontmatter as missing after 200 lines
+        fm_lines++
+        if (fm_lines > 200) { in_fm = 0; continue }
         # Multi-line tag list continuation: "  - tagname"
         if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
           t = lm[1]; gsub(/^["'"'"']|["'"'"']$/, "", t)
@@ -1184,7 +1187,7 @@ _nn_list_notes() {
       # when <path> is the zk notebook root; omit the path in that case.
       local _zk_scope=("$@")
       [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
-      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null
+      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null || echo "notenav: zk list failed – run 'nn doctor' or try without zk" >&2
     else
       if [[ $# -eq 0 ]]; then
         _nn_find_md_with_mtime "." | _nn_list_notes_native
@@ -3065,11 +3068,17 @@ Usage: nn                        interactive TUI
        nn doctor                 check setup and diagnose problems
 
 Options:
-  -h, --help       Show this help
-  -V, --version    Show version
+  -h, --help           Show this help
+  -V, --version        Show version
+  -i, --interactive    Open results in an fzf picker instead of plain output
 
 Filter keys: type, status, priority, tag
-Example: nn type=task status=active
+
+Examples:
+  nn                             launch the TUI (faceted browser)
+  nn inbox                       run the "inbox" query preset
+  nn type=task status=active     ad-hoc filter (plain output)
+  nn type=task priority=1 -i     ad-hoc filter (interactive)
 
 Config:
   Project:  .nn/workflow.toml
@@ -3127,13 +3136,21 @@ EOF
       return 1
     fi
     if ! command -v fzf >/dev/null 2>&1; then
-      echo "notenav: fzf is required but not found" >&2
+      echo "notenav: fzf is required but not found (https://github.com/junegunn/fzf)" >&2
       return 1
     fi
     local _nn_fzf_ver
     _nn_fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
     if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.44"; then
       echo "notenav: fzf 0.44+ required (found $_nn_fzf_ver)" >&2
+      return 1
+    fi
+    # gawk capability probe – mktime/strtonum/3-arg match are required
+    local _nn_gawk
+    _nn_gawk="$(_nn_resolve_gawk)"
+    if ! "$_nn_gawk" 'BEGIN { mktime("2020 1 1 0 0 0"); strtonum("0x1") }' /dev/null 2>/dev/null; then
+      echo "notenav: gawk (GNU awk) is required but the current awk lacks mktime/strtonum" >&2
+      echo "notenav: install gawk: https://www.gnu.org/software/gawk/" >&2
       return 1
     fi
 
@@ -3467,9 +3484,16 @@ if [ "$has_zk" = "true" ]; then
   _zk_scope=("$scope_path")
   [ -d "$scope_path/.zk" ] && _zk_scope=()
   zk index --quiet 2>/dev/null
-  zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null > "$dir/.raw.tmp" \
+  _zk_err=$(mktemp)
+  if zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>"$_zk_err" > "$dir/.raw.tmp" \
     && _nn_apply_ignore "$dir" \
-    && mv "$dir/.raw.tmp" "$dir/.raw"
+    && mv "$dir/.raw.tmp" "$dir/.raw"; then
+    rm -f "$_zk_err"
+  else
+    _zk_msg=$(head -1 "$_zk_err" 2>/dev/null)
+    rm -f "$_zk_err" "$dir/.raw.tmp"
+    printf 'zk error%s – press r to retry' "${_zk_msg:+ ($_zk_msg)}" > "$dir/.last_action"
+  fi
 else
   search_dir="$scope_path"
   _nn_find_md_with_mtime() {
@@ -3487,12 +3511,15 @@ else
   {
     file = $1; mtime = $2
     type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
-    in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0
+    in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
     while ((getline line < file) > 0) {
       if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
       NR_FILE++
       if (in_fm) {
         if (line == "---") { in_fm = 0; continue }
+        # Safety limit: treat unclosed frontmatter as missing after 200 lines
+        fm_lines++
+        if (fm_lines > 200) { in_fm = 0; continue }
         if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
           t = lm[1]; gsub(/^["'"'"']|["'"'"']$/, "", t)
           if (tags != "") tags = tags " "
@@ -3654,6 +3681,12 @@ fi
 count=0; first_ok=""
 for file in "$@"; do
   [ ! -f "$file" ] && continue
+  # Check for frontmatter before attempting write
+  first_line=$(head -1 "$file")
+  if [ "$first_line" != "---" ]; then
+    _no_fm=$((${_no_fm:-0} + 1))
+    continue
+  fi
   # Update field within YAML frontmatter (between first --- and second ---)
   awk -v field="$field" -v value="$value" '
     NR==1 && /^---/ { in_fm=1; print; next }
@@ -3668,10 +3701,16 @@ done
 { cat "$dir/.pinned" 2>/dev/null; [ $# -gt 0 ] && printf '%s\n' "$@"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
 mv "$dir/.pinned.tmp" "$dir/.pinned"
 rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
-_la_title=$(p="${first_ok:-}" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
-_la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
-if [ "$count" -gt 1 ]; then _la_title="$_la_title +$((count - 1)) more"; fi
-printf '%s → %s · %s' "$field" "$value" "$_la_title" > "$dir/.last_action"
+if [ "$count" -eq 0 ] && [ "${_no_fm:-0}" -gt 0 ]; then
+  printf 'skipped %d note(s) with no frontmatter' "$_no_fm" > "$dir/.last_action"
+else
+  _la_title=$(p="${first_ok:-}" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+  _la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
+  if [ "$count" -gt 1 ]; then _la_title="$_la_title +$((count - 1)) more"; fi
+  _la_msg=$(printf '%s → %s · %s' "$field" "$value" "$_la_title")
+  if [ "${_no_fm:-0}" -gt 0 ]; then _la_msg="$_la_msg (${_no_fm} skipped: no frontmatter)"; fi
+  printf '%s' "$_la_msg" > "$dir/.last_action"
+fi
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
 "$dir/filter.sh" "$dir" refresh > /dev/null
@@ -3773,6 +3812,12 @@ nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 # Usage: bulkedit_update.sh <file> field=value [field=value ...]
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
+# Refuse to write files without frontmatter (prevents data loss)
+first_line=$(head -1 "$file")
+if [ "$first_line" != "---" ]; then
+  echo "notenav: skipping $file (no frontmatter)" >&2
+  exit 1
+fi
 # Parse field=value pairs into individual vars
 set_type=""; set_status=""; set_priority=""; set_tags=""
 has_type=0; has_status=0; has_priority=0; has_tags=0
@@ -3845,6 +3890,7 @@ ENDBEU
 dir="$1"; orig="$2"; edited="$3"
 errors=""
 count=0
+skipped_nofm=0
 while IFS= read -r new_line || [ -n "$new_line" ]; do
   # Skip comments and empty lines
   case "$new_line" in '#'*|'') continue ;; esac
@@ -3889,17 +3935,30 @@ while IFS= read -r new_line || [ -n "$new_line" ]; do
   [ "$new_status" != "$old_status" ] && update_args+=("status=$new_status")
   [ "$new_pri" != "$old_pri" ] && update_args+=("priority=$new_pri")
   [ "$new_tags" != "$old_tags" ] && update_args+=("tags=$new_tags")
-  "$dir/bulkedit_update.sh" "$path" "${update_args[@]}" && count=$((count + 1))
+  if "$dir/bulkedit_update.sh" "$path" "${update_args[@]}" 2>/dev/null; then
+    count=$((count + 1))
+  else
+    # Check if skipped due to missing frontmatter
+    first_line=$(head -1 "$path" 2>/dev/null)
+    if [ "$first_line" != "---" ]; then
+      skipped_nofm=$((skipped_nofm + 1))
+    else
+      errors="${errors}Failed to update $(basename "$path")\n"
+    fi
+  fi
 done < "$edited"
 # Report results to user
 if [ -n "$errors" ]; then
   printf '\n\033[31m%b\033[0m' "$errors" > /dev/tty
 fi
+if [ "$skipped_nofm" -gt 0 ]; then
+  printf '\033[33mSkipped %d file(s) without frontmatter\033[0m\n' "$skipped_nofm" > /dev/tty
+fi
 if [ "$count" -gt 0 ]; then
   printf '\033[32mUpdated %d note(s)\033[0m\n' "$count" > /dev/tty
   printf 'bulk edit → %d notes' "$count" > "$dir/.last_action"
 else
-  [ -z "$errors" ] && printf '\033[90mNo changes\033[0m\n' > /dev/tty
+  [ -z "$errors" ] && [ "$skipped_nofm" -eq 0 ] && printf '\033[90mNo changes\033[0m\n' > /dev/tty
 fi
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"

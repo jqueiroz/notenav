@@ -114,7 +114,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `e` | [**e**]dit note |
 | `n` | Create [**n**]ew note |
 | `a` / `A` | Advance / reverse status |
-| `+` or `>` / `-` or `<` | Adjust priority up / down |
+| `+` or `>` / `-` or `<` | Bump priority in the +/- direction (see `priority_plus` setting) |
 | `t` | Filter by [**t**]ype (`T` to clear) |
 | `s` | Filter by [**s**]tatus (`S` to clear) |
 | `p` | Filter by [**p**]riority (`P` to clear) |
