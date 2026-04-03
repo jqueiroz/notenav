@@ -18,11 +18,12 @@ Rules and conventions for contributing to notenav.
 - Use `nn_assert "message"` for impossible states. Every `case` that branches on a config enum must have a `*) nn_assert "context: unknown value '$var'" ;;` catch-all. Generated helper scripts define their own local copy of `nn_assert`.
 - Enum config values (e.g. `sort_by`, `group_by`, `exit_message`, `priority_plus`, `after_create`, `refresh.mode`) are validated in `nn_precompute_workflow` at startup – runtime catch-alls are defense-in-depth, not the primary check.
 
-### Portability (Linux + macOS)
+### Portability (Linux + macOS + FreeBSD)
 
-- **Never use `sed -i`:** GNU sed requires `sed -i 's/…'`, BSD/macOS sed requires `sed -i '' 's/…'`. Instead, write to a temp file and `mv`: `sed 's/…' "$file" > "$tmp" && mv "$tmp" "$file"`.
+- **Never use `sed -i`:** GNU sed requires `sed -i 's/…'`, BSD/macOS/FreeBSD sed requires `sed -i '' 's/…'`. Instead, write to a temp file and `mv`: `sed 's/…' "$file" > "$tmp" && mv "$tmp" "$file"`.
 - **`while read` and missing trailing newlines:** `while IFS= read -r line` silently skips the last line if the file has no trailing newline. Use `while IFS= read -r line || [[ -n "$line" ]]` when reading files that users may hand-edit.
-- **`date -r` vs `stat -c`:** macOS has `date -r <file>` but no `stat -c`. GNU/Linux has `stat -c '%y'` but `date -r` expects a timestamp, not a file. Use a fallback chain: `date -r "$file" '+%F' 2>/dev/null || stat -c '%y' "$file" 2>/dev/null | cut -d' ' -f1`.
+- **`date -r` vs `stat -c`:** macOS/FreeBSD have `date -r <file>` but no `stat -c`. GNU/Linux has `stat -c '%y'` but `date -r` expects a timestamp, not a file. Use a fallback chain: `date -r "$file" '+%F' 2>/dev/null || stat -c '%y' "$file" 2>/dev/null | cut -d' ' -f1`.
+- **`awk` version flags:** BSD awk (FreeBSD) reads from stdin when given unrecognised flags like `--version` or `-W version`. Always redirect stdin from `/dev/null` when probing awk: `awk --version < /dev/null 2>/dev/null`.
 
 ## Keybindings
 

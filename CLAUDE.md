@@ -87,7 +87,7 @@ nn type=task -i                               # interactive ad-hoc
 
 **Before adding or changing keybindings**, read the keybinding rules in [GUIDELINES.md](GUIDELINES.md#keybindings) – no modifier keys (except `ctrl-j`/`ctrl-k`), never use `[ ]` inside `transform[...]` (use `test` instead), and fit new bindings into the modal pattern (`c`/`f`/`z` prefixes). Update the `--bind` strings in `lib/notenav.sh`, the keybinding table in `README.md`, and `docs/tui.md`.
 
-**Shell portability (Linux + macOS):** Never use `sed -i` – write to a temp file and `mv`. See [GUIDELINES.md](GUIDELINES.md#portability-linux--macos) for other portability traps.
+**Shell portability (Linux + macOS + FreeBSD):** Never use `sed -i` – write to a temp file and `mv`. See [GUIDELINES.md](GUIDELINES.md#portability-linux--macos) for other portability traps.
 
 When adding, renaming, or removing slash commands in `.claude/commands/`, update the audit command table in [GUIDELINES.md](GUIDELINES.md#audit-commands).
 

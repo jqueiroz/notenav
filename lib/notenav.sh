@@ -1271,6 +1271,11 @@ nn_doctor() {
       _pass "fzf $fzf_ver"
     else
       _fail "fzf ${fzf_ver:-unknown} (requires 0.45+)"
+      if [[ -f /etc/os-release ]] && grep -qi ubuntu /etc/os-release; then
+        echo "        Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
+        echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
+        echo '        curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
+      fi
     fi
   else
     _fail "fzf not found (https://github.com/junegunn/fzf)"
@@ -1317,20 +1322,24 @@ nn_doctor() {
   # awk (gawk required – notenav uses mktime() and strtonum())
   if command -v awk >/dev/null 2>&1; then
     local awk_variant
-    awk_variant=$(awk --version 2>/dev/null | head -1 || true)
+    awk_variant=$(awk --version < /dev/null 2>/dev/null | head -1 || true)
     if [[ "$awk_variant" == *GNU* || "$awk_variant" == *gawk* ]]; then
       _pass "awk (gawk)"
+    elif command -v gawk >/dev/null 2>&1; then
+      _pass "gawk (awk is not gawk, but gawk is installed separately)"
     else
       local awk_name
-      awk_name=$(awk -W version 2>&1 | head -1 || true)
+      awk_name=$(awk -W version < /dev/null 2>&1 | head -1 || true)
       if [[ "$awk_name" == *mawk* ]]; then
         _fail "awk: gawk required (found mawk – install gawk)"
       else
         _fail "awk: gawk required (install gawk)"
       fi
     fi
+  elif command -v gawk >/dev/null 2>&1; then
+    _pass "gawk"
   else
-    _fail "awk not found"
+    _fail "awk not found (install gawk)"
   fi
 
   # sort, sed
@@ -3157,6 +3166,14 @@ EOF
     _nn_fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
     if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.45"; then
       echo "notenav: fzf 0.45+ required (found $_nn_fzf_ver)" >&2
+      if [[ -f /etc/os-release ]] && grep -qi ubuntu /etc/os-release; then
+        echo "  Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
+        echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
+        echo '  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
+      else
+        echo "  Install from https://github.com/junegunn/fzf" >&2
+      fi
+      echo "  For more information, see https://github.com/jqueiroz/notenav/blob/main/docs/install.md" >&2
       return 1
     fi
     # gawk capability probe – mktime/strtonum/3-arg match are required

@@ -31,11 +31,11 @@ nn
 
 ## Under the hood
 
-`nn` is a single bash script[^2] that runs on **Linux** and **macOS** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The required dependencies are:
+`nn` is a single bash script[^2] that runs on **Linux**, **macOS**, and **FreeBSD** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The required dependencies are:
 
 - **[fzf](https://github.com/junegunn/fzf)** 0.45+ – the TUI engine and beloved fuzzy finder
 - **[yq](https://github.com/mikefarah/yq)**[^3], **[jq](https://github.com/jqlang/jq)** – config parsing
-- **gawk** – GNU awk (macOS and some Linux distros ship a different awk)
+- **gawk** – GNU awk (macOS, FreeBSD, and some Linux distros ship a different awk)
 
 Everything else is optional and progressively enhances the experience:
 
