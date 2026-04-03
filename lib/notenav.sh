@@ -3700,13 +3700,13 @@ done
 mv "$dir/.pinned.tmp" "$dir/.pinned"
 rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
 if [ "$count" -eq 0 ] && [ "${_no_fm:-0}" -gt 0 ]; then
-  printf 'skipped %d note(s) with no frontmatter' "$_no_fm" > "$dir/.last_action"
+  printf '⚠ %d note(s) skipped – no frontmatter' "$_no_fm" > "$dir/.last_action"
 else
   _la_title=$(p="${first_ok:-}" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
   _la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
   if [ "$count" -gt 1 ]; then _la_title="$_la_title +$((count - 1)) more"; fi
   _la_msg=$(printf '%s → %s · %s' "$field" "$value" "$_la_title")
-  if [ "${_no_fm:-0}" -gt 0 ]; then _la_msg="$_la_msg (${_no_fm} skipped: no frontmatter)"; fi
+  if [ "${_no_fm:-0}" -gt 0 ]; then _la_msg="⚠ ${_no_fm} skipped (no frontmatter) · $_la_msg"; fi
   printf '%s' "$_la_msg" > "$dir/.last_action"
 fi
 # Regenerate raw data and re-filter
