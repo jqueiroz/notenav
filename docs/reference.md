@@ -239,7 +239,7 @@ Place a `.nnignore` file at the notebook root (next to `.nn/`) to exclude files
 and directories from notenav's index. Works with both the native and zk
 backends, and applies to all three modes (TUI, named query, ad-hoc).
 
-`CLAUDE.md` files are always excluded by default, even without a `.nnignore`
+`CLAUDE.md`, `AGENTS.md`, `COPILOT.md`, and `LICENSE.md` are always excluded by default, even without a `.nnignore`
 file. Standard metadata directories (`.git`, `.zk`, `.obsidian`,
 `node_modules`, `.nn`) are also always pruned.
 

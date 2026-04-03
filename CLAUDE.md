@@ -44,7 +44,7 @@ LICENSE             # MIT
 ## Data Flow
 
 1. `zk list` (or native find+AWK parser when zk is absent) outputs TSV: `type \t status \t priority \t tags \t title \t absPath \t modified \t created`
-2. `.nnignore` patterns (+ default `CLAUDE.md` exclusion) filter out matching paths via `_nn_ignore_pipe`
+2. `.nnignore` patterns (+ default exclusions) filter out matching paths via `_nn_ignore_pipe`
 3. `filter.sh` applies awk conditions based on current filter state
 4. Colored output piped to fzf via `.current` file
 5. Actions update frontmatter in-place via `action.sh`, then regenerate `.raw` and re-filter

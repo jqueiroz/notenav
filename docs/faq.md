@@ -76,7 +76,7 @@ cd ~/notes/projects/alpha  # shows only notes under projects/alpha/
 
 The project configuration (`.nn/workflow.toml`) still applies regardless of which subdirectory you're in – only the set of visible notes changes.
 
-**Excluding files:** place a `.nnignore` file at the notebook root to hide specific files, directories, or glob patterns from the index. `CLAUDE.md` files are excluded by default. See the [`.nnignore` reference](reference.md#nnignore) for pattern syntax.
+**Excluding files:** place a `.nnignore` file at the notebook root to hide specific files, directories, or glob patterns from the index. `CLAUDE.md`, `AGENTS.md`, `COPILOT.md`, and `LICENSE.md` are excluded by default. See the [`.nnignore` reference](reference.md#nnignore) for pattern syntax.
 
 ## Where do config files go?
 

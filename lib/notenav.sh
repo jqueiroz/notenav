@@ -997,7 +997,7 @@ _nn_find_md_with_mtime() {
 }
 
 # Parses .nnignore and sets globals for ignore filtering.
-# Reads $root/.nnignore (if present), always excludes CLAUDE.md by default.
+# Reads $root/.nnignore (if present), always excludes AI instruction files and LICENSE.md.
 # Sets: _NN_IGNORE_DIRS (array of dir names for find pruning)
 #        _NN_IGNORE_AWK (awk program string for post-filtering TSV by path in $6)
 _nn_load_nnignore() {
@@ -1006,7 +1006,7 @@ _nn_load_nnignore() {
   _NN_IGNORE_AWK=""
 
   # Default exclusions (always applied, even without .nnignore)
-  local -a name_pats=("CLAUDE.md") dir_pats=() glob_pats=() path_pats=()
+  local -a name_pats=("CLAUDE.md" "AGENTS.md" "COPILOT.md" "LICENSE.md") dir_pats=() glob_pats=() path_pats=()
 
   if [[ -f "$root/.nnignore" ]]; then
     local line
@@ -1102,7 +1102,7 @@ _nn_load_nnignore() {
 
 # Pipeline filter: removes rows whose path ($6) matches loaded .nnignore
 # patterns.  Falls back to cat when no patterns are active (defensive – the
-# default CLAUDE.md exclusion means the awk path normally always runs).
+# default exclusions mean the awk path normally always runs).
 _nn_ignore_pipe() {
   if [[ -n "${_NN_IGNORE_AWK:-}" ]]; then
     "${_NN_GAWK:-awk}" -F'\t' "$_NN_IGNORE_AWK"
@@ -2404,9 +2404,9 @@ nn_doctor() {
   if [[ -f "$_nn_root/.nnignore" ]]; then
     local _ign_count
     _ign_count=$(grep -cvE '^[[:space:]]*(#|$)' "$_nn_root/.nnignore" 2>/dev/null) || _ign_count=0
-    _pass ".nnignore: $_ign_count pattern(s) ${_dim}(+ default CLAUDE.md exclusion)${_reset}"
+    _pass ".nnignore: $_ign_count pattern(s) ${_dim}(+ default exclusions)${_reset}"
   else
-    _info "No .nnignore ${_dim}(CLAUDE.md excluded by default)${_reset}"
+    _info "No .nnignore ${_dim}(default exclusions active)${_reset}"
   fi
 
   # Backend status
@@ -3286,7 +3286,7 @@ EOF
   # fell back to default_workflow in nn_load_config)
   [[ -z "$_nn_root" ]] && _nn_root="$PWD"
 
-  # Load .nnignore patterns (default: excludes CLAUDE.md)
+  # Load .nnignore patterns (default: excludes AI instruction files + LICENSE.md)
   _nn_load_nnignore "$_nn_root"
 
   # Resolve editor
