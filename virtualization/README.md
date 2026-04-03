@@ -43,9 +43,13 @@ ssh -p 2222 root@localhost 'sh -s' < freebsd/provision.sh
 # Copy notenav into the VM (only tracked files, skips VM images)
 git archive HEAD | ssh -p 2222 root@localhost 'mkdir -p /root/notenav && tar xf - -C /root/notenav'
 
-# SSH in and test
+# SSH in
 ssh -p 2222 root@localhost
-cd /root/notenav && bash bin/nn doctor
+
+# Inside the VM: add nn to PATH and test
+export PATH="/root/notenav/bin:$PATH"
+nn doctor
+nn --version
 ```
 
 ### Configuration

@@ -41,10 +41,18 @@ sed 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' "$sed_file" > "$
 service sshd restart
 
 echo ""
+echo "==> Adding notenav to PATH..."
+profile_line='export PATH="/root/notenav/bin:$PATH"'
+if ! grep -qF "$profile_line" /root/.profile 2>/dev/null; then
+  echo "$profile_line" >> /root/.profile
+fi
+
+echo ""
 echo "==> Done!"
 echo ""
 echo "From the host, copy notenav into the VM:"
 echo "  git archive HEAD | ssh -p 2222 root@localhost 'mkdir -p /root/notenav && tar xf - -C /root/notenav'"
 echo ""
-echo "Then inside the VM:"
-echo "  cd /root/notenav && bash bin/nn doctor"
+echo "Then SSH in and test:"
+echo "  ssh -p 2222 root@localhost"
+echo "  nn doctor"
