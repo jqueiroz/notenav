@@ -183,7 +183,7 @@ blocked = "new"
 | Key | Type | Description |
 |-----|------|-------------|
 | `values` | array | All valid statuses; array order is used as the default display order |
-| `initial` | string | Starting status assigned when pressing `a` on a note that has no status |
+| `initial` | string | Status assigned to newly created notes and when pressing `a` on a note that has no status |
 | `display_order` | array | *(optional)* Override display order (group headers); defaults to `values` order |
 | `archive` | array | Statuses hidden by default; press `zh` to toggle visibility |
 | `filter_cycle` | array | Order when pressing `s` to cycle the filter (`"all"` is auto-prepended) |
@@ -231,7 +231,7 @@ default_color = "yellow"
 |-----|------|-------------|
 | `enabled` | boolean | Set to `false` to disable priority entirely (default: `true`) |
 | `values` | array | Valid priority levels; array order = sort order (first = highest) |
-| `filter_cycle` | array | Order when pressing `p` to cycle the filter (`"all"` is auto-prepended) |
+| `filter_cycle` | array | Order when pressing `p` to cycle the filter (`"all"` is auto-prepended, `"none"` is auto-appended) |
 | `unset_position` | string | Where unprioritized notes sort: `"first"` or `"last"` |
 | `default_color` | string | Fallback color for priorities not in `[priority.colors]` |
 | `[priority.colors]` | table | Color name or ANSI code per priority level |

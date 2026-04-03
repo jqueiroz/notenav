@@ -5399,7 +5399,8 @@ ENDEDIT
           --bind "start:execute-silent(rm -f $_nn_sflag)" \
           --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,q:abort,change:clear-query' \
           --bind "/:unbind(j,k,q,change)+change-prompt($NN_UI_SEARCH_PROMPT)+execute-silent(touch $_nn_sflag)" \
-          --bind "esc:transform[test -f $_nn_sflag && rm $_nn_sflag && printf 'rebind(j,k,q,change)+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)']" \
+          --bind "tab:transform[test -f $_nn_sflag && rm $_nn_sflag && printf 'rebind(j,k,q,change)+change-prompt($NN_UI_COMMAND_PROMPT)']" \
+          --bind "esc:transform[test -f $_nn_sflag && rm $_nn_sflag && printf 'rebind(j,k,q,change)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)' || printf 'clear-query+rebind(change)']" \
           --bind "::rebind(j,k,q,change)+change-prompt($NN_UI_COMMAND_PROMPT)+execute-silent(rm -f $_nn_sflag)" \
           --bind 'J:preview-page-down,K:preview-page-up' \
           --bind 'H:toggle-wrap' \

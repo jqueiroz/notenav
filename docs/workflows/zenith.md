@@ -1,6 +1,6 @@
 # Zenith Workflow
 
-The default notenav workflow. A simple workflow built around three note types, four statuses, and four priority levels – enough structure to manage a project without getting in the way.
+The default notenav workflow. A simple workflow built around three note types, five statuses, and four priority levels – enough structure to manage a project without getting in the way.
 
 **Workflow file:** [`config/workflows/zenith.toml`](../../config/workflows/zenith.toml)
 

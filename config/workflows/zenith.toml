@@ -26,7 +26,7 @@ description = "Concrete, actionable unit of work"
 [type.idea]
 icon = "✦"
 color = "magenta"
-description = "Needs further exploration/research (may subsequently evolve into one or more tasks)"
+description = "Captures an early insight; may evolve into one or more tasks"
 
 [type.reference]
 icon = "▪"
