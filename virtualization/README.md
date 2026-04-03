@@ -5,7 +5,7 @@ Scripts for spinning up VMs to test notenav on non-native platforms.
 ## Common prerequisites
 
 - QEMU (`nix-shell` in this directory provides it, or `apt install qemu-system-x86`)
-- KVM recommended – `launch.sh` auto-detects `/dev/kvm`. Without it, boot is very slow (software emulation). Your user must be in the `kvm` group (`sudo usermod -aG kvm $USER`, then restart your shell/WSL).
+- KVM recommended – `launch.sh` auto-detects `/dev/kvm` and enables it via sudo. Without KVM, boot is very slow (software emulation).
 - On WSL2, use `nix-shell --command zsh` (not plain `nix-shell`) to avoid bash/zsh shell config conflicts
 
 ## FreeBSD
