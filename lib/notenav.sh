@@ -4102,7 +4102,7 @@ _nn_read_title() {
           printf '\033[D%s ' "$after" > /dev/tty
           printf '\033[%dD' "$(( ${#after} + 1 ))" > /dev/tty
         fi ;;
-      '')  # Enter → accept
+      ''|$'\n')  # Enter → accept
         printf '\n' > /dev/tty
         break ;;
       *)  # Regular character → insert at cursor
@@ -4298,7 +4298,7 @@ else
                 continue ;;
         esac ;;
       j) key=down ;; k) key=up ;;
-      '') key=enter ;; *) continue ;;
+      ''|$'\n') key=enter ;; *) continue ;;
     esac
     case "$key" in
       up)    sel=$(( sel > 0 ? sel - 1 : type_count - 1 )) ;;
