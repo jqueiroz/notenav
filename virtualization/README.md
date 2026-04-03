@@ -24,7 +24,7 @@ freebsd/launch.sh
 The VM boots to a serial console in your terminal. On first boot you need to set up the root account and enable SSH from the serial console:
 
 ```sh
-# Set root password
+# Set root password (default: freebsd)
 passwd root
 
 # Enable root SSH login with password
