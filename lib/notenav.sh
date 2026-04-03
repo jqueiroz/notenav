@@ -862,6 +862,7 @@ nn_precompute_workflow() {
 
 nn_write_workflow_files() {
   local dir="$1" _v
+  nn_cfg '.meta.name // empty' > "$dir/.schema_workflow_name"
   printf '%s\n' "${NN_TYPE_VALUES[@]}" > "$dir/.schema_type_values"
   printf '%s\n' "${NN_STATUS_VALUES[@]}" > "$dir/.schema_status_values"
   printf '%s' "$NN_STATUS_INITIAL" > "$dir/.schema_status_initial"
@@ -5056,7 +5057,19 @@ pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 mark_s=""; [ "$mark_count" -gt 0 ] && mark_s=" · ${mark_count} marked"
 last_action=""; [ -s "$dir/.last_action" ] && last_action=" · last change: $(cat "$dir/.last_action")"
-_border=$(printf ' nn · %d/%d%s%s%s ' "$count" "$total" "$pin_s" "$mark_s" "$last_action")
+_wf_name=$(cat "$dir/.schema_workflow_name" 2>/dev/null)
+_nb_root=$(cat "$dir/.notebook_root" 2>/dev/null)
+_nb_dir="${_nb_root:+$(basename "$_nb_root")}"
+# Build context label: "dir · Workflow" or just one if the other is empty
+_ctx=""
+if [ -n "$_nb_dir" ] && [ -n "$_wf_name" ]; then
+  _ctx=" $_nb_dir · $_wf_name ·"
+elif [ -n "$_wf_name" ]; then
+  _ctx=" $_wf_name ·"
+elif [ -n "$_nb_dir" ]; then
+  _ctx=" $_nb_dir ·"
+fi
+_border=$(printf ' nn ·%s %d/%d%s%s%s ' "$_ctx" "$count" "$total" "$pin_s" "$mark_s" "$last_action")
 printf '%s' "${_border//)/}" > "$dir/.border"
 # NO_COLOR: strip ANSI escape sequences from header/placeholder files
 if [ -n "${NO_COLOR+x}" ]; then
