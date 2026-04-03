@@ -1194,7 +1194,11 @@ _nn_list_notes() {
       # when <path> is the zk notebook root; omit the path in that case.
       local _zk_scope=("$@")
       [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
-      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null || echo "notenav: zk list failed – run 'nn doctor' or try without zk" >&2
+      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null
+      local _zk_rc=$?
+      if [[ $_zk_rc -gt 1 ]]; then
+        echo "notenav: zk list failed (exit $_zk_rc) – run 'nn doctor' or try without zk" >&2
+      fi
     else
       if [[ $# -eq 0 ]]; then
         _nn_find_md_with_mtime "." | _nn_list_notes_native
@@ -4038,7 +4042,7 @@ _nn_read_title() {
   pos=${#title}
   [ "$pos" -gt 0 ] && printf '%s' "$title" > /dev/tty
   while true; do
-    IFS= read -rsn1 ch < /dev/tty
+    IFS= read -rsN1 ch < /dev/tty
     case "$ch" in
       $'\033')
         IFS= read -rsn2 -t 0.05 rest < /dev/tty
@@ -4281,7 +4285,7 @@ else
   # Navigation loop
   selected=""
   while true; do
-    IFS= read -rsn1 key < /dev/tty
+    IFS= read -rsN1 key < /dev/tty
     case "$key" in
       $'\033')
         IFS= read -rsn2 -t 0.05 rest < /dev/tty
