@@ -3078,6 +3078,7 @@ Options:
   -h, --help           Show this help
   -V, --version        Show version
   -i, --interactive    Open results in an fzf picker instead of plain output
+  --                   Stop filter parsing; remaining args passed to zk list
 
 Filter keys: type, status, priority, tag
 
