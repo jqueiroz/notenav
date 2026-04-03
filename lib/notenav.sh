@@ -2630,8 +2630,8 @@ _nn_url_is_trusted() {
   local line
   while IFS= read -r line || [[ -n "$line" ]]; do
     # Trim leading/trailing whitespace (forgiving of hand-edited files)
-    line="${line#"${line%%[! ]*}"}"
-    line="${line%"${line##*[! ]}"}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
     [[ -z "$line" || "$line" == \#* ]] && continue
     [[ "$line" == "$url" ]] && return 0
   done < "$ts_file"
@@ -3936,10 +3936,12 @@ while IFS= read -r new_line || [ -n "$new_line" ]; do
   # Skip if nothing changed
   [ "$new_type" = "$old_type" ] && [ "$new_status" = "$old_status" ] && \
     [ "$new_pri" = "$old_pri" ] && [ "$new_tags" = "$old_tags" ] && continue
-  # Validate type
-  valid=false
-  while IFS= read -r vt || [ -n "$vt" ]; do [ "$new_type" = "$vt" ] && valid=true && break; done < "$dir/.schema_type_values"
-  $valid || { errors="${errors}Invalid type '$new_type' for $(basename "$path")\n"; continue; }
+  # Validate type (empty = clear type, which is allowed)
+  if [ -n "$new_type" ]; then
+    valid=false
+    while IFS= read -r vt || [ -n "$vt" ]; do [ "$new_type" = "$vt" ] && valid=true && break; done < "$dir/.schema_type_values"
+    $valid || { errors="${errors}Invalid type '$new_type' for $(basename "$path")\n"; continue; }
+  fi
   # Validate status
   if [ -n "$new_status" ]; then
     valid=false
