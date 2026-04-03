@@ -4129,6 +4129,7 @@ _nn_read_title() {
       '')  # Enter → accept
         printf '\n' > /dev/tty
         break ;;
+      $'\t')  ;; # Ignore tab – breaks TSV pipeline
       *)  # Regular character → insert at cursor
         after="${title:pos}"
         title="${title:0:pos}${ch}${after}"
