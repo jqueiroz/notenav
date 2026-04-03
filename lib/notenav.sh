@@ -1317,12 +1317,12 @@ nn_doctor() {
   # awk (gawk required – notenav uses mktime() and strtonum())
   if command -v awk >/dev/null 2>&1; then
     local awk_variant
-    awk_variant=$(awk --version 2>/dev/null | head -1 || true)
+    awk_variant=$(awk --version < /dev/null 2>/dev/null | head -1 || true)
     if [[ "$awk_variant" == *GNU* || "$awk_variant" == *gawk* ]]; then
       _pass "awk (gawk)"
     else
       local awk_name
-      awk_name=$(awk -W version 2>&1 | head -1 || true)
+      awk_name=$(awk -W version < /dev/null 2>&1 | head -1 || true)
       if [[ "$awk_name" == *mawk* ]]; then
         _fail "awk: gawk required (found mawk – install gawk)"
       else
