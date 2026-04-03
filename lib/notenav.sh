@@ -1320,6 +1320,8 @@ nn_doctor() {
     awk_variant=$(awk --version < /dev/null 2>/dev/null | head -1 || true)
     if [[ "$awk_variant" == *GNU* || "$awk_variant" == *gawk* ]]; then
       _pass "awk (gawk)"
+    elif command -v gawk >/dev/null 2>&1; then
+      _pass "gawk (awk is not gawk, but gawk is installed separately)"
     else
       local awk_name
       awk_name=$(awk -W version < /dev/null 2>&1 | head -1 || true)
@@ -1329,8 +1331,10 @@ nn_doctor() {
         _fail "awk: gawk required (install gawk)"
       fi
     fi
+  elif command -v gawk >/dev/null 2>&1; then
+    _pass "gawk"
   else
-    _fail "awk not found"
+    _fail "awk not found (install gawk)"
   fi
 
   # sort, sed
