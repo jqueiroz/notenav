@@ -16,7 +16,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-FREEBSD_VERSION="14.2"
+FREEBSD_VERSION="14.4"
 IMAGE_BASE="FreeBSD-${FREEBSD_VERSION}-RELEASE-amd64.qcow2"
 IMAGE_URL="https://download.freebsd.org/releases/VM-IMAGES/${FREEBSD_VERSION}-RELEASE/amd64/Latest/${IMAGE_BASE}.xz"
 IMAGE_DIR="./images"
