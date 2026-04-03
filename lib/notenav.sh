@@ -1366,7 +1366,7 @@ nn_doctor() {
   elif command -v fswatch >/dev/null 2>&1; then
     _pass "fswatch"
   else
-    _info "inotifywait/fswatch not found ${_dim}(optional – auto-refresh in watch mode)${_reset}"
+    _info "inotifywait/fswatch not found ${_dim}(optional – needed for refresh.mode=watch)${_reset}"
   fi
 
   # ripgrep (optional – faster content search when zk is not installed/configured)
