@@ -4992,6 +4992,7 @@ if [ "$_header_mode" = "compact" ]; then
   fi
   _cmatch_s=""; [ -n "$fmatch" ] && _cmatch_s=$(printf '  \033[36m?\033[0m:\033[1m"%s"\033[0m' "$fmatch")
   cfilters_lbl=$(printf '\033[1;90m Filters:\033[0m%s%s%s%s%s %s' "$t_s" "$s_s" "$p_s" "$_ctag_s" "$_cmatch_s" "$c_s")
+  cqueries_lbl=$(printf '%s \033[90m· tab/1-9/g\033[0m' "$queries_lbl")
   # Compact: display values on one line with direction arrow
   _csort_arrow=""; [ -n "$fsort" ] && { [ -n "$fsort_rev" ] && _csort_arrow="↑" || _csort_arrow="↓"; }
   _cgroup_v="none"; [ -n "$fgroup" ] && _cgroup_v="$fgroup"
@@ -5006,12 +5007,12 @@ if [ "$_header_mode" = "compact" ]; then
     _cmcount_s=$(printf ' \033[1m(%d)\033[0m' "$mark_count")
   fi
   cactions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[c]\033[0mhange \033[90m·\033[0m \033[36m[m]\033[0marks%b \033[90m·\033[0m \033[36m[b]\033[0mulk' "$_cmcount_s")
-  printf '%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header"
+  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header"
   # Mode-active headers: expand the active section to full-mode for sub-key guidance
-  printf '%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
-  printf '%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$filters_lbl_f" "$cdisplay_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header-f"
-  printf '%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$cfilters_lbl" "$display_lbl_z" "$cactions_lbl" "$keys_lbl" > "$dir/.header-z"
-  printf '%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$marks_lbl_active" "$keys_lbl" > "$dir/.header-m"
+  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
+  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$filters_lbl_f" "$cdisplay_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header-f"
+  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$display_lbl_z" "$cactions_lbl" "$keys_lbl" > "$dir/.header-z"
+  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$marks_lbl_active" "$keys_lbl" > "$dir/.header-m"
 else
   printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl" "$stats_lbl" "$display_lbl" "$actions_lbl" "$change_lbl" "$marks_lbl" "$keys_lbl" > "$dir/.header"
   printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl" "$stats_lbl" "$display_lbl" "$actions_lbl" "$change_lbl_active" "$marks_lbl" "$keys_lbl" > "$dir/.header-c"
