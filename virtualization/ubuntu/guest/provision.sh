@@ -15,12 +15,23 @@ sudo apt-get update
 sudo apt-get install -y \
   bash \
   gawk \
-  fzf \
   jq \
   git \
   ripgrep \
   bat \
   curl
+
+# fzf: Ubuntu ships an older version (0.44); notenav requires 0.45+
+FZF_MIN="0.45"
+fzf_ver=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || true)
+if [ -z "$fzf_ver" ] || ! printf '%s\n%s\n' "$FZF_MIN" "$fzf_ver" | sort -V | head -1 | grep -q "^${FZF_MIN}$"; then
+  echo ""
+  echo "==> Installing fzf from GitHub (Ubuntu's version is too old)..."
+  FZF_URL="https://github.com/junegunn/fzf/releases/latest/download/fzf-$(uname -s | tr '[:upper:]' '[:lower:]')_amd64.tar.gz"
+  curl -L "$FZF_URL" | sudo tar xz -C /usr/local/bin
+else
+  echo "==> fzf ${fzf_ver} already meets minimum (${FZF_MIN})"
+fi
 
 # yq-go is not in Ubuntu's repos; install from GitHub
 if ! command -v yq >/dev/null 2>&1; then

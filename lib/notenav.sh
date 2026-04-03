@@ -1270,7 +1270,11 @@ nn_doctor() {
     if [[ -n "$fzf_ver" ]] && _nn_ver_cmp "$fzf_ver" "0.45"; then
       _pass "fzf $fzf_ver"
     else
-      _fail "fzf ${fzf_ver:-unknown} (requires 0.45+)"
+      local _fzf_dr_hint="requires 0.45+ – install from https://github.com/junegunn/fzf"
+      if [[ -f /etc/os-release ]] && grep -qi ubuntu /etc/os-release; then
+        _fzf_dr_hint="requires 0.45+ – Ubuntu's apt package is outdated; install from https://github.com/junegunn/fzf"
+      fi
+      _fail "fzf ${fzf_ver:-unknown} (${_fzf_dr_hint})"
     fi
   else
     _fail "fzf not found (https://github.com/junegunn/fzf)"
@@ -3160,7 +3164,11 @@ EOF
     local _nn_fzf_ver
     _nn_fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
     if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.45"; then
-      echo "notenav: fzf 0.45+ required (found $_nn_fzf_ver)" >&2
+      local _fzf_hint="install from https://github.com/junegunn/fzf"
+      if [[ -f /etc/os-release ]] && grep -qi ubuntu /etc/os-release; then
+        _fzf_hint="Ubuntu's apt package is outdated; ${_fzf_hint}"
+      fi
+      echo "notenav: fzf 0.45+ required (found $_nn_fzf_ver). ${_fzf_hint}" >&2
       return 1
     fi
     # gawk capability probe – mktime/strtonum/3-arg match are required
