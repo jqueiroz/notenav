@@ -39,7 +39,10 @@ jobs:
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
-        run: brew install fzf gawk yq jq ripgrep bat
+        run: |
+          brew install bash fzf gawk yq jq ripgrep bat
+          # Homebrew's bash 5 must come before /bin/bash 3.2
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
 
       - name: nn --version
         run: bash bin/nn --version
