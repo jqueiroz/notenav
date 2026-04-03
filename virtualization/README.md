@@ -37,8 +37,11 @@ service sshd restart
 Once SSH is enabled, it's easier to work from a second terminal:
 
 ```bash
+# Run these from the repo root
+cd "$(git rev-parse --show-toplevel)"
+
 # Provision the VM (installs gawk, fzf, jq, yq, etc.)
-ssh -p 2222 root@localhost 'sh -s' < freebsd/provision.sh
+ssh -p 2222 root@localhost 'sh -s' < virtualization/freebsd/provision.sh
 
 # Copy notenav into the VM (only tracked files, skips VM images)
 git archive HEAD | ssh -p 2222 root@localhost 'mkdir -p /root/notenav && tar xf - -C /root/notenav'
