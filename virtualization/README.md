@@ -39,14 +39,11 @@ service sshd restart
 Once SSH is enabled, it's easier to work from a second terminal:
 
 ```bash
-# Run these from the repo root
-cd "$(git rev-parse --show-toplevel)"
-
 # Provision the VM (installs gawk, fzf, jq, yq, etc.)
 ssh -p 2222 root@localhost 'sh -s' < virtualization/freebsd/provision.sh
 
-# Copy notenav into the VM (only tracked files, skips VM images)
-git archive HEAD | ssh -p 2222 root@localhost 'mkdir -p /root/notenav && tar xf - -C /root/notenav'
+# Sync notenav into the VM (safe to run from anywhere in the repo)
+virtualization/freebsd/sync.sh
 
 # SSH in and test (provision.sh adds nn to PATH via .profile)
 ssh -p 2222 root@localhost
@@ -73,14 +70,11 @@ Cloud-init configures the VM on first boot (takes ~30 seconds). Login: `ubuntu` 
 ### SSH workflow
 
 ```bash
-# Run these from the repo root
-cd "$(git rev-parse --show-toplevel)"
-
 # Provision the VM (installs gawk, fzf, jq, yq, etc.)
 ssh -p 2223 ubuntu@localhost 'sh -s' < virtualization/ubuntu/provision.sh
 
-# Copy notenav into the VM (only tracked files, skips VM images)
-git archive HEAD | ssh -p 2223 ubuntu@localhost 'mkdir -p ~/notenav && tar xf - -C ~/notenav'
+# Sync notenav into the VM (safe to run from anywhere in the repo)
+virtualization/ubuntu/sync.sh
 
 # SSH in and test (provision.sh adds nn to PATH via .profile)
 ssh -p 2223 ubuntu@localhost

@@ -10,7 +10,7 @@
 # Login: ubuntu / ubuntu
 #
 # SSH is forwarded: ssh -p 2223 ubuntu@localhost
-# To copy files in: git archive HEAD | ssh -p 2223 ubuntu@localhost 'tar xf - -C ~/notenav'
+# To sync files in: ./sync.sh
 # To quit QEMU:     Ctrl-a x
 
 set -euo pipefail

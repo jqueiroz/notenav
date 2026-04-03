@@ -10,7 +10,7 @@
 # (password: freebsd), then run provision.sh inside the VM.
 #
 # SSH is forwarded: ssh -p 2222 localhost
-# To copy files in: git archive HEAD | ssh -p 2222 root@localhost 'tar xf - -C /root/notenav'
+# To sync files in: ./sync.sh
 # To quit QEMU:     Ctrl-a x
 
 set -euo pipefail
