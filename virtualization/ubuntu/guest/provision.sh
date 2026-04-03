@@ -27,8 +27,8 @@ fzf_ver=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | hea
 if [ -z "$fzf_ver" ] || ! printf '%s\n%s\n' "$FZF_MIN" "$fzf_ver" | sort -V | head -1 | grep -q "^${FZF_MIN}$"; then
   echo ""
   echo "==> Installing fzf from GitHub (Ubuntu's version is too old)..."
-  FZF_VER=$(curl -s https://api.github.com/repos/junegunn/fzf/releases/latest | grep -oP '"tag_name".*?"v?\K[^"]+')
-  curl -L "https://github.com/junegunn/fzf/releases/download/v${FZF_VER}/fzf-${FZF_VER}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
+  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
 else
   echo "==> fzf ${fzf_ver} already meets minimum (${FZF_MIN})"
 fi
