@@ -235,8 +235,9 @@ nn_load_config() {
     fi
 
     if [[ -z "$workflow_file" ]]; then
-      echo "notenav: workflow '$workflow_name' not found, falling back to zenith" >&2
-      workflow_file="$notenav_root/config/workflows/zenith.toml"
+      echo "notenav: workflow '$workflow_name' not found" >&2
+      echo "notenav: check the 'extends' value in .nn/workflow.toml or 'default_workflow' in user config" >&2
+      return 1
     fi
 
     if [[ ! -f "$workflow_file" ]]; then
