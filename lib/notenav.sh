@@ -347,6 +347,12 @@ nn_load_config() {
     priority: {colors: .priority.colors}
   } | del(.. | nulls)' 2>/dev/null)
 
+  if [[ -z "$user_json" && -f "$user_cfg" ]]; then
+    echo "notenav: user config may be invalid – check ~/.config/notenav/config.toml" >&2
+    echo "notenav: run 'nn doctor' for details" >&2
+    user_json="{}"
+  fi
+
   # Deep merge: base * workflow * user * project_queries
   # Later values win. Project queries applied last so they override user/workflow queries.
   NN_CFG_JSON=$(printf '%s\n%s\n%s\n%s' "$base_json" "$workflow_json" "$user_json" "$project_queries" \
