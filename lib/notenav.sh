@@ -4740,13 +4740,15 @@ do_sort() {
   esac
 }
 now=$(date +%s)
+# Snapshot .raw so concurrent reload_raw.sh cannot replace it mid-filter
+cp "$dir/.raw" "$dir/.raw.snap"
 # Pre-filter by body match if active
-_raw_input="$dir/.raw"
-_count_input="$dir/.raw"
+_raw_input="$dir/.raw.snap"
+_count_input="$dir/.raw.snap"
 # Pre-filter: body match narrows to matched paths, mark filter narrows to marked paths
 # Widen with pinned so ghost rows survive narrowing (marks are badges, not ghost rows)
 if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
-  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw" > "$dir/.raw_matched"
+  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw.snap" > "$dir/.raw_matched"
   _raw_input="$dir/.raw_matched"
   _count_input="$dir/.raw_matched"
 fi
@@ -4758,7 +4760,7 @@ fi
 # Widen _raw_input with pinned paths so ghost rows survive pre-filtering
 if [ -s "$dir/.pinned" ] && { { [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; } || { [ -n "$fmarked" ] && [ -s "$dir/.marked" ]; }; }; then
   cat "$_raw_input" > "$dir/.raw_prefiltered"
-  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.pinned" "$dir/.raw" >> "$dir/.raw_prefiltered"
+  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.pinned" "$dir/.raw.snap" >> "$dir/.raw_prefiltered"
   awk -F'\t' '!seen[$6]++' "$dir/.raw_prefiltered" > "$dir/.raw_widened"
   _raw_input="$dir/.raw_widened"
 fi
@@ -4792,7 +4794,7 @@ if [ -n "$fgroup" ]; then
   awk -F'\t' -v gcol="$gcol" '
     NR==FNR { key[$6] = $gcol; next }
     { path=$1; gk=key[path]; print gk "\t" $0 }
-  ' "$dir/.raw" "$dir/.current" \
+  ' "$dir/.raw.snap" "$dir/.current" \
   | sort -t'	' -k1,1 -s \
   | awk -F'\t' -v gmode="$fgroup" \
     -v type_order="$(cat "$dir/.schema_type_order")" \
@@ -4868,7 +4870,7 @@ fi
 # Count matches for "all" (respects archive toggle)
 all_cond="$vis_cond"
 [ -z "$farchive" ] && all_cond="$all_cond$archive_cond"
-all_count=$(awk -F'\t' "$all_cond"'{n++} END{print n+0}' "$dir/.raw")
+all_count=$(awk -F'\t' "$all_cond"'{n++} END{print n+0}' "$dir/.raw.snap")
 # 0:all highlights only when no filters, no tags, no query preset, defaults
 has_tags=false; [ -s "$dir/.f_tags" ] && has_tags=true
 if [ -z "$active_sq" ] && [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && ! $has_tags; then
@@ -4904,7 +4906,7 @@ if [ -f "$dir/.queries" ]; then
       esac
     done
     [ -n "$_sq_tag_cond" ] && sq_cond="$sq_cond && ($_sq_tag_cond)"
-    sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw")
+    sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw.snap")
     label=$(printf '%d:%s(%d)' "$n" "$qname" "$sq_count")
     # visible length: " label " (spaces + content)
     item_len=$(( ${#label} + 2 ))
@@ -5057,7 +5059,7 @@ printf '%s' "$csearch_keys_lbl" > "$dir/.header-csearch"
 [ -f "$dir/.empty_easteregg_override" ] && cat "$dir/.empty_easteregg_override" > "$dir/.empty_placeholder"
 # Show Adams placeholder + dummy entry when view is truly empty (skip if pinned items present)
 if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
-  raw_total=$(awk -F'\t' "$vis_cond" "$dir/.raw" | wc -l)
+  raw_total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap" | wc -l)
   if [ "$raw_total" -eq 0 ]; then
     printf '\n  [90m╭─────────────────────────────────────────────────╮[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                   [1;33mDON'\''T PANIC[0m                   [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    ───────────────────────────────────────────  [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    No notes here – yet.                         [90m│[0m\n  [90m│[0m    Press [36mn[0m to create your first note.           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m              [31m·[0m       [35m✦[0m                          [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m         [36m✦[0m                [32m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                  [1;37m·[0m                              [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m             [35m✦[0m            [34m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: check out the keybinding[0m                [90m│[0m\n  [90m│[0m    [37mindications on the footer, and[0m               [90m│[0m\n  [90m│[0m    [37mhappy note-taking![0m                           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
   else
@@ -5080,7 +5082,7 @@ if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
 fi
 # Measure placeholder visible width (strip ANSI, find longest line) for preview.sh centering
 awk 'BEGIN{esc=sprintf("%c",27)} {gsub(esc"\\[[0-9;]*m",""); if(length>m) m=length} END{print m+0}' "$dir/.empty_placeholder" > "$dir/.empty_placeholder_width"
-total=$(awk -F'\t' "$vis_cond" "$dir/.raw" | wc -l)
+total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap" | wc -l)
 pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "$dir/.pinned")
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 mark_s=""; [ "$mark_count" -gt 0 ] && mark_s=" · ${mark_count} marked"
