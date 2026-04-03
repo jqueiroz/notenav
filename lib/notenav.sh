@@ -1273,7 +1273,8 @@ nn_doctor() {
       _fail "fzf ${fzf_ver:-unknown} (requires 0.45+)"
       if [[ -f /etc/os-release ]] && grep -qi ubuntu /etc/os-release; then
         echo "        Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
-        echo "        curl -L https://github.com/junegunn/fzf/releases/latest/download/fzf-linux_amd64.tar.gz | sudo tar xz -C /usr/local/bin" >&2
+        echo '        FZF_VER=$(curl -s https://api.github.com/repos/junegunn/fzf/releases/latest | grep -oP "tag_name.*?\"v?\K[^\"]+")' >&2
+        echo '        curl -L "https://github.com/junegunn/fzf/releases/download/v${FZF_VER}/fzf-${FZF_VER}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
       fi
     fi
   else
@@ -3167,7 +3168,8 @@ EOF
       echo "notenav: fzf 0.45+ required (found $_nn_fzf_ver)" >&2
       if [[ -f /etc/os-release ]] && grep -qi ubuntu /etc/os-release; then
         echo "  Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
-        echo "  curl -L https://github.com/junegunn/fzf/releases/latest/download/fzf-linux_amd64.tar.gz | sudo tar xz -C /usr/local/bin" >&2
+        echo '  FZF_VER=$(curl -s https://api.github.com/repos/junegunn/fzf/releases/latest | grep -oP "tag_name.*?\"v?\K[^\"]+")' >&2
+        echo '  curl -L "https://github.com/junegunn/fzf/releases/download/v${FZF_VER}/fzf-${FZF_VER}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
       else
         echo "  Install from https://github.com/junegunn/fzf" >&2
       fi
