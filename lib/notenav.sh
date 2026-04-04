@@ -5489,10 +5489,16 @@ ENDEDIT
     else
       _adhoc_fmt='{printf "[%s] [%s] %s\n", $1, $2, $5}'
     fi
-    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
+    local _adhoc_out
+    _adhoc_out=$(_nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
       | _nn_adhoc_sort \
-      | awk -F'\t' "$_adhoc_fmt"
+      | awk -F'\t' "$_adhoc_fmt")
+    if [ -n "$_adhoc_out" ]; then
+      printf '%s\n' "$_adhoc_out"
+    else
+      echo "notenav: no matching notes" >&2
+    fi
   fi
   unset -f _nn_adhoc_sort
   shopt -u nullglob
