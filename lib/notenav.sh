@@ -773,7 +773,11 @@ nn_precompute_workflow() {
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
   # Sanitize prompts: strip chars that break fzf action syntax in change-prompt()
   NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//)/}"
+  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//]/}"
+  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//\'/}"
   NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//)/}"
+  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//]/}"
+  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//\'/}"
   NN_UI_EXIT_MESSAGE=$(nn_cfg '.ui.exit_message // "none"')
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
@@ -3307,6 +3311,12 @@ EOF
       shopt -u nullglob; return 1
     fi
     local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX")
+    if [[ "$_nn_dir" == *" "* || "$_nn_dir" == *$'\t'* ]]; then
+      rm -rf "$_nn_dir"
+      echo "notenav: TMPDIR path contains whitespace, which breaks fzf keybindings." >&2
+      echo "notenav: set TMPDIR to a path without spaces (e.g. /tmp) and try again." >&2
+      shopt -u nullglob; return 1
+    fi
     chmod 700 "$_nn_dir"
     trap '_p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "$_nn_dir"' EXIT
     nn_write_workflow_files "$_nn_dir"
@@ -3855,7 +3865,7 @@ for arg in "$@"; do
       has_tags=1
       if [ -n "$v" ]; then
         # Convert space-separated tags to YAML array: [tag1, tag2]
-        set_tags=$(echo "$v" | sed 's/  */ /g; s/^ //; s/ $//' | tr ' ' '\n' | paste -sd, | sed 's/^/[/; s/$/]/')
+        set_tags=$(printf '%s\n' "$v" | sed 's/  */ /g; s/^ //; s/ $//' | tr ' ' '\n' | paste -sd, | sed 's/^/[/; s/$/]/')
       fi
       ;;
     *) nn_assert "action: unknown field '$f'" ;;
@@ -4440,7 +4450,7 @@ else
 fi
 
 after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)
-rel_path="${new_path#$PWD/}"
+rel_path="${new_path#"$PWD"/}"
 [ -n "${NO_COLOR+x}" ] && tc=""
 case "$after_create" in
   edit) printf "\n  ${tc}%s %s · %s – Created!${_nn_reset} Opening in editor...\n  ${_nn_dim}%s${_nn_reset}\n\n" "$icon" "$selected" "$title" "$rel_path" > /dev/tty ;;
@@ -5474,6 +5484,12 @@ ENDEDIT
       shopt -u nullglob; return 1
     fi
     local nn_tmp; nn_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
+    if [[ "$nn_tmp" == *" "* || "$nn_tmp" == *$'\t'* ]]; then
+      rm -f "$nn_tmp"
+      echo "notenav: TMPDIR path contains whitespace, which breaks fzf keybindings." >&2
+      echo "notenav: set TMPDIR to a path without spaces (e.g. /tmp) and try again." >&2
+      shopt -u nullglob; return 1
+    fi
     local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
     local _nn_edit; _nn_edit=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
     local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
