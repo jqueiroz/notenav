@@ -32,6 +32,10 @@ for dep in bash fzf gawk sort sed git yq jq; do
       esac
     else
       missing="$missing $dep"
+      if [ "$dep" = "yq" ] && [ -f /etc/debian_version ]; then
+        warn "notenav requires yq-go (mikefarah), not the Python yq."
+        warn "Install: https://github.com/mikefarah/yq#install"
+      fi
     fi
   fi
 done
@@ -55,7 +59,7 @@ if check_dep yq; then
   if ! yq -p=toml -o=json '.' /dev/null >/dev/null 2>&1; then
     warn "yq found but does not appear to be yq-go (github.com/mikefarah/yq)."
     warn "notenav requires yq-go, not the Python yq. Install: https://github.com/mikefarah/yq#install"
-    missing="$missing yq-go"
+    missing="$missing yq"
   fi
 fi
 

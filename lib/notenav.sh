@@ -1276,8 +1276,8 @@ nn_doctor() {
       _pass "fzf $fzf_ver"
     else
       _fail "fzf ${fzf_ver:-unknown} (requires 0.45+)"
-      if [[ -f /etc/os-release ]] && grep -qi ubuntu /etc/os-release; then
-        echo "        Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
+      if [[ -f /etc/debian_version ]]; then
+        echo "        Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
         echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
         echo '        curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
       fi
@@ -3172,8 +3172,8 @@ EOF
     _nn_fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
     if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.45"; then
       echo "notenav: fzf 0.45+ required (found $_nn_fzf_ver)" >&2
-      if [[ -f /etc/os-release ]] && grep -qi ubuntu /etc/os-release; then
-        echo "  Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
+      if [[ -f /etc/debian_version ]]; then
+        echo "  Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
         echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
         echo '  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
       else
