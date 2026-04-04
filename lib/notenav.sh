@@ -3317,6 +3317,7 @@ EOF
     printf '%s' "$_NN_HAS_ZK" > "$_nn_dir/.has_zk"
     printf '%s' "$_NN_GAWK" > "$_nn_dir/.gawk"
     printf '%s' "$_nn_root" > "$_nn_dir/.notebook_root"
+    printf '%s' "$_scope_path" > "$_nn_dir/.scope_path"
     [[ -f "$_nn_root/.nn/workflow.toml" ]] && printf 1 > "$_nn_dir/.has_project_config" || : > "$_nn_dir/.has_project_config"
     printf '%s' "${_NN_IGNORE_AWK:-}" > "$_nn_dir/.ignore_awk"
     if [[ ${#_NN_IGNORE_DIRS[@]} -gt 0 ]]; then
@@ -5103,6 +5104,17 @@ last_action=""; [ -s "$dir/.last_action" ] && last_action=" · last change: $(ca
 _wf_name=$(cat "$dir/.schema_workflow_name" 2>/dev/null)
 _nb_root=$(cat "$dir/.notebook_root" 2>/dev/null)
 _nb_dir="${_nb_root:+$(basename "$_nb_root")}"
+# Show subdirectory path when running from inside the notebook
+_scope=$(cat "$dir/.scope_path" 2>/dev/null)
+if [ -n "$_nb_root" ] && [ -n "$_scope" ] && [ "$_scope" != "$_nb_root" ]; then
+  _rel="${_scope#"$_nb_root"/}"
+  if [ ${#_rel} -gt 20 ]; then
+    # Truncate to last 2 components with ellipsis
+    _rel_tail=$(echo "$_rel" | awk -F/ '{if(NF>=2) print $(NF-1)"/"$NF; else print $NF}')
+    _rel=".../$_rel_tail"
+  fi
+  _nb_dir="$_nb_dir/$_rel"
+fi
 # Build context label: "dir · Workflow" or just one if the other is empty
 _ctx=""
 if [ -n "$_nb_dir" ] && [ -n "$_wf_name" ]; then
