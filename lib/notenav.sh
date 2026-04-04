@@ -5351,6 +5351,8 @@ ENDEDIT
       case "$1" in
         -i|--interactive) interactive=true; shift ;;
         --) parsing_filters=false; shift ;;
+        --*) echo "notenav: unknown flag: $1" >&2; echo "notenav: run 'nn --help' for usage" >&2; shopt -u nullglob; return 1 ;;
+        -?*) echo "notenav: unknown flag: $1" >&2; echo "notenav: run 'nn --help' for usage" >&2; shopt -u nullglob; return 1 ;;
         *=*)
           local _fk="${1%%=*}"
           case "$_fk" in type|status|priority|tag) ;; *)
