@@ -62,7 +62,7 @@ _nn_easteregg_decode() {
     # Allowed: printable ASCII (32-126), newline (10), and valid ANSI CSI
     # sequences (ESC [ <digits/semicolons> <letter>). Rejects bare ESC,
     # control chars, and raw high bytes.
-    decrypted=$(echo "$blob" | "$(_nn_resolve_gawk)" -v ks="$keystream" '{
+    decrypted=$(echo "$blob" | "$(_nn_resolve_gawk 2>/dev/null || echo awk)" -v ks="$keystream" '{
       len = length($0) / 2; valid = 1
       for (i = 0; i < len; i++) {
         enc = strtonum("0x" substr($0, i*2+1, 2))
@@ -378,8 +378,8 @@ nn_cfg() {
 # written by nn_write_workflow_files().
 
 # Escape a string for safe interpolation into an AWK double-quoted literal.
-# Handles backslash and double-quote (the two characters that break AWK strings).
-_nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+# Handles backslash, double-quote, and newline (the characters that break AWK strings).
+_nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' '; }
 # Escape a string for safe interpolation into a jq double-quoted path segment.
 _nn_jq_esc() { local s="${1//\\/\\\\}"; printf '%s' "${s//\"/\\\"}"; }
 _nn_in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
@@ -820,7 +820,7 @@ nn_precompute_workflow() {
     "{ $NN_AWK_COLOR_PINNED }" \
     "{ $NN_AWK_COLOR_MARKED }" \
     "$NN_AWK_COLOR_STATS"; do
-    if ! printf '' | "$(_nn_resolve_gawk)" -F'\t' "$_awk_check" 2>/dev/null; then
+    if ! printf '' | "$_NN_GAWK" -F'\t' "$_awk_check" 2>/dev/null; then
       echo "notenav: generated AWK program has syntax errors (check config values for special characters)" >&2
       return 1
     fi
@@ -1115,7 +1115,7 @@ _nn_ignore_pipe() {
 # and outputs 8-column TSV matching NN_ZK_FMT.
 # NOTE: the AWK body here must stay in sync with the copy in reload_raw.sh (heredoc).
 _nn_list_notes_native() {
-  "$_NN_GAWK" -F'\t' '
+  "${_NN_GAWK:-awk}" -F'\t' '
   {
     file = $1; mtime = $2
     type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
@@ -2595,6 +2595,7 @@ nn_doctor() {
     echo "$fails check(s) failed, $warns warning(s)."
   fi
 
+  unset -f _prev_miss _fm_show_examples
   [[ $fails -gt 0 ]] && return 1
   return 0
 }
@@ -3177,10 +3178,11 @@ EOF
       echo "  For more information, see https://github.com/jqueiroz/notenav/blob/main/docs/install.md" >&2
       return 1
     fi
+    # Resolve gawk binary once (may differ from `awk` on Debian/Ubuntu)
+    local _NN_GAWK
+    _NN_GAWK=$(_nn_resolve_gawk)
     # gawk capability probe – mktime/strtonum/3-arg match are required
-    local _nn_gawk
-    _nn_gawk="$(_nn_resolve_gawk)"
-    if ! "$_nn_gawk" 'BEGIN { mktime("2020 1 1 0 0 0"); strtonum("0x1") }' /dev/null 2>/dev/null; then
+    if ! "$_NN_GAWK" 'BEGIN { mktime("2020 1 1 0 0 0"); strtonum("0x1") }' /dev/null 2>/dev/null; then
       echo "notenav: gawk (GNU awk) is required but the current awk lacks mktime/strtonum" >&2
       echo "notenav: install gawk: https://www.gnu.org/software/gawk/" >&2
       return 1
@@ -3199,7 +3201,7 @@ EOF
       NN_PRIORITY_COLORS NN_PRIORITY_LABELS NN_PRIORITY_UP NN_PRIORITY_DOWN \
       NN_TYPE_DISPLAY_ORDER NN_STATUS_DISPLAY_ORDER \
       NN_DEFAULT_SORT NN_DEFAULT_SORT_REV NN_DEFAULT_GROUP NN_DEFAULT_ARCHIVE NN_DEFAULT_WRAP \
-      NN_UI_EDITOR NN_UI_COMMAND_PROMPT NN_UI_SEARCH_PROMPT \
+      NN_UI_HEADER NN_UI_EDITOR NN_UI_COMMAND_PROMPT NN_UI_SEARCH_PROMPT \
       NN_UI_EXIT_MESSAGE NN_UI_PRIORITY_PLUS NN_UI_AFTER_CREATE \
       NN_UI_PREVIEWER NN_UI_PREVIEWER_CUSTOM \
       NN_UI_PREVIEWER_FLAGS_BAT NN_UI_PREVIEWER_FLAGS_GLOW NN_UI_PREVIEWER_FLAGS_MDCAT \
@@ -3259,10 +3261,6 @@ EOF
   # Detect zk availability
   local _NN_HAS_ZK=false
   command -v zk >/dev/null 2>&1 && _NN_HAS_ZK=true
-
-  # Resolve gawk binary (may differ from `awk` on Debian/Ubuntu)
-  local _NN_GAWK
-  _NN_GAWK=$(_nn_resolve_gawk)
 
   # Scope: always show notes from $(pwd) downward
   local _scope_path
@@ -4409,12 +4407,9 @@ else
   # Native note creation (no zk)
   _slug=$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
   [ -z "$_slug" ] && _slug="note"
-  new_path="$PWD/${_slug}.md"
-  if [ -f "$new_path" ]; then
-    new_path="$PWD/${_slug}-$(date +%s).md"
-  fi
   # Escape double quotes for valid YAML
   _yaml_title=$(printf '%s' "$title" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  _nn_tmp=$(mktemp "$PWD/.nn-new.XXXXXX")
   {
     printf '%s\n' "---"
     printf 'title: "%s"\n' "$_yaml_title"
@@ -4422,7 +4417,14 @@ else
     [ -n "$_nn_initial_status" ] && printf 'status: %s\n' "$_nn_initial_status"
     printf 'created: %s\n' "$_nn_now"
     printf '%s\n' "---"
-  } > "$new_path"
+  } > "$_nn_tmp"
+  # ln fails atomically if target already exists (avoids TOCTOU vs -f check)
+  new_path="$PWD/${_slug}.md"
+  if ! ln "$_nn_tmp" "$new_path" 2>/dev/null; then
+    new_path="$PWD/${_slug}-$(date +%s).md"
+    mv "$_nn_tmp" "$new_path"
+  fi
+  rm -f "$_nn_tmp"
 fi
 
 after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)

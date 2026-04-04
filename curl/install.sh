@@ -79,8 +79,8 @@ if check_dep bash; then
 fi
 
 if [ -n "$missing" ]; then
-  case "$missing" in
-    *git*) err "git is required to install notenav. Install git and try again." ;;
+  case " $missing " in
+    *" git "*) err "git is required to install notenav. Install git and try again." ;;
   esac
   warn "Missing dependencies:$missing"
   warn "notenav will be installed but may not work until these are available."
