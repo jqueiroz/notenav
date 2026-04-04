@@ -5307,7 +5307,22 @@ ENDEDIT
     rm -rf "$_nn_dir"
     shopt -u nullglob
     case "$NN_UI_EXIT_MESSAGE" in
-      fortune) echo "So long, and thanks for all the notes." ;;
+      fortune)
+        local _fortunes=(
+          "3:So long, and thanks for all the notes."
+          "1:May the notes be with you."
+          "1:Live long and take notes."
+          "1:I think, therefore I note."
+          "1:To note, or not to note – that was never the question."
+          "1:All good notes must come to an end."
+        )
+        local _fw_total=0 _fw
+        for _fw in "${_fortunes[@]}"; do _fw_total=$((_fw_total + ${_fw%%:*})); done
+        local _fw_r=$((RANDOM % _fw_total)) _fw_cum=0
+        for _fw in "${_fortunes[@]}"; do
+          _fw_cum=$((_fw_cum + ${_fw%%:*}))
+          if [[ $_fw_r -lt $_fw_cum ]]; then echo "${_fw#*:}"; break; fi
+        done ;;
       none) ;;
       *) nn_assert "unknown exit_message '$NN_UI_EXIT_MESSAGE'" ;;
     esac
