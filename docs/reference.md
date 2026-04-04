@@ -151,7 +151,7 @@ nn doctor
    - yq (yq-go, **not** yq-python)
    - jq
    - gawk (GNU awk – required for `mktime()` and `strtonum()`)
-   - sort, sed, tput
+   - sort, sed
    - zk (optional – faster indexing and link graph)
    - curl (optional – needed for remote workflows)
    - inotifywait or fswatch (optional – auto-refresh in watch mode)
