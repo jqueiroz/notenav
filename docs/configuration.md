@@ -31,6 +31,8 @@ At startup, two things happen:
 
 The `.nn/` directory is found by walking up from the current directory.
 
+Config is loaded once at launch and sealed for the session. Changes to `config.toml` or `workflow.toml` take effect the next time you start `nn`.
+
 The quickest way to get started is `nn init`:
 
 ```bash

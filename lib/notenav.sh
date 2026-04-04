@@ -3975,17 +3975,22 @@ while IFS= read -r new_line || [ -n "$new_line" ]; do
   fi
 done < "$edited"
 # Report results to user
+if [ -n "${NO_COLOR+x}" ]; then
+  _be_red="" _be_yellow="" _be_green="" _be_dim="" _be_reset=""
+else
+  _be_red='\033[31m' _be_yellow='\033[33m' _be_green='\033[32m' _be_dim='\033[90m' _be_reset='\033[0m'
+fi
 if [ -n "$errors" ]; then
-  printf '\n\033[31m%b\033[0m' "$errors" > /dev/tty
+  printf "\n${_be_red}%b${_be_reset}" "$errors" > /dev/tty
 fi
 if [ "$skipped_nofm" -gt 0 ]; then
-  printf '\033[33mSkipped %d file(s) without frontmatter\033[0m\n' "$skipped_nofm" > /dev/tty
+  printf "${_be_yellow}Skipped %d file(s) without frontmatter${_be_reset}\n" "$skipped_nofm" > /dev/tty
 fi
 if [ "$count" -gt 0 ]; then
-  printf '\033[32mUpdated %d note(s)\033[0m\n' "$count" > /dev/tty
+  printf "${_be_green}Updated %d note(s)${_be_reset}\n" "$count" > /dev/tty
   printf 'bulk edit → %d notes' "$count" > "$dir/.last_action"
 else
-  [ -z "$errors" ] && [ "$skipped_nofm" -eq 0 ] && printf '\033[90mNo changes\033[0m\n' > /dev/tty
+  [ -z "$errors" ] && [ "$skipped_nofm" -eq 0 ] && printf "${_be_dim}No changes${_be_reset}\n" > /dev/tty
 fi
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
@@ -4033,6 +4038,13 @@ cols=$(tput cols 2>/dev/null || printf '80')
 inner=$(( cols - 6 ))
 [ "$inner" -gt 80 ] && inner=80
 [ "$inner" -lt 40 ] && inner=40
+
+# NO_COLOR: suppress color codes but keep cursor-movement codes
+if [ -n "${NO_COLOR+x}" ]; then
+  _nn_dim="" _nn_reset=""
+else
+  _nn_dim='\033[90m' _nn_reset='\033[0m'
+fi
 
 # Clear screen so previous execute() output doesn't stack
 printf '\033[H\033[J' > /dev/tty
@@ -4173,7 +4185,7 @@ if [ "$mode" = "auto" ]; then
   if [ -z "$title" ]; then
     # Move past box bottom (4 lines down from title+1)
     printf '\033[4B' > /dev/tty
-    printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
+    printf "\r  ${_nn_dim}Cancelled${_nn_reset}\033[K\n" > /dev/tty
     exit 0
   fi
   # Move past box bottom (4 lines down from title+1)
@@ -4285,7 +4297,7 @@ else
   if [ -z "$title" ]; then
     # Move past box bottom (4 lines down from type line)
     printf '\033[4B' > /dev/tty
-    printf '\r  \033[90mCancelled\033[0m\033[K\n' > /dev/tty
+    printf "\r  ${_nn_dim}Cancelled${_nn_reset}\033[K\n" > /dev/tty
     exit 0
   fi
 
@@ -4429,9 +4441,10 @@ fi
 
 after_create=$(cat "$dir/.schema_after_create" 2>/dev/null)
 rel_path="${new_path#$PWD/}"
+[ -n "${NO_COLOR+x}" ] && tc=""
 case "$after_create" in
-  edit) printf '\n  %s%s %s · %s – Created!\033[0m Opening in editor...\n  \033[90m%s\033[0m\n\n' "$tc" "$icon" "$selected" "$title" "$rel_path" > /dev/tty ;;
-  none) printf '\n  %s%s %s · %s – Created!\033[0m\n  \033[90m%s\033[0m\n\n' "$tc" "$icon" "$selected" "$title" "$rel_path" > /dev/tty ;;
+  edit) printf "\n  ${tc}%s %s · %s – Created!${_nn_reset} Opening in editor...\n  ${_nn_dim}%s${_nn_reset}\n\n" "$icon" "$selected" "$title" "$rel_path" > /dev/tty ;;
+  none) printf "\n  ${tc}%s %s · %s – Created!${_nn_reset}\n  ${_nn_dim}%s${_nn_reset}\n\n" "$icon" "$selected" "$title" "$rel_path" > /dev/tty ;;
   *) nn_assert "newnote: unknown after_create '$after_create'" ;;
 esac
 # Regenerate raw
@@ -5102,8 +5115,10 @@ total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap" | wc -l)
 pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "$dir/.pinned")
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 mark_s=""; [ "$mark_count" -gt 0 ] && mark_s=" · ${mark_count} marked"
-last_action=""; [ -s "$dir/.last_action" ] && last_action=" · last change: $(cat "$dir/.last_action")"
+last_action=""; [ -s "$dir/.last_action" ] && last_action=" · $(cat "$dir/.last_action")"
 _wf_name=$(cat "$dir/.schema_workflow_name" 2>/dev/null)
+# Annotate workflow name when running on defaults (no .nn/workflow.toml)
+[ -n "$_wf_name" ] && ! [ -s "$dir/.has_project_config" ] && _wf_name="$_wf_name [default]"
 _nb_root=$(cat "$dir/.notebook_root" 2>/dev/null)
 _nb_dir="${_nb_root:+$(basename "$_nb_root")}"
 # Show subdirectory path when running from inside the notebook
@@ -5120,13 +5135,13 @@ fi
 # Build context label: "dir · Workflow" or just one if the other is empty
 _ctx=""
 if [ -n "$_nb_dir" ] && [ -n "$_wf_name" ]; then
-  _ctx=" $_nb_dir · $_wf_name ·"
+  _ctx=" · $_nb_dir · $_wf_name"
 elif [ -n "$_wf_name" ]; then
-  _ctx=" $_wf_name ·"
+  _ctx=" · $_wf_name"
 elif [ -n "$_nb_dir" ]; then
-  _ctx=" $_nb_dir ·"
+  _ctx=" · $_nb_dir"
 fi
-_border=$(printf ' nn ·%s %d/%d%s%s%s ' "$_ctx" "$count" "$total" "$pin_s" "$mark_s" "$last_action")
+_border=$(printf ' nn · %d/%d%s%s%s%s ' "$count" "$total" "$last_action" "$pin_s" "$mark_s" "$_ctx")
 printf '%s' "${_border//)/}" > "$dir/.border"
 # NO_COLOR: strip ANSI escape sequences from header/placeholder files
 if [ -n "${NO_COLOR+x}" ]; then
@@ -5512,7 +5527,16 @@ ENDEDIT
     if [ -n "$_adhoc_out" ]; then
       printf '%s\n' "$_adhoc_out"
     else
-      echo "notenav: no matching notes" >&2
+      local _filt_desc=""
+      [[ -n "${filters[type]}" ]] && _filt_desc+=" type=${filters[type]}"
+      [[ -n "${filters[status]}" ]] && _filt_desc+=" status=${filters[status]}"
+      [[ -n "${filters[priority]}" ]] && _filt_desc+=" priority=${filters[priority]}"
+      local _t; for _t in "${filter_tags[@]}"; do [[ -n "$_t" ]] && _filt_desc+=" tag=$_t"; done
+      if [[ -n "$_filt_desc" ]]; then
+        echo "notenav: no matching notes for${_filt_desc}" >&2
+      else
+        echo "notenav: no matching notes" >&2
+      fi
     fi
   fi
   unset -f _nn_adhoc_sort
