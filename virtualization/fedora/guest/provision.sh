@@ -26,7 +26,7 @@ if ! command -v yq >/dev/null 2>&1; then
   echo ""
   echo "==> Installing yq-go..."
   YQ_URL="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
-  sudo curl -L -o /usr/local/bin/yq "$YQ_URL"
+  sudo curl -fL -o /usr/local/bin/yq "$YQ_URL"
   sudo chmod +x /usr/local/bin/yq
 fi
 

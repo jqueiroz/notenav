@@ -28,7 +28,7 @@ if [ -z "$fzf_ver" ] || ! printf '%s\n%s\n' "$FZF_MIN" "$fzf_ver" | sort -V | he
   echo ""
   echo "==> Installing fzf from GitHub (Ubuntu's version is too old)..."
   FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
+  curl -fL "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
 else
   echo "==> fzf ${fzf_ver} already meets minimum (${FZF_MIN})"
 fi
@@ -38,7 +38,7 @@ if ! command -v yq >/dev/null 2>&1; then
   echo ""
   echo "==> Installing yq-go..."
   YQ_URL="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
-  sudo curl -L -o /usr/local/bin/yq "$YQ_URL"
+  sudo curl -fL -o /usr/local/bin/yq "$YQ_URL"
   sudo chmod +x /usr/local/bin/yq
 fi
 
