@@ -4051,9 +4051,10 @@ inner=$(( cols - 6 ))
 
 # NO_COLOR: suppress color codes but keep cursor-movement codes
 if [ -n "${NO_COLOR+x}" ]; then
-  _nn_dim="" _nn_reset=""
+  _nn_dim="" _nn_reset="" _nn_bold="" _nn_green="" _nn_red="" _nn_cyan=""
 else
-  _nn_dim='\033[90m' _nn_reset='\033[0m'
+  _nn_dim='\033[90m' _nn_reset='\033[0m' _nn_bold='\033[1m'
+  _nn_green='\033[32m' _nn_red='\033[31m' _nn_cyan='\033[36m'
 fi
 
 # Clear screen so previous execute() output doesn't stack
@@ -4173,6 +4174,7 @@ if [ "$mode" = "auto" ]; then
   hint="Enter to create · Esc cancels"
   hint_pad=$((inner - ${#hint} - 2))
   c="$auto_color"
+  [ -n "${NO_COLOR+x}" ] && c=""
 
   # Truncate description for display
   auto_desc_disp="$auto_desc"
@@ -4181,13 +4183,13 @@ if [ "$mode" = "auto" ]; then
   desc_line_pad=$((inner - 2 - ${#auto_desc_disp}))
 
   printf '\n' > /dev/tty
-  printf '  \033[%sm╭─ %s%s╮\033[0m\n' "$c" "$label" "$top_dashes" > /dev/tty
-  printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$c" "$inner" "" "$c" > /dev/tty
-  printf '  \033[%sm│\033[0m  Title: %*s\033[%sm│\033[0m\n' "$c" "$((inner - 9))" "" "$c" > /dev/tty
-  printf '  \033[%sm│\033[0m  \033[90m%s\033[0m%*s\033[%sm│\033[0m\n' "$c" "$auto_desc_disp" "$desc_line_pad" "" "$c" > /dev/tty
-  printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$c" "$inner" "" "$c" > /dev/tty
-  printf '  \033[%sm│\033[0m  \033[90m%s\033[0m%*s\033[%sm│\033[0m\n' "$c" "$hint" "$hint_pad" "" "$c" > /dev/tty
-  printf '  \033[%sm╰%s╯\033[0m\n' "$c" "$bot_dashes" > /dev/tty
+  printf "  \033[%sm╭─ %s%s╮${_nn_reset}\n" "$c" "$label" "$top_dashes" > /dev/tty
+  printf "  \033[%sm│${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$c" "$inner" "" "$c" > /dev/tty
+  printf "  \033[%sm│${_nn_reset}  Title: %*s\033[%sm│${_nn_reset}\n" "$c" "$((inner - 9))" "" "$c" > /dev/tty
+  printf "  \033[%sm│${_nn_reset}  ${_nn_dim}%s${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$c" "$auto_desc_disp" "$desc_line_pad" "" "$c" > /dev/tty
+  printf "  \033[%sm│${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$c" "$inner" "" "$c" > /dev/tty
+  printf "  \033[%sm│${_nn_reset}  ${_nn_dim}%s${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$c" "$hint" "$hint_pad" "" "$c" > /dev/tty
+  printf "  \033[%sm╰%s╯${_nn_reset}\n" "$c" "$bot_dashes" > /dev/tty
   # Cursor: up 5 to title line, column 13 (after "  │  Title: ")
   printf '\033[5A\033[13G' > /dev/tty
   title=""
@@ -4253,15 +4255,16 @@ else
   _nn_draw_type_line() {
     local i="$1" sel="$2" bc="${3:-36}"
     local name="${t_vals[$i]}" ic="${t_icons[$i]}" clr="${t_colors[$i]}"
+    [ -n "${NO_COLOR+x}" ] && clr=""
     local d="${t_tdescs[$i]}"
     local name_pad=$((max_name - ${#name}))
     local d_pad=$((desc_avail - ${#d}))
     [ "$d_pad" -lt 0 ] && d_pad=0
     if [ "$i" -eq "$sel" ]; then
-      printf '  \033[%sm│\033[0m     \033[1;%sm▸ %s %s\033[0m%*s  \033[90m%s\033[0m%*s\033[%sm│\033[0m' \
+      printf "  \033[%sm│${_nn_reset}     ${_nn_bold}\033[%sm▸ %s %s${_nn_reset}%*s  ${_nn_dim}%s${_nn_reset}%*s\033[%sm│${_nn_reset}" \
         "$bc" "$clr" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$bc"
     else
-      printf '  \033[%sm│\033[0m     \033[90m  %s %s%*s  %s\033[0m%*s\033[%sm│\033[0m' \
+      printf "  \033[%sm│${_nn_reset}     ${_nn_dim}  %s %s%*s  %s${_nn_reset}%*s\033[%sm│${_nn_reset}" \
         "$bc" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$bc"
     fi
   }
@@ -4269,20 +4272,20 @@ else
   # Helper: draw entire step-2 box
   _nn_draw_step2() {
     local sel="$1" bc="$2" i
-    printf '  \033[%sm╭─ %s%s╮\033[0m\n' "$bc" "${step2_labels[$sel]}" "${step2_dashes_arr[$sel]}"
-    printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$bc" "$inner" "" "$bc"
-    printf '  \033[%sm│\033[0m  \033[32m✓\033[0m %s%*s\033[%sm│\033[0m\n' \
+    printf "  \033[%sm╭─ %s%s╮${_nn_reset}\n" "$bc" "${step2_labels[$sel]}" "${step2_dashes_arr[$sel]}"
+    printf "  \033[%sm│${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$bc" "$inner" "" "$bc"
+    printf "  \033[%sm│${_nn_reset}  ${_nn_green}✓${_nn_reset} %s%*s\033[%sm│${_nn_reset}\n" \
       "$bc" "$disp_title" "$((inner - 4 - ${#disp_title}))" "" "$bc"
-    printf '  \033[%sm│\033[0m  \033[1m2. Type:\033[0m%*s\033[%sm│\033[0m\n' \
+    printf "  \033[%sm│${_nn_reset}  ${_nn_bold}2. Type:${_nn_reset}%*s\033[%sm│${_nn_reset}\n" \
       "$bc" "$((inner - 10))" "" "$bc"
     for ((i = 0; i < type_count; i++)); do
       _nn_draw_type_line "$i" "$sel" "$bc"
       printf '\n'
     done
-    printf '  \033[%sm│\033[0m%*s\033[%sm│\033[0m\n' "$bc" "$inner" "" "$bc"
-    printf '  \033[%sm│\033[0m  \033[90m%s\033[0m%*s\033[%sm│\033[0m\n' \
+    printf "  \033[%sm│${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$bc" "$inner" "" "$bc"
+    printf "  \033[%sm│${_nn_reset}  ${_nn_dim}%s${_nn_reset}%*s\033[%sm│${_nn_reset}\n" \
       "$bc" "$hint2" "$hint2_pad" "" "$bc"
-    printf '  \033[%sm╰%s╯\033[0m\n' "$bc" "$bot_dashes"
+    printf "  \033[%sm╰%s╯${_nn_reset}\n" "$bc" "$bot_dashes"
   }
 
   # ── Step 1 ↔ Step 2 loop (Esc in step 2 goes back to step 1) ──
@@ -4294,13 +4297,13 @@ else
 
   # Step 1: title prompt
   printf '\n' > /dev/tty
-  printf '  \033[36m╭─ New Note %s╮\033[0m\n' "$top_dashes" > /dev/tty
-  printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
-  printf '  \033[36m│\033[0m  \033[1m1. Title:\033[0m%*s\033[36m│\033[0m\n' "$((inner - 11))" "" > /dev/tty
-  printf '  \033[36m│\033[0m  \033[90m2. Type\033[0m%*s\033[36m│\033[0m\n' "$((inner - 9))" "" > /dev/tty
-  printf '  \033[36m│\033[0m%*s\033[36m│\033[0m\n' "$inner" "" > /dev/tty
-  printf '  \033[36m│\033[0m  \033[90m%s\033[0m%*s\033[36m│\033[0m\n' "$hint" "$hint_pad" "" > /dev/tty
-  printf '  \033[36m╰%s╯\033[0m\n' "$bot_dashes" > /dev/tty
+  printf "  ${_nn_cyan}╭─ New Note %s╮${_nn_reset}\n" "$top_dashes" > /dev/tty
+  printf "  ${_nn_cyan}│${_nn_reset}%*s${_nn_cyan}│${_nn_reset}\n" "$inner" "" > /dev/tty
+  printf "  ${_nn_cyan}│${_nn_reset}  ${_nn_bold}1. Title:${_nn_reset}%*s${_nn_cyan}│${_nn_reset}\n" "$((inner - 11))" "" > /dev/tty
+  printf "  ${_nn_cyan}│${_nn_reset}  ${_nn_dim}2. Type${_nn_reset}%*s${_nn_cyan}│${_nn_reset}\n" "$((inner - 9))" "" > /dev/tty
+  printf "  ${_nn_cyan}│${_nn_reset}%*s${_nn_cyan}│${_nn_reset}\n" "$inner" "" > /dev/tty
+  printf "  ${_nn_cyan}│${_nn_reset}  ${_nn_dim}%s${_nn_reset}%*s${_nn_cyan}│${_nn_reset}\n" "$hint" "$hint_pad" "" > /dev/tty
+  printf "  ${_nn_cyan}╰%s╯${_nn_reset}\n" "$bot_dashes" > /dev/tty
   # Cursor: up 5 to title line, column 16 (after "  │  1. Title: ")
   printf '\033[5A\033[16G' > /dev/tty
   _nn_read_title
@@ -4321,6 +4324,7 @@ else
   fi
 
   bc="${t_colors[$sel]}"
+  [ -n "${NO_COLOR+x}" ] && bc=""
   printf '\n' > /dev/tty
   _nn_draw_step2 "$sel" "$bc" > /dev/tty
   printf '\033[%dA' "$((type_count + 7))" > /dev/tty
@@ -4356,6 +4360,7 @@ else
 
     # Redraw entire box with updated border color
     bc="${t_colors[$sel]}"
+    [ -n "${NO_COLOR+x}" ] && bc=""
     _nn_draw_step2 "$sel" "$bc" > /dev/tty
     printf '\033[%dA' "$((type_count + 7))" > /dev/tty
   done
@@ -4384,15 +4389,15 @@ _nn_now=$(date '+%Y-%m-%dT%H:%M:%S')
 _nn_initial_status=$(cat "$dir/.schema_status_initial" 2>/dev/null)
 
 if [ "$_nn_has_zk" = "true" ]; then
-  _zk_err=$(mktemp) || { printf '\n  \033[31mmktemp failed\033[0m\n\n' > /dev/tty; exit 0; }
+  _zk_err=$(mktemp) || { printf "\n  ${_nn_red}mktemp failed${_nn_reset}\n\n" > /dev/tty; exit 0; }
   new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>"$_zk_err")
   if [ -z "$new_path" ]; then
     _zk_msg=$(cat "$_zk_err")
     rm -f "$_zk_err"
     if [ -n "$_zk_msg" ]; then
-      printf '\n  \033[31m%s\033[0m\n\n' "$_zk_msg" > /dev/tty
+      printf "\n  ${_nn_red}%s${_nn_reset}\n\n" "$_zk_msg" > /dev/tty
     else
-      printf '\n  \033[31mFailed to create note\033[0m\n\n' > /dev/tty
+      printf "\n  ${_nn_red}Failed to create note${_nn_reset}\n\n" > /dev/tty
     fi
     exit 0
   fi
