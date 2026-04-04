@@ -127,7 +127,7 @@ nix-shell --command zsh
 openbsd/launch.sh
 ```
 
-Unlike the other VMs, OpenBSD does not support cloud-init. The first boot runs the interactive installer (~5 minutes). At the `boot>` prompt, type `stty com0` then `boot` to redirect output to the serial console. Accept most defaults, set the root password to `openbsd`, and enable sshd. Before rebooting, run `echo 'stty com0' > /etc/boot.conf` to persist the serial console setting.
+Unlike the other VMs, OpenBSD does not support cloud-init. The first boot runs the interactive installer via VNC (~5 minutes). Connect a VNC client to `localhost:5900` to interact with the installer. Accept most defaults, set the root password to `openbsd`, and enable sshd. After install, type `halt` and re-run `launch.sh` without `--install` – subsequent boots use SSH only.
 
 Subsequent runs boot directly from the installed disk:
 

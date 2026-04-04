@@ -28,8 +28,10 @@ ftp -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/downloa
 chmod +x /usr/local/bin/yq
 
 echo ""
-echo "==> Ensuring serial console on boot..."
-echo "stty com0" > /etc/boot.conf
+echo "==> Enabling serial console for headless boot..."
+echo "stty com0 115200" > /etc/boot.conf
+# Also enable serial getty so the console works after boot
+echo 'tty00   "/usr/libexec/getty std.115200"   vt220   on  secure' >> /etc/ttys
 
 echo ""
 echo "==> Configuring SSH to allow root login with password..."
