@@ -26,6 +26,7 @@
         curl
       ] ++ (if pkgs.stdenv.isLinux then [ pkgs.inotify-tools ]
            else if pkgs.stdenv.isDarwin then [ pkgs.fswatch ]
+           else if pkgs.stdenv.isFreeBSD then [ pkgs.fswatch ]  # kqueue backend
            else throw "unsupported platform for file watcher dependency");
     in
     {
@@ -60,7 +61,7 @@
               description = "TUI faceted browser for markdown notebooks";
               homepage = "https://github.com/jqueiroz/notenav";
               license = licenses.mit;
-              platforms = platforms.linux ++ platforms.darwin;
+              platforms = platforms.linux ++ platforms.darwin ++ platforms.freebsd;
               mainProgram = "nn";
             };
           };
