@@ -3063,13 +3063,21 @@ if [ "$_nn_has_zk" = "true" ]; then
 
   # Show outgoing links
   if [ -s "$tmp_links" ]; then
-    printf '\n\033[1;34m── Links ─────────────────────────\033[0m\n'
+    if [ -n "${NO_COLOR+x}" ]; then
+      printf '\n── Links ─────────────────────────\n'
+    else
+      printf '\n\033[1;34m── Links ─────────────────────────\033[0m\n'
+    fi
     cat "$tmp_links"
   fi
 
   # Show backlinks
   if [ -s "$tmp_back" ]; then
-    printf '\n\033[1;35m── Backlinks ─────────────────────\033[0m\n'
+    if [ -n "${NO_COLOR+x}" ]; then
+      printf '\n── Backlinks ─────────────────────\n'
+    else
+      printf '\n\033[1;35m── Backlinks ─────────────────────\033[0m\n'
+    fi
     cat "$tmp_back"
   fi
 
@@ -5507,7 +5515,9 @@ ENDEDIT
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
       | _nn_adhoc_sort \
       | awk -F'\t' "$_awk_color" > "$nn_tmp"
-    fzf --ansi --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
+    local _nn_adhoc_fzf_ansi=(--ansi)
+    [[ -n "${NO_COLOR+x}" ]] && _nn_adhoc_fzf_ansi=()
+    fzf "${_nn_adhoc_fzf_ansi[@]}" --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
           --preview "$_nn_prev {1}" \
           --prompt "$NN_UI_COMMAND_PROMPT" \
           --bind "start:execute-silent(rm -f $_nn_sflag)" \
