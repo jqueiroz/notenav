@@ -113,6 +113,49 @@ nn doctor
 nn --version
 ```
 
+## OpenBSD
+
+### Quick start
+
+```bash
+cd virtualization
+
+# Enter a Nix shell with QEMU available (skip if QEMU is already installed)
+nix-shell --command zsh
+
+# Boot the OpenBSD installer (downloads ISO on first run, ~600 MB)
+openbsd/launch.sh
+```
+
+Unlike the other VMs, OpenBSD does not support cloud-init. The first boot runs the interactive installer (~5 minutes). At the `boot>` prompt, type `stty com0` then `boot` to redirect output to the serial console. Accept most defaults, set the root password to `openbsd`, and enable sshd. Before rebooting, run `echo 'stty com0' > /etc/boot.conf` to persist the serial console setting.
+
+Subsequent runs boot directly from the installed disk:
+
+```bash
+openbsd/launch.sh
+```
+
+To reinstall from scratch:
+
+```bash
+openbsd/launch.sh --install
+```
+
+### SSH workflow
+
+```bash
+# Provision the VM (installs gawk, fzf, jq, yq, etc.)
+(cd "$(git rev-parse --show-toplevel)" && ssh -p 2225 root@localhost 'sh -s' < virtualization/openbsd/guest/provision.sh)
+
+# Sync notenav into the VM (safe to run from anywhere in the repo)
+virtualization/openbsd/sync.sh
+
+# SSH in and test (provision.sh adds nn to PATH via .profile)
+ssh -p 2225 root@localhost
+nn doctor
+nn --version
+```
+
 ## Configuration
 
 Each `launch.sh` respects these environment variables:
@@ -121,11 +164,11 @@ Each `launch.sh` respects these environment variables:
 |------------|------------------|--------------------------|
 | `RAM`      | `2G`             | VM memory                |
 | `CPUS`     | `2`              | Number of virtual CPUs   |
-| `SSH_PORT` | `2222` / `2223` / `2224` | Host port forwarded to VM SSH |
+| `SSH_PORT` | `2222` / `2223` / `2224` / `2225` | Host port forwarded to VM SSH |
 
 ## Tips
 
 - Quit QEMU: `Ctrl-a x`
 - Re-download the image: `<distro>/launch.sh --fresh`
 - Images are stored in `<distro>/images/` (gitignored)
-- Each distro uses a different SSH port (FreeBSD 2222, Ubuntu 2223, Fedora 2224) so all VMs can run simultaneously
+- Each distro uses a different SSH port (FreeBSD 2222, Ubuntu 2223, Fedora 2224, OpenBSD 2225) so all VMs can run simultaneously
