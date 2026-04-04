@@ -76,3 +76,24 @@ jobs:
             bash "$GITHUB_WORKSPACE/bin/nn" --version
             bash "$GITHUB_WORKSPACE/bin/nn" doctor
             bash "$GITHUB_WORKSPACE/bin/nn" type=task || true
+
+  smoke-test-openbsd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Smoke test on OpenBSD
+        uses: vmactions/openbsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg_add bash gawk fzf jq git ripgrep bat curl
+            # yq-go is not in OpenBSD ports; install from GitHub release
+            curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_openbsd_amd64 -o /usr/local/bin/yq
+            chmod +x /usr/local/bin/yq
+          run: |
+            mkdir -p /tmp/nn-test
+            cd /tmp/nn-test
+            bash "$GITHUB_WORKSPACE/bin/nn" --version
+            bash "$GITHUB_WORKSPACE/bin/nn" doctor
+            bash "$GITHUB_WORKSPACE/bin/nn" type=task || true
