@@ -982,7 +982,7 @@ nn_write_workflow_files() {
 # Uses find + awk to parse YAML frontmatter from each markdown file.
 
 # Portable mtime: emits "absPath\tmtime" for all .md files under $1.
-# GNU find uses -printf; BSD find + stat fallback for macOS.
+# GNU find uses -printf; BusyBox/GNU stat -c for Alpine; BSD stat -f for macOS.
 _nn_find_md_with_mtime() {
   local dir="$1"
   # Prune standard metadata/dependency dirs + any custom dirs from .nnignore
@@ -994,6 +994,9 @@ _nn_find_md_with_mtime() {
   if find "$dir" -maxdepth 0 -printf '' 2>/dev/null; then
     # GNU find – space-separated date to match zk's {{modified}} format
     find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
+  elif stat -c '%n' /dev/null >/dev/null 2>&1; then
+    # BusyBox / GNU stat -c (Alpine, other minimal Linux)
+    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' -type f -exec stat -c '%n	%y' {} +
   else
     # BSD find + stat (macOS)
     find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
@@ -3542,6 +3545,9 @@ else
     if find "$d" -maxdepth 0 -printf '' 2>/dev/null; then
       find "$d" \( "${_prune_args[@]}" \) \
         -prune -o -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
+    elif stat -c '%n' /dev/null >/dev/null 2>&1; then
+      find "$d" \( "${_prune_args[@]}" \) \
+        -prune -o -name '*.md' -type f -exec stat -c '%n	%y' {} +
     else
       find "$d" \( "${_prune_args[@]}" \) \
         -prune -o -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
