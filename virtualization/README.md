@@ -175,6 +175,33 @@ nn doctor
 nn --version
 ```
 
+## NixOS
+
+Unlike the other VMs, this one builds the image from a NixOS configuration (`vm.nix`) using [nixos-generators](https://github.com/nix-community/nixos-generators). All dependencies are declared in `vm.nix` – no provision script needed. Requires Nix on the host.
+
+### Quick start
+
+```bash
+cd virtualization
+
+# Build and boot the NixOS VM (first build takes several minutes)
+nixos/launch.sh
+```
+
+Login: `nixos` / `nixos`. SSH is enabled by default.
+
+### SSH workflow
+
+```bash
+# Sync notenav into the VM (safe to run from anywhere in the repo)
+virtualization/nixos/sync.sh
+
+# SSH in and test (vm.nix adds ~/notenav/bin to PATH)
+ssh -p 2227 nixos@localhost
+nn doctor
+nn --version
+```
+
 ## Configuration
 
 Each `launch.sh` respects these environment variables:
@@ -183,11 +210,11 @@ Each `launch.sh` respects these environment variables:
 |------------|------------------|--------------------------|
 | `RAM`      | `2G`             | VM memory                |
 | `CPUS`     | `2`              | Number of virtual CPUs   |
-| `SSH_PORT` | `2222` / `2223` / `2224` / `2225` / `2226` | Host port forwarded to VM SSH |
+| `SSH_PORT` | `2222` / `2223` / `2224` / `2225` / `2226` / `2227` | Host port forwarded to VM SSH |
 
 ## Tips
 
 - Quit QEMU: `Ctrl-a x`
 - Re-download the image: `<distro>/launch.sh --fresh`
 - Images are stored in `<distro>/images/` (gitignored)
-- Each distro uses a different SSH port (FreeBSD 2222, Ubuntu 2223, Fedora 2224, Alpine 2225, Arch 2226) so all VMs can run simultaneously
+- Each distro uses a different SSH port (FreeBSD 2222, Ubuntu 2223, Fedora 2224, Alpine 2225, Arch 2226, NixOS 2227) so all VMs can run simultaneously
