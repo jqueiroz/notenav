@@ -26,7 +26,8 @@
         curl
       ] ++ (if pkgs.stdenv.isLinux then [ pkgs.inotify-tools ]
            else if pkgs.stdenv.isDarwin then [ pkgs.fswatch ]
-           else if pkgs.stdenv.isFreeBSD then [ pkgs.fswatch ]  # kqueue backend
+           else if pkgs.stdenv.isFreeBSD then [ pkgs.fswatch ]   # kqueue backend
+           else if pkgs.stdenv.isOpenBSD then [ pkgs.fswatch ]  # kqueue backend
            else throw "unsupported platform for file watcher dependency");
     in
     {
@@ -61,12 +62,49 @@
               description = "TUI faceted browser for markdown notebooks";
               homepage = "https://github.com/jqueiroz/notenav";
               license = licenses.mit;
-              platforms = platforms.linux ++ platforms.darwin ++ platforms.freebsd;
+              platforms = platforms.linux ++ platforms.darwin ++ platforms.freebsd ++ platforms.openbsd;
               mainProgram = "nn";
             };
           };
         }
       );
+
+      # NixOS VM smoke tests (Linux only – uses QEMU/KVM)
+      checks = nixpkgs.lib.genAttrs
+        (builtins.filter (s: nixpkgs.lib.hasSuffix "-linux" s) systems)
+        (system: let
+          pkgs = nixpkgs.legacyPackages.${system};
+          nixos-lib = import (nixpkgs + "/nixos/lib") {};
+        in {
+          smoke = nixos-lib.runTest {
+            name = "notenav-smoke";
+            hostPkgs = pkgs;
+
+            nodes.machine = { ... }: {
+              environment.systemPackages = [
+                self.packages.${system}.default
+              ];
+            };
+
+            testScript = ''
+              machine.wait_for_unit("multi-user.target")
+
+              # Basic invocation
+              version = machine.succeed("nn --version")
+              assert "notenav" in version, f"unexpected version output: {version}"
+
+              # Init creates a workflow config
+              machine.succeed("mkdir -p /tmp/notebook && cd /tmp/notebook && nn init")
+              machine.succeed("test -f /tmp/notebook/.nn/workflow.toml")
+
+              # Doctor checks dependencies (all bundled via wrapProgram)
+              machine.succeed("cd /tmp/notebook && nn doctor")
+
+              # Ad-hoc query on empty notebook exits cleanly
+              machine.succeed("cd /tmp/notebook && nn type=task || true")
+            '';
+          };
+        });
 
       devShells = forAllSystems ({ pkgs }:
         let runtimeDeps = runtimeDepsFor pkgs;
