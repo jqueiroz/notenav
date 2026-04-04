@@ -4865,8 +4865,12 @@ if [ -s "$dir/.f_tags" ]; then
 fi
 # Header line 2+: numbered query presets with count badges, wrapped to terminal width
 active_sq=$(cat "$dir/.f_sq" 2>/dev/null)
-cols=$(tput cols 2>/dev/null || echo 80)
-rows=$(tput lines 2>/dev/null || echo 40)
+if _termsize=$(stty size < /dev/tty 2>/dev/null) && [ -n "$_termsize" ]; then
+  rows=${_termsize%% *}; cols=${_termsize##* }
+else
+  cols=$(tput cols 2>/dev/null || echo 80)
+  rows=$(tput lines 2>/dev/null || echo 40)
+fi
 _header_mode=$(cat "$dir/.schema_header_mode" 2>/dev/null)
 if [ "$_header_mode" = "auto" ]; then
   if [ "$rows" -lt 35 ]; then _header_mode="compact"; else _header_mode="full"; fi
