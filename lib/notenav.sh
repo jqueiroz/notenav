@@ -2983,6 +2983,7 @@ _nn_init_user() {
   if [[ -n "$workflow_arg" ]]; then
     local _tmp
     _tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
+    trap 'rm -f "$_tmp"' INT TERM
     # shellcheck disable=SC2015  # intentional: || cleanup handles both awk and mv failure
     wf="$workflow_arg" awk \
       '/^# default_workflow = / { print "default_workflow = \"" ENVIRON["wf"] "\""; next } { print }' \
@@ -3084,6 +3085,7 @@ _nn_fetch_remote() {
   local tmpfile
   tmpfile=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
   _nn_fetch_cleanup() { rm -f "$tmpfile" "${_cache_tmp:-}"; }
+  trap _nn_fetch_cleanup INT TERM
   if ! curl -fsSL --connect-timeout 10 --max-time 30 --max-filesize 1048576 "$url" -o "$tmpfile"; then
     echo "notenav: failed to download $url" >&2
     _nn_fetch_cleanup; return 1
@@ -3981,6 +3983,7 @@ for file in "$@"; do
     continue
   fi
   # Update field within YAML frontmatter (between first --- and second ---)
+  _ftmp=$(mktemp "$file.XXXXXX") || continue
   field="$field" value="$value" awk '
     BEGIN { field=ENVIRON["field"]; value=ENVIRON["value"] }
     NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
@@ -3990,7 +3993,7 @@ for file in "$@"; do
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":( |$)" { print field ": " value; found=1; skip_cont=1; next }
     { print }
-  ' "$file" > "$file.tmp" && mv "$file.tmp" "$file" && count=$((count + 1)) && [ -z "$first_ok" ] && first_ok="$file"
+  ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" && count=$((count + 1)) && [ -z "$first_ok" ] && first_ok="$file" || rm -f "$_ftmp"
 done
 # Pin acted-on files so they stay visible after filter (accumulative + dedup)
 { cat "$dir/.pinned" 2>/dev/null; [ $# -gt 0 ] && printf '%s\n' "$@"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
@@ -4163,6 +4166,7 @@ fi
 if [ "$has_priority" = 1 ] && [ -n "$set_priority" ]; then
   grep -qxF "$set_priority" "$_beu_dir/.schema_priority_values" || { echo "notenav: refusing to write invalid priority: $set_priority" >&2; exit 1; }
 fi
+_ftmp=$(mktemp "$file.XXXXXX") || exit 1
 set_type="$set_type" set_status="$set_status" \
     set_priority="$set_priority" set_tags="$set_tags" \
     awk -v has_type="$has_type" -v has_status="$has_status" \
@@ -4197,7 +4201,7 @@ set_type="$set_type" set_status="$set_status" \
     else { found_tags=1 }
   }
   { print }
-' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+' "$file" > "$_ftmp" && mv "$_ftmp" "$file" || rm -f "$_ftmp"
 ENDBEU
     chmod +x "$_nn_dir/bulkedit_update.sh"
 
