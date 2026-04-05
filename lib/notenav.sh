@@ -3233,7 +3233,13 @@ EOF
     # gawk capability probe – mktime/strtonum/3-arg match are required
     if ! "$_NN_GAWK" 'BEGIN { mktime("2020 1 1 0 0 0"); strtonum("0x1") }' /dev/null 2>/dev/null; then
       echo "notenav: gawk (GNU awk) is required but the current awk lacks mktime/strtonum" >&2
-      echo "notenav: install gawk: https://www.gnu.org/software/gawk/" >&2
+      if [[ -f /etc/debian_version ]]; then
+        echo "  Install via: sudo apt install gawk" >&2
+      elif command -v brew >/dev/null 2>&1; then
+        echo "  Install via: brew install gawk" >&2
+      else
+        echo "  Install gawk: https://www.gnu.org/software/gawk/" >&2
+      fi
       return 1
     fi
 
