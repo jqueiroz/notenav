@@ -4158,10 +4158,10 @@ label="notes"; [ "$notecount" -eq 1 ] && label="note"
   printf '<!-- notenav – bulk edit (%d %s) -->\n' "$notecount" "$label"
   printf '<!-- Edit type, status, priority, tags. Save and quit to apply. -->\n'
   printf '<!-- DO NOT change the path or title columns. -->\n'
-  printf '<!-- type: %s -->\n' "$(awk '{printf "%s%s", (NR>1 ? ", " : ""), $0}' "$dir/.schema_type_values")"
-  printf '<!-- status: %s (or empty) -->\n' "$(awk '{printf "%s%s", (NR>1 ? ", " : ""), $0}' "$dir/.schema_status_values")"
+  printf '<!-- type: %s -->\n' "$(awk 'NR>1{printf ", "}{printf "%s", $0}' "$dir/.schema_type_values")"
+  printf '<!-- status: %s (or empty) -->\n' "$(awk 'NR>1{printf ", "}{printf "%s", $0}' "$dir/.schema_status_values")"
   if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
-    printf '<!-- priority: %s (or empty) -->\n' "$(awk '{printf "%s%s", (NR>1 ? ", " : ""), $0}' "$dir/.schema_priority_values")"
+    printf '<!-- priority: %s (or empty) -->\n' "$(awk 'NR>1{printf ", "}{printf "%s", $0}' "$dir/.schema_priority_values")"
   fi
   printf '<!-- tags: space-separated -->\n'
   printf '<!-- vim: set nowrap tw=0 : -->\n'
