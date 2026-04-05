@@ -900,6 +900,9 @@ nn_write_workflow_files() {
   nn_cfg '.meta.name // empty' > "$dir/.schema_workflow_name"
   printf '%s\n' "${NN_TYPE_VALUES[@]}" > "$dir/.schema_type_values"
   printf '%s\n' "${NN_STATUS_VALUES[@]}" > "$dir/.schema_status_values"
+  for _v in "${NN_STATUS_VALUES[@]}"; do
+    printf '%s\t%s\n' "$_v" "${NN_STATUS_DESCS[$_v]}"
+  done > "$dir/.schema_status_descs"
   printf '%s' "$NN_STATUS_INITIAL" > "$dir/.schema_status_initial"
   if [[ ${#NN_PRIORITY_VALUES[@]} -gt 0 ]]; then
     printf '%s\n' "${NN_PRIORITY_VALUES[@]}" > "$dir/.schema_priority_values"
@@ -3975,7 +3978,20 @@ if [ $# -gt 0 ] && [ -f "$1" ]; then
   fi
 fi
 case "$field" in
-  status)   vals=$(paste -sd'\n' "$dir/.schema_status_values") ;;
+  status)
+    vals=""
+    while IFS=$'\t' read -r v desc || [ -n "$v" ]; do
+      [ -n "$vals" ] && vals="$vals\n"
+      if [ -n "${NO_COLOR+x}" ]; then
+        if [ -n "$desc" ]; then vals="$vals$v  – $desc"; else vals="$vals$v"; fi
+      else
+        if [ -n "$desc" ]; then
+          vals="$vals$(printf '%s  \033[90m– %s\033[0m' "$v" "$desc")"
+        else
+          vals="$vals$v"
+        fi
+      fi
+    done < "$dir/.schema_status_descs" ;;
   priority)
     [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 1
     vals=$(paste -sd'\n' "$dir/.schema_priority_values") ;;
@@ -3984,9 +4000,13 @@ case "$field" in
     while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
       [ -n "$vals" ] && vals="$vals\n"
       if [ -n "${NO_COLOR+x}" ]; then
-        vals="$vals$ic $v"
+        if [ -n "$desc" ]; then vals="$vals$ic $v  – $desc"; else vals="$vals$ic $v"; fi
       else
-        vals="$vals$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
+        if [ -n "$desc" ]; then
+          vals="$vals$(printf '\033[%sm%s %s\033[0m  \033[90m– %s\033[0m' "$clr" "$ic" "$v" "$desc")"
+        else
+          vals="$vals$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
+        fi
       fi
     done < "$dir/.schema_types" ;;
   *) nn_assert "set_field: unknown field '$field'" ;;
@@ -4003,8 +4023,9 @@ selected=$(printf '%b' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $
   "${pos_bind[@]}" \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
 [ -z "$selected" ] && exit 1
-# Strip icon prefix (e.g. "◆ task" → "task"); use last word in case icon is empty
-selected=$(echo "$selected" | awk '{print $NF}')
+# Strip description suffix (e.g. "active  – Currently being worked on" → "active")
+# then strip icon prefix (e.g. "◆ task" → "task"); use last word in case icon is empty
+selected=$(echo "$selected" | sed 's/  – .*//' | awk '{print $NF}')
 printf '%s\n' "$field" > "$dir/.fp_field"
 printf '%s\n' "$selected" > "$dir/.fp_value"
 ENDFP
