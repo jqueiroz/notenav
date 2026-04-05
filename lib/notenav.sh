@@ -5097,7 +5097,7 @@ if [ "$_header_mode" = "compact" ]; then
   _cgroup_v="none"; [ -n "$fgroup" ] && _cgroup_v="$fgroup"
   _carchive_v="off"; [ -n "$farchive" ] && _carchive_v="on"
   _cwrap_v="off"; [ -n "$fwrap" ] && _cwrap_v="on"
-  cdisplay_lbl=$(printf '\033[1;90m Display:\033[0m order:\033[1m%s\033[0m%s  group:\033[1m%s\033[0m  archive:\033[1m%s\033[0m  wrap:\033[1m%s\033[0m' "$sort_hint" "$_csort_arrow" "$_cgroup_v" "$_carchive_v" "$_cwrap_v")
+  cdisplay_lbl=$(printf ' \033[36m[z]\033[0m\033[1;90m Display:\033[0m order:\033[1m%s\033[0m%s  group:\033[1m%s\033[0m  archive:\033[1m%s\033[0m  wrap:\033[1m%s\033[0m' "$sort_hint" "$_csort_arrow" "$_cgroup_v" "$_carchive_v" "$_cwrap_v")
   # Compact: actions + change + marks on one line
   _cmcount_s=""
   if [ "$mark_count" -gt 0 ] && [ -n "$fmarked" ]; then
