@@ -3756,8 +3756,18 @@ selected=$(echo "$ordered" | fzf --multi --reverse --prompt 'tags: ' \
   "${_fzf_ansi[@]}" --header "$_hdr" \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,space:toggle' ${start_bind:+--bind "$start_bind"})
 if [ $? -eq 0 ]; then
-  if [ -n "$selected" ]; then printf '%s\n' "$selected" > "$dir/.f_tags"
-  else : > "$dir/.f_tags"; fi
+  if [ -n "$selected" ]; then
+    printf '%s\n' "$selected" > "$dir/.f_tags"
+    _tc=$(printf '%s\n' "$selected" | wc -l)
+    if [ "$_tc" -eq 1 ]; then
+      printf 'tags: %s' "$selected" > "$dir/.last_action"
+    else
+      printf 'tags: %d selected' "$_tc" > "$dir/.last_action"
+    fi
+  else
+    : > "$dir/.f_tags"
+    printf 'tags: all' > "$dir/.last_action"
+  fi
 fi
 ENDTAGS
     chmod +x "$_nn_dir/tags.sh"
@@ -3817,9 +3827,12 @@ if [ -n "$query" ]; then
       grep -Frl --include='*.md' "$query" "$scope_path" 2>/dev/null > "$dir/.f_match_paths"
     fi
   fi
+  _cq="$query"; [ ${#_cq} -gt 20 ] && _cq="${_cq:0:17}..."
+  printf 'content: "%s"' "$_cq" > "$dir/.last_action"
 else
   : > "$dir/.f_match"
   : > "$dir/.f_match_paths"
+  printf 'content: cleared' > "$dir/.last_action"
 fi
 ENDCSPERSIST
     chmod +x "$_nn_dir/csearch_persist.sh"
@@ -5154,9 +5167,39 @@ case "$action" in
   mark-clear) : > "$dir/.marked" ;;
   mark-filter)
     if [ -n "$fmarked" ]; then fmarked=""; else fmarked="on"; fi ;;
-  refresh) ;;  # just re-apply filters (after tag picker)
+  refresh) ;;  # just re-apply filters (after tag picker / action scripts)
   *) nn_assert "filter: unknown action '$action'" ;;
 esac
+# Update status line for user-initiated filter/display changes (not refresh –
+# action scripts set their own .last_action before calling filter.sh refresh)
+if [ "$action" != "refresh" ]; then
+  _la=""
+  case "$action" in
+    type)           if [ -n "$ft" ]; then _la="type: $ft"; else _la="type: all"; fi ;;
+    status)         if [ -n "$fs" ]; then _la="status: $fs"; else _la="status: all"; fi ;;
+    priority)       if [ -n "$fp" ]; then _la="priority: $fp"; else _la="priority: all"; fi ;;
+    clear-type)     _la="type: all" ;;
+    clear-status)   _la="status: all" ;;
+    clear-priority) _la="priority: all" ;;
+    sort)           _la="sort: $fsort" ;;
+    sort-reverse)   if [ -n "$fsort_rev" ]; then _la="sort: reversed"; else _la="sort: default direction"; fi ;;
+    group)          if [ -n "$fgroup" ]; then _la="group: $fgroup"; else _la="group: none"; fi ;;
+    archive)        if [ -n "$farchive" ]; then _la="archive: showing"; else _la="archive: hidden"; fi ;;
+    clear-preset)   _la="preset: all" ;;
+    reset)          _la="reset" ;;
+    next|prev|sq*|pick)
+      _sq=$(cat "$dir/.f_sq" 2>/dev/null)
+      if [ -n "$_sq" ]; then _la="preset: $_sq"; else _la="preset: all"; fi ;;
+    clear-sort)     _la="sort: default" ;;
+    clear-group)    _la="group: none" ;;
+    clear-tags)     _la="tags: all" ;;
+    clear-pins)     _la="pins cleared" ;;
+    restore-pins)   _la="pins restored" ;;
+    mark-toggle|mark-add|mark-remove|mark-clear|mark-filter) ;;  # marks are visible via badge; no status line
+    *) ;;
+  esac
+  [ -n "$_la" ] && printf '%s' "$_la" > "$dir/.last_action"
+fi
 printf '%s\n' "$ft" > "$dir/.f_type"; printf '%s\n' "$fs" > "$dir/.f_status"
 printf '%s\n' "$fp" > "$dir/.f_priority"
 printf '%s\n' "$fsort" > "$dir/.f_sort"; printf '%s\n' "$fsort_rev" > "$dir/.f_sort_rev"; printf '%s\n' "$fgroup" > "$dir/.f_group"
