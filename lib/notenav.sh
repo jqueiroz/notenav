@@ -101,7 +101,7 @@ _nn_easteregg_decode() {
 # is already gawk via wrapper; on Debian/Ubuntu, `awk` may be mawk while
 # `gawk` is installed separately. Resolve once and reuse.
 _nn_resolve_gawk() {
-  if awk --version < /dev/null 2>/dev/null | head -1 | grep -qiE 'GNU|gawk'; then
+  if awk --version < /dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk'; then
     printf 'awk'
   elif command -v gawk >/dev/null 2>&1; then
     printf 'gawk'
@@ -310,6 +310,10 @@ nn_load_config() {
       fi
       workflow_json=$(printf '%s\n%s' "$_base_json" "$workflow_json" \
         | jq -s '.[0] * .[1] | del(.extends)' 2>/dev/null)
+      if [[ -z "$workflow_json" || "$workflow_json" == "null" ]]; then
+        echo "notenav: config merge failed at extends depth $_depth" >&2
+        return 1
+      fi
       _extends=$(printf '%s' "$_base_json" | jq -r '.extends // empty' 2>/dev/null)
       (( _depth++ ))
     done
@@ -1165,10 +1169,10 @@ _nn_list_notes_native() {
     type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
     in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
     while ((getline line < file) > 0) {
-      if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
+      if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; NR_FILE++; continue }
       NR_FILE++
       if (in_fm) {
-        if (line == "---") { in_fm = 0; continue }
+        if (line ~ /^---[[:space:]]*$/) { in_fm = 0; continue }
         # Safety limit: treat unclosed frontmatter as missing after 200 lines
         fm_lines++
         if (fm_lines > 200) { in_fm = 0; continue }
@@ -1311,14 +1315,14 @@ nn_doctor() {
   # fzf
   if command -v fzf >/dev/null 2>&1; then
     local fzf_ver
-    fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    fzf_ver=$(fzf --version 2>/dev/null | head -n 1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
     if [[ -n "$fzf_ver" ]] && _nn_ver_cmp "$fzf_ver" "0.58"; then
       _pass "fzf $fzf_ver"
     else
       _fail "fzf ${fzf_ver:-unknown} (requires 0.58+)"
       if [[ -f /etc/debian_version ]]; then
         echo "        Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
-        echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
+        echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)' >&2
         echo '        curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
       fi
     fi
@@ -1326,7 +1330,7 @@ nn_doctor() {
     _fail "fzf not found"
     if [[ -f /etc/debian_version ]]; then
       echo "        Debian/Ubuntu's apt package is outdated. Install from GitHub instead:"
-      echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)'
+      echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)'
       echo '        curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin'
     elif [[ -f /etc/fedora-release ]]; then
       echo "        Install via: sudo dnf install fzf"
@@ -1349,7 +1353,7 @@ nn_doctor() {
   local _has_zk=false
   if command -v zk >/dev/null 2>&1; then
     local zk_ver
-    zk_ver=$(zk --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    zk_ver=$(zk --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
     _pass "zk ${zk_ver:-installed}"
     _has_zk=true
   else
@@ -1360,7 +1364,7 @@ nn_doctor() {
   local _has_yq=false
   if command -v yq >/dev/null 2>&1; then
     local yq_ver
-    yq_ver=$(yq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    yq_ver=$(yq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
     # Check if it's yq-go (not yq-python)
     if yq -p=toml -o=json '.' /dev/null >/dev/null 2>&1 || yq --version 2>&1 | grep -qi 'mikefarah\|https://github.com/mikefarah'; then
       _pass "yq ${yq_ver:-installed} (yq-go)"
@@ -1384,7 +1388,7 @@ nn_doctor() {
   local _has_jq=false
   if command -v jq >/dev/null 2>&1; then
     local jq_ver
-    jq_ver=$(jq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    jq_ver=$(jq --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
     _pass "jq ${jq_ver:-installed}"
     _has_jq=true
   else
@@ -1411,14 +1415,14 @@ nn_doctor() {
   # awk (gawk required – notenav uses mktime() and strtonum())
   if command -v awk >/dev/null 2>&1; then
     local awk_variant
-    awk_variant=$(awk --version < /dev/null 2>/dev/null | head -1 || true)
+    awk_variant=$(awk --version < /dev/null 2>/dev/null | head -n 1 || true)
     if [[ "$awk_variant" == *GNU* || "$awk_variant" == *gawk* ]]; then
       _pass "awk (gawk)"
     elif command -v gawk >/dev/null 2>&1; then
       _pass "gawk (awk is not gawk, but gawk is installed separately)"
     else
       local awk_name
-      awk_name=$(awk -W version < /dev/null 2>&1 | head -1 || true)
+      awk_name=$(awk -W version < /dev/null 2>&1 | head -n 1 || true)
       if [[ "$awk_name" == *mawk* ]]; then
         _fail "awk: gawk required (found mawk)"
       else
@@ -1494,7 +1498,7 @@ nn_doctor() {
   # ripgrep (optional – faster content search when zk is not installed/configured)
   if command -v rg >/dev/null 2>&1; then
     local rg_ver
-    rg_ver=$(rg --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    rg_ver=$(rg --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
     _pass "rg ${rg_ver:-installed}"
   elif [[ "$_has_zk" != "true" ]]; then
     _info "rg not found ${_dim}(optional – faster content search without zk)${_reset}"
@@ -1646,6 +1650,9 @@ nn_doctor() {
     fi
 
     # Unrecognized top-level keys (scoped: extends is workflow-only, default_workflow is user-only)
+    if [[ -z "$_known_keys_user" ]]; then
+      _warn "Could not read base.toml – skipping config key validation"
+    fi
     local _cfg_file _cfg_known
     for _cfg_file in "$user_cfg" "$project_wf_file"; do
       [[ -z "$_cfg_file" || ! -f "$_cfg_file" ]] && continue
@@ -1654,6 +1661,7 @@ nn_doctor() {
       else
         _cfg_known="$_known_keys_workflow"
       fi
+      [[ -z "$_cfg_known" ]] && continue
       local _unknown=""
       while IFS= read -r _key; do
         [[ -z "$_key" ]] && continue
@@ -1678,7 +1686,7 @@ nn_doctor() {
       _pass "Config merge OK"
     else
       local _merge_first
-      _merge_first=$(head -1 "$_merge_tmpf")
+      _merge_first=$(head -n 1 "$_merge_tmpf")
       _fail "Config merge failed: ${_merge_first:-unknown error}"
       local _merge_rest
       _merge_rest=$(tail -n +2 "$_merge_tmpf")
@@ -2221,6 +2229,7 @@ nn_doctor() {
       _warn "defaults.wrap_preview '$_def_wrap' invalid (must be true or false)"
     fi
     # Check for unrecognized keys in [defaults]
+    if [[ -n "$_known_defaults" ]]; then
     local _dk
     while IFS= read -r _dk; do
       [[ -z "$_dk" ]] && continue
@@ -2229,6 +2238,7 @@ nn_doctor() {
         _warn "defaults: unrecognized key '$_dk'"
       fi
     done < <(nn_cfg '.defaults // {} | keys[]' 2>/dev/null)
+    fi
 
     # UI validation
     local _ui_hdr
@@ -2339,13 +2349,13 @@ nn_doctor() {
         bat)
           if command -v bat >/dev/null 2>&1; then
             local _bat_ver
-            _bat_ver=$(bat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            _bat_ver=$(bat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
             _pass "bat ${_bat_ver:-installed}"
             _prev_any_found=true
             [[ -z "$_prev_active" ]] && _prev_active="bat"
           elif command -v batcat >/dev/null 2>&1; then
             local _batcat_ver
-            _batcat_ver=$(batcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            _batcat_ver=$(batcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
             _pass "bat ${_batcat_ver:-installed} (as batcat)"
             _prev_any_found=true
             [[ -z "$_prev_active" ]] && _prev_active="bat (batcat)"
@@ -2355,7 +2365,7 @@ nn_doctor() {
         glow)
           if command -v glow >/dev/null 2>&1; then
             local _glow_ver
-            _glow_ver=$(glow --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            _glow_ver=$(glow --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
             _pass "glow ${_glow_ver:-installed}"
             _prev_any_found=true
             [[ -z "$_prev_active" ]] && _prev_active="glow"
@@ -2365,7 +2375,7 @@ nn_doctor() {
         mdcat)
           if command -v mdcat >/dev/null 2>&1; then
             local _mdcat_ver
-            _mdcat_ver=$(mdcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            _mdcat_ver=$(mdcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
             _pass "mdcat ${_mdcat_ver:-installed}"
             _prev_any_found=true
             [[ -z "$_prev_active" ]] && _prev_active="mdcat"
@@ -2398,6 +2408,7 @@ nn_doctor() {
       _warn "no configured previewer found (preview will show plain text; install bat, glow, or mdcat for rich preview)"
     fi
     # Check for unrecognized keys in [ui]
+    if [[ -n "$_known_ui" ]]; then
     local _uk
     while IFS= read -r _uk; do
       [[ -z "$_uk" ]] && continue
@@ -2406,8 +2417,10 @@ nn_doctor() {
         _warn "ui: unrecognized key '$_uk'"
       fi
     done < <(nn_cfg '.ui // {} | keys[]' 2>/dev/null)
+    fi
 
     # Validate ui.previewer_flags sub-keys
+    if [[ -n "$_known_pf" ]]; then
     local _pfk _pfv
     while IFS= read -r _pfk; do
       [[ -z "$_pfk" ]] && continue
@@ -2416,6 +2429,7 @@ nn_doctor() {
         _warn "ui.previewer_flags: unrecognized key '$_pfk' (expected: bat, glow, mdcat)"
       fi
     done < <(nn_cfg '.ui.previewer_flags // {} | keys[]' 2>/dev/null)
+    fi
     for _pfk in bat glow mdcat; do
       _pfv=$(nn_cfg ".ui.previewer_flags.$_pfk // null | type" 2>/dev/null)
       if [[ "$_pfv" != "null" && "$_pfv" != "string" ]]; then
@@ -2454,6 +2468,7 @@ nn_doctor() {
       fi
     fi
     # Check for unrecognized keys in [refresh]
+    if [[ -n "$_known_refresh" ]]; then
     local _rfk
     while IFS= read -r _rfk; do
       [[ -z "$_rfk" ]] && continue
@@ -2462,6 +2477,7 @@ nn_doctor() {
         _warn "refresh: unrecognized key '$_rfk'"
       fi
     done < <(nn_cfg '.refresh // {} | keys[]' 2>/dev/null)
+    fi
 
     # Query preset validation (warnings only)
     local _qp_count=0 _qp_warns=""
@@ -2502,6 +2518,10 @@ nn_doctor() {
       read -ra _qp_arr <<< "$_qargs"
       local _arg
       for _arg in "${_qp_arr[@]}"; do
+        if [[ "$_arg" != *=* ]]; then
+          _qp_warns+="$_qname: malformed arg '$_arg' (expected key=value); "
+          continue
+        fi
         local _key="${_arg%%=*}" _val="${_arg#*=}"
         case "$_key" in
           type)
@@ -2623,10 +2643,10 @@ nn_doctor() {
       {
         file = $0; type = ""; status = ""; priority = ""; in_fm = 0; fm_lines = 0
         while ((getline line < file) > 0) {
-          if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
+          if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; NR_FILE++; continue }
           NR_FILE++
           if (in_fm) {
-            if (line == "---") break
+            if (line ~ /^---[[:space:]]*$/) break
             if (++fm_lines > 200) break
             if (match(line, /^type:[ \t]*(.*)$/, m)) {
               val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
@@ -3109,7 +3129,7 @@ _nn_fetch_remote() {
     cat "$tmpfile"
   } > "$_cache_tmp" && mv "$_cache_tmp" "$cache_path" || { rm -f "$_cache_tmp"; _nn_fetch_cleanup; return 1; }
   _nn_fetch_cleanup
-
+  unset -f _nn_fetch_cleanup
 }
 
 # Write the shared preview script to a given path.
@@ -3121,9 +3141,10 @@ _nn_write_preview() {
   # shellcheck disable=SC2129  # individual redirects are clearer for this dynamic preamble
   printf '_nn_previewer=%q\n' "$NN_UI_PREVIEWER" >> "$target"
   printf '_nn_previewer_custom=%q\n' "$NN_UI_PREVIEWER_CUSTOM" >> "$target"
-  printf '_nn_previewer_flags_bat=%q\n' "$NN_UI_PREVIEWER_FLAGS_BAT" >> "$target"
-  printf '_nn_previewer_flags_glow=%q\n' "$NN_UI_PREVIEWER_FLAGS_GLOW" >> "$target"
-  printf '_nn_previewer_flags_mdcat=%q\n' "$NN_UI_PREVIEWER_FLAGS_MDCAT" >> "$target"
+  # Write flags as arrays so values containing spaces are preserved
+  printf '_nn_previewer_flags_bat=(%s)\n' "$(printf '%q ' $NN_UI_PREVIEWER_FLAGS_BAT)" >> "$target"
+  printf '_nn_previewer_flags_glow=(%s)\n' "$(printf '%q ' $NN_UI_PREVIEWER_FLAGS_GLOW)" >> "$target"
+  printf '_nn_previewer_flags_mdcat=(%s)\n' "$(printf '%q ' $NN_UI_PREVIEWER_FLAGS_MDCAT)" >> "$target"
   printf '_nn_has_zk=%q\n' "${_NN_HAS_ZK:-false}" >> "$target"
   cat >> "$target" << 'ENDPREVIEW'
 dir="$(dirname "$0")"
@@ -3144,7 +3165,7 @@ _nn_show_centered() {
   hpad=0
   [ "$box_width" -gt 0 ] 2>/dev/null && hpad=$(( (cols - box_width) / 2 ))
   if [ "$vpad" -gt 0 ]; then
-    printf '%0.s\n' $(seq 1 "$vpad")
+    local _i; for ((_i = 0; _i < vpad; _i++)); do printf '\n'; done
   fi
   if [ "$hpad" -gt 0 ]; then
     sed "s/^/$(printf '%*s' "$hpad" '')/" "$f"
@@ -3210,8 +3231,7 @@ for _p in ${_nn_previewer:-bat glow mdcat}; do
       if [ -n "$_bat" ]; then
         _bat_color=always
         [ -n "${NO_COLOR+x}" ] && _bat_color=never
-        # shellcheck disable=SC2086
-        "$_bat" -p --color "$_bat_color" $_nn_previewer_flags_bat "$file" 2>/dev/null || cat "$file"
+        "$_bat" -p --color "$_bat_color" "${_nn_previewer_flags_bat[@]}" "$file" 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
@@ -3219,8 +3239,7 @@ for _p in ${_nn_previewer:-bat glow mdcat}; do
       if command -v glow >/dev/null 2>&1; then
         _glow_env=()
         [ -z "${NO_COLOR+x}" ] && _glow_env=(CLICOLOR_FORCE=1)
-        # shellcheck disable=SC2086
-        env "${_glow_env[@]}" glow -w "${FZF_PREVIEW_COLUMNS:-0}" $_nn_previewer_flags_glow "$file" < /dev/null 2>/dev/null || cat "$file"
+        env "${_glow_env[@]}" glow -w "${FZF_PREVIEW_COLUMNS:-0}" "${_nn_previewer_flags_glow[@]}" "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
@@ -3228,8 +3247,7 @@ for _p in ${_nn_previewer:-bat glow mdcat}; do
       if command -v mdcat >/dev/null 2>&1; then
         _mdcat_env=()
         [ -z "${NO_COLOR+x}" ] && _mdcat_env=(CLICOLOR_FORCE=1)
-        # shellcheck disable=SC2086
-        env "${_mdcat_env[@]}" mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" $_nn_previewer_flags_mdcat "$file" < /dev/null 2>/dev/null || cat "$file"
+        env "${_mdcat_env[@]}" mdcat --columns "${FZF_PREVIEW_COLUMNS:-80}" "${_nn_previewer_flags_mdcat[@]}" "$file" < /dev/null 2>/dev/null || cat "$file"
         _rendered=true; break
       fi
       ;;
@@ -3379,7 +3397,7 @@ EOF
       echo "notenav: fzf is required but not found" >&2
       if [[ -f /etc/debian_version ]]; then
         echo "  Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
-        echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
+        echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)' >&2
         echo '  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
       elif [[ -f /etc/fedora-release ]]; then
         echo "  Install via: sudo dnf install fzf" >&2
@@ -3400,12 +3418,12 @@ EOF
       return 1
     fi
     local _nn_fzf_ver
-    _nn_fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    _nn_fzf_ver=$(fzf --version 2>/dev/null | head -n 1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
     if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.58"; then
       echo "notenav: fzf 0.58+ required (found $_nn_fzf_ver)" >&2
       if [[ -f /etc/debian_version ]]; then
         echo "  Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
-        echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
+        echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)' >&2
         echo '  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
       else
         echo "  Install/upgrade from https://github.com/junegunn/fzf" >&2
@@ -3591,10 +3609,10 @@ EOF
   type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
   in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
   while ((getline line < file) > 0) {
-    if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
+    if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; NR_FILE++; continue }
     NR_FILE++
     if (in_fm) {
-      if (line == "---") { in_fm = 0; continue }
+      if (line ~ /^---[[:space:]]*$/) { in_fm = 0; continue }
       fm_lines++
       if (fm_lines > 200) { in_fm = 0; continue }
       if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
@@ -3852,7 +3870,7 @@ if [ "$has_zk" = "true" ]; then
     && mv "$dir/.raw.tmp" "$dir/.raw"; then
     rm -f "$_zk_err"
   else
-    _zk_msg=$(head -1 "$_zk_err" 2>/dev/null)
+    _zk_msg=$(head -n 1 "$_zk_err" 2>/dev/null)
     rm -f "$_zk_err" "$dir/.raw.tmp"
     printf 'zk error%s – press r to retry' "${_zk_msg:+ ($_zk_msg)}" > "$dir/.last_action"
   fi
@@ -3965,6 +3983,7 @@ ENDWATCHER
 #!/usr/bin/env bash
 # Usage: action.sh <dir> <field> <value> <file1> [file2 ...]
 dir="$1"; field="$2"; value="$3"; shift 3
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 # Validate value against workflow schema before writing
 if [ -n "$value" ]; then
   case "$field" in
@@ -3977,23 +3996,23 @@ count=0; first_ok=""
 for file in "$@"; do
   [ ! -f "$file" ] && continue
   # Check for frontmatter before attempting write
-  first_line=$(head -1 "$file")
+  first_line=$(head -n 1 "$file")
   if [ "$first_line" != "---" ]; then
     _no_fm=$((${_no_fm:-0} + 1))
     continue
   fi
   # Update field within YAML frontmatter (between first --- and second ---)
   _ftmp=$(mktemp "$file.XXXXXX") || continue
-  field="$field" value="$value" awk '
+  field="$field" value="$value" "$nn_gawk" '
     BEGIN { field=ENVIRON["field"]; value=ENVIRON["value"] }
     NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
     in_fm && /^---/ { in_fm=0; if (!found) print field ": " value; print; skip_cont=0; next }
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
-    in_fm && skip_cont && /^[ \t]+-/ { next }
+    in_fm && skip_cont && /^[[:blank:]]+-/ { next }
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":( |$)" { print field ": " value; found=1; skip_cont=1; next }
     { print }
-  ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" && count=$((count + 1)) && [ -z "$first_ok" ] && first_ok="$file" || rm -f "$_ftmp"
+  ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; true; } || rm -f "$_ftmp"
 done
 # Pin acted-on files so they stay visible after filter (accumulative + dedup)
 { cat "$dir/.pinned" 2>/dev/null; [ $# -gt 0 ] && printf '%s\n' "$@"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
@@ -4131,7 +4150,7 @@ nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
 # Refuse to write files without frontmatter (prevents data loss)
-first_line=$(head -1 "$file")
+first_line=$(head -n 1 "$file")
 if [ "$first_line" != "---" ]; then
   echo "notenav: skipping $file (no frontmatter)" >&2
   exit 1
@@ -4332,7 +4351,7 @@ _apply_note() {
   if "$dir/bulkedit_update.sh" "$prev_path" "${update_args[@]}" 2>/dev/null; then
     count=$((count + 1))
   else
-    first_line=$(head -1 "$prev_path" 2>/dev/null)
+    first_line=$(head -n 1 "$prev_path" 2>/dev/null)
     if [ "$first_line" != "---" ]; then
       skipped_nofm=$((skipped_nofm + 1))
     else
@@ -4379,7 +4398,7 @@ datafile="$dir/.bulkedit_data"
 while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   [ -z "$fpath" ] && continue
   p="$fpath" awk -F'\t' '$6 == ENVIRON["p"] {
-    t = $5; gsub(/\|/, "\\|", t)
+    t = $5; gsub(/\|/, "\\|", t); gsub(/[\n\r]/, " ", t)
     printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $6, t
     exit
   }' "$dir/.raw" >> "$datafile"
@@ -4462,14 +4481,14 @@ fi
 printf '\033[H\033[J' > /dev/tty
 
 # ── Determine mode: auto (single type or filter active) vs pick ──
-type_count=$(wc -l < "$dir/.schema_types")
+type_count=$(grep -c . "$dir/.schema_types")
 cur_type=$(cat "$dir/.f_type" 2>/dev/null)
 if [ "$type_count" -eq 1 ] || [ -n "$cur_type" ]; then
   mode=auto
   if [ -n "$cur_type" ]; then
     auto_type="$cur_type"
   else
-    auto_type=$(head -1 "$dir/.schema_types" | cut -f1)
+    auto_type=$(head -n 1 "$dir/.schema_types" | cut -f1)
   fi
   auto_icon="·"; auto_color="90"; auto_desc=""
   while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
@@ -4738,7 +4757,7 @@ else
   printf '\033[%dA' "$((type_count + 7))" > /dev/tty
 
   # Hide cursor; restore on exit/interrupt
-  trap 'printf "\033[?25h" > /dev/tty' EXIT
+  trap 'printf "\033[?25h" > /dev/tty' EXIT INT TERM
   printf '\033[?25l' > /dev/tty
 
   # Navigation loop
@@ -4812,7 +4831,7 @@ if [ "$_nn_has_zk" = "true" ]; then
   rm -f "$_zk_err"
 
   # Ensure essential frontmatter fields are present
-  _nn_has_fm=$(head -1 "$new_path" 2>/dev/null)
+  _nn_has_fm=$(head -n 1 "$new_path" 2>/dev/null)
   if [ "$_nn_has_fm" = "---" ]; then
     awk -v nn_type="$selected" -v nn_status="$_nn_initial_status" -v nn_created="$_nn_now" '
       NR==1 && /^---/ { in_fm=1; print; next }
@@ -4845,6 +4864,8 @@ else
   # Escape double quotes for valid YAML
   _yaml_title=$(printf '%s' "$title" | sed 's/\\/\\\\/g; s/"/\\"/g')
   _nn_tmp=$(mktemp "$PWD/.nn-new.XXXXXX")
+  # mktemp creates 0600; widen to match what a normal file creation would produce
+  chmod "$(printf '%04o' "$(( 0666 & ~$(umask) ))")" "$_nn_tmp"
   {
     printf '%s\n' "---"
     printf 'title: "%s"\n' "$_yaml_title"
@@ -5006,7 +5027,7 @@ apply_sq() {
   line=$(sed -n "${num}p" "$dir/.queries")
   [ -z "$line" ] && return
   name="${line%%	*}"; args="${line#*	}"
-  [[ "$args" == "$name" ]] && args=""  # no tab found – name-only preset
+  [ "$args" = "$name" ] && args=""  # no tab found – name-only preset
   # Reset filters then apply query preset's key=value pairs
   ft=""; fs=""; fp=""; fmatch=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
   local -a _sq_arr
@@ -5144,7 +5165,7 @@ printf '%s\n' "$fmatch" > "$dir/.f_match"
 printf '%s\n' "$fmarked" > "$dir/.f_marked"
 # Build awk condition
 # Sanitize values for safe interpolation into awk expressions
-awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' '; }
 vis_cond=$(cat "$dir/.schema_type_vis_cond")
 cond="$vis_cond"
 [ -n "$ft" ] && cond="$cond && \$1==\"$(awk_esc "$ft")\""
@@ -5191,8 +5212,10 @@ do_sort() {
   esac
 }
 now=$(date +%s)
-# Snapshot .raw so concurrent reload_raw.sh cannot replace it mid-filter
+# Snapshot .raw, .pinned, .marked so concurrent actions cannot modify them mid-filter
 cp "$dir/.raw" "$dir/.raw.snap"
+cp "$dir/.pinned" "$dir/.pinned.snap" 2>/dev/null || : > "$dir/.pinned.snap"
+cp "$dir/.marked" "$dir/.marked.snap" 2>/dev/null || : > "$dir/.marked.snap"
 # Pre-filter by body match if active
 _raw_input="$dir/.raw.snap"
 _count_input="$dir/.raw.snap"
@@ -5203,24 +5226,24 @@ if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
   _raw_input="$dir/.raw_matched"
   _count_input="$dir/.raw_matched"
 fi
-if [ -n "$fmarked" ] && [ -s "$dir/.marked" ]; then
-  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.marked" "$_raw_input" > "$dir/.raw_marked"
+if [ -n "$fmarked" ] && [ -s "$dir/.marked.snap" ]; then
+  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.marked.snap" "$_raw_input" > "$dir/.raw_marked"
   _raw_input="$dir/.raw_marked"
   _count_input="$dir/.raw_marked"
 fi
 # Widen _raw_input with pinned paths so ghost rows survive pre-filtering
-if [ -s "$dir/.pinned" ] && { { [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; } || { [ -n "$fmarked" ] && [ -s "$dir/.marked" ]; }; }; then
+if [ -s "$dir/.pinned.snap" ] && { { [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; } || { [ -n "$fmarked" ] && [ -s "$dir/.marked.snap" ]; }; }; then
   cat "$_raw_input" > "$dir/.raw_prefiltered"
-  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.pinned" "$dir/.raw.snap" >> "$dir/.raw_prefiltered"
+  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.pinned.snap" "$dir/.raw.snap" >> "$dir/.raw_prefiltered"
   awk -F'\t' '!seen[$6]++' "$dir/.raw_prefiltered" > "$dir/.raw_widened"
   _raw_input="$dir/.raw_widened"
 fi
 awk_body=$(cat "$dir/.awk_color_body")
 pinned_awk=$(cat "$dir/.awk_color_pinned")
 marked_awk=$(cat "$dir/.awk_color_marked")
-if [ -s "$dir/.pinned" ] || [ -s "$dir/.marked" ]; then
+if [ -s "$dir/.pinned.snap" ] || [ -s "$dir/.marked.snap" ]; then
   do_sort "$fsort" < "$_raw_input" | "$nn_gawk" -F'\t' -v now="$now" \
-    -v marked_file="$dir/.marked" -v pinned_file="$dir/.pinned" -v mfilt="$fmarked" '
+    -v marked_file="$dir/.marked.snap" -v pinned_file="$dir/.pinned.snap" -v mfilt="$fmarked" '
     BEGIN {
       while ((getline line < marked_file) > 0) if (line != "") is_marked[line]=1
       close(marked_file)
@@ -5395,7 +5418,7 @@ fi
 filters_lbl=$(printf '%s\n%s%s' "$filters_top" "$ftags_s" "$fmatch_s")
 filters_lbl_f=$(printf '%s\n%s%s' "$filters_top" "$ftags_s_active" "$fmatch_s")
 # Display section: per-line [z] options with current value
-default_sort=$(head -1 "$dir/.schema_defaults")
+default_sort=$(head -n 1 "$dir/.schema_defaults")
 sort_hint="$fsort"; [ "$fsort" = "$default_sort" ] && sort_hint="$fsort (default order)"
 # Field-aware sort direction description
 case "$fsort" in

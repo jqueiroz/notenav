@@ -24,7 +24,7 @@ for dep in bash fzf gawk sort sed git yq jq; do
   if ! check_dep "$dep"; then
     # Accept awk as fallback for gawk, but warn if it's not GNU awk
     if [ "$dep" = "gawk" ] && check_dep awk; then
-      awk_impl=$(awk --version </dev/null 2>/dev/null | head -1)
+      awk_impl=$(awk --version </dev/null 2>/dev/null | head -n 1)
       case "$awk_impl" in
         *GNU*|*gawk*) ;;
         *) warn "awk found but notenav requires gawk (GNU awk)"
@@ -42,7 +42,7 @@ done
 
 # fzf version check (need 0.58+)
 if check_dep fzf; then
-  fzf_version=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+  fzf_version=$(fzf --version 2>/dev/null | head -n 1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
   if [ -n "$fzf_version" ]; then
     fzf_major="${fzf_version%%.*}"
     fzf_rest="${fzf_version#*.}"
@@ -94,7 +94,10 @@ fi
 # --- install or update ---
 if [ -d "$NOTENAV_DIR/.git" ]; then
   echo "Updating notenav..."
-  git -C "$NOTENAV_DIR" pull --ff-only origin stable
+  if ! git -C "$NOTENAV_DIR" pull --ff-only origin stable; then
+    err "Update failed. You may have local changes in $NOTENAV_DIR."
+    err "Try: cd $NOTENAV_DIR && git stash && git pull --ff-only origin stable"
+  fi
 elif [ -d "$NOTENAV_DIR" ]; then
   err "$NOTENAV_DIR already exists but is not a git repository. Remove it and try again."
 else

@@ -31,7 +31,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gawk jq ripgrep bat
           # fzf from apt is too old; install from GitHub
-          FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
           curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
           # yq-go
           sudo curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64

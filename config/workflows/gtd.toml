@@ -71,7 +71,7 @@ next = "inbox"
 inbox = "someday"
 waiting = "inbox"
 someday = "dropped"
-dropped = "done"
+dropped = "someday"
 
 # --- Priority ---
 # 3 levels only (GTD favors context over priority, so keep it light)
