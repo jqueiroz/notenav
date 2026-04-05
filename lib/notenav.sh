@@ -3210,7 +3210,27 @@ EOF
       return 1
     fi
     if ! command -v fzf >/dev/null 2>&1; then
-      echo "notenav: fzf is required but not found (https://github.com/junegunn/fzf)" >&2
+      echo "notenav: fzf is required but not found" >&2
+      if [[ -f /etc/debian_version ]]; then
+        echo "  Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
+        echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
+        echo '  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
+      elif [[ -f /etc/fedora-release ]]; then
+        echo "  Install via: sudo dnf install fzf" >&2
+      elif [[ -f /etc/alpine-release ]]; then
+        echo "  Install via: apk add fzf" >&2
+      elif command -v pacman >/dev/null 2>&1; then
+        echo "  Install via: sudo pacman -S fzf" >&2
+      elif command -v emerge >/dev/null 2>&1; then
+        echo "  Install via: emerge app-shells/fzf" >&2
+      elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+        echo "  Install via: pkg install fzf" >&2
+      elif command -v brew >/dev/null 2>&1; then
+        echo "  Install via: brew install fzf" >&2
+      else
+        echo "  Install from https://github.com/junegunn/fzf" >&2
+      fi
+      echo "  For more information, see https://github.com/jqueiroz/notenav/blob/main/docs/install.md" >&2
       return 1
     fi
     local _nn_fzf_ver
@@ -3222,7 +3242,7 @@ EOF
         echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
         echo '  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
       else
-        echo "  Install from https://github.com/junegunn/fzf" >&2
+        echo "  Install/upgrade from https://github.com/junegunn/fzf" >&2
       fi
       echo "  For more information, see https://github.com/jqueiroz/notenav/blob/main/docs/install.md" >&2
       return 1
@@ -3235,6 +3255,16 @@ EOF
       echo "notenav: gawk (GNU awk) is required but the current awk lacks mktime/strtonum" >&2
       if [[ -f /etc/debian_version ]]; then
         echo "  Install via: sudo apt install gawk" >&2
+      elif [[ -f /etc/fedora-release ]]; then
+        echo "  Install via: sudo dnf install gawk" >&2
+      elif [[ -f /etc/alpine-release ]]; then
+        echo "  Install via: apk add gawk" >&2
+      elif command -v pacman >/dev/null 2>&1; then
+        echo "  Install via: sudo pacman -S gawk" >&2
+      elif command -v emerge >/dev/null 2>&1; then
+        echo "  Install via: emerge sys-apps/gawk" >&2
+      elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+        echo "  Install via: pkg install gawk" >&2
       elif command -v brew >/dev/null 2>&1; then
         echo "  Install via: brew install gawk" >&2
       else
