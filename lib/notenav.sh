@@ -3987,64 +3987,67 @@ fi
 errors=""
 changes=$(mktemp) || exit 1
 trap 'rm -f "$changes"' EXIT
-note_count=0
 
-# Pass 1: detect and validate changes
-header_seen=false
-while IFS= read -r new_line || [ -n "$new_line" ]; do
-  case "$new_line" in '|'*) ;; *) continue ;; esac
-  stripped=$(printf '%s' "$new_line" | tr -d '|: -')
-  [ -z "$stripped" ] && continue
-  if [ "$header_seen" = false ]; then header_seen=true; continue; fi
-  # Extract fields: | type | status | priority | tags | path | title |
-  IFS=$'\t' read -r new_type new_status new_pri new_tags new_path new_title < <(
-    printf '%s' "$new_line" | awk -F'|' '{
-      for (i = 2; i <= 7; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
-      printf "%s\t%s\t%s\t%s\t%s\t%s\n", $2, $3, $4, $5, $6, $7
-    }'
-  )
-  [ -z "$new_path" ] && continue
-  orig_line=$(p="$new_path" awk -F'|' '
-    !/^\|/ { next }
-    { v = $6; gsub(/^[[:space:]]+|[[:space:]]+$/, "", v) }
-    v == ENVIRON["p"] { print; exit }
-  ' "$orig")
-  [ -z "$orig_line" ] && continue
-  IFS=$'\t' read -r old_type old_status old_pri old_tags _ _ < <(
-    printf '%s' "$orig_line" | awk -F'|' '{
-      for (i = 2; i <= 7; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
-      printf "%s\t%s\t%s\t%s\t%s\t%s\n", $2, $3, $4, $5, $6, $7
-    }'
-  )
-  [ "$new_type" = "$old_type" ] && [ "$new_status" = "$old_status" ] && \
-    [ "$new_pri" = "$old_pri" ] && [ "$new_tags" = "$old_tags" ] && continue
-  # Validate changed fields
+# Pass 1: detect changes with a single awk pass over both files
+# Reads orig first (stores fields by path), then edited (emits diffs).
+# Output: path \t title \t field \t old \t new (one line per changed field)
+awk -F'|' '
+  function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+  function is_sep(line,   s) { s = line; gsub(/[|: -]/, "", s); return (s == "" || s ~ /^\r?$/) }
+  FNR == 1 { hdr_done = 0 }
+  !/^\|/ { next }
+  is_sep($0) { next }
+  !hdr_done { hdr_done = 1; next }
+  {
+    t = trim($2); s = trim($3); p = trim($4); tg = trim($5); pa = trim($6); ti = trim($7)
+  }
+  FILENAME == ARGV[1] {
+    ot[pa] = t; os[pa] = s; op[pa] = p; og[pa] = tg
+  }
+  FILENAME == ARGV[2] && (pa in ot) {
+    if (t != ot[pa]) printf "%s\t%s\ttype\t%s\t%s\n", pa, ti, ot[pa], t
+    if (s != os[pa]) printf "%s\t%s\tstatus\t%s\t%s\n", pa, ti, os[pa], s
+    if (p != op[pa]) printf "%s\t%s\tpriority\t%s\t%s\n", pa, ti, op[pa], p
+    if (tg != og[pa]) printf "%s\t%s\ttags\t%s\t%s\n", pa, ti, og[pa], tg
+  }
+' "$orig" "$edited" > "$changes"
+
+# Validate changes and count affected notes
+validated=$(mktemp) || exit 1
+trap 'rm -f "$changes" "$validated"' EXIT
+note_count=0
+prev_path=""
+while IFS=$'\t' read -r path title field old_val new_val; do
+  # Validate non-empty new values against workflow schema
   skip=false
-  if [ -n "$new_type" ] && [ "$new_type" != "$old_type" ]; then
-    valid=false
-    while IFS= read -r vt || [ -n "$vt" ]; do [ "$new_type" = "$vt" ] && valid=true && break; done < "$dir/.schema_type_values"
-    $valid || { errors="${errors}Invalid type '$new_type' for $(basename "$new_path")\n"; skip=true; }
-  fi
-  if [ -n "$new_status" ] && [ "$new_status" != "$old_status" ]; then
-    valid=false
-    while IFS= read -r vs || [ -n "$vs" ]; do [ "$new_status" = "$vs" ] && valid=true && break; done < "$dir/.schema_status_values"
-    $valid || { errors="${errors}Invalid status '$new_status' for $(basename "$new_path")\n"; skip=true; }
-  fi
-  if [ -n "$new_pri" ] && [ "$new_pri" != "$old_pri" ]; then
-    if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
-      valid=false
-      while IFS= read -r vp || [ -n "$vp" ]; do [ "$new_pri" = "$vp" ] && valid=true && break; done < "$dir/.schema_priority_values"
-      $valid || { errors="${errors}Invalid priority '$new_pri' for $(basename "$new_path")\n"; skip=true; }
-    fi
-  fi
+  case "$field" in
+    type)
+      if [ -n "$new_val" ]; then
+        valid=false
+        while IFS= read -r v || [ -n "$v" ]; do [ "$new_val" = "$v" ] && valid=true && break; done < "$dir/.schema_type_values"
+        $valid || { errors="${errors}Invalid type '$new_val' for $(basename "$path")\n"; skip=true; }
+      fi ;;
+    status)
+      if [ -n "$new_val" ]; then
+        valid=false
+        while IFS= read -r v || [ -n "$v" ]; do [ "$new_val" = "$v" ] && valid=true && break; done < "$dir/.schema_status_values"
+        $valid || { errors="${errors}Invalid status '$new_val' for $(basename "$path")\n"; skip=true; }
+      fi ;;
+    priority)
+      if [ -n "$new_val" ] && [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
+        valid=false
+        while IFS= read -r v || [ -n "$v" ]; do [ "$new_val" = "$v" ] && valid=true && break; done < "$dir/.schema_priority_values"
+        $valid || { errors="${errors}Invalid priority '$new_val' for $(basename "$path")\n"; skip=true; }
+      fi ;;
+  esac
   $skip && continue
-  # Record valid changes (one line per changed field)
-  [ "$new_type" != "$old_type" ] && printf '%s\t%s\ttype\t%s\t%s\n' "$new_path" "$new_title" "$old_type" "$new_type" >> "$changes"
-  [ "$new_status" != "$old_status" ] && printf '%s\t%s\tstatus\t%s\t%s\n' "$new_path" "$new_title" "$old_status" "$new_status" >> "$changes"
-  [ "$new_pri" != "$old_pri" ] && printf '%s\t%s\tpriority\t%s\t%s\n' "$new_path" "$new_title" "$old_pri" "$new_pri" >> "$changes"
-  [ "$new_tags" != "$old_tags" ] && printf '%s\t%s\ttags\t%s\t%s\n' "$new_path" "$new_title" "$old_tags" "$new_tags" >> "$changes"
-  note_count=$((note_count + 1))
-done < "$edited"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$path" "$title" "$field" "$old_val" "$new_val" >> "$validated"
+  if [ "$path" != "$prev_path" ]; then
+    note_count=$((note_count + 1))
+    prev_path="$path"
+  fi
+done < "$changes"
+mv "$validated" "$changes"
 
 # Show validation errors
 if [ -n "$errors" ]; then
