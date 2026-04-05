@@ -817,7 +817,7 @@ nn_precompute_workflow() {
     *) echo "notenav: defaults.group_by '$NN_DEFAULT_GROUP' invalid (must be 'type', 'status', or empty)" >&2; return 1 ;; esac
 
   # ZK format (hardcoded – the entire pipeline assumes this exact column layout)
-  NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{tags}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
+  NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{join tags " "}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
 
   # Generate AWK bodies
   _nn_gen_awk_bodies
