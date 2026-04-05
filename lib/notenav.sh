@@ -3157,6 +3157,46 @@ fi
 # Placeholder file: show content only, no links
 case "$file" in *.empty_placeholder) _nn_show_centered "$file"; exit 0 ;; esac
 
+# Split a string into tokens respecting single/double quotes and backslash
+# escapes, without interpreting shell metacharacters.  Result in _nn_split_result.
+_nn_shellsplit() {
+  local s="$1" i=0 c tok=""
+  _nn_split_result=()
+  while (( i < ${#s} )); do
+    c="${s:i:1}"
+    case "$c" in
+      \') (( i++ ))
+          while (( i < ${#s} )) && [[ "${s:i:1}" != "'" ]]; do
+            tok+="${s:i:1}"; (( i++ ))
+          done
+          (( i++ )) ;;
+      \") (( i++ ))
+          while (( i < ${#s} )) && [[ "${s:i:1}" != '"' ]]; do
+            c2="${s:i:1}"
+            if [[ "$c2" = \\ ]] && (( i+1 < ${#s} )) && [[ "${s:i+1:1}" = [\"\\] ]]; then
+              tok+="${s:i+1:1}"; (( i += 2 ))
+            else
+              tok+="$c2"; (( i++ ))
+            fi
+          done
+          (( i++ )) ;;
+      \\) (( i++ ))
+          (( i < ${#s} )) && tok+="${s:i:1}"
+          (( i++ )) ;;
+      ' '|$'\t')
+          [[ -n "$tok" ]] && _nn_split_result+=("$tok")
+          tok=""; (( i++ )) ;;
+      *)  tok+="$c"; (( i++ )) ;;
+    esac
+  done
+  [[ -n "$tok" ]] && _nn_split_result+=("$tok")
+  # Expand leading ~ on the command name
+  case "${_nn_split_result[0]:-}" in
+    "~/"*) _nn_split_result[0]="$HOME/${_nn_split_result[0]:2}" ;;
+    "~")   _nn_split_result[0]="$HOME" ;;
+  esac
+}
+
 # Show file content using configured previewer (fallback list)
 _rendered=false
 for _p in ${_nn_previewer:-bat glow mdcat}; do
@@ -3191,9 +3231,9 @@ for _p in ${_nn_previewer:-bat glow mdcat}; do
       ;;
     custom)
       if [ -n "$_nn_previewer_custom" ]; then
-        _custom_bin="${_nn_previewer_custom%% *}"
-        if command -v "$_custom_bin" >/dev/null 2>&1; then
-          eval "$_nn_previewer_custom \"\$file\"" < /dev/null 2>/dev/null || cat "$file"
+        _nn_shellsplit "$_nn_previewer_custom"
+        if [ ${#_nn_split_result[@]} -gt 0 ] && command -v "${_nn_split_result[0]}" >/dev/null 2>&1; then
+          "${_nn_split_result[@]}" "$file" < /dev/null 2>/dev/null || cat "$file"
           _rendered=true; break
         fi
       fi
