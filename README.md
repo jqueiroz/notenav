@@ -33,7 +33,7 @@ nn
 
 `nn` is a single bash script[^2] that runs on **Linux**, **macOS**, and **FreeBSD** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The required dependencies are:
 
-- **[fzf](https://github.com/junegunn/fzf)** 0.45+ – the TUI engine and beloved fuzzy finder
+- **[fzf](https://github.com/junegunn/fzf)** 0.58+ – the TUI engine and beloved fuzzy finder
 - **[yq](https://github.com/mikefarah/yq)**[^3], **[jq](https://github.com/jqlang/jq)** – config parsing
 - **gawk** – GNU awk (macOS, FreeBSD, and some Linux distros ship a different awk)
 
@@ -63,7 +63,7 @@ This command uses Nix's imperative interface (`nix profile`). If you prefer a fu
 curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/stable/curl/install.sh | sh
 ```
 
-Requires bash 4+, [fzf](https://github.com/junegunn/fzf) 0.45+, [yq](https://github.com/mikefarah/yq)[^3], and [jq](https://github.com/jqlang/jq) to be installed and available on the PATH. See [docs/install.md](docs/install.md) for more details.
+Requires bash 4+, [fzf](https://github.com/junegunn/fzf) 0.58+, [yq](https://github.com/mikefarah/yq)[^3], and [jq](https://github.com/jqlang/jq) to be installed and available on the PATH. See [docs/install.md](docs/install.md) for more details.
 
 **Option 3: Manual installation**
 

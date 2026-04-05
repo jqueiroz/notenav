@@ -21,8 +21,8 @@ sudo apt-get install -y \
   bat \
   curl
 
-# fzf: Ubuntu ships an older version (0.44); notenav requires 0.45+
-FZF_MIN="0.45"
+# fzf: Ubuntu ships an older version; notenav requires 0.58+
+FZF_MIN="0.58"
 fzf_ver=$(fzf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || true)
 if [ -z "$fzf_ver" ] || ! printf '%s\n%s\n' "$FZF_MIN" "$fzf_ver" | sort -V | head -1 | grep -q "^${FZF_MIN}$"; then
   echo ""

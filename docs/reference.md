@@ -147,7 +147,7 @@ nn doctor
 
 1. **Dependencies:** checks that required tools are installed and meet version requirements:
    - bash 4+
-   - fzf 0.45+
+   - fzf 0.58+
    - yq (yq-go, **not** yq-python)
    - jq
    - gawk (GNU awk – required for `mktime()` and `strtonum()`)

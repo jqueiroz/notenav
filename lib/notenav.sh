@@ -1283,10 +1283,10 @@ nn_doctor() {
   if command -v fzf >/dev/null 2>&1; then
     local fzf_ver
     fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
-    if [[ -n "$fzf_ver" ]] && _nn_ver_cmp "$fzf_ver" "0.45"; then
+    if [[ -n "$fzf_ver" ]] && _nn_ver_cmp "$fzf_ver" "0.58"; then
       _pass "fzf $fzf_ver"
     else
-      _fail "fzf ${fzf_ver:-unknown} (requires 0.45+)"
+      _fail "fzf ${fzf_ver:-unknown} (requires 0.58+)"
       if [[ -f /etc/debian_version ]]; then
         echo "        Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
         echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
@@ -3215,8 +3215,8 @@ EOF
     fi
     local _nn_fzf_ver
     _nn_fzf_ver=$(fzf --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
-    if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.45"; then
-      echo "notenav: fzf 0.45+ required (found $_nn_fzf_ver)" >&2
+    if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.58"; then
+      echo "notenav: fzf 0.58+ required (found $_nn_fzf_ver)" >&2
       if [[ -f /etc/debian_version ]]; then
         echo "  Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
         echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)' >&2
@@ -4593,7 +4593,8 @@ dir="$1"; path="$2"
 n=""
 [ -n "$path" ] && n=$(p="$path" awk -F'\t' '$1==ENVIRON["p"]{print NR;exit}' "$dir/.current")
 border=$(cat "$dir/.border" 2>/dev/null || echo " nn ")
-printf 'reload(cat %s/.current)+pos(%s)+transform-header(cat %s/.header)+change-border-label(%s)' "$dir" "${n:-1}" "$dir" "$border"
+border_action=$(cat "$dir/.border_action" 2>/dev/null)
+printf 'reload(cat %s/.current)+pos(%s)+transform-header(cat %s/.header)+change-list-label(%s)+change-input-label(%s)' "$dir" "${n:-1}" "$dir" "$border" "$border_action"
 ENDRA
     chmod +x "$_nn_dir/reload_at.sh"
 
@@ -4951,7 +4952,6 @@ fmt_dim() {
   fi
 }
 t_s=$(fmt_dim t "$ft"); s_s=$(fmt_dim s "$fs"); p_s=$(fmt_dim p "$fp")
-c_s=$(printf '\033[90m── %d\033[0m' "$count")
 # Show active tags in header if any
 tag_s=""
 if [ -s "$dir/.f_tags" ]; then
@@ -5027,7 +5027,7 @@ if [ -f "$dir/.queries" ]; then
 fi
 # Section labels and keybinding help
 # Filters section: type/status/priority + per-line filter-by options with [f] hint + value
-filters_top=$(printf '\033[1;90m Filters:\033[0m%s%s%s %s' "$t_s" "$s_s" "$p_s" "$c_s")
+filters_top=$(printf '\033[1;90m Filters:\033[0m%s%s%s' "$t_s" "$s_s" "$p_s")
 # Each filter-by option: [f] [key] label: value (normal + active variants)
 if [ -n "$tag_s" ]; then
   ftags_s=$(printf '       \033[36m[f]\033[0m then \033[36m[t]\033[0mags:%s' "$tag_s")
@@ -5123,7 +5123,7 @@ if [ "$_header_mode" = "compact" ]; then
     _ctag_s=$(printf '  tags:\033[90mnone\033[0m')
   fi
   _cmatch_s=""; [ -n "$fmatch" ] && _cmatch_s=$(printf '  \033[36m?\033[0m:\033[1m"%s"\033[0m' "$fmatch")
-  cfilters_lbl=$(printf '\033[1;90m Filters:\033[0m%s%s%s%s%s %s' "$t_s" "$s_s" "$p_s" "$_ctag_s" "$_cmatch_s" "$c_s")
+  cfilters_lbl=$(printf '\033[1;90m Filters:\033[0m%s%s%s%s%s' "$t_s" "$s_s" "$p_s" "$_ctag_s" "$_cmatch_s")
   cqueries_lbl=$(printf '%s \033[90m· tab/1-9/g\033[0m' "$queries_lbl")
   # Compact: display values on one line with direction arrow
   _csort_arrow=""; [ -n "$fsort" ] && { [ -n "$fsort_rev" ] && _csort_arrow="↑" || _csort_arrow="↓"; }
@@ -5194,7 +5194,6 @@ total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap" | wc -l)
 pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "$dir/.pinned")
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 mark_s=""; [ "$mark_count" -gt 0 ] && mark_s=" · ${mark_count} marked"
-last_action=""; [ -s "$dir/.last_action" ] && last_action=" · $(cat "$dir/.last_action")"
 _wf_name=$(cat "$dir/.schema_workflow_name" 2>/dev/null)
 # Annotate workflow name when running on defaults (no .nn/workflow.toml)
 [ -n "$_wf_name" ] && ! [ -s "$dir/.has_project_config" ] && _wf_name="$_wf_name [default]"
@@ -5220,8 +5219,11 @@ elif [ -n "$_wf_name" ]; then
 elif [ -n "$_nb_dir" ]; then
   _ctx=" · $_nb_dir"
 fi
-_border=$(printf ' nn · %d/%d%s%s%s%s ' "$count" "$total" "$last_action" "$pin_s" "$mark_s" "$_ctx")
+_border=$(printf ' nn · %d/%d%s%s%s ' "$count" "$total" "$pin_s" "$mark_s" "$_ctx")
 printf '%s' "${_border//)/}" > "$dir/.border"
+_border_action=""
+[ -s "$dir/.last_action" ] && _border_action=$(printf ' %s ' "$(cat "$dir/.last_action")")
+printf '%s' "${_border_action//)/}" > "$dir/.border_action"
 # NO_COLOR: strip ANSI escape sequences from header/placeholder files
 if [ -n "${NO_COLOR+x}" ]; then
   _nc_esc=$(printf '\033')
@@ -5240,9 +5242,9 @@ else
 fi
 # Skip reload during content search – csearch.sh manages its own list via change:reload
 if test -f "$dir/.nn-csearch"; then
-  printf 'transform-header(cat %s)+change-border-label(%s)' "$_hdr" "$(cat "$dir/.border")"
+  printf 'transform-header(cat %s)+change-list-label(%s)+change-input-label(%s)' "$_hdr" "$(cat "$dir/.border")" "$(cat "$dir/.border_action")"
 else
-  printf 'reload(cat %s/.current)+transform-header(cat %s)+change-border-label(%s)' "$dir" "$_hdr" "$(cat "$dir/.border")"
+  printf 'reload(cat %s/.current)+transform-header(cat %s)+change-list-label(%s)+change-input-label(%s)' "$dir" "$_hdr" "$(cat "$dir/.border")" "$(cat "$dir/.border_action")"
 fi
 ENDFILTER
     chmod +x "$_nn_dir/filter.sh"
@@ -5439,17 +5441,20 @@ ENDDELETE
     fzf "${_nn_fzf_ansi[@]}" --delimiter $'\t' --with-nth 2.. < "$_nn_dir/.current" \
       "${_nn_fzf_listen[@]}" \
       --header '' --header-first \
-      --border rounded \
-      --border-label "$(cat "$_nn_dir/.border")" \
-      --border-label-pos bottom \
+      --style full:rounded \
+      --info hidden \
+      --list-label "$(cat "$_nn_dir/.border")" \
+      --list-label-pos bottom \
+      --input-label "$(cat "$_nn_dir/.border_action")" \
+      --input-label-pos bottom \
       --preview "$_nn_dir/preview.sh {1}" \
       --prompt "$NN_UI_COMMAND_PROMPT" \
       "${_nn_fzf_wrap[@]}" \
-      --bind "t:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/tags.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-border-label(cat $_nn_dir/.border)+deselect-all+refresh-preview'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir type; fi]" \
+      --bind "t:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/tags.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-list-label(cat $_nn_dir/.border)+transform-input-label(cat $_nn_dir/.border_action)+deselect-all+refresh-preview'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir type; fi]" \
       --bind "T:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-type; fi]" \
-      --bind "s:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-border-label(cat $_nn_dir/.border)+deselect-all+refresh-preview'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir status; fi]" \
+      --bind "s:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-list-label(cat $_nn_dir/.border)+transform-input-label(cat $_nn_dir/.border_action)+deselect-all+refresh-preview'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir status; fi]" \
       --bind "S:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-status; fi]" \
-      --bind "p:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-border-label(cat $_nn_dir/.border)+deselect-all+refresh-preview'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir priority; fi]" \
+      --bind "p:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-list-label(cat $_nn_dir/.border)+transform-input-label(cat $_nn_dir/.border_action)+deselect-all+refresh-preview'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir priority; fi]" \
       --bind "P:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-priority; fi]" \
       --bind "]:transform[if test -f $_nn_dir/.nn-search || test -f $_nn_dir/.nn-csearch; then :; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir next; fi; fi]" \
       --bind "[:transform[if test -f $_nn_dir/.nn-search || test -f $_nn_dir/.nn-csearch; then :; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir prev; fi; fi]" \
