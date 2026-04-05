@@ -2951,7 +2951,7 @@ _nn_init_project() {
   echo "Created $wf_file (extends $workflow_name)"
   echo "This file defines your notebook's workflow. Edit it to add query presets or override the base."
   echo "Run 'nn' to launch the TUI, or 'nn doctor' to verify your setup."
-  if [[ -z "$workflow_arg" && "$workflow_name" != https://* ]]; then
+  if [[ -z "$workflow_arg" ]]; then
     _nn_list_workflows "$notenav_root"
   fi
 }
