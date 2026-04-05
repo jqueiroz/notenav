@@ -364,6 +364,16 @@ nn_load_config() {
     workflow_json=$(printf '%s' "$workflow_json" | jq 'del(.queries)' 2>/dev/null)
   fi
 
+  # Whitelist: extract only workflow-owned keys from workflow config.
+  # Workflows define schema (types, statuses, priorities, queries, defaults)
+  # but must not override user preferences (ui, refresh, default_workflow).
+  # This is a security boundary: remote workflows could otherwise set
+  # ui.editor or ui.previewer_custom_command to execute arbitrary code.
+  workflow_json=$(printf '%s' "$workflow_json" | jq '{
+    meta, type, status, priority, queries, defaults
+  } | del(.. | nulls)' 2>/dev/null)
+  [[ -z "$workflow_json" ]] && workflow_json="{}"
+
   # Whitelist: extract only user-owned keys from user config. Anything not
   # listed here is silently dropped, so new workflow keys are safe by default.
   user_json=$(printf '%s' "$user_json" | jq '{
@@ -1641,8 +1651,8 @@ nn_doctor() {
       local _schema_sections="meta type status priority"
       _base_top=$(printf '%s' "$_base_cfg_json" | jq -r 'keys[]' 2>/dev/null | tr '\n' ' ')
       _known_keys_user="$_base_top$_schema_sections"
-      _known_keys_workflow=$(printf '%s' "$_base_cfg_json" | jq -r 'keys[] | select(. != "default_workflow")' 2>/dev/null | tr '\n' ' ')
-      _known_keys_workflow+="$_schema_sections queries extends"
+      # Must match the workflow whitelist in nn_load_config() (search "workflow-owned keys")
+      _known_keys_workflow="meta type status priority queries defaults extends"
       _known_defaults=$(printf '%s' "$_base_cfg_json" | jq -r '.defaults | keys[]' 2>/dev/null | tr '\n' ' ')
       _known_ui=$(printf '%s' "$_base_cfg_json" | jq -r '.ui | keys[]' 2>/dev/null | tr '\n' ' ')
       _known_pf=$(printf '%s' "$_base_cfg_json" | jq -r '.ui.previewer_flags | keys[]' 2>/dev/null | tr '\n' ' ')
@@ -3252,9 +3262,10 @@ for _p in ${_nn_previewer:-bat glow mdcat}; do
       fi
       ;;
     custom)
-      # SECURITY: previewer_custom_command comes from user config only.
-      # The user-config whitelist in nn_load_config() ensures project
-      # workflow files cannot set this. Do not widen that whitelist.
+      # SECURITY: previewer_custom_command comes from user/base config only.
+      # The workflow-config whitelist in nn_load_config() strips ui.*
+      # keys from workflow configs, preventing remote workflows from
+      # injecting arbitrary commands here. Do not widen that whitelist.
       if [ -n "$_nn_previewer_custom" ]; then
         _nn_shellsplit "$_nn_previewer_custom"
         if [ ${#_nn_split_result[@]} -gt 0 ] && command -v "${_nn_split_result[0]}" >/dev/null 2>&1; then
