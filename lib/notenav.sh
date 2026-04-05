@@ -4157,6 +4157,7 @@ label="notes"; [ "$notecount" -eq 1 ] && label="note"
     printf '<!-- priority: %s (or empty) -->\n' "$(awk '{printf "%s%s", (NR>1 ? ", " : ""), $0}' "$dir/.schema_priority_values")"
   fi
   printf '<!-- tags: space-separated -->\n'
+  printf '<!-- vim: set nowrap tw=0 : -->\n'
   printf '\n'
 } > "$tmpfile"
 # Build aligned markdown table (append after heading)
