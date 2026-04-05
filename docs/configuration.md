@@ -538,7 +538,7 @@ The `d` key deletes the focused note, or all multi-selected notes. The `delete_m
 
 | Value | Tool | Notes |
 |-------|------|-------|
-| `"trash"` (default) | `trash-put` or `gio trash` | Recoverable – moved to system trash. Falls back to `rm` with a warning if neither tool is available |
+| `"trash"` (default) | `trash-put` or `gio trash` | Recoverable – moved to system trash. If neither tool is available, prompts before falling back to permanent `rm` |
 | `"rm"` | `rm` | Permanent – the file is removed from disk |
 
 The `delete_confirm` setting controls whether a confirmation prompt is shown for single-note deletion:

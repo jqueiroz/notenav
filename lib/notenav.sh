@@ -5754,6 +5754,20 @@ fi
 
 # Perform deletion
 _del_ok=0 _del_fail=0
+# When delete_method=trash but no trash tool exists, confirm fallback to rm once
+_trash_fallback=""
+if [ "${delete_method:-trash}" = "trash" ]; then
+  if ! command -v trash-put >/dev/null 2>&1 && ! command -v gio >/dev/null 2>&1; then
+    printf "  ${_nn_yellow}⚠ No trash tool found (trash-put, gio)${_nn_reset}\n" > /dev/tty
+    printf "  ${_nn_yellow}Permanently delete instead? [y/N]${_nn_reset} " > /dev/tty
+    IFS= read -rsn1 _fb_confirm < /dev/tty
+    printf '\n' > /dev/tty
+    case "$_fb_confirm" in
+      y|Y) _trash_fallback=rm ;;
+      *) printf "\n  ${_nn_dim}Cancelled${_nn_reset}\n\n" > /dev/tty; exit 0 ;;
+    esac
+  fi
+fi
 _do_delete() {
   case "${delete_method:-trash}" in
     trash)
@@ -5761,12 +5775,10 @@ _do_delete() {
         trash-put "$1" && return 0
       elif command -v gio >/dev/null 2>&1; then
         gio trash "$1" && return 0
-      else
-        if [ "$_trash_warned" != 1 ]; then
-          printf "  ${_nn_yellow}⚠ No trash tool found (trash-put, gio); falling back to rm${_nn_reset}\n" > /dev/tty
-          _trash_warned=1
-        fi
+      elif [ "$_trash_fallback" = rm ]; then
         rm "$1" && return 0
+      else
+        return 1
       fi ;;
     rm)
       rm "$1" && return 0 ;;
@@ -5774,7 +5786,6 @@ _do_delete() {
   esac
   return 1
 }
-_trash_warned=0
 for f in "${targets[@]}"; do
   [ ! -f "$f" ] && continue
   if _do_delete "$f"; then
