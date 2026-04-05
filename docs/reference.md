@@ -156,6 +156,7 @@ nn doctor
    - curl (optional – needed for remote workflows)
    - inotifywait or fswatch (optional – auto-refresh in watch mode)
    - ripgrep (optional – faster content search when zk is not installed or configured)
+   - trash-put or gio trash (optional – recoverable deletion when `delete_method=trash`)
    - bat or batcat (optional – default previewer; alternatives: glow, mdcat)
 
 2. **Config:** validates configuration files:
@@ -173,7 +174,7 @@ nn doctor
    - **Statuses**: all statuses have colors, `initial` exists in values, `filter_cycle` and `archive` reference valid values, lifecycle transitions reference valid statuses, `display_order` covers all values, description keys reference valid statuses, no unrecognized sub-keys
    - **Priority**: levels have colors, `filter_cycle` references valid values, lifecycle transitions valid, `unset_position` is `first` or `last`, no unrecognized sub-keys
    - **Defaults**: `sort_by`, `sort_reverse`, `group_by`, `show_archive`, and `wrap_preview` have valid values
-   - **UI**: `command_prompt` and `search_prompt` do not contain characters stripped at runtime; `exit_message`, `priority_plus`, `after_create`, `previewer`, and `previewer_flags` have valid values; configured previewer tools (bat/batcat, glow, mdcat, custom) are checked for availability
+   - **UI**: `command_prompt` and `search_prompt` do not contain characters stripped at runtime; `exit_message`, `priority_plus`, `after_create`, `delete_method`, `delete_confirm`, `previewer`, and `previewer_flags` have valid values; configured previewer tools (bat/batcat, glow, mdcat, custom) are checked for availability
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
    - Color values are valid (named colors or ANSI codes) throughout
 
