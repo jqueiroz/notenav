@@ -4,7 +4,7 @@ Read all relevant files and cross-reference them. Report every issue found.
 
 ## Files to read
 
-- `lib/notenav.sh`: all runtime dependency error blocks (search for `echo.*Install via` and `echo.*Install from`)
+- `lib/notenav.sh`: all install hint blocks – both runtime startup errors and `nn_doctor()` output (search for `echo.*Install via` and `echo.*Install from`)
 - `virtualization/*/guest/provision.sh`: verified install commands for each distro
 
 ## Distros to cover
@@ -47,6 +47,7 @@ For each distro detection branch in the install hints:
 
 - Verify all install hints use the same format (`Install via: <command>` for packaged, `Install from <url>` for GitHub)
 - Verify the fzf "not found" and fzf "too old" paths are consistent with each other
+- Verify the runtime startup hints and `nn_doctor()` hints match for each dependency and distro
 - Flag any formatting inconsistencies
 
 ## Output format

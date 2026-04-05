@@ -1318,7 +1318,26 @@ nn_doctor() {
       fi
     fi
   else
-    _fail "fzf not found (https://github.com/junegunn/fzf)"
+    _fail "fzf not found"
+    if [[ -f /etc/debian_version ]]; then
+      echo "        Debian/Ubuntu's apt package is outdated. Install from GitHub instead:"
+      echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -1)'
+      echo '        curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin'
+    elif [[ -f /etc/fedora-release ]]; then
+      echo "        Install via: sudo dnf install fzf"
+    elif [[ -f /etc/alpine-release ]]; then
+      echo "        Install via: apk add fzf"
+    elif command -v pacman >/dev/null 2>&1; then
+      echo "        Install via: sudo pacman -S fzf"
+    elif command -v emerge >/dev/null 2>&1; then
+      echo "        Install via: emerge app-shells/fzf"
+    elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+      echo "        Install via: pkg install fzf"
+    elif command -v brew >/dev/null 2>&1; then
+      echo "        Install via: brew install fzf"
+    else
+      echo "        Install from https://github.com/junegunn/fzf"
+    fi
   fi
 
   # zk (optional – enhances performance and enables link graph)
@@ -1342,10 +1361,18 @@ nn_doctor() {
       _pass "yq ${yq_ver:-installed} (yq-go)"
       _has_yq=true
     else
-      _fail "yq ${yq_ver:-installed} appears to be yq-python, not yq-go (https://github.com/mikefarah/yq)"
+      _fail "yq ${yq_ver:-installed} appears to be yq-python, not yq-go"
+      echo "        Install yq-go: https://github.com/mikefarah/yq#install"
     fi
   else
-    _fail "yq not found (https://github.com/mikefarah/yq)"
+    _fail "yq-go not found"
+    if command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+      echo "        Install via: pkg install go-yq"
+    elif command -v brew >/dev/null 2>&1; then
+      echo "        Install via: brew install yq"
+    else
+      echo "        Install from https://github.com/mikefarah/yq#install"
+    fi
   fi
 
   # jq
@@ -1356,7 +1383,24 @@ nn_doctor() {
     _pass "jq ${jq_ver:-installed}"
     _has_jq=true
   else
-    _fail "jq not found (https://github.com/jqlang/jq)"
+    _fail "jq not found"
+    if [[ -f /etc/debian_version ]]; then
+      echo "        Install via: sudo apt install jq"
+    elif [[ -f /etc/fedora-release ]]; then
+      echo "        Install via: sudo dnf install jq"
+    elif [[ -f /etc/alpine-release ]]; then
+      echo "        Install via: apk add jq"
+    elif command -v pacman >/dev/null 2>&1; then
+      echo "        Install via: sudo pacman -S jq"
+    elif command -v emerge >/dev/null 2>&1; then
+      echo "        Install via: emerge app-misc/jq"
+    elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+      echo "        Install via: pkg install jq"
+    elif command -v brew >/dev/null 2>&1; then
+      echo "        Install via: brew install jq"
+    else
+      echo "        Install from https://github.com/jqlang/jq"
+    fi
   fi
 
   # awk (gawk required – notenav uses mktime() and strtonum())
@@ -1371,15 +1415,49 @@ nn_doctor() {
       local awk_name
       awk_name=$(awk -W version < /dev/null 2>&1 | head -1 || true)
       if [[ "$awk_name" == *mawk* ]]; then
-        _fail "awk: gawk required (found mawk – install gawk)"
+        _fail "awk: gawk required (found mawk)"
       else
-        _fail "awk: gawk required (install gawk)"
+        _fail "awk: gawk required"
+      fi
+      if [[ -f /etc/debian_version ]]; then
+        echo "        Install via: sudo apt install gawk"
+      elif [[ -f /etc/fedora-release ]]; then
+        echo "        Install via: sudo dnf install gawk"
+      elif [[ -f /etc/alpine-release ]]; then
+        echo "        Install via: apk add gawk"
+      elif command -v pacman >/dev/null 2>&1; then
+        echo "        Install via: sudo pacman -S gawk"
+      elif command -v emerge >/dev/null 2>&1; then
+        echo "        Install via: emerge sys-apps/gawk"
+      elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+        echo "        Install via: pkg install gawk"
+      elif command -v brew >/dev/null 2>&1; then
+        echo "        Install via: brew install gawk"
+      else
+        echo "        Install gawk: https://www.gnu.org/software/gawk/"
       fi
     fi
   elif command -v gawk >/dev/null 2>&1; then
     _pass "gawk"
   else
-    _fail "awk not found (install gawk)"
+    _fail "awk not found"
+    if [[ -f /etc/debian_version ]]; then
+      echo "        Install via: sudo apt install gawk"
+    elif [[ -f /etc/fedora-release ]]; then
+      echo "        Install via: sudo dnf install gawk"
+    elif [[ -f /etc/alpine-release ]]; then
+      echo "        Install via: apk add gawk"
+    elif command -v pacman >/dev/null 2>&1; then
+      echo "        Install via: sudo pacman -S gawk"
+    elif command -v emerge >/dev/null 2>&1; then
+      echo "        Install via: emerge sys-apps/gawk"
+    elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+      echo "        Install via: pkg install gawk"
+    elif command -v brew >/dev/null 2>&1; then
+      echo "        Install via: brew install gawk"
+    else
+      echo "        Install gawk: https://www.gnu.org/software/gawk/"
+    fi
   fi
 
   # sort, sed
