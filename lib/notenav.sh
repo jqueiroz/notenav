@@ -1155,7 +1155,9 @@ _nn_ignore_pipe() {
 
 # Reads a list of "absPath\tmtime" on stdin, parses each file's YAML frontmatter,
 # and outputs 8-column TSV matching NN_ZK_FMT.
-# NOTE: the AWK body here must stay in sync with the copy in reload_raw.sh (heredoc).
+# NOTE: reload_raw.sh uses a shared copy of this AWK body from .awk_native_parser
+# (written at startup). If you change this parser, update the heredoc that writes
+# .awk_native_parser in notenav_main() as well.
 _nn_list_notes_native() {
   "${_NN_GAWK:-awk}" -F'\t' '
   {
@@ -3230,6 +3232,9 @@ for _p in ${_nn_previewer:-bat glow mdcat}; do
       fi
       ;;
     custom)
+      # SECURITY: previewer_custom_command comes from user config only.
+      # The user-config whitelist in nn_load_config() ensures project
+      # workflow files cannot set this. Do not widen that whitelist.
       if [ -n "$_nn_previewer_custom" ]; then
         _nn_shellsplit "$_nn_previewer_custom"
         if [ ${#_nn_split_result[@]} -gt 0 ] && command -v "${_nn_split_result[0]}" >/dev/null 2>&1; then
@@ -3575,6 +3580,86 @@ EOF
       : > "$_nn_dir/.ignore_dirs"
     fi
 
+    # Shared native-listing helpers for reload_raw.sh (zk-free backend).
+    # The AWK parser is the same logic as _nn_list_notes_native() but with
+    # literal single-quotes (not shell-escaped) since it's read via -f.
+    cat > "$_nn_dir/.awk_native_parser" << 'ENDAWKPARSER'
+{
+  file = $1; mtime = $2
+  type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
+  in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
+  while ((getline line < file) > 0) {
+    if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
+    NR_FILE++
+    if (in_fm) {
+      if (line == "---") { in_fm = 0; continue }
+      fm_lines++
+      if (fm_lines > 200) { in_fm = 0; continue }
+      if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
+        t = lm[1]; gsub(/^["']|["']$/, "", t)
+        if (tags != "") tags = tags " "
+        tags = tags t
+        continue
+      }
+      collecting_tags = 0
+      if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
+        key = m[1]; val = m[2]
+        gsub(/^["']|["']$/, "", val)
+        gsub(/[ \t]+$/, "", val)
+        if (key == "type") type = val
+        else if (key == "status") status = val
+        else if (key == "priority") priority = val
+        else if (key == "title") title = val
+        else if (key == "created") created = val
+        else if (key == "tags") {
+          gsub(/[\[\]]/, "", val)
+          gsub(/,[ \t]*/, " ", val)
+          gsub(/["']/, "", val)
+          gsub(/^ +| +$/, "", val)
+          if (val != "") { tags = val }
+          else { collecting_tags = 1 }
+        }
+      }
+    } else {
+      if (found_title_heading == "" && match(line, /^#+ +(.+)$/, hm)) {
+        found_title_heading = hm[1]
+      }
+      post_fm++
+      if (found_title_heading != "" || post_fm >= 10) break
+    }
+  }
+  close(file)
+  NR_FILE = 0
+  if (title == "") {
+    if (found_title_heading != "") title = found_title_heading
+    else {
+      n = split(file, parts, "/")
+      title = parts[n]
+      sub(/\.md$/, "", title)
+    }
+  }
+  printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", type, status, priority, tags, title, file, mtime, created
+}
+BEGIN { NR_FILE = 0 }
+ENDAWKPARSER
+    # Shared find function for native listing – sourced by reload_raw.sh.
+    # Requires _prune_args array to be set before sourcing.
+    cat > "$_nn_dir/.fn_find_md" << 'ENDFNFIND'
+_nn_find_md_with_mtime() {
+  local d="$1"
+  if find "$d" -maxdepth 0 -printf '' 2>/dev/null; then
+    find "$d" \( "${_prune_args[@]}" \) \
+      -prune -o -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
+  elif stat -c '%n' /dev/null >/dev/null 2>&1; then
+    find "$d" \( "${_prune_args[@]}" \) \
+      -prune -o -name '*.md' -type f -exec stat -c '%n	%y' {} +
+  else
+    find "$d" \( "${_prune_args[@]}" \) \
+      -prune -o -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
+  fi
+}
+ENDFNFIND
+
     # Get all notes
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "$_scope_path" > "$_nn_dir/.raw"
 
@@ -3771,80 +3856,10 @@ if [ "$has_zk" = "true" ]; then
   fi
 else
   search_dir="$scope_path"
-  _nn_find_md_with_mtime() {
-    local d="$1"
-    if find "$d" -maxdepth 0 -printf '' 2>/dev/null; then
-      find "$d" \( "${_prune_args[@]}" \) \
-        -prune -o -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
-    elif stat -c '%n' /dev/null >/dev/null 2>&1; then
-      find "$d" \( "${_prune_args[@]}" \) \
-        -prune -o -name '*.md' -type f -exec stat -c '%n	%y' {} +
-    else
-      find "$d" \( "${_prune_args[@]}" \) \
-        -prune -o -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
-    fi
-  }
-  # NOTE: this AWK body must stay in sync with _nn_list_notes_native() in lib/notenav.sh
-  _nn_find_md_with_mtime "$search_dir" | "$nn_gawk" -F'\t' '
-  {
-    file = $1; mtime = $2
-    type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
-    in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
-    while ((getline line < file) > 0) {
-      if (NR_FILE == 0 && line == "---") { in_fm = 1; NR_FILE++; continue }
-      NR_FILE++
-      if (in_fm) {
-        if (line == "---") { in_fm = 0; continue }
-        # Safety limit: treat unclosed frontmatter as missing after 200 lines
-        fm_lines++
-        if (fm_lines > 200) { in_fm = 0; continue }
-        if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
-          t = lm[1]; gsub(/^["'"'"']|["'"'"']$/, "", t)
-          if (tags != "") tags = tags " "
-          tags = tags t
-          continue
-        }
-        collecting_tags = 0
-        if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
-          key = m[1]; val = m[2]
-          gsub(/^["'"'"']|["'"'"']$/, "", val)
-          gsub(/[ \t]+$/, "", val)
-          if (key == "type") type = val
-          else if (key == "status") status = val
-          else if (key == "priority") priority = val
-          else if (key == "title") title = val
-          else if (key == "created") created = val
-          else if (key == "tags") {
-            gsub(/[\[\]]/, "", val)
-            gsub(/,[ \t]*/, " ", val)
-            gsub(/["'"'"']/, "", val)
-            gsub(/^ +| +$/, "", val)
-            if (val != "") { tags = val }
-            else { collecting_tags = 1 }
-          }
-        }
-      } else {
-        if (found_title_heading == "" && match(line, /^#+ +(.+)$/, hm)) {
-          found_title_heading = hm[1]
-        }
-        post_fm++
-        if (found_title_heading != "" || post_fm >= 10) break
-      }
-    }
-    close(file)
-    NR_FILE = 0
-    if (title == "") {
-      if (found_title_heading != "") title = found_title_heading
-      else {
-        n = split(file, parts, "/")
-        title = parts[n]
-        sub(/\.md$/, "", title)
-      }
-    }
-    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", type, status, priority, tags, title, file, mtime, created
-  }
-  BEGIN { NR_FILE = 0 }
-  ' > "$dir/.raw.tmp" \
+  # Source shared find function and AWK parser (written at startup)
+  source "$dir/.fn_find_md"
+  _nn_find_md_with_mtime "$search_dir" \
+    | "$nn_gawk" -F'\t' -f "$dir/.awk_native_parser" > "$dir/.raw.tmp" \
     && _nn_apply_ignore "$dir" \
     && mv "$dir/.raw.tmp" "$dir/.raw"
 fi
@@ -5153,6 +5168,7 @@ if [ -s "$dir/.f_tags" ]; then
   [ -n "$tag_cond" ] && cond="$cond && ($tag_cond)"
 fi
 # Sort .raw before filtering
+# NOTE: must stay in sync with _nn_adhoc_sort() in notenav_main (ad-hoc query path).
 do_sort() {
   local _rev=""
   [ -n "$fsort_rev" ] && _rev=yes
@@ -6028,7 +6044,8 @@ ENDDELETE
     [[ -n "$_tag_cond" ]] && awk_cond="$awk_cond && ($_tag_cond)"
   fi
 
-  # Sort helper for ad-hoc output (same column layout as TUI's filter.sh)
+  # Sort helper for ad-hoc output (same column layout as TUI's filter.sh).
+  # NOTE: must stay in sync with do_sort() in the filter.sh heredoc.
   _nn_adhoc_sort() {
     local _rev=""
     [[ "$NN_DEFAULT_SORT_REV" == "true" ]] && _rev=yes
