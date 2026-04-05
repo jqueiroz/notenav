@@ -2229,6 +2229,14 @@ nn_doctor() {
     done < <(nn_cfg '.defaults // {} | keys[]' 2>/dev/null)
 
     # UI validation
+    local _ui_hdr
+    _ui_hdr=$(nn_cfg '.ui.header // empty')
+    if [[ -n "$_ui_hdr" ]]; then
+      case "$_ui_hdr" in
+        auto|full|compact) ;;
+        *) _warn "ui.header '$_ui_hdr' invalid (must be 'auto', 'full', or 'compact')" ;;
+      esac
+    fi
     local _ui_editor
     _ui_editor=$(nn_cfg '.ui.editor // empty')
     if [[ -n "$_ui_editor" ]] && ! command -v "${_ui_editor%% *}" >/dev/null 2>&1; then
@@ -2237,8 +2245,14 @@ nn_doctor() {
     local _ui_cp _ui_sp
     _ui_cp=$(nn_cfg '.ui.command_prompt // empty')
     _ui_sp=$(nn_cfg '.ui.search_prompt // empty')
-    [[ -n "$_ui_cp" && "$_ui_cp" == *")"* ]] && _warn "ui.command_prompt contains ')' which will be stripped (breaks fzf prompt syntax)"
-    [[ -n "$_ui_sp" && "$_ui_sp" == *")"* ]] && _warn "ui.search_prompt contains ')' which will be stripped (breaks fzf prompt syntax)"
+    for _pvar in _ui_cp _ui_sp; do
+      local _pname; [[ "$_pvar" == "_ui_cp" ]] && _pname="ui.command_prompt" || _pname="ui.search_prompt"
+      local _pval="${!_pvar}"
+      [[ -z "$_pval" ]] && continue
+      [[ "$_pval" == *")"* ]] && _warn "$_pname contains ')' which will be stripped (breaks fzf prompt syntax)"
+      [[ "$_pval" == *"]"* ]] && _warn "$_pname contains ']' which will be stripped (breaks fzf prompt syntax)"
+      [[ "$_pval" == *"'"* ]] && _warn "$_pname contains \"'\" which will be stripped (breaks fzf prompt syntax)"
+    done
     local _ui_exit
     _ui_exit=$(nn_cfg '.ui.exit_message // empty')
     if [[ -n "$_ui_exit" ]]; then
