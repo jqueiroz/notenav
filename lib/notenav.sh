@@ -3422,6 +3422,7 @@ tags=$(awk -F'\t' 'length($4) > 0 {
   n=split($4, arr, " "); for(i=1;i<=n;i++) t[arr[i]]=1
 } END { for(k in t) print k }' "$dir/.raw" | sort)
 if [ -z "$tags" ]; then
+  clear > /dev/tty 2>/dev/null
   if [ -n "${NO_COLOR+x}" ]; then
     printf '\n  No tags found in notebook.\n\n' > /dev/tty
   else
