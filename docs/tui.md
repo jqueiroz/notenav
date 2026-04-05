@@ -195,7 +195,7 @@ A simplified set of keybindings for `nn key=value ... -i`:
 |-----|--------|
 | `enter` | Open note in editor |
 | `/` | Enter search mode (type to filter) |
-| `tab` | Keep search filter active and return to browsing |
+| `tab` / `:` | Keep search filter active and return to browsing |
 | `j` / `k` | Move down / up |
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `J` / `K` | Scroll preview down / up |
