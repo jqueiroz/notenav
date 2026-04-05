@@ -286,7 +286,7 @@ args = "tag=backend"
 args = "type=task tag=backend tag=api"    # tasks tagged backend OR api
 ```
 
-**In bulk edit:** the bulk edit view (`b` key) includes a tags column (space-separated). Edits are written back to frontmatter as a YAML inline array.
+**In bulk edit:** the bulk edit table (`b` key) includes a tags column (space-separated). Edits are written back to frontmatter as a YAML inline array.
 
 **No workflow definition needed:** unlike types and statuses, tags require no configuration. You don't declare valid tags anywhere – just use them in frontmatter. The tag picker auto-discovers every tag in the notebook. Avoid commas, brackets, and quotes in tag names – these characters are stripped during YAML parsing.
 

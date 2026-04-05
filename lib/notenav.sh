@@ -3971,30 +3971,47 @@ set_type="$set_type" set_status="$set_status" \
 ENDBEU
     chmod +x "$_nn_dir/bulkedit_update.sh"
 
-    # Bulk edit: diff and apply changes from edited TSV
+    # Bulk edit: diff and apply changes from edited markdown table
     cat > "$_nn_dir/bulkedit_apply.sh" << 'ENDBA'
 #!/usr/bin/env bash
 dir="$1"; orig="$2"; edited="$3"
 errors=""
 count=0
 skipped_nofm=0
+header_seen=false
 while IFS= read -r new_line || [ -n "$new_line" ]; do
-  # Skip comments and empty lines
-  case "$new_line" in '#'*|'') continue ;; esac
-  path=$(printf '%s' "$new_line" | awk -F'\t' '{print $6}')
-  [ -z "$path" ] && continue
-  # Find matching original line by path
-  orig_line=$(p="$path" awk -F'\t' '$6 == ENVIRON["p"] { print; exit }' "$orig")
+  # Only process table rows (lines starting with |)
+  case "$new_line" in '|'*) ;; *) continue ;; esac
+  # Skip separator rows (only pipes, dashes, spaces, colons)
+  stripped=$(printf '%s' "$new_line" | tr -d '|: -')
+  [ -z "$stripped" ] && continue
+  # Skip header row (first non-separator table row)
+  if [ "$header_seen" = false ]; then
+    header_seen=true
+    continue
+  fi
+  # Extract fields: | type | status | priority | tags | path | title |
+  IFS=$'\t' read -r new_type new_status new_pri new_tags new_path _ < <(
+    printf '%s' "$new_line" | awk -F'|' '{
+      for (i = 2; i <= 7; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
+      printf "%s\t%s\t%s\t%s\t%s\t%s\n", $2, $3, $4, $5, $6, $7
+    }'
+  )
+  [ -z "$new_path" ] && continue
+  # Find matching original line by path (field 6 when split by |)
+  orig_line=$(p="$new_path" awk -F'|' '
+    !/^\|/ { next }
+    { v = $6; gsub(/^[[:space:]]+|[[:space:]]+$/, "", v) }
+    v == ENVIRON["p"] { print; exit }
+  ' "$orig")
   [ -z "$orig_line" ] && continue
-  # Compare fields
-  new_type=$(printf '%s' "$new_line" | awk -F'\t' '{print $1}')
-  new_status=$(printf '%s' "$new_line" | awk -F'\t' '{print $2}')
-  new_pri=$(printf '%s' "$new_line" | awk -F'\t' '{print $3}')
-  new_tags=$(printf '%s' "$new_line" | awk -F'\t' '{print $4}')
-  old_type=$(printf '%s' "$orig_line" | awk -F'\t' '{print $1}')
-  old_status=$(printf '%s' "$orig_line" | awk -F'\t' '{print $2}')
-  old_pri=$(printf '%s' "$orig_line" | awk -F'\t' '{print $3}')
-  old_tags=$(printf '%s' "$orig_line" | awk -F'\t' '{print $4}')
+  # Extract original fields
+  IFS=$'\t' read -r old_type old_status old_pri old_tags _ _ < <(
+    printf '%s' "$orig_line" | awk -F'|' '{
+      for (i = 2; i <= 7; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
+      printf "%s\t%s\t%s\t%s\t%s\t%s\n", $2, $3, $4, $5, $6, $7
+    }'
+  )
   # Skip if nothing changed
   [ "$new_type" = "$old_type" ] && [ "$new_status" = "$old_status" ] && \
     [ "$new_pri" = "$old_pri" ] && [ "$new_tags" = "$old_tags" ] && continue
@@ -4002,20 +4019,20 @@ while IFS= read -r new_line || [ -n "$new_line" ]; do
   if [ -n "$new_type" ]; then
     valid=false
     while IFS= read -r vt || [ -n "$vt" ]; do [ "$new_type" = "$vt" ] && valid=true && break; done < "$dir/.schema_type_values"
-    $valid || { errors="${errors}Invalid type '$new_type' for $(basename "$path")\n"; continue; }
+    $valid || { errors="${errors}Invalid type '$new_type' for $(basename "$new_path")\n"; continue; }
   fi
   # Validate status
   if [ -n "$new_status" ]; then
     valid=false
     while IFS= read -r vs || [ -n "$vs" ]; do [ "$new_status" = "$vs" ] && valid=true && break; done < "$dir/.schema_status_values"
-    $valid || { errors="${errors}Invalid status '$new_status' for $(basename "$path")\n"; continue; }
+    $valid || { errors="${errors}Invalid status '$new_status' for $(basename "$new_path")\n"; continue; }
   fi
   # Validate priority
   if [ -n "$new_pri" ]; then
     if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
       valid=false
       while IFS= read -r vp || [ -n "$vp" ]; do [ "$new_pri" = "$vp" ] && valid=true && break; done < "$dir/.schema_priority_values"
-      $valid || { errors="${errors}Invalid priority '$new_pri' for $(basename "$path")\n"; continue; }
+      $valid || { errors="${errors}Invalid priority '$new_pri' for $(basename "$new_path")\n"; continue; }
     fi
   fi
   # Build update args for changed fields only
@@ -4024,15 +4041,15 @@ while IFS= read -r new_line || [ -n "$new_line" ]; do
   [ "$new_status" != "$old_status" ] && update_args+=("status=$new_status")
   [ "$new_pri" != "$old_pri" ] && update_args+=("priority=$new_pri")
   [ "$new_tags" != "$old_tags" ] && update_args+=("tags=$new_tags")
-  if "$dir/bulkedit_update.sh" "$path" "${update_args[@]}" 2>/dev/null; then
+  if "$dir/bulkedit_update.sh" "$new_path" "${update_args[@]}" 2>/dev/null; then
     count=$((count + 1))
   else
     # Check if skipped due to missing frontmatter
-    first_line=$(head -1 "$path" 2>/dev/null)
+    first_line=$(head -1 "$new_path" 2>/dev/null)
     if [ "$first_line" != "---" ]; then
       skipped_nofm=$((skipped_nofm + 1))
     else
-      errors="${errors}Failed to update $(basename "$path")\n"
+      errors="${errors}Failed to update $(basename "$new_path")\n"
     fi
   fi
 done < "$edited"
@@ -4060,29 +4077,71 @@ fi
 ENDBA
     chmod +x "$_nn_dir/bulkedit_apply.sh"
 
-    # Bulk edit: orchestrator – generates TSV, opens editor, applies changes
+    # Bulk edit: orchestrator – generates markdown table, opens editor, applies changes
     cat > "$_nn_dir/bulkedit.sh" << 'ENDBE'
 #!/usr/bin/env bash
 dir="$1"
-tmpfile="$dir/.bulkedit.tsv"
-origfile="$dir/.bulkedit_orig.tsv"
-# Header with vim modeline
-printf '# vim:ft=conf:ts=12:noet:nowrap\n' > "$tmpfile"
-printf '# type\tstatus\tpriority\ttags\ttitle\tpath\n' >> "$tmpfile"
-# Read each path from .current and look up metadata in .raw
+tmpfile="$dir/.bulkedit.md"
+origfile="$dir/.bulkedit_orig.md"
+datafile="$dir/.bulkedit_data"
+# Collect raw data (tab-separated: type, status, priority, tags, path, title)
+: > "$datafile"
 while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   [ -z "$fpath" ] && continue
-  p="$fpath" awk -F'\t' '$6 == ENVIRON["p"] { printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6; exit }' "$dir/.raw" >> "$tmpfile"
+  p="$fpath" awk -F'\t' '$6 == ENVIRON["p"] {
+    t = $5; gsub(/\|/, "\\|", t)
+    printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $6, t
+    exit
+  }' "$dir/.raw" >> "$datafile"
 done < <(awk '{a[NR]=$0} END{for(i=NR;i>0;i--)print a[i]}' "$dir/.current")
-# Footer with valid values from workflow
-printf '\n# type: %s\n' "$(awk '{printf "%s%s", NR>1?", ":"", $0}' "$dir/.schema_type_values")" >> "$tmpfile"
-printf '# status: %s (or empty)\n' "$(awk '{printf "%s%s", NR>1?", ":"", $0}' "$dir/.schema_status_values")" >> "$tmpfile"
-if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
-  printf '# priority: %s (or empty)\n' "$(awk '{printf "%s%s", NR>1?", ":"", $0}' "$dir/.schema_priority_values")" >> "$tmpfile"
-fi
-printf '# tags: space-separated\n' >> "$tmpfile"
+# Write heading with instructions and valid values
+notecount=$(wc -l < "$datafile")
+label="notes"; [ "$notecount" -eq 1 ] && label="note"
+{
+  printf '# notenav – bulk edit (%d %s)\n' "$notecount" "$label"
+  printf '# Edit type, status, priority, tags. Save and quit to apply.\n'
+  printf '# DO NOT change the path or title columns.\n'
+  printf '#\n'
+  printf '# type: %s\n' "$(awk '{printf "%s%s", (NR>1 ? ", " : ""), $0}' "$dir/.schema_type_values")"
+  printf '# status: %s (or empty)\n' "$(awk '{printf "%s%s", (NR>1 ? ", " : ""), $0}' "$dir/.schema_status_values")"
+  if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
+    printf '# priority: %s (or empty)\n' "$(awk '{printf "%s%s", (NR>1 ? ", " : ""), $0}' "$dir/.schema_priority_values")"
+  fi
+  printf '# tags: space-separated\n'
+  printf '\n'
+} > "$tmpfile"
+# Build aligned markdown table (append after heading)
+awk -F'\t' '
+{
+  nrows++
+  for (i = 1; i <= 6; i++) {
+    data[nrows, i] = $i
+    l = length($i)
+    if (l > maxw[i]) maxw[i] = l
+  }
+}
+END {
+  h[1] = "type"; h[2] = "status"; h[3] = "priority"
+  h[4] = "tags"; h[5] = "path"; h[6] = "title"
+  for (i = 1; i <= 6; i++)
+    if (length(h[i]) > maxw[i]) maxw[i] = length(h[i])
+  hfmt = ""; rfmt = ""; sep = ""
+  for (i = 1; i <= 6; i++) {
+    hfmt = hfmt "| %-" maxw[i] "s "
+    rfmt = rfmt "| %-" maxw[i] "s "
+    sep = sep "|"
+    for (j = 1; j <= maxw[i] + 2; j++) sep = sep "-"
+  }
+  hfmt = hfmt "|\n"; rfmt = rfmt "|\n"; sep = sep "|\n"
+  printf hfmt, h[1], h[2], h[3], h[4], h[5], h[6]
+  printf "%s", sep
+  for (r = 1; r <= nrows; r++)
+    printf rfmt, data[r,1], data[r,2], data[r,3], data[r,4], data[r,5], data[r,6]
+}
+' "$datafile" >> "$tmpfile"
 # Save original for diffing
 cp "$tmpfile" "$origfile"
+rm -f "$datafile"
 # Open editor
 nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
 ${nn_editor:-vi} "$tmpfile" </dev/tty >/dev/tty

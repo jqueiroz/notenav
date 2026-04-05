@@ -31,7 +31,7 @@ The faceted browser uses a modal system with seven modes: **command** (default),
 | `1`–`9` | Jump to query preset by number |
 | `space` | Toggle multi-select on current item |
 | `r` | Refresh note list (re-index from disk) |
-| `b` | Bulk edit selected notes (opens editor with TSV of fields) |
+| `b` | Bulk edit selected notes (opens editor with markdown table) |
 | `d` | Delete focused note (see `delete_method` and `delete_confirm` settings) |
 | `x` | Clear all pinned ghost rows |
 | `X` | Restore pins from last clear (one-shot undo) |
@@ -154,7 +154,7 @@ args = "type=task tag=backend tag=api"    # tasks tagged backend OR api
 
 **Clearing tags:** tag filters reset when you switch query presets, press `0` (clear preset), or press `R` (full reset). In the tag picker, `esc` cancels without changing the filter.
 
-**In bulk edit:** the bulk edit TSV (`b` key) shows tags as a space-separated column. Edit directly – changes are written back to frontmatter as a YAML inline array.
+**In bulk edit:** the bulk edit table (`b` key) shows tags as a space-separated column. Edit directly – changes are written back to frontmatter as a YAML inline array.
 
 **Tag conventions:** tags are plain strings with no special naming rules. Avoid commas, brackets, and quotes in tag names – these characters are stripped during YAML parsing. Some patterns that work well:
 
