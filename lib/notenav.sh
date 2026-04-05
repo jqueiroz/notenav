@@ -5570,9 +5570,13 @@ ENDEDIT
 #!/usr/bin/env bash
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir=$(dirname "$0")
-target=$(cat "$dir/.delete_target" 2>/dev/null)
-[ -z "$target" ] && exit 0
-[ ! -f "$target" ] && exit 0
+
+# Read targets (one path per line)
+targets=()
+while IFS= read -r f || [ -n "$f" ]; do
+  [ -n "$f" ] && [ -f "$f" ] && targets+=("$f")
+done < "$dir/.delete_targets"
+[ ${#targets[@]} -eq 0 ] && exit 0
 
 delete_method=$(cat "$dir/.schema_delete_method" 2>/dev/null)
 delete_confirm=$(cat "$dir/.schema_delete_confirm" 2>/dev/null)
@@ -5588,85 +5592,140 @@ fi
 # Clear screen so previous execute() output doesn't stack
 printf '\033[H\033[J' > /dev/tty
 
-# Resolve title for display
-_title=$(p="$target" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
-[ -z "$_title" ] && _title=$(basename "$target" .md)
 _nb_root=$(cat "$dir/.notebook_root" 2>/dev/null)
-if [ -n "$_nb_root" ]; then
-  _rel="${target#"$_nb_root"/}"
-else
-  _rel="${target#"$PWD"/}"
-fi
+_resolve_rel() {
+  if [ -n "$_nb_root" ]; then printf '%s' "${1#"$_nb_root"/}"
+  else printf '%s' "${1#"$PWD"/}"; fi
+}
 
-# Show what will be deleted
+# Method description
 case "${delete_method:-trash}" in
   trash)  _method_desc="Move to trash" ;;
   rm)     _method_desc="Permanently delete" ;;
   *) nn_assert "delete: unknown delete_method '$delete_method'" ;;
 esac
 
-printf "\n  ${_nn_bold}%b${_nn_reset} %s\n" "$_method_desc:" "$_title" > /dev/tty
-printf "  ${_nn_dim}%s${_nn_reset}\n\n" "$_rel" > /dev/tty
+multi=false
+[ ${#targets[@]} -gt 1 ] && multi=true
 
-# Confirmation
-case "${delete_confirm:-always}" in
-  always)
-    printf "  ${_nn_yellow}Confirm? [y/N]${_nn_reset} " > /dev/tty
-    IFS= read -rsn1 _confirm < /dev/tty
-    printf '\n' > /dev/tty
-    case "$_confirm" in
-      y|Y) ;;
-      *) printf "\n  ${_nn_dim}Cancelled${_nn_reset}\n\n" > /dev/tty; exit 0 ;;
-    esac
-    ;;
-  never) ;;
-  *) nn_assert "delete: unknown delete_confirm '$delete_confirm'" ;;
-esac
+if $multi; then
+  # Multi-delete: list all targets
+  printf "\n  ${_nn_bold}%b %d notes:${_nn_reset}\n" "$_method_desc" "${#targets[@]}" > /dev/tty
+  _shown=0
+  for f in "${targets[@]}"; do
+    _t=$(p="$f" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+    [ -z "$_t" ] && _t=$(basename "$f" .md)
+    _r=$(_resolve_rel "$f")
+    printf "  ${_nn_red}•${_nn_reset} %s ${_nn_dim}%s${_nn_reset}\n" "$_t" "$_r" > /dev/tty
+    _shown=$((_shown + 1))
+    if [ $_shown -ge 10 ] && [ ${#targets[@]} -gt 10 ]; then
+      printf "  ${_nn_dim}  ... and %d more${_nn_reset}\n" "$((${#targets[@]} - 10))" > /dev/tty
+      break
+    fi
+  done
+  printf '\n' > /dev/tty
+  # Multi-delete always requires YES confirmation
+  printf "  ${_nn_yellow}Type YES to confirm:${_nn_reset} " > /dev/tty
+  IFS= read -r _confirm < /dev/tty
+  case "$_confirm" in
+    YES) ;;
+    *) printf "\n  ${_nn_dim}Cancelled${_nn_reset}\n\n" > /dev/tty; exit 0 ;;
+  esac
+else
+  # Single-delete: show one target
+  target="${targets[0]}"
+  _title=$(p="$target" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+  [ -z "$_title" ] && _title=$(basename "$target" .md)
+  _rel=$(_resolve_rel "$target")
+  printf "\n  ${_nn_bold}%b:${_nn_reset} %s\n" "$_method_desc" "$_title" > /dev/tty
+  printf "  ${_nn_dim}%s${_nn_reset}\n\n" "$_rel" > /dev/tty
+  # Single-delete respects delete_confirm setting
+  case "${delete_confirm:-always}" in
+    always)
+      printf "  ${_nn_yellow}Confirm? [y/N]${_nn_reset} " > /dev/tty
+      IFS= read -rsn1 _confirm < /dev/tty
+      printf '\n' > /dev/tty
+      case "$_confirm" in
+        y|Y) ;;
+        *) printf "\n  ${_nn_dim}Cancelled${_nn_reset}\n\n" > /dev/tty; exit 0 ;;
+      esac
+      ;;
+    never) ;;
+    *) nn_assert "delete: unknown delete_confirm '$delete_confirm'" ;;
+  esac
+fi
 
 # Perform deletion
-_ok=false
-case "${delete_method:-trash}" in
-  trash)
-    if command -v trash-put >/dev/null 2>&1; then
-      trash-put "$target" && _ok=true
-    elif command -v gio >/dev/null 2>&1; then
-      gio trash "$target" && _ok=true
-    else
-      printf "  ${_nn_yellow}⚠ No trash tool found (trash-put, gio); falling back to rm${_nn_reset}\n" > /dev/tty
-      rm "$target" && _ok=true
-    fi
-    ;;
-  rm)
-    rm "$target" && _ok=true
-    ;;
-  *) nn_assert "delete: unknown delete_method '$delete_method'" ;;
-esac
-
-if "$_ok"; then
-  # Clean up .pinned – remove the deleted path
-  if [ -s "$dir/.pinned" ]; then
-    { grep -vxF "$target" "$dir/.pinned" || true; } > "$dir/.pinned.tmp"
-    mv "$dir/.pinned.tmp" "$dir/.pinned"
-  fi
-  # Clean up .marked – remove the deleted path
-  if [ -s "$dir/.marked" ]; then
-    { grep -vxF "$target" "$dir/.marked" || true; } > "$dir/.marked.tmp"
-    mv "$dir/.marked.tmp" "$dir/.marked"
-  fi
-  # Feedback
-  _la_title="${_title//[()]/}"; [ ${#_la_title} -gt 40 ] && _la_title="${_la_title:0:37}..."
+_del_ok=0 _del_fail=0
+_do_delete() {
   case "${delete_method:-trash}" in
-    trash) printf 'deleted → trash · %s' "$_la_title" > "$dir/.last_action" ;;
-    rm)    printf 'deleted · %s' "$_la_title" > "$dir/.last_action" ;;
+    trash)
+      if command -v trash-put >/dev/null 2>&1; then
+        trash-put "$1" && return 0
+      elif command -v gio >/dev/null 2>&1; then
+        gio trash "$1" && return 0
+      else
+        if [ "$_trash_warned" != 1 ]; then
+          printf "  ${_nn_yellow}⚠ No trash tool found (trash-put, gio); falling back to rm${_nn_reset}\n" > /dev/tty
+          _trash_warned=1
+        fi
+        rm "$1" && return 0
+      fi ;;
+    rm)
+      rm "$1" && return 0 ;;
     *) nn_assert "delete: unknown delete_method '$delete_method'" ;;
   esac
-  printf "  ${_nn_green}Deleted${_nn_reset}\n\n" > /dev/tty
-  # Reload data
+  return 1
+}
+_trash_warned=0
+for f in "${targets[@]}"; do
+  [ ! -f "$f" ] && continue
+  if _do_delete "$f"; then
+    _del_ok=$((_del_ok + 1))
+    # Clean up .pinned
+    if [ -s "$dir/.pinned" ]; then
+      { grep -vxF "$f" "$dir/.pinned" || true; } > "$dir/.pinned.tmp"
+      mv "$dir/.pinned.tmp" "$dir/.pinned"
+    fi
+    # Clean up .marked
+    if [ -s "$dir/.marked" ]; then
+      { grep -vxF "$f" "$dir/.marked" || true; } > "$dir/.marked.tmp"
+      mv "$dir/.marked.tmp" "$dir/.marked"
+    fi
+  else
+    _del_fail=$((_del_fail + 1))
+  fi
+done
+
+# Feedback
+if [ $_del_ok -gt 0 ]; then
+  if $multi; then
+    _la_msg="deleted $_del_ok notes"
+    case "${delete_method:-trash}" in
+      trash) _la_msg="deleted → trash · $_del_ok notes" ;;
+      rm)    _la_msg="deleted · $_del_ok notes" ;;
+    esac
+  else
+    _title=$(p="${targets[0]}" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+    [ -z "$_title" ] && _title=$(basename "${targets[0]}" .md)
+    _la_title="${_title//[()]/}"; [ ${#_la_title} -gt 40 ] && _la_title="${_la_title:0:37}..."
+    case "${delete_method:-trash}" in
+      trash) _la_msg="deleted → trash · $_la_title" ;;
+      rm)    _la_msg="deleted · $_la_title" ;;
+    esac
+  fi
+  printf '%s' "$_la_msg" > "$dir/.last_action"
+  printf "  ${_nn_green}Deleted %d note(s)${_nn_reset}\n" "$_del_ok" > /dev/tty
+fi
+if [ $_del_fail -gt 0 ]; then
+  printf "  ${_nn_red}Failed to delete %d note(s)${_nn_reset}\n" "$_del_fail" > /dev/tty
+  [ $_del_ok -eq 0 ] && printf '⚠ delete failed' > "$dir/.last_action"
+fi
+printf '\n' > /dev/tty
+# Reload data
+if [ $_del_ok -gt 0 ]; then
   "$dir/reload_raw.sh" "$dir"
   "$dir/filter.sh" "$dir" refresh > /dev/null
-else
-  printf "  ${_nn_red}Delete failed${_nn_reset}\n\n" > /dev/tty
-  printf '⚠ delete failed' > "$dir/.last_action"
 fi
 ENDDELETE
     chmod +x "$_nn_dir/delete.sh"
@@ -5767,7 +5826,7 @@ ENDDELETE
       --bind "x:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-pins; fi]" \
       --bind "X:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\" && test -s $_nn_dir/.pinned.bak; then $_nn_dir/filter.sh $_nn_dir restore-pins; fi]" \
       --bind "m:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-toggle {1}; elif test -z \"\$m\"; then echo m > $_nn_dir/.nn-mode; echo 'change-prompt(m )+transform-header(cat $_nn_dir/.header-m)'; fi]" \
-      --bind "d:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.m_sel; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-remove; elif test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.delete_target; echo 'execute($_nn_dir/delete.sh)+transform($_nn_dir/reload_at.sh $_nn_dir)'; fi]" \
+      --bind "d:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.m_sel; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-remove; elif test -z \"\$m\"; then printf '%s\n' {+1} > $_nn_dir/.delete_targets; echo 'execute($_nn_dir/delete.sh)+transform($_nn_dir/reload_at.sh $_nn_dir)+deselect-all'; fi]" \
       --bind "D:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-clear; fi]" \
       --bind "start:execute-silent(rm -f $_nn_dir/.nn-search $_nn_dir/.nn-csearch)+transform-header(cat $_nn_dir/.header)${_nn_fzf_start_watcher}" \
       --bind "/:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then touch $_nn_dir/.nn-search; echo 'unbind($_nn_search_unbind)+change-prompt($NN_UI_SEARCH_PROMPT)+transform-header(cat $_nn_dir/.header-search)'; fi]" \

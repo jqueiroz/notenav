@@ -465,7 +465,7 @@ mdcat = ""     # extra flags appended to mdcat
 | `previewer_custom_command` | string | `""` | Command to run for the `"custom"` previewer entry (file path passed as `$1`) |
 | `previewer_flags` | table | `{}` | Extra CLI flags appended to built-in previewer commands (see below) |
 | `delete_method` | string | `"trash"` | How to delete notes: `"trash"` uses `trash-put` or `gio trash` (recoverable), `"rm"` permanently deletes |
-| `delete_confirm` | string | `"always"` | Whether to confirm before deleting: `"always"` shows a `[y/N]` prompt, `"never"` deletes immediately |
+| `delete_confirm` | string | `"always"` | Whether to confirm before single-note delete: `"always"` shows a `[y/N]` prompt, `"never"` deletes immediately. Multi-select delete always requires `YES` regardless of this setting |
 
 #### Priority key direction
 
@@ -534,19 +534,21 @@ Leave a key empty or omit it entirely for default behavior.
 
 #### Delete method
 
-The `d` key deletes the focused note. The `delete_method` setting controls how:
+The `d` key deletes the focused note, or all multi-selected notes. The `delete_method` setting controls how:
 
 | Value | Tool | Notes |
 |-------|------|-------|
 | `"trash"` (default) | `trash-put` or `gio trash` | Recoverable – moved to system trash. Falls back to `rm` with a warning if neither tool is available |
 | `"rm"` | `rm` | Permanent – the file is removed from disk |
 
-The `delete_confirm` setting controls whether a confirmation prompt is shown:
+The `delete_confirm` setting controls whether a confirmation prompt is shown for single-note deletion:
 
 | Value | Behavior |
 |-------|----------|
 | `"always"` (default) | Shows the note title and path, then asks `[y/N]` before proceeding |
 | `"never"` | Deletes immediately without prompting |
+
+When multiple notes are selected, delete always lists all targets and requires typing `YES` to confirm, regardless of the `delete_confirm` setting.
 
 ### `[refresh]`
 
