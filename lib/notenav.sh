@@ -3915,8 +3915,8 @@ for arg in "$@"; do
     tags)
       has_tags=1
       if [ -n "$v" ]; then
-        # Convert space-separated tags to YAML array: [tag1, tag2]
-        set_tags=$(printf '%s\n' "$v" | sed 's/  */ /g; s/^ //; s/ $//' | tr ' ' '\n' | paste -sd, | sed 's/^/[/; s/$/]/')
+        # Convert space-separated tags to multi-line YAML list
+        set_tags=$(printf '%s\n' "$v" | sed 's/  */ /g; s/^ //; s/ $//' | tr ' ' '\n' | sed 's/^/  - /')
       fi
       ;;
     *) nn_assert "action: unknown field '$f'" ;;
@@ -3944,7 +3944,7 @@ set_type="$set_type" set_status="$set_status" \
     if (has_type && !found_type && set_type != "") print "type: " set_type
     if (has_status && !found_status && set_status != "") print "status: " set_status
     if (has_priority && !found_priority && set_priority != "") print "priority: " set_priority
-    if (has_tags && !found_tags && set_tags != "") print "tags: " set_tags
+    if (has_tags && !found_tags && set_tags != "") printf "tags:\n%s\n", set_tags
     print; next
   }
   in_fm && ++fm_lines > 200 { in_fm=0; print; next }
@@ -3963,7 +3963,7 @@ set_type="$set_type" set_status="$set_status" \
     else { found_priority=1 }
   }
   in_fm && /^tags:/ {
-    if (has_tags) { if (set_tags != "") print "tags: " set_tags; found_tags=1; skip_cont=1; next }
+    if (has_tags) { if (set_tags != "") printf "tags:\n%s\n", set_tags; found_tags=1; skip_cont=1; next }
     else { found_tags=1 }
   }
   { print }
