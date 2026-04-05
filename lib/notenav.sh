@@ -4049,6 +4049,9 @@ while IFS=$'\t' read -r path title field old_val new_val; do
 done < "$changes"
 mv "$validated" "$changes"
 
+# Clear previous output (e.g. from a cancelled bulk edit)
+clear > /dev/tty 2>/dev/null
+
 # Show validation errors
 if [ -n "$errors" ]; then
   printf "\n${_c_red}%b${_c_reset}" "$errors" > /dev/tty
