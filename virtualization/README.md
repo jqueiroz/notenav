@@ -202,6 +202,48 @@ nn doctor
 nn --version
 ```
 
+## Gentoo
+
+### Quick start
+
+```bash
+cd virtualization
+
+# Enter a Nix shell with QEMU available (skip if QEMU is already installed)
+nix-shell --command zsh
+
+# Boot the Gentoo VM (downloads the latest console image on first run)
+gentoo/launch.sh
+```
+
+The VM boots to a serial console in your terminal. Login: `root` (no password). On first boot, run the provision script from the serial console to set up SSH and install dependencies:
+
+```sh
+# Inside the VM serial console (paste this one-liner):
+curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/main/virtualization/gentoo/guest/provision.sh | sh
+```
+
+Or provision over SSH once SSH is configured (provision.sh handles this on first run):
+
+### SSH workflow
+
+Once provisioned, it's easier to work from a second terminal:
+
+```bash
+# Provision the VM (if not done from serial console above)
+# NOTE: Gentoo compiles from source – provisioning is slower than other distros.
+# Uses --getbinpkg to prefer pre-built binaries where available.
+(cd "$(git rev-parse --show-toplevel)" && ssh -p 2228 root@localhost 'sh -s' < virtualization/gentoo/guest/provision.sh)
+
+# Sync notenav into the VM (safe to run from anywhere in the repo)
+virtualization/gentoo/sync.sh
+
+# SSH in and test (provision.sh adds nn to PATH via .profile)
+ssh -p 2228 root@localhost
+nn doctor
+nn --version
+```
+
 ## Configuration
 
 Each `launch.sh` respects these environment variables:
@@ -210,11 +252,11 @@ Each `launch.sh` respects these environment variables:
 |------------|------------------|--------------------------|
 | `RAM`      | `2G`             | VM memory                |
 | `CPUS`     | `2`              | Number of virtual CPUs   |
-| `SSH_PORT` | `2222` / `2223` / `2224` / `2225` / `2226` / `2227` | Host port forwarded to VM SSH |
+| `SSH_PORT` | `2222`–`2228` | Host port forwarded to VM SSH |
 
 ## Tips
 
 - Quit QEMU: `Ctrl-a x`
 - Re-download the image: `<distro>/launch.sh --fresh`
 - Images are stored in `<distro>/images/` (gitignored)
-- Each distro uses a different SSH port (FreeBSD 2222, Ubuntu 2223, Fedora 2224, Alpine 2225, Arch 2226, NixOS 2227) so all VMs can run simultaneously
+- Each distro uses a different SSH port (FreeBSD 2222, Ubuntu 2223, Fedora 2224, Alpine 2225, Arch 2226, NixOS 2227, Gentoo 2228) so all VMs can run simultaneously
