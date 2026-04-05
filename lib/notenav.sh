@@ -3971,105 +3971,155 @@ set_type="$set_type" set_status="$set_status" \
 ENDBEU
     chmod +x "$_nn_dir/bulkedit_update.sh"
 
-    # Bulk edit: diff and apply changes from edited markdown table
+    # Bulk edit: diff, confirm, and apply changes from edited markdown table
     cat > "$_nn_dir/bulkedit_apply.sh" << 'ENDBA'
 #!/usr/bin/env bash
 dir="$1"; orig="$2"; edited="$3"
+
+# Colors
+if [ -n "${NO_COLOR+x}" ]; then
+  _c_bold="" _c_red="" _c_green="" _c_yellow="" _c_dim="" _c_cyan="" _c_reset=""
+else
+  _c_bold='\033[1m' _c_red='\033[31m' _c_green='\033[32m'
+  _c_yellow='\033[33m' _c_dim='\033[90m' _c_cyan='\033[36m' _c_reset='\033[0m'
+fi
+
 errors=""
-count=0
-skipped_nofm=0
+changes=$(mktemp) || exit 1
+trap 'rm -f "$changes"' EXIT
+note_count=0
+
+# Pass 1: detect and validate changes
 header_seen=false
 while IFS= read -r new_line || [ -n "$new_line" ]; do
-  # Only process table rows (lines starting with |)
   case "$new_line" in '|'*) ;; *) continue ;; esac
-  # Skip separator rows (only pipes, dashes, spaces, colons)
   stripped=$(printf '%s' "$new_line" | tr -d '|: -')
   [ -z "$stripped" ] && continue
-  # Skip header row (first non-separator table row)
-  if [ "$header_seen" = false ]; then
-    header_seen=true
-    continue
-  fi
+  if [ "$header_seen" = false ]; then header_seen=true; continue; fi
   # Extract fields: | type | status | priority | tags | path | title |
-  IFS=$'\t' read -r new_type new_status new_pri new_tags new_path _ < <(
+  IFS=$'\t' read -r new_type new_status new_pri new_tags new_path new_title < <(
     printf '%s' "$new_line" | awk -F'|' '{
       for (i = 2; i <= 7; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
       printf "%s\t%s\t%s\t%s\t%s\t%s\n", $2, $3, $4, $5, $6, $7
     }'
   )
   [ -z "$new_path" ] && continue
-  # Find matching original line by path (field 6 when split by |)
   orig_line=$(p="$new_path" awk -F'|' '
     !/^\|/ { next }
     { v = $6; gsub(/^[[:space:]]+|[[:space:]]+$/, "", v) }
     v == ENVIRON["p"] { print; exit }
   ' "$orig")
   [ -z "$orig_line" ] && continue
-  # Extract original fields
   IFS=$'\t' read -r old_type old_status old_pri old_tags _ _ < <(
     printf '%s' "$orig_line" | awk -F'|' '{
       for (i = 2; i <= 7; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
       printf "%s\t%s\t%s\t%s\t%s\t%s\n", $2, $3, $4, $5, $6, $7
     }'
   )
-  # Skip if nothing changed
   [ "$new_type" = "$old_type" ] && [ "$new_status" = "$old_status" ] && \
     [ "$new_pri" = "$old_pri" ] && [ "$new_tags" = "$old_tags" ] && continue
-  # Validate type (empty = clear type, which is allowed)
-  if [ -n "$new_type" ]; then
+  # Validate changed fields
+  skip=false
+  if [ -n "$new_type" ] && [ "$new_type" != "$old_type" ]; then
     valid=false
     while IFS= read -r vt || [ -n "$vt" ]; do [ "$new_type" = "$vt" ] && valid=true && break; done < "$dir/.schema_type_values"
-    $valid || { errors="${errors}Invalid type '$new_type' for $(basename "$new_path")\n"; continue; }
+    $valid || { errors="${errors}Invalid type '$new_type' for $(basename "$new_path")\n"; skip=true; }
   fi
-  # Validate status
-  if [ -n "$new_status" ]; then
+  if [ -n "$new_status" ] && [ "$new_status" != "$old_status" ]; then
     valid=false
     while IFS= read -r vs || [ -n "$vs" ]; do [ "$new_status" = "$vs" ] && valid=true && break; done < "$dir/.schema_status_values"
-    $valid || { errors="${errors}Invalid status '$new_status' for $(basename "$new_path")\n"; continue; }
+    $valid || { errors="${errors}Invalid status '$new_status' for $(basename "$new_path")\n"; skip=true; }
   fi
-  # Validate priority
-  if [ -n "$new_pri" ]; then
+  if [ -n "$new_pri" ] && [ "$new_pri" != "$old_pri" ]; then
     if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
       valid=false
       while IFS= read -r vp || [ -n "$vp" ]; do [ "$new_pri" = "$vp" ] && valid=true && break; done < "$dir/.schema_priority_values"
-      $valid || { errors="${errors}Invalid priority '$new_pri' for $(basename "$new_path")\n"; continue; }
+      $valid || { errors="${errors}Invalid priority '$new_pri' for $(basename "$new_path")\n"; skip=true; }
     fi
   fi
-  # Build update args for changed fields only
-  update_args=()
-  [ "$new_type" != "$old_type" ] && update_args+=("type=$new_type")
-  [ "$new_status" != "$old_status" ] && update_args+=("status=$new_status")
-  [ "$new_pri" != "$old_pri" ] && update_args+=("priority=$new_pri")
-  [ "$new_tags" != "$old_tags" ] && update_args+=("tags=$new_tags")
-  if "$dir/bulkedit_update.sh" "$new_path" "${update_args[@]}" 2>/dev/null; then
+  $skip && continue
+  # Record valid changes (one line per changed field)
+  [ "$new_type" != "$old_type" ] && printf '%s\t%s\ttype\t%s\t%s\n' "$new_path" "$new_title" "$old_type" "$new_type" >> "$changes"
+  [ "$new_status" != "$old_status" ] && printf '%s\t%s\tstatus\t%s\t%s\n' "$new_path" "$new_title" "$old_status" "$new_status" >> "$changes"
+  [ "$new_pri" != "$old_pri" ] && printf '%s\t%s\tpriority\t%s\t%s\n' "$new_path" "$new_title" "$old_pri" "$new_pri" >> "$changes"
+  [ "$new_tags" != "$old_tags" ] && printf '%s\t%s\ttags\t%s\t%s\n' "$new_path" "$new_title" "$old_tags" "$new_tags" >> "$changes"
+  note_count=$((note_count + 1))
+done < "$edited"
+
+# Show validation errors
+if [ -n "$errors" ]; then
+  printf "\n${_c_red}%b${_c_reset}" "$errors" > /dev/tty
+fi
+
+# No valid changes?
+if [ ! -s "$changes" ]; then
+  [ -z "$errors" ] && printf "${_c_dim}No changes${_c_reset}\n" > /dev/tty
+  exit 0
+fi
+
+# Display diff summary
+printf '\n' > /dev/tty
+prev_path=""
+while IFS=$'\t' read -r path title field old_val new_val; do
+  if [ "$path" != "$prev_path" ]; then
+    [ -n "$prev_path" ] && printf '\n' > /dev/tty
+    printf "  ${_c_bold}%s${_c_reset}\n" "$title" > /dev/tty
+    prev_path="$path"
+  fi
+  [ -z "$old_val" ] && old_val="(empty)"
+  [ -z "$new_val" ] && new_val="(empty)"
+  printf "    ${_c_cyan}%-10s${_c_reset} ${_c_red}%s${_c_reset} ${_c_dim}→${_c_reset} ${_c_green}%s${_c_reset}\n" "$field" "$old_val" "$new_val" > /dev/tty
+done < "$changes"
+
+# Confirm
+label="change"; [ "$note_count" -ne 1 ] && label="changes"
+printf "\nApply %d %s? [y/N] " "$note_count" "$label" > /dev/tty
+read -r answer < /dev/tty
+case "$answer" in [yY]*) ;; *)
+  printf "${_c_dim}Cancelled${_c_reset}\n" > /dev/tty
+  exit 0
+  ;;
+esac
+
+# Pass 2: apply confirmed changes
+count=0
+skipped_nofm=0
+apply_errors=""
+prev_path=""
+update_args=()
+_apply_note() {
+  [ -z "$prev_path" ] && return
+  if "$dir/bulkedit_update.sh" "$prev_path" "${update_args[@]}" 2>/dev/null; then
     count=$((count + 1))
   else
-    # Check if skipped due to missing frontmatter
-    first_line=$(head -1 "$new_path" 2>/dev/null)
+    first_line=$(head -1 "$prev_path" 2>/dev/null)
     if [ "$first_line" != "---" ]; then
       skipped_nofm=$((skipped_nofm + 1))
     else
-      errors="${errors}Failed to update $(basename "$new_path")\n"
+      apply_errors="${apply_errors}Failed to update $(basename "$prev_path")\n"
     fi
   fi
-done < "$edited"
-# Report results to user
-if [ -n "${NO_COLOR+x}" ]; then
-  _be_red="" _be_yellow="" _be_green="" _be_dim="" _be_reset=""
-else
-  _be_red='\033[31m' _be_yellow='\033[33m' _be_green='\033[32m' _be_dim='\033[90m' _be_reset='\033[0m'
-fi
-if [ -n "$errors" ]; then
-  printf "\n${_be_red}%b${_be_reset}" "$errors" > /dev/tty
+}
+while IFS=$'\t' read -r path _ field _ new_val; do
+  if [ "$path" != "$prev_path" ]; then
+    _apply_note
+    prev_path="$path"
+    update_args=()
+  fi
+  update_args+=("$field=$new_val")
+done < "$changes"
+_apply_note
+
+# Report results
+if [ -n "$apply_errors" ]; then
+  printf "${_c_red}%b${_c_reset}" "$apply_errors" > /dev/tty
 fi
 if [ "$skipped_nofm" -gt 0 ]; then
-  printf "${_be_yellow}Skipped %d file(s) without frontmatter${_be_reset}\n" "$skipped_nofm" > /dev/tty
+  printf "${_c_yellow}Skipped %d file(s) without frontmatter${_c_reset}\n" "$skipped_nofm" > /dev/tty
 fi
 if [ "$count" -gt 0 ]; then
-  printf "${_be_green}Updated %d note(s)${_be_reset}\n" "$count" > /dev/tty
+  printf "${_c_green}Updated %d note(s)${_c_reset}\n" "$count" > /dev/tty
   printf 'bulk edit → %d notes' "$count" > "$dir/.last_action"
-else
-  [ -z "$errors" ] && [ "$skipped_nofm" -eq 0 ] && printf "${_be_dim}No changes${_be_reset}\n" > /dev/tty
 fi
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
