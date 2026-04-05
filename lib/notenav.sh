@@ -4869,7 +4869,8 @@ case "$action" in
     path="$3"
     if [ -n "$path" ]; then
       if grep -qxF "$path" "$dir/.marked" 2>/dev/null; then
-        grep -vxF "$path" "$dir/.marked" > "$dir/.marked.tmp" && mv "$dir/.marked.tmp" "$dir/.marked"
+        { grep -vxF "$path" "$dir/.marked" || true; } > "$dir/.marked.tmp"
+        mv "$dir/.marked.tmp" "$dir/.marked"
         # Pin the unmarked item when mark filter is on so it doesn't vanish
         if [ -n "$fmarked" ]; then
           { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$path"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp" \
