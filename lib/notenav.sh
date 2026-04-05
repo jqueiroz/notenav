@@ -2635,7 +2635,7 @@ nn_doctor() {
     echo "$fails check(s) failed, $warns warning(s)."
   fi
 
-  unset -f _prev_miss _fm_show_examples
+  unset -f _pass _info _warn _fail _valid_color _in_array _dupes _is_array _all_strings _prev_miss _fm_show_examples
   [[ $fails -gt 0 ]] && return 1
   return 0
 }
@@ -3254,6 +3254,7 @@ EOF
       NN_UI_EXIT_MESSAGE NN_UI_PRIORITY_PLUS NN_UI_AFTER_CREATE \
       NN_UI_PREVIEWER NN_UI_PREVIEWER_CUSTOM \
       NN_UI_PREVIEWER_FLAGS_BAT NN_UI_PREVIEWER_FLAGS_GLOW NN_UI_PREVIEWER_FLAGS_MDCAT \
+      NN_UI_DELETE_METHOD NN_UI_DELETE_CONFIRM \
       NN_REFRESH_MODE NN_REFRESH_POLL_INTERVAL NN_REFRESH_MAX_FILES \
       NN_ZK_FMT NN_AWK_COLOR NN_AWK_COLOR_BODY NN_AWK_COLOR_PINNED NN_AWK_COLOR_MARKED NN_AWK_COLOR_STATS \
       NN_TYPE_ORDER_STR NN_STATUS_ORDER_STR NN_AWK_ICON_SETUP NN_ARCHIVE_COND NN_TYPE_VIS_COND \
@@ -4079,8 +4080,8 @@ while IFS=$'\t' read -r path title field old_val new_val; do
 done < "$changes"
 
 # Confirm
-label="change"; [ "$note_count" -ne 1 ] && label="changes"
-printf "\nApply %d %s? [y/N] " "$note_count" "$label" > /dev/tty
+label="note"; [ "$note_count" -ne 1 ] && label="notes"
+printf "\nApply to %d %s? [y/N] " "$note_count" "$label" > /dev/tty
 read -r answer < /dev/tty
 case "$answer" in [yY]*) ;; *)
   printf "${_c_dim}Cancelled${_c_reset}\n" > /dev/tty
