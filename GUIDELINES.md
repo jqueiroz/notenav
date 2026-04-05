@@ -100,6 +100,7 @@ Slash commands in `.claude/commands/` for validating and reviewing the codebase.
 
 | Command | Type | Scope |
 |---------|------|-------|
+| `/check-install-hints` | check | Validate distro-specific install hints against provisioning scripts |
 | `/check-keybindings` | check | Validate fzf bindings: mode leak detection, README table sync, guideline compliance |
 | `/check-links` | check | Validate all markdown relative and anchor links resolve |
 | `/check-workflows` | check | Validate TOML integrity (values, lifecycle, extends) and config defaults match code |
