@@ -143,7 +143,7 @@ nn_load_config() {
     echo "notenav: yq is required for config loading (install yq-go)" >&2
     return 1
   fi
-  if ! yq -p=toml -o=json '.' /dev/null >/dev/null 2>&1; then
+  if ! printf 'x = 1\n' | yq -p=toml -o=json '.' >/dev/null 2>&1; then
     echo "notenav: yq appears to be yq-python, not yq-go (github.com/mikefarah/yq)" >&2
     echo "notenav: install yq-go: https://github.com/mikefarah/yq#install" >&2
     return 1
@@ -1246,7 +1246,7 @@ nn_doctor() {
 
   # Output helpers (respect $NO_COLOR)
   local _green="" _yellow="" _red="" _dim="" _reset=""
-  if [[ -z "${NO_COLOR:-}" ]]; then
+  if [[ -z "${NO_COLOR+x}" ]]; then
     _green=$'\033[32m' _yellow=$'\033[33m' _red=$'\033[31m'
     _dim=$'\033[90m' _reset=$'\033[0m'
   fi
@@ -2929,29 +2929,30 @@ _nn_fetch_remote() {
   # Download to temp file
   local tmpfile
   tmpfile=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
-  trap 'rm -f "$tmpfile" "${_cache_tmp:-}"' RETURN
+  _nn_fetch_cleanup() { rm -f "$tmpfile" "${_cache_tmp:-}"; }
   if ! curl -fsSL --connect-timeout 10 --max-time 30 --max-filesize 1048576 "$url" -o "$tmpfile"; then
     echo "notenav: failed to download $url" >&2
-    return 1
+    _nn_fetch_cleanup; return 1
   fi
 
   # Validate TOML
   if ! yq -p=toml -o=json '.' "$tmpfile" >/dev/null 2>&1; then
     echo "notenav: downloaded file is not valid TOML" >&2
-    return 1
+    _nn_fetch_cleanup; return 1
   fi
 
   # Write to cache with header (atomic: temp + mv)
   local cache_path _cache_tmp
   cache_path=$(_nn_url_cache_path "$url")
-  mkdir -p "$(dirname "$cache_path")" || { echo "notenav: could not create cache directory" >&2; return 1; }
-  _cache_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
+  mkdir -p "$(dirname "$cache_path")" || { echo "notenav: could not create cache directory" >&2; _nn_fetch_cleanup; return 1; }
+  _cache_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; _nn_fetch_cleanup; return 1; }
   # shellcheck disable=SC2015  # intentional: || cleanup handles both write and mv failure
   {
     printf '# Cached from: %s\n' "$url"
     printf '# Fetched: %s\n' "$(date '+%Y-%m-%d')"
     cat "$tmpfile"
-  } > "$_cache_tmp" && mv "$_cache_tmp" "$cache_path" || { rm -f "$_cache_tmp"; return 1; }
+  } > "$_cache_tmp" && mv "$_cache_tmp" "$cache_path" || { rm -f "$_cache_tmp"; _nn_fetch_cleanup; return 1; }
+  _nn_fetch_cleanup
 
 }
 
@@ -3329,7 +3330,7 @@ EOF
       shopt -u nullglob; return 1
     fi
     chmod 700 "$_nn_dir"
-    trap '_p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "$_nn_dir"' EXIT
+    trap '_p=$(cat "'"$_nn_dir"'/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "'"$_nn_dir"'"' EXIT
     nn_write_workflow_files "$_nn_dir"
 
     # Write backend detection flag, gawk path, and notebook root for helper scripts
@@ -3735,7 +3736,8 @@ for file in "$@"; do
     continue
   fi
   # Update field within YAML frontmatter (between first --- and second ---)
-  awk -v field="$field" -v value="$value" '
+  field="$field" value="$value" awk '
+    BEGIN { field=ENVIRON["field"]; value=ENVIRON["value"] }
     NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
     in_fm && /^---/ { in_fm=0; if (!found) print field ": " value; print; skip_cont=0; next }
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
@@ -3751,6 +3753,8 @@ mv "$dir/.pinned.tmp" "$dir/.pinned"
 rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
 if [ "$count" -eq 0 ] && [ "${_no_fm:-0}" -gt 0 ]; then
   printf '⚠ %d note(s) skipped – no frontmatter' "$_no_fm" > "$dir/.last_action"
+elif [ "$count" -eq 0 ]; then
+  printf '⚠ no files modified' > "$dir/.last_action"
 else
   _la_title=$(p="${first_ok:-}" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
   _la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
@@ -3896,10 +3900,11 @@ fi
 if [ "$has_priority" = 1 ] && [ -n "$set_priority" ]; then
   grep -qxF "$set_priority" "$_beu_dir/.schema_priority_values" || { echo "notenav: refusing to write invalid priority: $set_priority" >&2; exit 1; }
 fi
-awk -v set_type="$set_type" -v has_type="$has_type" \
-    -v set_status="$set_status" -v has_status="$has_status" \
-    -v set_priority="$set_priority" -v has_priority="$has_priority" \
-    -v set_tags="$set_tags" -v has_tags="$has_tags" '
+set_type="$set_type" set_status="$set_status" \
+    set_priority="$set_priority" set_tags="$set_tags" \
+    awk -v has_type="$has_type" -v has_status="$has_status" \
+    -v has_priority="$has_priority" -v has_tags="$has_tags" '
+  BEGIN { set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"] }
   NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
   in_fm && /^---/ {
     in_fm=0; skip_cont=0
@@ -4189,6 +4194,8 @@ if [ "$mode" = "auto" ]; then
   hint_pad=$((inner - ${#hint} - 2))
   c="$auto_color"
   [ -n "${NO_COLOR+x}" ] && c=""
+  _c_on=""; _c_off=""
+  [ -n "$c" ] && _c_on=$'\033['"${c}m" _c_off=$'\033[0m'
 
   # Truncate description for display
   auto_desc_disp="$auto_desc"
@@ -4197,13 +4204,13 @@ if [ "$mode" = "auto" ]; then
   desc_line_pad=$((inner - 2 - ${#auto_desc_disp}))
 
   printf '\n' > /dev/tty
-  printf "  \033[%sm╭─ %s%s╮${_nn_reset}\n" "$c" "$label" "$top_dashes" > /dev/tty
-  printf "  \033[%sm│${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$c" "$inner" "" "$c" > /dev/tty
-  printf "  \033[%sm│${_nn_reset}  Title: %*s\033[%sm│${_nn_reset}\n" "$c" "$((inner - 9))" "" "$c" > /dev/tty
-  printf "  \033[%sm│${_nn_reset}  ${_nn_dim}%s${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$c" "$auto_desc_disp" "$desc_line_pad" "" "$c" > /dev/tty
-  printf "  \033[%sm│${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$c" "$inner" "" "$c" > /dev/tty
-  printf "  \033[%sm│${_nn_reset}  ${_nn_dim}%s${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$c" "$hint" "$hint_pad" "" "$c" > /dev/tty
-  printf "  \033[%sm╰%s╯${_nn_reset}\n" "$c" "$bot_dashes" > /dev/tty
+  printf "  %s╭─ %s%s╮%s\n" "$_c_on" "$label" "$top_dashes" "$_c_off" > /dev/tty
+  printf "  %s│%s%*s%s│%s\n" "$_c_on" "$_c_off" "$inner" "" "$_c_on" "$_c_off" > /dev/tty
+  printf "  %s│%s  Title: %*s%s│%s\n" "$_c_on" "$_c_off" "$((inner - 9))" "" "$_c_on" "$_c_off" > /dev/tty
+  printf "  %s│%s  ${_nn_dim}%s${_nn_reset}%*s%s│%s\n" "$_c_on" "$_c_off" "$auto_desc_disp" "$desc_line_pad" "" "$_c_on" "$_c_off" > /dev/tty
+  printf "  %s│%s%*s%s│%s\n" "$_c_on" "$_c_off" "$inner" "" "$_c_on" "$_c_off" > /dev/tty
+  printf "  %s│%s  ${_nn_dim}%s${_nn_reset}%*s%s│%s\n" "$_c_on" "$_c_off" "$hint" "$hint_pad" "" "$_c_on" "$_c_off" > /dev/tty
+  printf "  %s╰%s╯%s\n" "$_c_on" "$bot_dashes" "$_c_off" > /dev/tty
   # Cursor: up 5 to title line, column 13 (after "  │  Title: ")
   printf '\033[5A\033[13G' > /dev/tty
   title=""
@@ -4267,39 +4274,44 @@ else
 
   # Helper: draw a single type line (no trailing newline)
   _nn_draw_type_line() {
-    local i="$1" sel="$2" bc="${3:-36}"
+    local i="$1" sel="$2" bc="$3"
     local name="${t_vals[$i]}" ic="${t_icons[$i]}" clr="${t_colors[$i]}"
     [ -n "${NO_COLOR+x}" ] && clr=""
     local d="${t_tdescs[$i]}"
     local name_pad=$((max_name - ${#name}))
     local d_pad=$((desc_avail - ${#d}))
     [ "$d_pad" -lt 0 ] && d_pad=0
+    local _bc_on="" _bc_off="" _clr_on=""
+    [ -n "$bc" ] && _bc_on=$'\033['"${bc}m" _bc_off=$'\033[0m'
+    [ -n "$clr" ] && _clr_on=$'\033['"${clr}m"
     if [ "$i" -eq "$sel" ]; then
-      printf "  \033[%sm│${_nn_reset}     ${_nn_bold}\033[%sm▸ %s %s${_nn_reset}%*s  ${_nn_dim}%s${_nn_reset}%*s\033[%sm│${_nn_reset}" \
-        "$bc" "$clr" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$bc"
+      printf "  %s│%s     ${_nn_bold}%s▸ %s %s${_nn_reset}%*s  ${_nn_dim}%s${_nn_reset}%*s%s│%s" \
+        "$_bc_on" "$_bc_off" "$_clr_on" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$_bc_on" "$_bc_off"
     else
-      printf "  \033[%sm│${_nn_reset}     ${_nn_dim}  %s %s%*s  %s${_nn_reset}%*s\033[%sm│${_nn_reset}" \
-        "$bc" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$bc"
+      printf "  %s│%s     ${_nn_dim}  %s %s%*s  %s${_nn_reset}%*s%s│%s" \
+        "$_bc_on" "$_bc_off" "$ic" "$name" "$name_pad" "" "$d" "$d_pad" "" "$_bc_on" "$_bc_off"
     fi
   }
 
   # Helper: draw entire step-2 box
   _nn_draw_step2() {
     local sel="$1" bc="$2" i
-    printf "  \033[%sm╭─ %s%s╮${_nn_reset}\n" "$bc" "${step2_labels[$sel]}" "${step2_dashes_arr[$sel]}"
-    printf "  \033[%sm│${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$bc" "$inner" "" "$bc"
-    printf "  \033[%sm│${_nn_reset}  ${_nn_green}✓${_nn_reset} %s%*s\033[%sm│${_nn_reset}\n" \
-      "$bc" "$disp_title" "$((inner - 4 - ${#disp_title}))" "" "$bc"
-    printf "  \033[%sm│${_nn_reset}  ${_nn_bold}2. Type:${_nn_reset}%*s\033[%sm│${_nn_reset}\n" \
-      "$bc" "$((inner - 10))" "" "$bc"
+    local _bc_on="" _bc_off=""
+    [ -n "$bc" ] && _bc_on=$'\033['"${bc}m" _bc_off=$'\033[0m'
+    printf "  %s╭─ %s%s╮%s\n" "$_bc_on" "${step2_labels[$sel]}" "${step2_dashes_arr[$sel]}" "$_bc_off"
+    printf "  %s│%s%*s%s│%s\n" "$_bc_on" "$_bc_off" "$inner" "" "$_bc_on" "$_bc_off"
+    printf "  %s│%s  ${_nn_green}✓${_nn_reset} %s%*s%s│%s\n" \
+      "$_bc_on" "$_bc_off" "$disp_title" "$((inner - 4 - ${#disp_title}))" "" "$_bc_on" "$_bc_off"
+    printf "  %s│%s  ${_nn_bold}2. Type:${_nn_reset}%*s%s│%s\n" \
+      "$_bc_on" "$_bc_off" "$((inner - 10))" "" "$_bc_on" "$_bc_off"
     for ((i = 0; i < type_count; i++)); do
       _nn_draw_type_line "$i" "$sel" "$bc"
       printf '\n'
     done
-    printf "  \033[%sm│${_nn_reset}%*s\033[%sm│${_nn_reset}\n" "$bc" "$inner" "" "$bc"
-    printf "  \033[%sm│${_nn_reset}  ${_nn_dim}%s${_nn_reset}%*s\033[%sm│${_nn_reset}\n" \
-      "$bc" "$hint2" "$hint2_pad" "" "$bc"
-    printf "  \033[%sm╰%s╯${_nn_reset}\n" "$bc" "$bot_dashes"
+    printf "  %s│%s%*s%s│%s\n" "$_bc_on" "$_bc_off" "$inner" "" "$_bc_on" "$_bc_off"
+    printf "  %s│%s  ${_nn_dim}%s${_nn_reset}%*s%s│%s\n" \
+      "$_bc_on" "$_bc_off" "$hint2" "$hint2_pad" "" "$_bc_on" "$_bc_off"
+    printf "  %s╰%s╯%s\n" "$_bc_on" "$bot_dashes" "$_bc_off"
   }
 
   # ── Step 1 ↔ Step 2 loop (Esc in step 2 goes back to step 1) ──
@@ -4462,8 +4474,13 @@ else
   # ln fails atomically if target already exists (avoids TOCTOU vs -f check)
   new_path="$PWD/${_slug}.md"
   if ! ln "$_nn_tmp" "$new_path" 2>/dev/null; then
-    new_path="$PWD/${_slug}-$(date +%s).md"
-    mv "$_nn_tmp" "$new_path"
+    _nn_sfx=$(date +%s); _nn_i=0
+    new_path="$PWD/${_slug}-${_nn_sfx}.md"
+    while ! ln "$_nn_tmp" "$new_path" 2>/dev/null; do
+      _nn_i=$((_nn_i + 1))
+      [ "$_nn_i" -gt 9 ] && { echo "notenav: could not create note file" >&2; rm -f "$_nn_tmp"; exit 1; }
+      new_path="$PWD/${_slug}-${_nn_sfx}-${_nn_i}.md"
+    done
   fi
   rm -f "$_nn_tmp"
 fi

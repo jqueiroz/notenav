@@ -56,7 +56,7 @@ fi
 
 # yq must be yq-go (mikefarah), not yq-python (kislyuk)
 if check_dep yq; then
-  if ! yq -p=toml -o=json '.' /dev/null >/dev/null 2>&1; then
+  if ! printf 'x = 1\n' | yq -p=toml -o=json '.' >/dev/null 2>&1; then
     warn "yq found but does not appear to be yq-go (github.com/mikefarah/yq)."
     warn "notenav requires yq-go, not the Python yq. Install: https://github.com/mikefarah/yq#install"
     missing="$missing yq"
