@@ -25,6 +25,8 @@
 # after_create = "edit"         # "edit" (open in editor) or "none" (just create)
 # previewer = ["bat", "glow", "mdcat"]  # fallback list (bat | glow | mdcat | plain | custom)
 # previewer_custom_command = ""  # command when previewer includes "custom" (file as $1)
+# delete_method = "trash"        # "trash" (trash-put / gio trash) or "rm" (permanent)
+# delete_confirm = "always"      # "always" (ask before deleting) or "never"
 
 # [ui.previewer_flags]
 # bat = ""                        # extra flags appended to bat (e.g. "--theme=Nord")

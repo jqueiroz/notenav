@@ -25,6 +25,8 @@ priority_plus = "demote" # what + key does: "demote" = lower urgency (P1→P2), 
 after_create = "edit"    # "edit" (open in editor) or "none" (just create)
 previewer = ["bat", "glow", "mdcat"] # fallback list: tries each in order, uses first found
 previewer_custom_command = "" # command when previewer includes "custom" (file path passed as $1)
+delete_method = "trash"    # "trash" (trash-put / gio trash) or "rm" (permanent delete)
+delete_confirm = "always"  # "always" or "never"
 
 [ui.previewer_flags]
 bat = ""       # extra flags appended to bat (notenav always passes -p --color always)

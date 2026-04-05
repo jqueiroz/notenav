@@ -134,6 +134,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `space` | Toggle multi-select |
 | `r` | [**r**]efresh note list |
 | `b` | [**b**]ulk edit (via your preferred editor) |
+| `d` | [**d**]elete focused note |
 | `x` | Clear all pinned ghost rows |
 | `X` | Restore pins from last clear (one-shot undo) |
 | `j` / `k` | Move down / up |

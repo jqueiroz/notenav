@@ -781,6 +781,8 @@ nn_precompute_workflow() {
   NN_UI_EXIT_MESSAGE=$(nn_cfg '.ui.exit_message // "none"')
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
+  NN_UI_DELETE_METHOD=$(nn_cfg '.ui.delete_method // "trash"')
+  NN_UI_DELETE_CONFIRM=$(nn_cfg '.ui.delete_confirm // "always"')
   NN_UI_PREVIEWER=$(nn_cfg '.ui.previewer // ["bat","glow","mdcat"] | if type == "array" then join(" ") else . end')
   NN_UI_PREVIEWER_CUSTOM=$(nn_cfg '.ui.previewer_custom_command // ""')
   NN_UI_PREVIEWER_FLAGS_BAT=$(nn_cfg '.ui.previewer_flags.bat // ""')
@@ -801,6 +803,10 @@ nn_precompute_workflow() {
     *) echo "notenav: ui.priority_plus '$NN_UI_PRIORITY_PLUS' invalid (must be 'demote' or 'promote')" >&2; return 1 ;; esac
   case "$NN_UI_AFTER_CREATE" in edit|none) ;;
     *) echo "notenav: ui.after_create '$NN_UI_AFTER_CREATE' invalid (must be 'edit' or 'none')" >&2; return 1 ;; esac
+  case "$NN_UI_DELETE_METHOD" in trash|rm) ;;
+    *) echo "notenav: ui.delete_method '$NN_UI_DELETE_METHOD' invalid (must be 'trash' or 'rm')" >&2; return 1 ;; esac
+  case "$NN_UI_DELETE_CONFIRM" in always|never) ;;
+    *) echo "notenav: ui.delete_confirm '$NN_UI_DELETE_CONFIRM' invalid (must be 'always' or 'never')" >&2; return 1 ;; esac
   case "$NN_REFRESH_MODE" in watch|poll|manual) ;;
     *) echo "notenav: refresh.mode '$NN_REFRESH_MODE' invalid (must be 'watch', 'poll', or 'manual')" >&2; return 1 ;; esac
   case "$NN_DEFAULT_SORT" in created|modified|title|priority|"") ;;
@@ -955,6 +961,8 @@ nn_write_workflow_files() {
   printf '%s' "$(_nn_resolve_editor "$NN_UI_EDITOR")" > "$dir/.schema_editor"
   printf '%s' "$NN_UI_AFTER_CREATE" > "$dir/.schema_after_create"
   printf '%s' "$NN_UI_PRIORITY_PLUS" > "$dir/.schema_priority_plus"
+  printf '%s' "$NN_UI_DELETE_METHOD" > "$dir/.schema_delete_method"
+  printf '%s' "$NN_UI_DELETE_CONFIRM" > "$dir/.schema_delete_confirm"
   printf '%s' "$NN_UI_HEADER" > "$dir/.schema_header_mode"
 
   # Sort/group options (one per line)
@@ -1383,6 +1391,15 @@ nn_doctor() {
     _pass "rg ${rg_ver:-installed}"
   elif [[ "$_has_zk" != "true" ]]; then
     _info "rg not found ${_dim}(optional – faster content search without zk)${_reset}"
+  fi
+
+  # trash-put / gio trash (optional – needed for ui.delete_method=trash)
+  if command -v trash-put >/dev/null 2>&1; then
+    _pass "trash-put"
+  elif command -v gio >/dev/null 2>&1; then
+    _pass "gio trash"
+  else
+    _info "trash-put/gio not found ${_dim}(optional – delete uses these when delete_method=trash)${_reset}"
   fi
 
   # Preview tools validated in Phase 2 alongside config
@@ -2139,6 +2156,22 @@ nn_doctor() {
       case "$_ui_ac" in
         edit|none) ;;
         *) _warn "ui.after_create '$_ui_ac' invalid (must be 'edit' or 'none')" ;;
+      esac
+    fi
+    local _ui_dm
+    _ui_dm=$(nn_cfg '.ui.delete_method // empty')
+    if [[ -n "$_ui_dm" ]]; then
+      case "$_ui_dm" in
+        trash|rm) ;;
+        *) _warn "ui.delete_method '$_ui_dm' invalid (must be 'trash' or 'rm')" ;;
+      esac
+    fi
+    local _ui_dc
+    _ui_dc=$(nn_cfg '.ui.delete_confirm // empty')
+    if [[ -n "$_ui_dc" ]]; then
+      case "$_ui_dc" in
+        always|never) ;;
+        *) _warn "ui.delete_confirm '$_ui_dc' invalid (must be 'always' or 'never')" ;;
       esac
     fi
     # Validate ui.previewer (string or array of strings)
@@ -5066,7 +5099,7 @@ if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
     _pri_hint=' \033[90m·\033[0m \033[36m[+]\033[0m demote pri \033[90m·\033[0m \033[36m[-]\033[0m promote pri'
   fi
 fi
-actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance%b \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[b]\033[0mulk edit \033[90m·\033[0m \033[36m[x]\033[0m clear pins \033[90m·\033[0m \033[36m[X]\033[0m restore pins' "$_pri_hint")
+actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance%b \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[b]\033[0mulk edit \033[90m·\033[0m \033[36m[d]\033[0melete \033[90m·\033[0m \033[36m[x]\033[0m clear pins \033[90m·\033[0m \033[36m[X]\033[0m restore pins' "$_pri_hint")
 change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
 mark_count=0; [ -s "$dir/.marked" ] && mark_count=$(awk 'NF{n++} END{print n+0}' "$dir/.marked")
@@ -5105,7 +5138,7 @@ if [ "$_header_mode" = "compact" ]; then
   elif [ "$mark_count" -gt 0 ]; then
     _cmcount_s=$(printf ' \033[1m(%d)\033[0m' "$mark_count")
   fi
-  cactions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[c]\033[0mhange \033[90m·\033[0m \033[36m[m]\033[0marks%b \033[90m·\033[0m \033[36m[b]\033[0mulk' "$_cmcount_s")
+  cactions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[c]\033[0mhange \033[90m·\033[0m \033[36m[m]\033[0marks%b \033[90m·\033[0m \033[36m[b]\033[0mulk \033[90m·\033[0m \033[36m[d]\033[0mel' "$_cmcount_s")
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header"
   # Mode-active headers: expand the active section to full-mode for sub-key guidance
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
@@ -5253,6 +5286,112 @@ target=$(cat "$dir/.edit_target" 2>/dev/null)
 ENDEDIT
     chmod +x "$_nn_dir/edit.sh"
 
+    # Delete helper: removes note from disk (trash or rm), cleans up state, reloads
+    cat > "$_nn_dir/delete.sh" << 'ENDDELETE'
+#!/usr/bin/env bash
+nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
+dir=$(dirname "$0")
+target=$(cat "$dir/.delete_target" 2>/dev/null)
+[ -z "$target" ] && exit 0
+[ ! -f "$target" ] && exit 0
+
+delete_method=$(cat "$dir/.schema_delete_method" 2>/dev/null)
+delete_confirm=$(cat "$dir/.schema_delete_confirm" 2>/dev/null)
+
+# NO_COLOR support
+if [ -n "${NO_COLOR+x}" ]; then
+  _nn_dim="" _nn_reset="" _nn_bold="" _nn_red="" _nn_yellow="" _nn_green=""
+else
+  _nn_dim='\033[90m' _nn_reset='\033[0m' _nn_bold='\033[1m'
+  _nn_red='\033[31m' _nn_yellow='\033[33m' _nn_green='\033[32m'
+fi
+
+# Clear screen so previous execute() output doesn't stack
+printf '\033[H\033[J' > /dev/tty
+
+# Resolve title for display
+_title=$(p="$target" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+[ -z "$_title" ] && _title=$(basename "$target" .md)
+_nb_root=$(cat "$dir/.notebook_root" 2>/dev/null)
+if [ -n "$_nb_root" ]; then
+  _rel="${target#"$_nb_root"/}"
+else
+  _rel="${target#"$PWD"/}"
+fi
+
+# Show what will be deleted
+case "${delete_method:-trash}" in
+  trash)  _method_desc="Move to trash" ;;
+  rm)     _method_desc="Permanently delete" ;;
+  *) nn_assert "delete: unknown delete_method '$delete_method'" ;;
+esac
+
+printf "\n  ${_nn_bold}%b${_nn_reset} %s\n" "$_method_desc:" "$_title" > /dev/tty
+printf "  ${_nn_dim}%s${_nn_reset}\n\n" "$_rel" > /dev/tty
+
+# Confirmation
+case "${delete_confirm:-always}" in
+  always)
+    printf "  ${_nn_yellow}Confirm? [y/N]${_nn_reset} " > /dev/tty
+    IFS= read -rsn1 _confirm < /dev/tty
+    printf '\n' > /dev/tty
+    case "$_confirm" in
+      y|Y) ;;
+      *) printf "\n  ${_nn_dim}Cancelled${_nn_reset}\n\n" > /dev/tty; exit 0 ;;
+    esac
+    ;;
+  never) ;;
+  *) nn_assert "delete: unknown delete_confirm '$delete_confirm'" ;;
+esac
+
+# Perform deletion
+_ok=false
+case "${delete_method:-trash}" in
+  trash)
+    if command -v trash-put >/dev/null 2>&1; then
+      trash-put "$target" && _ok=true
+    elif command -v gio >/dev/null 2>&1; then
+      gio trash "$target" && _ok=true
+    else
+      printf "  ${_nn_yellow}⚠ No trash tool found (trash-put, gio); falling back to rm${_nn_reset}\n" > /dev/tty
+      rm "$target" && _ok=true
+    fi
+    ;;
+  rm)
+    rm "$target" && _ok=true
+    ;;
+  *) nn_assert "delete: unknown delete_method '$delete_method'" ;;
+esac
+
+if "$_ok"; then
+  # Clean up .pinned – remove the deleted path
+  if [ -s "$dir/.pinned" ]; then
+    { grep -vxF "$target" "$dir/.pinned" || true; } > "$dir/.pinned.tmp"
+    mv "$dir/.pinned.tmp" "$dir/.pinned"
+  fi
+  # Clean up .marked – remove the deleted path
+  if [ -s "$dir/.marked" ]; then
+    { grep -vxF "$target" "$dir/.marked" || true; } > "$dir/.marked.tmp"
+    mv "$dir/.marked.tmp" "$dir/.marked"
+  fi
+  # Feedback
+  _la_title="${_title//[()]/}"; [ ${#_la_title} -gt 40 ] && _la_title="${_la_title:0:37}..."
+  case "${delete_method:-trash}" in
+    trash) printf 'deleted → trash · %s' "$_la_title" > "$dir/.last_action" ;;
+    rm)    printf 'deleted · %s' "$_la_title" > "$dir/.last_action" ;;
+    *) nn_assert "delete: unknown delete_method '$delete_method'" ;;
+  esac
+  printf "  ${_nn_green}Deleted${_nn_reset}\n\n" > /dev/tty
+  # Reload data
+  "$dir/reload_raw.sh" "$dir"
+  "$dir/filter.sh" "$dir" refresh > /dev/null
+else
+  printf "  ${_nn_red}Delete failed${_nn_reset}\n\n" > /dev/tty
+  printf '⚠ delete failed' > "$dir/.last_action"
+fi
+ENDDELETE
+    chmod +x "$_nn_dir/delete.sh"
+
     local _nn_fzf_wrap=()
     [[ "$NN_DEFAULT_WRAP" == "true" ]] && _nn_fzf_wrap=(--wrap)
     local _nn_fzf_ansi=(--ansi)
@@ -5346,7 +5485,7 @@ ENDEDIT
       --bind "x:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-pins; fi]" \
       --bind "X:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\" && test -s $_nn_dir/.pinned.bak; then $_nn_dir/filter.sh $_nn_dir restore-pins; fi]" \
       --bind "m:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-toggle {1}; elif test -z \"\$m\"; then echo m > $_nn_dir/.nn-mode; echo 'change-prompt(m )+transform-header(cat $_nn_dir/.header-m)'; fi]" \
-      --bind "d:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.m_sel; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-remove; fi]" \
+      --bind "d:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.m_sel; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-remove; elif test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.delete_target; echo 'execute($_nn_dir/delete.sh)+transform($_nn_dir/reload_at.sh $_nn_dir)'; fi]" \
       --bind "D:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-clear; fi]" \
       --bind "start:execute-silent(rm -f $_nn_dir/.nn-search $_nn_dir/.nn-csearch)+transform-header(cat $_nn_dir/.header)${_nn_fzf_start_watcher}" \
       --bind "/:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then touch $_nn_dir/.nn-search; echo 'unbind($_nn_search_unbind)+change-prompt($NN_UI_SEARCH_PROMPT)+transform-header(cat $_nn_dir/.header-search)'; fi]" \

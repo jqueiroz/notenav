@@ -443,6 +443,8 @@ priority_plus = "demote" # what the + key does to priority
 after_create = "edit"    # "edit" or "none"
 previewer = ["bat", "glow", "mdcat"]  # fallback list; tries each in order
 previewer_custom_command = "" # command when previewer includes "custom"
+delete_method = "trash"    # "trash" (trash-put / gio trash) or "rm"
+delete_confirm = "always"  # "always" or "never"
 
 [ui.previewer_flags]
 bat = ""       # extra flags appended to bat
@@ -462,6 +464,8 @@ mdcat = ""     # extra flags appended to mdcat
 | `previewer` | string or array | `["bat", "glow", "mdcat"]` | Previewer fallback list – tries each in order, uses first one found (see below) |
 | `previewer_custom_command` | string | `""` | Command to run for the `"custom"` previewer entry (file path passed as `$1`) |
 | `previewer_flags` | table | `{}` | Extra CLI flags appended to built-in previewer commands (see below) |
+| `delete_method` | string | `"trash"` | How to delete notes: `"trash"` uses `trash-put` or `gio trash` (recoverable), `"rm"` permanently deletes |
+| `delete_confirm` | string | `"always"` | Whether to confirm before deleting: `"always"` shows a `[y/N]` prompt, `"never"` deletes immediately |
 
 #### Priority key direction
 
@@ -527,6 +531,22 @@ notenav always passes a minimal set of flags for correct operation:
 Your flags are appended after these defaults. Most CLI tools use last-flag-wins, so you can override built-in flags – for example, `-s dark` forces dark mode for glow (which defaults to auto-detection).
 
 Leave a key empty or omit it entirely for default behavior.
+
+#### Delete method
+
+The `d` key deletes the focused note. The `delete_method` setting controls how:
+
+| Value | Tool | Notes |
+|-------|------|-------|
+| `"trash"` (default) | `trash-put` or `gio trash` | Recoverable – moved to system trash. Falls back to `rm` with a warning if neither tool is available |
+| `"rm"` | `rm` | Permanent – the file is removed from disk |
+
+The `delete_confirm` setting controls whether a confirmation prompt is shown:
+
+| Value | Behavior |
+|-------|----------|
+| `"always"` (default) | Shows the note title and path, then asks `[y/N]` before proceeding |
+| `"never"` | Deletes immediately without prompting |
 
 ### `[refresh]`
 
