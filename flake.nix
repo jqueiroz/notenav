@@ -17,6 +17,7 @@
         fzf
         bat
         ripgrep  # optional but bundled – faster content search
+        trash-cli  # optional but bundled – recoverable delete (trash-put)
         gawk
         gnused
         coreutils

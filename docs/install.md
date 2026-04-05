@@ -19,6 +19,7 @@ Not required, but progressively enhance the experience when installed.
 - **[bat](https://github.com/sharkdp/bat):** syntax-highlighted preview (default; called `batcat` on Debian/Ubuntu). Alternatives: [glow](https://github.com/charmbracelet/glow), [mdcat](https://codeberg.org/flausch/mdcat) – see [previewer configuration](configuration.md#previewer)
 - **curl:** required for [remote workflows](configuration.md#remote-workflows) (`nn init https://...`). Pre-installed on most systems
 - **inotifywait** (Linux) or **fswatch** (macOS/FreeBSD): enables real-time auto-refresh when notes change on disk (`refresh.mode = "watch"`). Without either, auto-refresh silently falls back to manual (`r` key). Install via `inotify-tools` (apt/dnf), `fswatch` (Homebrew), or `pkg install fswatch` (FreeBSD)
+- **[trash-cli](https://github.com/andreafrancia/trash-cli)** (`trash-put`): recoverable deletion via the freedesktop.org Trash spec (`d` key with `delete_method = "trash"`). Without it, notenav tries `gio trash`, then falls back to `rm` with a warning. Install via `pip install trash-cli`, `apt install trash-cli`, or `pacman -S trash-cli`
 
 ## Install
 
