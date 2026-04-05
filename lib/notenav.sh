@@ -140,16 +140,40 @@ nn_load_config() {
 
   # Require yq (must be yq-go, not yq-python) and jq
   if ! command -v yq >/dev/null 2>&1; then
-    echo "notenav: yq is required for config loading (install yq-go)" >&2
+    echo "notenav: yq-go is required for config loading" >&2
+    if command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+      echo "  Install via: pkg install go-yq" >&2
+    elif command -v brew >/dev/null 2>&1; then
+      echo "  Install via: brew install yq" >&2
+    else
+      echo "  Install from https://github.com/mikefarah/yq#install" >&2
+    fi
     return 1
   fi
   if ! printf 'x = 1\n' | yq -p=toml -o=json '.' >/dev/null 2>&1; then
-    echo "notenav: yq appears to be yq-python, not yq-go (github.com/mikefarah/yq)" >&2
-    echo "notenav: install yq-go: https://github.com/mikefarah/yq#install" >&2
+    echo "notenav: yq appears to be yq-python, not yq-go" >&2
+    echo "  Install yq-go: https://github.com/mikefarah/yq#install" >&2
     return 1
   fi
   if ! command -v jq >/dev/null 2>&1; then
-    echo "notenav: jq is required for config loading (https://github.com/jqlang/jq)" >&2
+    echo "notenav: jq is required for config loading" >&2
+    if [[ -f /etc/debian_version ]]; then
+      echo "  Install via: sudo apt install jq" >&2
+    elif [[ -f /etc/fedora-release ]]; then
+      echo "  Install via: sudo dnf install jq" >&2
+    elif [[ -f /etc/alpine-release ]]; then
+      echo "  Install via: apk add jq" >&2
+    elif command -v pacman >/dev/null 2>&1; then
+      echo "  Install via: sudo pacman -S jq" >&2
+    elif command -v emerge >/dev/null 2>&1; then
+      echo "  Install via: emerge app-misc/jq" >&2
+    elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+      echo "  Install via: pkg install jq" >&2
+    elif command -v brew >/dev/null 2>&1; then
+      echo "  Install via: brew install jq" >&2
+    else
+      echo "  Install from https://github.com/jqlang/jq" >&2
+    fi
     return 1
   fi
 
