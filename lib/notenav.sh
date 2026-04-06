@@ -141,13 +141,7 @@ nn_load_config() {
   # Require yq (must be yq-go, not yq-python) and jq
   if ! command -v yq >/dev/null 2>&1; then
     echo "notenav: yq-go is required for config loading" >&2
-    if command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
-      echo "  Install via: pkg install go-yq" >&2
-    elif command -v brew >/dev/null 2>&1; then
-      echo "  Install via: brew install yq" >&2
-    else
-      echo "  Install from https://github.com/mikefarah/yq#install" >&2
-    fi
+    _nn_hint "" "" "" "" "" go-yq yq "https://github.com/mikefarah/yq#install"
     return 1
   fi
   if ! printf 'x = 1\n' | yq -p=toml -o=json '.' >/dev/null 2>&1; then
@@ -157,23 +151,7 @@ nn_load_config() {
   fi
   if ! command -v jq >/dev/null 2>&1; then
     echo "notenav: jq is required for config loading" >&2
-    if [[ -f /etc/debian_version ]]; then
-      echo "  Install via: sudo apt install jq" >&2
-    elif [[ -f /etc/fedora-release ]]; then
-      echo "  Install via: sudo dnf install jq" >&2
-    elif [[ -f /etc/alpine-release ]]; then
-      echo "  Install via: apk add jq" >&2
-    elif command -v pacman >/dev/null 2>&1; then
-      echo "  Install via: sudo pacman -S jq" >&2
-    elif command -v emerge >/dev/null 2>&1; then
-      echo "  Install via: emerge app-misc/jq" >&2
-    elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
-      echo "  Install via: pkg install jq" >&2
-    elif command -v brew >/dev/null 2>&1; then
-      echo "  Install via: brew install jq" >&2
-    else
-      echo "  Install from https://github.com/jqlang/jq" >&2
-    fi
+    _nn_hint jq jq jq jq app-misc/jq jq jq "https://github.com/jqlang/jq"
     return 1
   fi
 
@@ -236,36 +214,17 @@ nn_load_config() {
 
   # Step 4: Load base workflow and resolve extends chain
   if [[ -n "$workflow_name" ]]; then
+    _nn_validate_workflow_ref "$workflow_name" "config" || return 1
     local workflow_file=""
-    if [[ "$workflow_name" == http://* ]]; then
-      echo "notenav: only https:// URLs are supported in extends (got $workflow_name)" >&2
-      return 1
-    elif [[ "$workflow_name" != https://* ]] && ! [[ "$workflow_name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
-      echo "notenav: invalid workflow name in config: $workflow_name" >&2
-      return 1
-    elif [[ "$workflow_name" == https://* ]]; then
-      local _cache_path
-      _cache_path=$(_nn_url_cache_path "$workflow_name")
-      if [[ ! -f "$_cache_path" ]]; then
+    workflow_file=$(_nn_resolve_workflow_file "$notenav_root" "$workflow_name")
+    if [[ -z "$workflow_file" ]]; then
+      if [[ "$workflow_name" == https://* ]]; then
         echo "notenav: remote workflow not cached: $workflow_name" >&2
         echo "notenav: run 'nn init $workflow_name' to fetch it" >&2
-        return 1
+      else
+        echo "notenav: workflow '$workflow_name' not found" >&2
+        echo "notenav: check the 'extends' value in .nn/workflow.toml or 'default_workflow' in user config" >&2
       fi
-      workflow_file="$_cache_path"
-    elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$workflow_name.toml" ]]; then
-      workflow_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$workflow_name.toml"
-    elif [[ -f "$notenav_root/config/workflows/$workflow_name.toml" ]]; then
-      workflow_file="$notenav_root/config/workflows/$workflow_name.toml"
-    fi
-
-    if [[ -z "$workflow_file" ]]; then
-      echo "notenav: workflow '$workflow_name' not found" >&2
-      echo "notenav: check the 'extends' value in .nn/workflow.toml or 'default_workflow' in user config" >&2
-      return 1
-    fi
-
-    if [[ ! -f "$workflow_file" ]]; then
-      echo "notenav: no workflow file found at $workflow_file" >&2
       return 1
     fi
 
@@ -279,27 +238,16 @@ nn_load_config() {
     local _extends _depth=0
     _extends=$(printf '%s' "$workflow_json" | jq -r '.extends // empty' 2>/dev/null)
     while [[ -n "$_extends" && $_depth -lt 5 ]]; do
+      _nn_validate_workflow_ref "$_extends" "extends chain" || return 1
       local _base_file=""
-      if [[ "$_extends" == http://* ]]; then
-        echo "notenav: only https:// URLs are supported in extends (got $_extends)" >&2
-        return 1
-      elif [[ "$_extends" != https://* ]] && ! [[ "$_extends" =~ ^[a-zA-Z0-9._-]+$ ]]; then
-        echo "notenav: invalid workflow name in extends chain: $_extends" >&2
-        return 1
-      elif [[ "$_extends" == https://* ]]; then
-        _base_file=$(_nn_url_cache_path "$_extends")
-        if [[ ! -f "$_base_file" ]]; then
+      _base_file=$(_nn_resolve_workflow_file "$notenav_root" "$_extends")
+      if [[ -z "$_base_file" ]]; then
+        if [[ "$_extends" == https://* ]]; then
           echo "notenav: remote workflow not cached: $_extends" >&2
           echo "notenav: run 'nn init $_extends' to fetch it" >&2
-          return 1
+        else
+          echo "notenav: extended workflow '$_extends' not found" >&2
         fi
-      elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_extends.toml" ]]; then
-        _base_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_extends.toml"
-      else
-        _base_file="$notenav_root/config/workflows/$_extends.toml"
-      fi
-      if [[ ! -f "$_base_file" ]]; then
-        echo "notenav: extended workflow '$_extends' not found" >&2
         return 1
       fi
       local _base_json
@@ -453,6 +401,76 @@ _nn_resolve_color() {
 # Validate an ANSI color code for safe interpolation into AWK (digits and semicolons only)
 _nn_valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
+
+# Distro-aware install hint: _nn_hint apt dnf apk pacman emerge freebsd brew url
+# Pass "" to skip a distro.
+_nn_hint() {
+  local _apt="$1" _dnf="$2" _apk="$3" _pacman="$4" _emerge="$5" _freebsd="$6" _brew="$7" _url="$8"
+  if [[ -n "$_apt" && -f /etc/debian_version ]]; then
+    echo "  Install via: sudo apt install $_apt" >&2
+  elif [[ -n "$_dnf" && -f /etc/fedora-release ]]; then
+    echo "  Install via: sudo dnf install $_dnf" >&2
+  elif [[ -n "$_apk" && -f /etc/alpine-release ]]; then
+    echo "  Install via: apk add $_apk" >&2
+  elif [[ -n "$_pacman" ]] && command -v pacman >/dev/null 2>&1; then
+    echo "  Install via: sudo pacman -S $_pacman" >&2
+  elif [[ -n "$_emerge" ]] && command -v emerge >/dev/null 2>&1; then
+    echo "  Install via: emerge $_emerge" >&2
+  elif [[ -n "$_freebsd" ]] && command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+    echo "  Install via: pkg install $_freebsd" >&2
+  elif [[ -n "$_brew" ]] && command -v brew >/dev/null 2>&1; then
+    echo "  Install via: brew install $_brew" >&2
+  elif [[ -n "$_url" ]]; then
+    echo "  Install from $_url" >&2
+  fi
+}
+
+# fzf install hint (Debian special case: apt package is outdated)
+_nn_fzf_hint() {
+  if [[ -f /etc/debian_version ]]; then
+    echo "  Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
+    echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)' >&2
+    echo '  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
+  else
+    _nn_hint "" fzf fzf fzf app-shells/fzf fzf fzf "https://github.com/junegunn/fzf"
+  fi
+}
+
+# gawk install hint
+_nn_gawk_hint() {
+  _nn_hint gawk gawk gawk gawk sys-apps/gawk gawk gawk "https://www.gnu.org/software/gawk/"
+}
+
+# Resolve a workflow name or URL to a file path.
+# Usage: _nn_resolve_workflow_file <notenav_root> <name_or_url>
+# Prints the resolved path on stdout, returns 0. Returns 1 if not found (no error message).
+_nn_resolve_workflow_file() {
+  local notenav_root="$1" name="$2"
+  if [[ "$name" == https://* ]]; then
+    local _cache_path
+    _cache_path=$(_nn_url_cache_path "$name")
+    [[ -f "$_cache_path" ]] && { printf '%s' "$_cache_path"; return 0; }
+  elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$name.toml" ]]; then
+    printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$name.toml"; return 0
+  elif [[ -f "$notenav_root/config/workflows/$name.toml" ]]; then
+    printf '%s' "$notenav_root/config/workflows/$name.toml"; return 0
+  fi
+  return 1
+}
+
+# Validate a workflow name or URL string (not a file check – just format).
+# Returns 0 if valid, 1 with error message on stderr if not.
+_nn_validate_workflow_ref() {
+  local name="$1" context="${2:-config}"
+  if [[ "$name" == http://* ]]; then
+    echo "notenav: only https:// URLs are supported in $context (got $name)" >&2
+    return 1
+  elif [[ "$name" != https://* ]] && ! [[ "$name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+    echo "notenav: invalid workflow name in $context: $name" >&2
+    return 1
+  fi
+  return 0
+}
 
 _nn_gen_awk_bodies() {
   local _v _i _esc
@@ -668,7 +686,7 @@ _nn_gen_awk_bodies() {
 }
 
 nn_precompute_workflow() {
-  local _v
+  local _v _jv _fwd _rev _label _up _down
   # Schema version check (absent = 1, future versions rejected)
   local _schema_ver
   _schema_ver=$(nn_cfg '.meta.schema // 1')
@@ -694,7 +712,7 @@ nn_precompute_workflow() {
     *) echo "notenav: type.visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" >&2; return 1 ;; esac
   declare -gA NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS
   for _v in "${NN_TYPE_VALUES[@]}"; do
-    local _jv; _jv=$(_nn_jq_esc "$_v")
+    _jv=$(_nn_jq_esc "$_v")
     NN_TYPE_ICONS[$_v]=$(nn_cfg ".type.\"$_jv\".icon // \"*\"")
     NN_TYPE_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".type.\"$_jv\".color // \"$NN_TYPE_DEFAULT_COLOR\"")")
     _nn_valid_color "${NN_TYPE_COLORS[$_v]}" || { echo "notenav: type.$_v.color '${NN_TYPE_COLORS[$_v]}' invalid (must be a color name or ANSI code)" >&2; return 1; }
@@ -709,7 +727,7 @@ nn_precompute_workflow() {
   _nn_valid_color "$NN_STATUS_DEFAULT_COLOR" || { echo "notenav: status.default_color '$NN_STATUS_DEFAULT_COLOR' invalid (must be a color name or ANSI code)" >&2; return 1; }
   declare -gA NN_STATUS_COLORS NN_STATUS_DESCS
   for _v in "${NN_STATUS_VALUES[@]}"; do
-    local _jv; _jv=$(_nn_jq_esc "$_v")
+    _jv=$(_nn_jq_esc "$_v")
     NN_STATUS_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".status.colors.\"$_jv\" // \"$NN_STATUS_DEFAULT_COLOR\"")")
     _nn_valid_color "${NN_STATUS_COLORS[$_v]}" || { echo "notenav: status.colors.$_v '${NN_STATUS_COLORS[$_v]}' invalid (must be a color name or ANSI code)" >&2; return 1; }
     NN_STATUS_DESCS[$_v]=$(nn_cfg ".status.descriptions.\"$_jv\" // \"\"")
@@ -739,10 +757,10 @@ nn_precompute_workflow() {
   # Status lifecycle
   declare -gA NN_STATUS_FWD NN_STATUS_REV
   for _v in "${NN_STATUS_VALUES[@]}"; do
-    local _jv; _jv=$(_nn_jq_esc "$_v")
-    local _fwd; _fwd=$(nn_cfg ".status.lifecycle.forward.\"$_jv\" // empty")
+    _jv=$(_nn_jq_esc "$_v")
+    _fwd=$(nn_cfg ".status.lifecycle.forward.\"$_jv\" // empty")
     [[ -n "$_fwd" ]] && NN_STATUS_FWD[$_v]=$_fwd
-    local _rev; _rev=$(nn_cfg ".status.lifecycle.reverse.\"$_jv\" // empty")
+    _rev=$(nn_cfg ".status.lifecycle.reverse.\"$_jv\" // empty")
     [[ -n "$_rev" ]] && NN_STATUS_REV[$_v]=$_rev
   done
 
@@ -771,17 +789,17 @@ nn_precompute_workflow() {
     fi
 
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
-      local _jv; _jv=$(_nn_jq_esc "$_v")
+      _jv=$(_nn_jq_esc "$_v")
       NN_PRIORITY_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".priority.colors.\"$_jv\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")")
       _nn_valid_color "${NN_PRIORITY_COLORS[$_v]}" || { echo "notenav: priority.colors.$_v '${NN_PRIORITY_COLORS[$_v]}' invalid (must be a color name or ANSI code)" >&2; return 1; }
-      local _label; _label=$(nn_cfg ".priority.labels.\"$_jv\" // empty")
+      _label=$(nn_cfg ".priority.labels.\"$_jv\" // empty")
       NN_PRIORITY_LABELS[$_v]="${_label:-P$_v}"
     done
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
-      local _jv; _jv=$(_nn_jq_esc "$_v")
-      local _up; _up=$(nn_cfg ".priority.lifecycle.up.\"$_jv\" // empty")
+      _jv=$(_nn_jq_esc "$_v")
+      _up=$(nn_cfg ".priority.lifecycle.up.\"$_jv\" // empty")
       [[ -n "$_up" ]] && NN_PRIORITY_UP[$_v]=$_up
-      local _down; _down=$(nn_cfg ".priority.lifecycle.down.\"$_jv\" // empty")
+      _down=$(nn_cfg ".priority.lifecycle.down.\"$_jv\" // empty")
       [[ -n "$_down" ]] && NN_PRIORITY_DOWN[$_v]=$_down
     done
   else
@@ -1310,37 +1328,9 @@ nn_doctor() {
   _dupes() { local -A _seen; local _d="" _v; for _v; do if [[ -n "${_seen[$_v]+x}" ]]; then [[ "${_seen[$_v]}" == d ]] || { _d+="$_v, "; _seen[$_v]=d; }; else _seen[$_v]=1; fi; done; printf '%s' "${_d%, }"; }
   _is_array() { local _t; _t=$(nn_cfg "$1 // null | type" 2>/dev/null); [[ "$_t" == "array" ]]; }
   _all_strings() { local _bad; _bad=$(nn_cfg "$1 // {} | to_entries[] | select(.value | type != \"string\") | .key" 2>/dev/null); [[ -z "$_bad" ]] && return 0; printf '%s' "$_bad"; return 1; }
-  # Distro-aware install hint: _hint apt dnf apk pacman emerge freebsd brew url
-  # Pass "" to skip a distro.
-  _hint() {
-    local _apt="$1" _dnf="$2" _apk="$3" _pacman="$4" _emerge="$5" _freebsd="$6" _brew="$7" _url="$8"
-    if [[ -n "$_apt" && -f /etc/debian_version ]]; then
-      echo "        Install via: sudo apt install $_apt"
-    elif [[ -n "$_dnf" && -f /etc/fedora-release ]]; then
-      echo "        Install via: sudo dnf install $_dnf"
-    elif [[ -n "$_apk" && -f /etc/alpine-release ]]; then
-      echo "        Install via: apk add $_apk"
-    elif [[ -n "$_pacman" ]] && command -v pacman >/dev/null 2>&1; then
-      echo "        Install via: sudo pacman -S $_pacman"
-    elif [[ -n "$_emerge" ]] && command -v emerge >/dev/null 2>&1; then
-      echo "        Install via: emerge $_emerge"
-    elif [[ -n "$_freebsd" ]] && command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
-      echo "        Install via: pkg install $_freebsd"
-    elif [[ -n "$_brew" ]] && command -v brew >/dev/null 2>&1; then
-      echo "        Install via: brew install $_brew"
-    elif [[ -n "$_url" ]]; then
-      echo "        Install from $_url"
-    fi
-  }
-  _fzf_hint() {
-    if [[ -f /etc/debian_version ]]; then
-      echo "        Debian/Ubuntu's apt package is outdated. Install from GitHub instead:"
-      echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)'
-      echo '        curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin'
-    else
-      _hint "" fzf fzf fzf app-shells/fzf fzf fzf "https://github.com/junegunn/fzf"
-    fi
-  }
+  # Doctor-specific wrappers: indent output for aligned display under [✓]/[✗] markers
+  _hint() { _nn_hint "$@" 2>&1 | sed 's/^  /        /'; }
+  _fzf_hint() { _nn_fzf_hint 2>&1 | sed 's/^  /        /'; }
 
   # ── Phase 1: Dependencies ──
   echo "Dependencies:"
@@ -1545,19 +1535,7 @@ nn_doctor() {
 
     # Resolve extends reference
     if [[ -n "$_extends_name" ]]; then
-      local _wf_found=false
-      if [[ "$_extends_name" == https://* ]]; then
-        local _ext_cache
-        _ext_cache=$(_nn_url_cache_path "$_extends_name")
-        if [[ -f "$_ext_cache" ]]; then
-          _wf_found=true
-        fi
-      elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_extends_name.toml" ]]; then
-        _wf_found=true
-      elif [[ -f "$notenav_root/config/workflows/$_extends_name.toml" ]]; then
-        _wf_found=true
-      fi
-      if [[ "$_wf_found" == "false" ]]; then
+      if ! _nn_resolve_workflow_file "$notenav_root" "$_extends_name" >/dev/null; then
         if [[ "$_extends_name" == https://* ]]; then
           _fail "extends remote workflow – not cached (run 'nn init $_extends_name')"
         else
@@ -1570,25 +1548,11 @@ nn_doctor() {
     if [[ -f "$user_cfg" ]]; then
       local _dw
       _dw=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null | jq -r '.default_workflow // empty' 2>/dev/null)
-      if [[ -n "$_dw" ]]; then
-        local _dw_found=false
+      if [[ -n "$_dw" ]] && ! _nn_resolve_workflow_file "$notenav_root" "$_dw" >/dev/null; then
         if [[ "$_dw" == https://* ]]; then
-          local _dw_cache
-          _dw_cache=$(_nn_url_cache_path "$_dw")
-          if [[ -f "$_dw_cache" ]]; then
-            _dw_found=true
-          fi
-        elif [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$_dw.toml" ]]; then
-          _dw_found=true
-        elif [[ -f "$notenav_root/config/workflows/$_dw.toml" ]]; then
-          _dw_found=true
-        fi
-        if [[ "$_dw_found" == "false" ]]; then
-          if [[ "$_dw" == https://* ]]; then
-            _warn "default_workflow '$_dw' – not yet downloaded (run 'nn init $_dw' to fetch)"
-          else
-            _warn "default_workflow '$_dw' – workflow not found"
-          fi
+          _warn "default_workflow '$_dw' – not yet downloaded (run 'nn init $_dw' to fetch)"
+        else
+          _warn "default_workflow '$_dw' – workflow not found"
         fi
       fi
     fi
@@ -2903,7 +2867,7 @@ _nn_init_project() {
   if [[ "$workflow_name" == https://* ]]; then
     _nn_fetch_remote "$workflow_name" || return 1
   else
-    if ! _nn_workflow_exists "$notenav_root" "$workflow_name"; then
+    if ! _nn_resolve_workflow_file "$notenav_root" "$workflow_name" >/dev/null; then
       echo "notenav: workflow '$workflow_name' not found" >&2
       _nn_list_workflows "$notenav_root" >&2
       return 2
@@ -2957,7 +2921,7 @@ _nn_init_user() {
   if [[ -n "$workflow_arg" ]]; then
     if [[ "$workflow_arg" == https://* ]]; then
       _nn_fetch_remote "$workflow_arg" || return 1
-    elif ! _nn_workflow_exists "$notenav_root" "$workflow_arg"; then
+    elif ! _nn_resolve_workflow_file "$notenav_root" "$workflow_arg" >/dev/null; then
       echo "notenav: workflow '$workflow_arg' not found" >&2
       _nn_list_workflows "$notenav_root" >&2
       return 2
@@ -2996,14 +2960,6 @@ _nn_init_user() {
 
   echo "Created $target"
   echo "Edit it to customize your preferences. Run 'nn' to launch the TUI, or 'nn doctor' to verify your setup."
-}
-
-# Checks if a workflow name exists in built-in or user workflow directories.
-_nn_workflow_exists() {
-  local notenav_root="$1" name="$2"
-  [[ -f "$notenav_root/config/workflows/$name.toml" ]] && return 0
-  [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows/$name.toml" ]] && return 0
-  return 1
 }
 
 # Lists available workflows.
@@ -3369,25 +3325,7 @@ EOF
     fi
     if ! command -v fzf >/dev/null 2>&1; then
       echo "notenav: fzf is required but not found" >&2
-      if [[ -f /etc/debian_version ]]; then
-        echo "  Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
-        echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)' >&2
-        echo '  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
-      elif [[ -f /etc/fedora-release ]]; then
-        echo "  Install via: sudo dnf install fzf" >&2
-      elif [[ -f /etc/alpine-release ]]; then
-        echo "  Install via: apk add fzf" >&2
-      elif command -v pacman >/dev/null 2>&1; then
-        echo "  Install via: sudo pacman -S fzf" >&2
-      elif command -v emerge >/dev/null 2>&1; then
-        echo "  Install via: emerge app-shells/fzf" >&2
-      elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
-        echo "  Install via: pkg install fzf" >&2
-      elif command -v brew >/dev/null 2>&1; then
-        echo "  Install via: brew install fzf" >&2
-      else
-        echo "  Install from https://github.com/junegunn/fzf" >&2
-      fi
+      _nn_fzf_hint
       echo "  For more information, see https://github.com/jqueiroz/notenav/blob/main/docs/install.md" >&2
       return 1
     fi
@@ -3395,13 +3333,7 @@ EOF
     _nn_fzf_ver=$(fzf --version 2>/dev/null | head -n 1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
     if [[ -n "$_nn_fzf_ver" ]] && ! _nn_ver_cmp "$_nn_fzf_ver" "0.58"; then
       echo "notenav: fzf 0.58+ required (found $_nn_fzf_ver)" >&2
-      if [[ -f /etc/debian_version ]]; then
-        echo "  Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
-        echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)' >&2
-        echo '  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
-      else
-        echo "  Install/upgrade from https://github.com/junegunn/fzf" >&2
-      fi
+      _nn_fzf_hint
       echo "  For more information, see https://github.com/jqueiroz/notenav/blob/main/docs/install.md" >&2
       return 1
     fi
@@ -3411,23 +3343,7 @@ EOF
     # gawk capability probe – mktime/strtonum/3-arg match are required
     if ! "$_NN_GAWK" 'BEGIN { mktime("2020 1 1 0 0 0"); strtonum("0x1") }' /dev/null 2>/dev/null; then
       echo "notenav: gawk (GNU awk) is required but the current awk lacks mktime/strtonum" >&2
-      if [[ -f /etc/debian_version ]]; then
-        echo "  Install via: sudo apt install gawk" >&2
-      elif [[ -f /etc/fedora-release ]]; then
-        echo "  Install via: sudo dnf install gawk" >&2
-      elif [[ -f /etc/alpine-release ]]; then
-        echo "  Install via: apk add gawk" >&2
-      elif command -v pacman >/dev/null 2>&1; then
-        echo "  Install via: sudo pacman -S gawk" >&2
-      elif command -v emerge >/dev/null 2>&1; then
-        echo "  Install via: emerge sys-apps/gawk" >&2
-      elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
-        echo "  Install via: pkg install gawk" >&2
-      elif command -v brew >/dev/null 2>&1; then
-        echo "  Install via: brew install gawk" >&2
-      else
-        echo "  Install gawk: https://www.gnu.org/software/gawk/" >&2
-      fi
+      _nn_gawk_hint
       return 1
     fi
 
@@ -6172,14 +6088,14 @@ ENDDELETE
     local _adhoc_fmt
     if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
       local _adhoc_pl='pl = "P" $3'
-      local _v
+      local _v _esc_label _esc_v
       for _v in "${NN_PRIORITY_VALUES[@]}"; do
         [[ "${NN_PRIORITY_LABELS[$_v]}" == "P$_v" ]] && continue
-        local _esc_label; _esc_label=$(_nn_awk_esc "${NN_PRIORITY_LABELS[$_v]}")
+        _esc_label=$(_nn_awk_esc "${NN_PRIORITY_LABELS[$_v]}")
         if [[ "$_v" =~ ^[0-9]+$ ]]; then
           _adhoc_pl+="; if (\$3+0 == $_v) pl = \"${_esc_label}\""
         else
-          local _esc_v; _esc_v=$(_nn_awk_esc "$_v")
+          _esc_v=$(_nn_awk_esc "$_v")
           _adhoc_pl+="; if (\$3 == \"${_esc_v}\") pl = \"${_esc_label}\""
         fi
       done
