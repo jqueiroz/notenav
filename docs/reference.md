@@ -178,7 +178,7 @@ nn doctor
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
    - Color values are valid (named colors or ANSI codes) throughout
 
-5. **Notebook:** confirms a notebook is reachable from the current directory by looking for `.nn/workflow.toml`. Reports the notebook root, markdown file count, and active backend (zk or native).
+5. **Notebook:** confirms a notebook is reachable from the current directory by looking for `.nn/workflow.toml`. Reports the notebook root, markdown file count, `.nnignore` pattern count, and active backend (zk or native).
 
 6. **Notes:** scans markdown files and checks frontmatter values against the workflow definition. Reports notes with unrecognized type, status, or priority values (summary counts, the unknown values found, and up to 5 example file paths). Priority is only checked when enabled in the workflow. Notes with no type or status are reported as informational. Scans up to 2000 files.
 

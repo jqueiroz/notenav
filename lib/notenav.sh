@@ -1310,6 +1310,37 @@ nn_doctor() {
   _dupes() { local -A _seen; local _d="" _v; for _v; do if [[ -n "${_seen[$_v]+x}" ]]; then [[ "${_seen[$_v]}" == d ]] || { _d+="$_v, "; _seen[$_v]=d; }; else _seen[$_v]=1; fi; done; printf '%s' "${_d%, }"; }
   _is_array() { local _t; _t=$(nn_cfg "$1 // null | type" 2>/dev/null); [[ "$_t" == "array" ]]; }
   _all_strings() { local _bad; _bad=$(nn_cfg "$1 // {} | to_entries[] | select(.value | type != \"string\") | .key" 2>/dev/null); [[ -z "$_bad" ]] && return 0; printf '%s' "$_bad"; return 1; }
+  # Distro-aware install hint: _hint apt dnf apk pacman emerge freebsd brew url
+  # Pass "" to skip a distro.
+  _hint() {
+    local _apt="$1" _dnf="$2" _apk="$3" _pacman="$4" _emerge="$5" _freebsd="$6" _brew="$7" _url="$8"
+    if [[ -n "$_apt" && -f /etc/debian_version ]]; then
+      echo "        Install via: sudo apt install $_apt"
+    elif [[ -n "$_dnf" && -f /etc/fedora-release ]]; then
+      echo "        Install via: sudo dnf install $_dnf"
+    elif [[ -n "$_apk" && -f /etc/alpine-release ]]; then
+      echo "        Install via: apk add $_apk"
+    elif [[ -n "$_pacman" ]] && command -v pacman >/dev/null 2>&1; then
+      echo "        Install via: sudo pacman -S $_pacman"
+    elif [[ -n "$_emerge" ]] && command -v emerge >/dev/null 2>&1; then
+      echo "        Install via: emerge $_emerge"
+    elif [[ -n "$_freebsd" ]] && command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
+      echo "        Install via: pkg install $_freebsd"
+    elif [[ -n "$_brew" ]] && command -v brew >/dev/null 2>&1; then
+      echo "        Install via: brew install $_brew"
+    elif [[ -n "$_url" ]]; then
+      echo "        Install from $_url"
+    fi
+  }
+  _fzf_hint() {
+    if [[ -f /etc/debian_version ]]; then
+      echo "        Debian/Ubuntu's apt package is outdated. Install from GitHub instead:"
+      echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)'
+      echo '        curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin'
+    else
+      _hint "" fzf fzf fzf app-shells/fzf fzf fzf "https://github.com/junegunn/fzf"
+    fi
+  }
 
   # ── Phase 1: Dependencies ──
   echo "Dependencies:"
@@ -1330,33 +1361,11 @@ nn_doctor() {
       _pass "fzf $fzf_ver"
     else
       _fail "fzf ${fzf_ver:-unknown} (requires 0.58+)"
-      if [[ -f /etc/debian_version ]]; then
-        echo "        Debian/Ubuntu's apt package is outdated. Install from GitHub instead:" >&2
-        echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)' >&2
-        echo '        curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
-      fi
+      _fzf_hint
     fi
   else
     _fail "fzf not found"
-    if [[ -f /etc/debian_version ]]; then
-      echo "        Debian/Ubuntu's apt package is outdated. Install from GitHub instead:"
-      echo '        FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)'
-      echo '        curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin'
-    elif [[ -f /etc/fedora-release ]]; then
-      echo "        Install via: sudo dnf install fzf"
-    elif [[ -f /etc/alpine-release ]]; then
-      echo "        Install via: apk add fzf"
-    elif command -v pacman >/dev/null 2>&1; then
-      echo "        Install via: sudo pacman -S fzf"
-    elif command -v emerge >/dev/null 2>&1; then
-      echo "        Install via: emerge app-shells/fzf"
-    elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
-      echo "        Install via: pkg install fzf"
-    elif command -v brew >/dev/null 2>&1; then
-      echo "        Install via: brew install fzf"
-    else
-      echo "        Install from https://github.com/junegunn/fzf"
-    fi
+    _fzf_hint
   fi
 
   # zk (optional – enhances performance and enables link graph)
@@ -1385,13 +1394,7 @@ nn_doctor() {
     fi
   else
     _fail "yq-go not found"
-    if command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
-      echo "        Install via: pkg install go-yq"
-    elif command -v brew >/dev/null 2>&1; then
-      echo "        Install via: brew install yq"
-    else
-      echo "        Install from https://github.com/mikefarah/yq#install"
-    fi
+    _hint "" "" "" "" "" go-yq yq "https://github.com/mikefarah/yq#install"
   fi
 
   # jq
@@ -1403,23 +1406,7 @@ nn_doctor() {
     _has_jq=true
   else
     _fail "jq not found"
-    if [[ -f /etc/debian_version ]]; then
-      echo "        Install via: sudo apt install jq"
-    elif [[ -f /etc/fedora-release ]]; then
-      echo "        Install via: sudo dnf install jq"
-    elif [[ -f /etc/alpine-release ]]; then
-      echo "        Install via: apk add jq"
-    elif command -v pacman >/dev/null 2>&1; then
-      echo "        Install via: sudo pacman -S jq"
-    elif command -v emerge >/dev/null 2>&1; then
-      echo "        Install via: emerge app-misc/jq"
-    elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
-      echo "        Install via: pkg install jq"
-    elif command -v brew >/dev/null 2>&1; then
-      echo "        Install via: brew install jq"
-    else
-      echo "        Install from https://github.com/jqlang/jq"
-    fi
+    _hint jq jq jq jq app-misc/jq jq jq "https://github.com/jqlang/jq"
   fi
 
   # awk (gawk required – notenav uses mktime() and strtonum())
@@ -1438,45 +1425,13 @@ nn_doctor() {
       else
         _fail "awk: gawk required"
       fi
-      if [[ -f /etc/debian_version ]]; then
-        echo "        Install via: sudo apt install gawk"
-      elif [[ -f /etc/fedora-release ]]; then
-        echo "        Install via: sudo dnf install gawk"
-      elif [[ -f /etc/alpine-release ]]; then
-        echo "        Install via: apk add gawk"
-      elif command -v pacman >/dev/null 2>&1; then
-        echo "        Install via: sudo pacman -S gawk"
-      elif command -v emerge >/dev/null 2>&1; then
-        echo "        Install via: emerge sys-apps/gawk"
-      elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
-        echo "        Install via: pkg install gawk"
-      elif command -v brew >/dev/null 2>&1; then
-        echo "        Install via: brew install gawk"
-      else
-        echo "        Install gawk: https://www.gnu.org/software/gawk/"
-      fi
+      _hint gawk gawk gawk gawk sys-apps/gawk gawk gawk "https://www.gnu.org/software/gawk/"
     fi
   elif command -v gawk >/dev/null 2>&1; then
     _pass "gawk"
   else
     _fail "awk not found"
-    if [[ -f /etc/debian_version ]]; then
-      echo "        Install via: sudo apt install gawk"
-    elif [[ -f /etc/fedora-release ]]; then
-      echo "        Install via: sudo dnf install gawk"
-    elif [[ -f /etc/alpine-release ]]; then
-      echo "        Install via: apk add gawk"
-    elif command -v pacman >/dev/null 2>&1; then
-      echo "        Install via: sudo pacman -S gawk"
-    elif command -v emerge >/dev/null 2>&1; then
-      echo "        Install via: emerge sys-apps/gawk"
-    elif command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
-      echo "        Install via: pkg install gawk"
-    elif command -v brew >/dev/null 2>&1; then
-      echo "        Install via: brew install gawk"
-    else
-      echo "        Install gawk: https://www.gnu.org/software/gawk/"
-    fi
+    _hint gawk gawk gawk gawk sys-apps/gawk gawk gawk "https://www.gnu.org/software/gawk/"
   fi
 
   # sort, sed
@@ -2786,7 +2741,7 @@ nn_doctor() {
     echo "$fails check(s) failed, $warns warning(s)."
   fi
 
-  unset -f _pass _info _warn _fail _valid_color _in_array _dupes _is_array _all_strings _prev_miss _fm_show_examples
+  unset -f _pass _info _warn _fail _valid_color _in_array _dupes _is_array _all_strings _hint _fzf_hint _prev_miss _fm_show_examples
   [[ $fails -gt 0 ]] && return 1
   return 0
 }
