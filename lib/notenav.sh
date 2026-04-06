@@ -367,7 +367,7 @@ nn_cfg() {
 # Handles backslash, double-quote, and newline (the characters that break AWK strings).
 _nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' '; }
 # Escape a string for safe interpolation into a jq double-quoted path segment.
-_nn_jq_esc() { local s="${1//\\/\\\\}"; printf '%s' "${s//\"/\\\"}"; }
+_nn_jq_esc() { local s="${1//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//$'\n'/\\n}"; s="${s//$'\t'/\\t}"; printf '%s' "$s"; }
 _nn_in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
 # Resolve a color value (named alias or raw ANSI code) to a raw ANSI code.
 # Named colors map to ANSI palette slots; actual appearance depends on terminal theme.
@@ -3468,10 +3468,10 @@ EOF
       shopt -u nullglob; return 1
     fi
     local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX")
-    if [[ "$_nn_dir" == *" "* || "$_nn_dir" == *$'\t'* ]]; then
+    if [[ "$_nn_dir" == *[[:space:]\"\'\$\`\\]* ]]; then
       rm -rf "$_nn_dir"
-      echo "notenav: TMPDIR path contains whitespace, which breaks fzf keybindings." >&2
-      echo "notenav: set TMPDIR to a path without spaces (e.g. /tmp) and try again." >&2
+      echo "notenav: TMPDIR path contains characters unsafe for shell interpolation." >&2
+      echo "notenav: set TMPDIR to a simple path (e.g. /tmp) and try again." >&2
       shopt -u nullglob; return 1
     fi
     chmod 700 "$_nn_dir"
@@ -3687,9 +3687,9 @@ if [ "$has_zk" = "true" ]; then
   zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.csearch_paths"
 else
   if command -v rg >/dev/null 2>&1; then
-    rg -Fl --type md "$query" "$scope_path" 2>/dev/null > "$dir/.csearch_paths"
+    rg -Fl --type md -- "$query" "$scope_path" 2>/dev/null > "$dir/.csearch_paths"
   else
-    grep -Frl --include='*.md' "$query" "$scope_path" 2>/dev/null > "$dir/.csearch_paths"
+    grep -Frl --include='*.md' -- "$query" "$scope_path" 2>/dev/null > "$dir/.csearch_paths"
   fi
 fi
 if [ -s "$dir/.csearch_paths" ]; then
@@ -3715,9 +3715,9 @@ if [ -n "$query" ]; then
     zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
   else
     if command -v rg >/dev/null 2>&1; then
-      rg -Fl --type md "$query" "$scope_path" 2>/dev/null > "$dir/.f_match_paths"
+      rg -Fl --type md -- "$query" "$scope_path" 2>/dev/null > "$dir/.f_match_paths"
     else
-      grep -Frl --include='*.md' "$query" "$scope_path" 2>/dev/null > "$dir/.f_match_paths"
+      grep -Frl --include='*.md' -- "$query" "$scope_path" 2>/dev/null > "$dir/.f_match_paths"
     fi
   fi
   _cq="$query"; [ ${#_cq} -gt 20 ] && _cq="${_cq:0:17}..."
@@ -6051,10 +6051,10 @@ ENDDELETE
       shopt -u nullglob; return 1
     fi
     local nn_tmp; nn_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
-    if [[ "$nn_tmp" == *" "* || "$nn_tmp" == *$'\t'* ]]; then
+    if [[ "$nn_tmp" == *[[:space:]\"\'\$\`\\]* ]]; then
       rm -f "$nn_tmp"
-      echo "notenav: TMPDIR path contains whitespace, which breaks fzf keybindings." >&2
-      echo "notenav: set TMPDIR to a path without spaces (e.g. /tmp) and try again." >&2
+      echo "notenav: TMPDIR path contains characters unsafe for shell interpolation." >&2
+      echo "notenav: set TMPDIR to a simple path (e.g. /tmp) and try again." >&2
       shopt -u nullglob; return 1
     fi
     local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
