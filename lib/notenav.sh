@@ -3587,11 +3587,11 @@ tags=$(awk -F'\t' 'length($4) > 0 {
 if [ -z "$tags" ]; then
   clear > /dev/tty 2>/dev/null
   if [ -n "${NO_COLOR+x}" ]; then
-    printf '\n  No tags found in notebook.\n\n' > /dev/tty
+    printf '\n  No tags found in notebook.\n\n  Press any key to continue.\n' > /dev/tty
   else
-    printf '\n  \033[33mNo tags found in notebook.\033[0m\n\n' > /dev/tty
+    printf '\n  \033[33mNo tags found in notebook.\033[0m\n\n  Press any key to continue.\n' > /dev/tty
   fi
-  sleep 1
+  read -rsn1 < /dev/tty
   exit 0
 fi
 cur_tags=""
