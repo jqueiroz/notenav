@@ -3069,10 +3069,12 @@ _nn_write_preview() {
   printf '_nn_previewer=%q\n' "$NN_UI_PREVIEWER" >> "$target"
   printf '_nn_previewer_custom=%q\n' "$NN_UI_PREVIEWER_CUSTOM" >> "$target"
   # Write flags as arrays so values containing spaces are preserved
+  # Guard: when a flags var is empty, write () not ('') – a spurious empty-string
+  # element would be passed as a positional arg to the previewer and break it.
   set -f
-  printf '_nn_previewer_flags_bat=(%s)\n' "$(printf '%q ' $NN_UI_PREVIEWER_FLAGS_BAT)" >> "$target"
-  printf '_nn_previewer_flags_glow=(%s)\n' "$(printf '%q ' $NN_UI_PREVIEWER_FLAGS_GLOW)" >> "$target"
-  printf '_nn_previewer_flags_mdcat=(%s)\n' "$(printf '%q ' $NN_UI_PREVIEWER_FLAGS_MDCAT)" >> "$target"
+  printf '_nn_previewer_flags_bat=(%s)\n' "$([ -n "$NN_UI_PREVIEWER_FLAGS_BAT" ] && printf '%q ' $NN_UI_PREVIEWER_FLAGS_BAT)" >> "$target"
+  printf '_nn_previewer_flags_glow=(%s)\n' "$([ -n "$NN_UI_PREVIEWER_FLAGS_GLOW" ] && printf '%q ' $NN_UI_PREVIEWER_FLAGS_GLOW)" >> "$target"
+  printf '_nn_previewer_flags_mdcat=(%s)\n' "$([ -n "$NN_UI_PREVIEWER_FLAGS_MDCAT" ] && printf '%q ' $NN_UI_PREVIEWER_FLAGS_MDCAT)" >> "$target"
   set +f
   printf '_nn_has_zk=%q\n' "${_NN_HAS_ZK:-false}" >> "$target"
   cat >> "$target" << 'ENDPREVIEW'
