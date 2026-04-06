@@ -3,6 +3,8 @@
 # Usage: curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/stable/curl/install.sh | sh
 set -e
 
+main() {
+
 NOTENAV_DIR="${NOTENAV_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/notenav}"
 NOTENAV_BIN="${NOTENAV_BIN:-$HOME/.local/bin}"
 
@@ -134,3 +136,6 @@ if [ -n "$missing" ]; then
 fi
 info "Done. Run 'nn doctor' to verify your setup."
 info "Then: cd to your notes directory and run 'nn init' to get started."
+
+}
+main "$@"

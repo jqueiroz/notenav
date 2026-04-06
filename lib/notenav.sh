@@ -4774,7 +4774,7 @@ else
   _slug=$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
   [ -z "$_slug" ] && _slug="note"
   # Escape double quotes for valid YAML
-  _yaml_title=$(printf '%s' "$title" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  _yaml_title=$(printf '%s' "$title" | tr '\n' ' ' | sed 's/\\/\\\\/g; s/"/\\"/g')
   _nn_tmp=$(mktemp "$PWD/.nn-new.XXXXXX") || { printf "\n  ${_nn_red}mktemp failed${_nn_reset}\n\n" > /dev/tty; exit 1; }
   # mktemp creates 0600; widen to match what a normal file creation would produce
   chmod "$(printf '%04o' "$(( 0666 & ~$(umask) ))")" "$_nn_tmp"
