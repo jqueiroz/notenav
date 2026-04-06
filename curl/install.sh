@@ -132,5 +132,5 @@ if [ -n "$missing" ]; then
   info "Run 'nn doctor' for install links."
   echo
 fi
-info "Done. Run 'nn --version' to verify."
+info "Done. Run 'nn doctor' to verify your setup."
 info "Then: cd to your notes directory and run 'nn init' to get started."
