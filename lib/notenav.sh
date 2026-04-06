@@ -3069,32 +3069,29 @@ _nn_fetch_remote() {
   # Download to temp file
   local tmpfile
   tmpfile=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
-  _nn_fetch_cleanup() { rm -f "$tmpfile" "${_cache_tmp:-}"; }
-  trap _nn_fetch_cleanup INT TERM
+  trap 'rm -f "$tmpfile" "${_cache_tmp:-}"' RETURN
   if ! curl -fsSL --connect-timeout 10 --max-time 30 --max-filesize 1048576 "$url" -o "$tmpfile"; then
     echo "notenav: failed to download $url" >&2
-    _nn_fetch_cleanup; return 1
+    return 1
   fi
 
   # Validate TOML
   if ! yq -p=toml -o=json '.' "$tmpfile" >/dev/null 2>&1; then
     echo "notenav: downloaded file is not valid TOML" >&2
-    _nn_fetch_cleanup; return 1
+    return 1
   fi
 
   # Write to cache with header (atomic: temp + mv)
   local cache_path _cache_tmp
   cache_path=$(_nn_url_cache_path "$url")
-  mkdir -p "$(dirname "$cache_path")" || { echo "notenav: could not create cache directory" >&2; _nn_fetch_cleanup; return 1; }
-  _cache_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; _nn_fetch_cleanup; return 1; }
+  mkdir -p "$(dirname "$cache_path")" || { echo "notenav: could not create cache directory" >&2; return 1; }
+  _cache_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
   # shellcheck disable=SC2015  # intentional: || cleanup handles both write and mv failure
   {
     printf '# Cached from: %s\n' "$url"
     printf '# Fetched: %s\n' "$(date '+%Y-%m-%d')"
     cat "$tmpfile"
-  } > "$_cache_tmp" && mv "$_cache_tmp" "$cache_path" || { rm -f "$_cache_tmp"; _nn_fetch_cleanup; return 1; }
-  _nn_fetch_cleanup
-  unset -f _nn_fetch_cleanup
+  } > "$_cache_tmp" && mv "$_cache_tmp" "$cache_path" || { rm -f "$_cache_tmp"; return 1; }
 }
 
 # Write the shared preview script to a given path.
