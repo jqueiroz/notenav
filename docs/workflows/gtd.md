@@ -59,7 +59,7 @@ Press `a` to advance (clarify/complete), `A` to reverse (reopen/defer):
 ```
 
 - **Forward (a):** inbox → next → done. waiting → next. someday → next. done/dropped → inbox (reopen).
-- **Reverse (A):** done → next → inbox → someday → dropped. waiting → inbox. dropped → done.
+- **Reverse (A):** done → next → inbox → someday ↔ dropped. waiting → inbox.
 
 The `dropped` status is hidden by default (archived) but participates in the lifecycle – pressing `a` sends it back to inbox for reconsideration.
 

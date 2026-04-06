@@ -33,6 +33,7 @@ The faceted browser uses a modal system with seven modes: **command** (default),
 | `r` | Refresh note list (re-index from disk) |
 | `b` | Bulk edit selected notes (opens editor with markdown table) |
 | `d` | Delete selected note(s) – single: `y/N` prompt; multi-select: lists targets, requires `YES` (see `delete_method` and `delete_confirm` settings) |
+| `w` | Toggle preview wrap |
 | `x` | Clear all pinned ghost rows |
 | `X` | Restore pins from last clear (one-shot undo) |
 | `j` / `k` | Move down / up |
