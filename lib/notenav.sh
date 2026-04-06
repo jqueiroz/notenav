@@ -2572,6 +2572,15 @@ nn_doctor() {
     _info "Backend: native ${_dim}(install zk for faster indexing and link graph)${_reset}"
   fi
 
+  # Auto-refresh threshold check (needs NN_CFG_JSON + _note_count from above)
+  if [[ -n "${NN_CFG_JSON:-}" && "$_note_count" -gt 0 ]] 2>/dev/null; then
+    local _rf_max_files
+    _rf_max_files=$(nn_cfg '.refresh.max_files // 0')
+    if [[ "$_rf_max_files" -gt 0 && "$_note_count" -gt "$_rf_max_files" ]] 2>/dev/null; then
+      _info "Auto-refresh disabled ($_note_count notes > max_files $_rf_max_files) ${_dim}– press r to refresh manually${_reset}"
+    fi
+  fi
+
   # ── Phase 6: Note frontmatter quality ──
   # Scan markdown files and flag notes with unknown type or status values.
   # Only runs when the workflow loaded successfully (NN_CFG_JSON is set).
