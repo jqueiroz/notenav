@@ -1347,10 +1347,10 @@ nn_doctor() {
 
   # bash
   local bash_ver="${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}"
-  if _nn_ver_cmp "$bash_ver" "4.0"; then
+  if _nn_ver_cmp "$bash_ver" "4.2"; then
     _pass "bash $bash_ver"
   else
-    _fail "bash $bash_ver (requires 4+)"
+    _fail "bash $bash_ver (requires 4.2+)"
   fi
 
   # fzf
@@ -3766,6 +3766,8 @@ else
 fi
 if [ -s "$dir/.csearch_paths" ]; then
   awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($1 in paths)' "$dir/.csearch_paths" "$dir/.current"
+else
+  cat "$dir/.current"
 fi
 ENDCSEARCH
     chmod +x "$_nn_dir/csearch.sh"
@@ -4375,7 +4377,8 @@ while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   [ -z "$fpath" ] && continue
   p="$fpath" awk -F'\t' '$6 == ENVIRON["p"] {
     t = $5; gsub(/\|/, "\\|", t); gsub(/[\n\r]/, " ", t)
-    printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $6, t
+    tags = $4; gsub(/\|/, "\\|", tags)
+    printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, tags, $6, t
     exit
   }' "$dir/.raw" >> "$datafile"
 done < <(awk '{a[NR]=$0} END{for(i=NR;i>0;i--)print a[i]}' "$dir/.current")

@@ -95,8 +95,10 @@ fi
 if [ -d "$NOTENAV_DIR/.git" ]; then
   echo "Updating notenav..."
   if ! git -C "$NOTENAV_DIR" pull --ff-only origin stable; then
-    err "Update failed. You may have local changes in $NOTENAV_DIR."
-    err "Try: cd $NOTENAV_DIR && git stash && git pull --ff-only origin stable"
+    printf '  [error] %s\n' \
+      "Update failed. You may have local changes in $NOTENAV_DIR." \
+      "Try: cd $NOTENAV_DIR && git stash && git pull --ff-only origin stable" >&2
+    exit 1
   fi
 elif [ -d "$NOTENAV_DIR" ]; then
   err "$NOTENAV_DIR already exists but is not a git repository. Remove it and try again."
