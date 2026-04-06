@@ -208,6 +208,6 @@ A simplified set of keybindings for `nn key=value ... -i`:
 
 The `ui.header` setting controls how much space the header occupies:
 
-- **`auto`** (default) – uses the compact layout when the terminal is shorter than 35 rows, full layout otherwise. The header adapts after any keypress following a terminal resize.
+- **`compact`** (default) – collapses filters, display options, and actions into one line each, dropping the presets hint and results lines. When a prefix mode is active (`c`/`f`/`z`/`m`), the relevant section temporarily expands to its full form to show sub-key hints, then collapses on exit.
 - **`full`** – always shows the expanded header with per-key hints for every mode.
-- **`compact`** – collapses filters, display options, and actions into one line each, dropping the presets hint and results lines. When a prefix mode is active (`c`/`f`/`z`/`m`), the relevant section temporarily expands to its full form to show sub-key hints, then collapses on exit.
+- **`auto`** – uses the compact layout when the terminal is shorter than 35 rows, full layout otherwise. The header adapts after any keypress following a terminal resize.

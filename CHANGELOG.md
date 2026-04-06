@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - **`?` content search mode** – press `?` for live grep of note bodies (uses `rg`/`grep`, or `zk --match` when available). Same three exits as `/`. Pressing `tab` persists the content filter at the pipeline level, surviving reloads and filter changes.
 - Named color aliases for workflow config – use `"red"`, `"bold-red"`, `"dim"`, etc. instead of raw ANSI codes like `"31;1"`. Raw codes still accepted. All built-in workflows now use named colors.
 
+### Changed
+
+- **Default `ui.header` is now `"compact"`** – previously `"auto"`, which switched between compact and full based on terminal height. Compact is now the default; set `header = "auto"` to restore the previous behaviour.
+
 ### Removed
 
 - **`f n` (name filter) sub-popup** – replaced by `/` search mode, which is faster (one keystroke) and uses fuzzy matching.

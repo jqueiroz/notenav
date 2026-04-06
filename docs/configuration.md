@@ -434,7 +434,7 @@ TUI preferences.
 
 ```toml
 [ui]
-header = "auto"          # "auto" | "full" | "compact"
+header = "compact"       # "auto" | "full" | "compact"
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode (/ key and ad-hoc -i)
@@ -454,7 +454,7 @@ mdcat = []     # extra flags appended to mdcat
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `header` | string | `"auto"` | Header display density: `"auto"` uses compact when the terminal is shorter than 35 rows, `"full"` always shows the full header, `"compact"` condenses each section to one line (prefix modes temporarily expand their section to show sub-key hints) |
+| `header` | string | `"compact"` | Header display density: `"auto"` uses compact when the terminal is shorter than 35 rows, `"full"` always shows the full header, `"compact"` condenses each section to one line (prefix modes temporarily expand their section to show sub-key hints) |
 | `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR`, then falls back to nvim → vim → vi → nano → emacs |
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode (`/` key and ad-hoc `-i`) |

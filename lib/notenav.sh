@@ -859,7 +859,7 @@ nn_precompute_workflow() {
   NN_DEFAULT_WRAP=$(nn_cfg '.defaults.wrap_preview // false')
 
   # UI preferences
-  NN_UI_HEADER=$(nn_cfg '.ui.header // "auto"')
+  NN_UI_HEADER=$(nn_cfg '.ui.header // "compact"')
   NN_UI_EDITOR=$(nn_cfg '.ui.editor // empty')
   NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // ": "')
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
