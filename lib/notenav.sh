@@ -366,6 +366,42 @@ nn_cfg() {
 # Escape a string for safe interpolation into an AWK double-quoted literal.
 # Handles backslash, double-quote, and newline (the characters that break AWK strings).
 _nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' '; }
+# Build AWK condition for type/status/priority/tags field filtering.
+# Arguments: type status priority tags_string
+# tags_string is newline-delimited (or empty for no tag filter).
+# Returns the condition fragment via stdout; empty if no filters active.
+# NOTE: keep in sync with build_field_cond() in the filter.sh heredoc.
+_nn_build_field_cond() {
+  local _fc="" _t="$1" _s="$2" _p="$3" _tags="$4"
+  [[ -n "$_t" ]] && _fc="\$1==\"$(_nn_awk_esc "$_t")\""
+  if [[ -n "$_s" ]]; then
+    [[ -n "$_fc" ]] && _fc="$_fc && "
+    _fc="$_fc\$2==\"$(_nn_awk_esc "$_s")\""
+  fi
+  if [[ "$_p" == "none" ]]; then
+    [[ -n "$_fc" ]] && _fc="$_fc && "
+    _fc="$_fc\$3==\"\""
+  elif [[ -n "$_p" ]]; then
+    [[ -n "$_fc" ]] && _fc="$_fc && "
+    _fc="$_fc\$3==\"$(_nn_awk_esc "$_p")\""
+  fi
+  if [[ -n "$_tags" ]]; then
+    local _tc="" _tag
+    while IFS= read -r _tag || [[ -n "$_tag" ]]; do
+      [[ -z "$_tag" ]] && continue
+      if [[ -n "$_tc" ]]; then
+        _tc="$_tc || index(\" \" \$4 \" \", \" $(_nn_awk_esc "$_tag") \")"
+      else
+        _tc="index(\" \" \$4 \" \", \" $(_nn_awk_esc "$_tag") \")"
+      fi
+    done <<< "$_tags"
+    if [[ -n "$_tc" ]]; then
+      [[ -n "$_fc" ]] && _fc="$_fc && "
+      _fc="$_fc($_tc)"
+    fi
+  fi
+  printf '%s' "$_fc"
+}
 # Escape a string for safe interpolation into a jq double-quoted path segment.
 _nn_jq_esc() { local s="${1//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//$'\n'/\\n}"; s="${s//$'\t'/\\t}"; printf '%s' "$s"; }
 _nn_in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
@@ -1188,78 +1224,73 @@ _nn_ignore_pipe() {
   fi
 }
 
+# AWK frontmatter parser body – single source of truth used by both
+# _nn_list_notes_native() (inline) and reload_raw.sh (via .awk_native_parser file).
+_NN_NATIVE_PARSER_AWK=$(cat << 'ENDAWK'
+{
+  file = $1; mtime = $2
+  type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
+  in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
+  while ((getline line < file) > 0) {
+    if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; NR_FILE++; continue }
+    NR_FILE++
+    if (in_fm) {
+      if (line ~ /^---[[:space:]]*$/) { in_fm = 0; continue }
+      fm_lines++
+      if (fm_lines > 200) { in_fm = 0; continue }
+      if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
+        t = lm[1]; gsub(/^["']|["']$/, "", t)
+        if (tags != "") tags = tags " "
+        tags = tags t
+        continue
+      }
+      collecting_tags = 0
+      if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
+        key = m[1]; val = m[2]
+        gsub(/^["']|["']$/, "", val)
+        gsub(/[ \t]+$/, "", val)
+        if (key == "type") type = val
+        else if (key == "status") status = val
+        else if (key == "priority") priority = val
+        else if (key == "title") title = val
+        else if (key == "created") created = val
+        else if (key == "tags") {
+          gsub(/[\[\]]/, "", val)
+          gsub(/,[ \t]*/, " ", val)
+          gsub(/["']/, "", val)
+          gsub(/^ +| +$/, "", val)
+          if (val != "") { tags = val }
+          else { collecting_tags = 1 }
+        }
+      }
+    } else {
+      if (found_title_heading == "" && match(line, /^#+ +(.+)$/, hm)) {
+        found_title_heading = hm[1]
+      }
+      post_fm++
+      if (found_title_heading != "" || post_fm >= 10) break
+    }
+  }
+  close(file)
+  NR_FILE = 0
+  if (title == "") {
+    if (found_title_heading != "") title = found_title_heading
+    else {
+      n = split(file, parts, "/")
+      title = parts[n]
+      sub(/\.md$/, "", title)
+    }
+  }
+  printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", type, status, priority, tags, title, file, mtime, created
+}
+BEGIN { NR_FILE = 0 }
+ENDAWK
+)
+
 # Reads a list of "absPath\tmtime" on stdin, parses each file's YAML frontmatter,
 # and outputs 8-column TSV matching NN_ZK_FMT.
-# NOTE: reload_raw.sh uses a shared copy of this AWK body from .awk_native_parser
-# (written at startup). If you change this parser, update the heredoc that writes
-# .awk_native_parser in notenav_main() as well.
 _nn_list_notes_native() {
-  "${_NN_GAWK:-awk}" -F'\t' '
-  {
-    file = $1; mtime = $2
-    type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
-    in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
-    while ((getline line < file) > 0) {
-      if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; NR_FILE++; continue }
-      NR_FILE++
-      if (in_fm) {
-        if (line ~ /^---[[:space:]]*$/) { in_fm = 0; continue }
-        # Safety limit: treat unclosed frontmatter as missing after 200 lines
-        fm_lines++
-        if (fm_lines > 200) { in_fm = 0; continue }
-        # Multi-line tag list continuation: "  - tagname"
-        if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
-          t = lm[1]; gsub(/^["'"'"']|["'"'"']$/, "", t)
-          if (tags != "") tags = tags " "
-          tags = tags t
-          continue
-        }
-        collecting_tags = 0
-        # Parse "key: value" within frontmatter
-        if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
-          key = m[1]; val = m[2]
-          # Strip surrounding quotes and trailing whitespace
-          gsub(/^["'"'"']|["'"'"']$/, "", val)
-          gsub(/[ \t]+$/, "", val)
-          if (key == "type") type = val
-          else if (key == "status") status = val
-          else if (key == "priority") priority = val
-          else if (key == "title") title = val
-          else if (key == "created") created = val
-          else if (key == "tags") {
-            # Handle inline array: [a, b, c] or ["a", "b"] -> "a b c"
-            gsub(/[\[\]]/, "", val)
-            gsub(/,[ \t]*/, " ", val)
-            gsub(/["'"'"']/, "", val)
-            gsub(/^ +| +$/, "", val)
-            if (val != "") { tags = val }
-            else { collecting_tags = 1 }
-          }
-        }
-      } else {
-        # Scan a few lines past frontmatter for a heading as title fallback
-        if (found_title_heading == "" && match(line, /^#+ +(.+)$/, hm)) {
-          found_title_heading = hm[1]
-        }
-        post_fm++
-        if (found_title_heading != "" || post_fm >= 10) break
-      }
-    }
-    close(file)
-    NR_FILE = 0
-    # Title fallback: first heading, then filename
-    if (title == "") {
-      if (found_title_heading != "") title = found_title_heading
-      else {
-        n = split(file, parts, "/")
-        title = parts[n]
-        sub(/\.md$/, "", title)
-      }
-    }
-    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", type, status, priority, tags, title, file, mtime, created
-  }
-  BEGIN { NR_FILE = 0 }
-  '
+  "${_NN_GAWK:-awk}" -F'\t' "$_NN_NATIVE_PARSER_AWK"
 }
 
 # Lists notes for a given directory. Uses zk if available, native fallback otherwise.
@@ -3491,68 +3522,8 @@ EOF
       : > "$_nn_dir/.ignore_dirs"
     fi
 
-    # Shared native-listing helpers for reload_raw.sh (zk-free backend).
-    # The AWK parser is the same logic as _nn_list_notes_native() but with
-    # literal single-quotes (not shell-escaped) since it's read via -f.
-    cat > "$_nn_dir/.awk_native_parser" << 'ENDAWKPARSER'
-{
-  file = $1; mtime = $2
-  type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
-  in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
-  while ((getline line < file) > 0) {
-    if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; NR_FILE++; continue }
-    NR_FILE++
-    if (in_fm) {
-      if (line ~ /^---[[:space:]]*$/) { in_fm = 0; continue }
-      fm_lines++
-      if (fm_lines > 200) { in_fm = 0; continue }
-      if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
-        t = lm[1]; gsub(/^["']|["']$/, "", t)
-        if (tags != "") tags = tags " "
-        tags = tags t
-        continue
-      }
-      collecting_tags = 0
-      if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
-        key = m[1]; val = m[2]
-        gsub(/^["']|["']$/, "", val)
-        gsub(/[ \t]+$/, "", val)
-        if (key == "type") type = val
-        else if (key == "status") status = val
-        else if (key == "priority") priority = val
-        else if (key == "title") title = val
-        else if (key == "created") created = val
-        else if (key == "tags") {
-          gsub(/[\[\]]/, "", val)
-          gsub(/,[ \t]*/, " ", val)
-          gsub(/["']/, "", val)
-          gsub(/^ +| +$/, "", val)
-          if (val != "") { tags = val }
-          else { collecting_tags = 1 }
-        }
-      }
-    } else {
-      if (found_title_heading == "" && match(line, /^#+ +(.+)$/, hm)) {
-        found_title_heading = hm[1]
-      }
-      post_fm++
-      if (found_title_heading != "" || post_fm >= 10) break
-    }
-  }
-  close(file)
-  NR_FILE = 0
-  if (title == "") {
-    if (found_title_heading != "") title = found_title_heading
-    else {
-      n = split(file, parts, "/")
-      title = parts[n]
-      sub(/\.md$/, "", title)
-    }
-  }
-  printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", type, status, priority, tags, title, file, mtime, created
-}
-BEGIN { NR_FILE = 0 }
-ENDAWKPARSER
+    # Shared native-listing AWK parser for reload_raw.sh (zk-free backend).
+    printf '%s\n' "$_NN_NATIVE_PARSER_AWK" > "$_nn_dir/.awk_native_parser"
     # Shared find function for native listing – sourced by reload_raw.sh.
     # Requires _prune_args array to be set before sourcing.
     cat > "$_nn_dir/.fn_find_md" << 'ENDFNFIND'
@@ -5108,32 +5079,50 @@ printf '%s\n' "$fmarked" > "$dir/.f_marked"
 # Build awk condition
 # Sanitize values for safe interpolation into awk expressions
 awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' '; }
-vis_cond=$(cat "$dir/.schema_type_vis_cond")
-cond="$vis_cond"
-[ -n "$ft" ] && cond="$cond && \$1==\"$(awk_esc "$ft")\""
-[ -n "$fs" ] && cond="$cond && \$2==\"$(awk_esc "$fs")\""
-# Hide archived statuses unless archive toggle is on or status is explicitly filtered
-archive_cond=$(cat "$dir/.schema_archive_cond")
-[ -z "$farchive" ] && [ -z "$fs" ] && cond="$cond$archive_cond"
-if [ "$fp" = "none" ]; then
-  cond="$cond && \$3==\"\""
-elif [ -n "$fp" ]; then
-  cond="$cond && \$3==\"$(awk_esc "$fp")\""
-fi
-# Tag filter (OR: match any selected tag)
-if [ -s "$dir/.f_tags" ]; then
-  tag_cond=""
-  while IFS= read -r tag || [ -n "$tag" ]; do
-    [ -z "$tag" ] && continue
-    _etag=$(awk_esc "$tag")
-    if [ -n "$tag_cond" ]; then
-      tag_cond="$tag_cond || index(\" \" \$4 \" \", \" $_etag \")"
-    else
-      tag_cond="index(\" \" \$4 \" \", \" $_etag \")"
+# Build AWK condition for type/status/priority/tags field filtering.
+# Arguments: type status priority tags_string
+# tags_string is newline-delimited (or empty for no tag filter).
+# NOTE: keep in sync with _nn_build_field_cond() in the main library.
+build_field_cond() {
+  local _fc="" _t="$1" _s="$2" _p="$3" _tags="$4"
+  [ -n "$_t" ] && _fc="\$1==\"$(awk_esc "$_t")\""
+  if [ -n "$_s" ]; then
+    [ -n "$_fc" ] && _fc="$_fc && "
+    _fc="$_fc\$2==\"$(awk_esc "$_s")\""
+  fi
+  if [ "$_p" = "none" ]; then
+    [ -n "$_fc" ] && _fc="$_fc && "
+    _fc="$_fc\$3==\"\""
+  elif [ -n "$_p" ]; then
+    [ -n "$_fc" ] && _fc="$_fc && "
+    _fc="$_fc\$3==\"$(awk_esc "$_p")\""
+  fi
+  if [ -n "$_tags" ]; then
+    local _tc="" _tag
+    while IFS= read -r _tag || [ -n "$_tag" ]; do
+      [ -z "$_tag" ] && continue
+      local _etag; _etag=$(awk_esc "$_tag")
+      if [ -n "$_tc" ]; then
+        _tc="$_tc || index(\" \" \$4 \" \", \" $_etag \")"
+      else
+        _tc="index(\" \" \$4 \" \", \" $_etag \")"
+      fi
+    done <<< "$_tags"
+    if [ -n "$_tc" ]; then
+      [ -n "$_fc" ] && _fc="$_fc && "
+      _fc="$_fc($_tc)"
     fi
-  done < "$dir/.f_tags"
-  [ -n "$tag_cond" ] && cond="$cond && ($tag_cond)"
-fi
+  fi
+  printf '%s' "$_fc"
+}
+vis_cond=$(cat "$dir/.schema_type_vis_cond")
+archive_cond=$(cat "$dir/.schema_archive_cond")
+cond="$vis_cond"
+# Hide archived statuses unless archive toggle is on or status is explicitly filtered
+[ -z "$farchive" ] && [ -z "$fs" ] && cond="$cond$archive_cond"
+_tags=""; [ -s "$dir/.f_tags" ] && _tags=$(cat "$dir/.f_tags")
+_field_cond=$(build_field_cond "$ft" "$fs" "$fp" "$_tags")
+[ -n "$_field_cond" ] && cond="$cond && $_field_cond"
 # Sort .raw before filtering
 # NOTE: must stay in sync with _nn_adhoc_sort() in notenav_main (ad-hoc query path).
 do_sort() {
@@ -5305,26 +5294,19 @@ if [ -f "$dir/.queries" ]; then
     # Build awk condition for this query
     sq_cond="$vis_cond"
     [ -z "$farchive" ] && sq_cond="$sq_cond$archive_cond"
-    _sq_tag_cond=""
-    _sq_badge_arr=()
+    _sq_type="" _sq_status="" _sq_priority="" _sq_tags=""
     read -ra _sq_badge_arr <<< "$qargs"
     for a in "${_sq_badge_arr[@]}"; do
-      _av=$(awk_esc "${a#*=}")
       case "$a" in
-        type=*) sq_cond="$sq_cond && \$1==\"$_av\"" ;;
-        status=*) sq_cond="$sq_cond && \$2==\"$_av\"" ;;
-        priority=none) sq_cond="$sq_cond && \$3==\"\"" ;;
-        priority=*) sq_cond="$sq_cond && \$3==\"$_av\"" ;;
-        tag=*)
-          if [ -n "$_sq_tag_cond" ]; then
-            _sq_tag_cond="$_sq_tag_cond || index(\" \" \$4 \" \", \" $_av \")"
-          else
-            _sq_tag_cond="index(\" \" \$4 \" \", \" $_av \")"
-          fi ;;
+        type=*) _sq_type="${a#*=}" ;;
+        status=*) _sq_status="${a#*=}" ;;
+        priority=*) _sq_priority="${a#*=}" ;;
+        tag=*) [ -n "$_sq_tags" ] && _sq_tags="$_sq_tags"$'\n'; _sq_tags="$_sq_tags${a#*=}" ;;
         *) nn_assert "query stats: unknown arg '${a%%=*}'" ;;
       esac
     done
-    [ -n "$_sq_tag_cond" ] && sq_cond="$sq_cond && ($_sq_tag_cond)"
+    _sq_field_cond=$(build_field_cond "$_sq_type" "$_sq_status" "$_sq_priority" "$_sq_tags")
+    [ -n "$_sq_field_cond" ] && sq_cond="$sq_cond && $_sq_field_cond"
     sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw.snap")
     label=$(printf '%d:%s(%d)' "$n" "$qname" "$sq_count")
     # visible length: " label " (spaces + content)
@@ -6003,26 +5985,13 @@ ENDDELETE
       echo "notenav: valid priorities: ${NN_PRIORITY_VALUES[*]}" >&2; shopt -u nullglob; return 1; }
   fi
 
-  local awk_cond="1"
-  [[ -n "${filters[type]}" ]] && awk_cond="$awk_cond && \$1==\"$(_nn_awk_esc "${filters[type]}")\""
-  [[ -n "${filters[status]}" ]] && awk_cond="$awk_cond && \$2==\"$(_nn_awk_esc "${filters[status]}")\""
-  if [[ "${filters[priority]}" == "none" ]]; then
-    awk_cond="$awk_cond && \$3==\"\""
-  elif [[ -n "${filters[priority]}" ]]; then
-    awk_cond="$awk_cond && \$3==\"$(_nn_awk_esc "${filters[priority]}")\""
-  fi
+  local _tags_str=""
   if [[ ${#filter_tags[@]} -gt 0 ]]; then
-    local _tag_cond="" _t
-    for _t in "${filter_tags[@]}"; do
-      [[ -z "$_t" ]] && continue
-      if [[ -n "$_tag_cond" ]]; then
-        _tag_cond="$_tag_cond || index(\" \" \$4 \" \", \" $(_nn_awk_esc "$_t") \")"
-      else
-        _tag_cond="index(\" \" \$4 \" \", \" $(_nn_awk_esc "$_t") \")"
-      fi
-    done
-    [[ -n "$_tag_cond" ]] && awk_cond="$awk_cond && ($_tag_cond)"
+    _tags_str=$(printf '%s\n' "${filter_tags[@]}")
   fi
+  local awk_cond
+  awk_cond=$(_nn_build_field_cond "${filters[type]}" "${filters[status]}" "${filters[priority]}" "$_tags_str")
+  [[ -z "$awk_cond" ]] && awk_cond="1"
 
   # Sort helper for ad-hoc output (same column layout as TUI's filter.sh).
   # NOTE: must stay in sync with do_sort() in the filter.sh heredoc.
