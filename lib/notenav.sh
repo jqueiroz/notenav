@@ -3770,7 +3770,7 @@ if [ "$has_zk" = "true" ]; then
   _zk_scope=("$scope_path")
   [ -d "$scope_path/.zk" ] && _zk_scope=()
   zk index --quiet 2>/dev/null
-  _zk_err=$(mktemp) || { printf 'mktemp failed – press r to retry' > "$dir/.last_action"; return; }
+  _zk_err=$(mktemp) || { printf 'mktemp failed – press r to retry' > "$dir/.last_action"; exit 0; }
   if zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>"$_zk_err" > "$dir/.raw.tmp" \
     && _nn_apply_ignore "$dir" \
     && mv "$dir/.raw.tmp" "$dir/.raw"; then
