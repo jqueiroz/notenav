@@ -3113,9 +3113,11 @@ _nn_write_preview() {
   printf '_nn_previewer=%q\n' "$NN_UI_PREVIEWER" >> "$target"
   printf '_nn_previewer_custom=%q\n' "$NN_UI_PREVIEWER_CUSTOM" >> "$target"
   # Write flags as arrays so values containing spaces are preserved
+  set -f
   printf '_nn_previewer_flags_bat=(%s)\n' "$(printf '%q ' $NN_UI_PREVIEWER_FLAGS_BAT)" >> "$target"
   printf '_nn_previewer_flags_glow=(%s)\n' "$(printf '%q ' $NN_UI_PREVIEWER_FLAGS_GLOW)" >> "$target"
   printf '_nn_previewer_flags_mdcat=(%s)\n' "$(printf '%q ' $NN_UI_PREVIEWER_FLAGS_MDCAT)" >> "$target"
+  set +f
   printf '_nn_has_zk=%q\n' "${_NN_HAS_ZK:-false}" >> "$target"
   cat >> "$target" << 'ENDPREVIEW'
 dir="$(dirname "$0")"
@@ -4072,7 +4074,11 @@ case "$field" in
     done < "$dir/.schema_status_descs" ;;
   priority)
     [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 1
-    vals=$(paste -sd'\n' "$dir/.schema_priority_values") ;;
+    vals=""
+    while IFS= read -r v || [ -n "$v" ]; do
+      [ -n "$vals" ] && vals="$vals\n"
+      vals="$vals$v"
+    done < "$dir/.schema_priority_values" ;;
   type)
     vals=""
     while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
@@ -4163,6 +4169,7 @@ for arg in "$@"; do
 done
 # Validate values against workflow schema before writing
 _beu_dir=$(dirname "$0")
+nn_gawk=$(cat "$_beu_dir/.gawk" 2>/dev/null || echo awk)
 if [ "$has_type" = 1 ] && [ -n "$set_type" ]; then
   grep -qxF "$set_type" "$_beu_dir/.schema_type_values" || { echo "notenav: refusing to write invalid type: $set_type" >&2; exit 1; }
 fi
@@ -4175,7 +4182,7 @@ fi
 _ftmp=$(mktemp "$file.XXXXXX") || exit 1
 set_type="$set_type" set_status="$set_status" \
     set_priority="$set_priority" set_tags="$set_tags" \
-    awk -v has_type="$has_type" -v has_status="$has_status" \
+    $nn_gawk -v has_type="$has_type" -v has_status="$has_status" \
     -v has_priority="$has_priority" -v has_tags="$has_tags" '
   BEGIN { set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"] }
   NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
@@ -5494,7 +5501,7 @@ fi
 actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance%b \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[b]\033[0mulk edit \033[90m·\033[0m \033[36m[d]\033[0melete \033[90m·\033[0m \033[36m[x]\033[0m clear pins \033[90m·\033[0m \033[36m[X]\033[0m restore pins' "$_pri_hint")
 change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
-mark_count=0; [ -s "$dir/.marked" ] && mark_count=$(awk 'NF{n++} END{print n+0}' "$dir/.marked")
+mark_count=0; [ -s "$dir/.marked.snap" ] && mark_count=$(awk 'NF{n++} END{print n+0}' "$dir/.marked.snap")
 _mcount_s=""; [ "$mark_count" -gt 0 ] && _mcount_s="${mark_count} marked \033[90m·\033[0m "
 if [ -n "$fmarked" ]; then
   _mfilt_s='\033[36m[f]\033[0m filter: \033[1mon\033[0m'
@@ -5553,7 +5560,7 @@ printf '%s' "$csearch_keys_lbl" > "$dir/.header-csearch"
     printf '\n  [34m╭─────────────────────────────────────────────────╮[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                [35m♩[0m [1;36m♪[0m [32m♫[0m [36m♩[0m [35m♪[0m [31m♫[0m [32m♩[0m [1;36m♪[0m [35m♩[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    ───────────────────────────────────────────  [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore vim comes to a crawl?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore they turn to a scrawl?[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, can save us all.[0m      [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore we call vim unprepared?[0m               [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore adrift he'\''s declared?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is simply [1;31mn²[0m[1;33m.[0m         [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore dear vim hits a wall?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is [1;31mnn[0m[1;33m, after all.[0m     [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m            [35m♩[0m                                    [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                      [36m♪[0m                          [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m         [35m♫[0m                                       [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                   [32m♩[0m                             [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
 [ -f "$dir/.empty_easteregg_override" ] && cat "$dir/.empty_easteregg_override" > "$dir/.empty_placeholder"
 # Show Adams placeholder + dummy entry when view is truly empty (skip if pinned items present)
-if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned" ]; then
+if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned.snap" ]; then
   raw_total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap" | wc -l)
   if [ "$raw_total" -eq 0 ]; then
     _has_wf=""; [ -s "$dir/.has_project_config" ] && _has_wf=1
@@ -5583,7 +5590,7 @@ fi
 # Measure placeholder visible width (strip ANSI, find longest line) for preview.sh centering
 awk 'BEGIN{esc=sprintf("%c",27)} {gsub(esc"\\[[0-9;]*m",""); if(length>m) m=length} END{print m+0}' "$dir/.empty_placeholder" > "$dir/.empty_placeholder_width"
 total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap" | wc -l)
-pin_count=0; [ -s "$dir/.pinned" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "$dir/.pinned")
+pin_count=0; [ -s "$dir/.pinned.snap" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "$dir/.pinned.snap")
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 mark_s=""; [ "$mark_count" -gt 0 ] && mark_s=" · ${mark_count} marked"
 _wf_name=$(cat "$dir/.schema_workflow_name" 2>/dev/null)
