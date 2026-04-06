@@ -29,9 +29,9 @@
 # delete_confirm = "always"      # "always" (ask before deleting) or "never"
 
 # [ui.previewer_flags]
-# bat = ""                        # extra flags appended to bat (e.g. "--theme=Nord")
-# glow = ""                       # extra flags appended to glow (e.g. "-s dark")
-# mdcat = ""                      # extra flags appended to mdcat (e.g. "--local")
+# bat = ["--theme=Nord"]           # extra flags appended to bat
+# glow = ["-s", "dark"]            # extra flags appended to glow
+# mdcat = ["--local"]              # extra flags appended to mdcat
 
 # [refresh]
 # mode = "watch"              # "watch" | "poll" | "manual"

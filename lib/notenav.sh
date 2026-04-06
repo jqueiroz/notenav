@@ -841,9 +841,12 @@ nn_precompute_workflow() {
   NN_UI_DELETE_CONFIRM=$(nn_cfg '.ui.delete_confirm // "always"')
   NN_UI_PREVIEWER=$(nn_cfg '.ui.previewer // ["bat","glow","mdcat"] | if type == "array" then join(" ") else . end')
   NN_UI_PREVIEWER_CUSTOM=$(nn_cfg '.ui.previewer_custom_command // ""')
-  NN_UI_PREVIEWER_FLAGS_BAT=$(nn_cfg '.ui.previewer_flags.bat // ""')
-  NN_UI_PREVIEWER_FLAGS_GLOW=$(nn_cfg '.ui.previewer_flags.glow // ""')
-  NN_UI_PREVIEWER_FLAGS_MDCAT=$(nn_cfg '.ui.previewer_flags.mdcat // ""')
+  # Previewer flags: accept both string ("--flag val") and array ["--flag", "val with spaces"].
+  # Normalize to shell-safe tokens via jq @sh so the generated preview script gets a correct array.
+  local _pfq='. // [] | if type == "array" then map(@sh) | join(" ") elif type == "string" then split(" ") | map(select(. != "")) | map(@sh) | join(" ") else "" end'
+  NN_UI_PREVIEWER_FLAGS_BAT=$(nn_cfg ".ui.previewer_flags.bat | $_pfq")
+  NN_UI_PREVIEWER_FLAGS_GLOW=$(nn_cfg ".ui.previewer_flags.glow | $_pfq")
+  NN_UI_PREVIEWER_FLAGS_MDCAT=$(nn_cfg ".ui.previewer_flags.mdcat | $_pfq")
 
   # Refresh preferences
   NN_REFRESH_MODE=$(nn_cfg '.refresh.mode // "watch"')
@@ -2361,8 +2364,8 @@ nn_doctor() {
     fi
     for _pfk in bat glow mdcat; do
       _pfv=$(nn_cfg ".ui.previewer_flags.$_pfk // null | type" 2>/dev/null)
-      if [[ "$_pfv" != "null" && "$_pfv" != "string" ]]; then
-        _warn "ui.previewer_flags.$_pfk must be a string"
+      if [[ "$_pfv" != "null" && "$_pfv" != "string" && "$_pfv" != "array" ]]; then
+        _warn "ui.previewer_flags.$_pfk must be a string or array"
       fi
     done
 
@@ -3068,14 +3071,10 @@ _nn_write_preview() {
   # shellcheck disable=SC2129  # individual redirects are clearer for this dynamic preamble
   printf '_nn_previewer=%q\n' "$NN_UI_PREVIEWER" >> "$target"
   printf '_nn_previewer_custom=%q\n' "$NN_UI_PREVIEWER_CUSTOM" >> "$target"
-  # Write flags as arrays so values containing spaces are preserved
-  # Guard: when a flags var is empty, write () not ('') – a spurious empty-string
-  # element would be passed as a positional arg to the previewer and break it.
-  set -f
-  printf '_nn_previewer_flags_bat=(%s)\n' "$([ -n "$NN_UI_PREVIEWER_FLAGS_BAT" ] && printf '%q ' $NN_UI_PREVIEWER_FLAGS_BAT)" >> "$target"
-  printf '_nn_previewer_flags_glow=(%s)\n' "$([ -n "$NN_UI_PREVIEWER_FLAGS_GLOW" ] && printf '%q ' $NN_UI_PREVIEWER_FLAGS_GLOW)" >> "$target"
-  printf '_nn_previewer_flags_mdcat=(%s)\n' "$([ -n "$NN_UI_PREVIEWER_FLAGS_MDCAT" ] && printf '%q ' $NN_UI_PREVIEWER_FLAGS_MDCAT)" >> "$target"
-  set +f
+  # Write flags as arrays – values are already @sh-escaped by nn_precompute_workflow
+  printf '_nn_previewer_flags_bat=(%s)\n' "$NN_UI_PREVIEWER_FLAGS_BAT" >> "$target"
+  printf '_nn_previewer_flags_glow=(%s)\n' "$NN_UI_PREVIEWER_FLAGS_GLOW" >> "$target"
+  printf '_nn_previewer_flags_mdcat=(%s)\n' "$NN_UI_PREVIEWER_FLAGS_MDCAT" >> "$target"
   printf '_nn_has_zk=%q\n' "${_NN_HAS_ZK:-false}" >> "$target"
   cat >> "$target" << 'ENDPREVIEW'
 dir="$(dirname "$0")"
@@ -3771,7 +3770,7 @@ if [ "$has_zk" = "true" ]; then
   _zk_scope=("$scope_path")
   [ -d "$scope_path/.zk" ] && _zk_scope=()
   zk index --quiet 2>/dev/null
-  _zk_err=$(mktemp)
+  _zk_err=$(mktemp) || { printf 'mktemp failed – press r to retry' > "$dir/.last_action"; return; }
   if zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>"$_zk_err" > "$dir/.raw.tmp" \
     && _nn_apply_ignore "$dir" \
     && mv "$dir/.raw.tmp" "$dir/.raw"; then
@@ -4100,7 +4099,7 @@ fi
 _ftmp=$(mktemp "$file.XXXXXX") || exit 1
 set_type="$set_type" set_status="$set_status" \
     set_priority="$set_priority" set_tags="$set_tags" \
-    $nn_gawk -v has_type="$has_type" -v has_status="$has_status" \
+    "$nn_gawk" -v has_type="$has_type" -v has_status="$has_status" \
     -v has_priority="$has_priority" -v has_tags="$has_tags" '
   BEGIN { set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"] }
   NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
@@ -4729,7 +4728,7 @@ _nn_now=$(date '+%Y-%m-%dT%H:%M:%S')
 _nn_initial_status=$(cat "$dir/.schema_status_initial" 2>/dev/null)
 
 if [ "$_nn_has_zk" = "true" ]; then
-  _zk_err=$(mktemp) || { printf "\n  ${_nn_red}mktemp failed${_nn_reset}\n\n" > /dev/tty; exit 0; }
+  _zk_err=$(mktemp) || { printf "\n  ${_nn_red}mktemp failed${_nn_reset}\n\n" > /dev/tty; exit 1; }
   new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>"$_zk_err")
   if [ -z "$new_path" ]; then
     _zk_msg=$(cat "$_zk_err")
@@ -4776,7 +4775,7 @@ else
   [ -z "$_slug" ] && _slug="note"
   # Escape double quotes for valid YAML
   _yaml_title=$(printf '%s' "$title" | sed 's/\\/\\\\/g; s/"/\\"/g')
-  _nn_tmp=$(mktemp "$PWD/.nn-new.XXXXXX")
+  _nn_tmp=$(mktemp "$PWD/.nn-new.XXXXXX") || { printf "\n  ${_nn_red}mktemp failed${_nn_reset}\n\n" > /dev/tty; exit 1; }
   # mktemp creates 0600; widen to match what a normal file creation would produce
   chmod "$(printf '%04o' "$(( 0666 & ~$(umask) ))")" "$_nn_tmp"
   {

@@ -29,9 +29,9 @@ delete_method = "trash"    # "trash" (trash-put / gio trash) or "rm" (permanent 
 delete_confirm = "always"  # "always" or "never"
 
 [ui.previewer_flags]
-bat = ""       # extra flags appended to bat (notenav always passes -p --color always)
-glow = ""      # extra flags appended to glow (notenav always passes -w $cols)
-mdcat = ""     # extra flags appended to mdcat (notenav always passes --columns $cols)
+bat = []       # extra flags appended to bat (notenav always passes -p --color always)
+glow = []      # extra flags appended to glow (notenav always passes -w $cols)
+mdcat = []     # extra flags appended to mdcat (notenav always passes --columns $cols)
 
 [refresh]
 mode = "watch"         # "watch" | "poll" | "manual"

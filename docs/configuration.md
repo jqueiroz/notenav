@@ -447,9 +447,9 @@ delete_method = "trash"    # "trash" (trash-put / gio trash) or "rm"
 delete_confirm = "always"  # "always" or "never"
 
 [ui.previewer_flags]
-bat = ""       # extra flags appended to bat
-glow = ""      # extra flags appended to glow
-mdcat = ""     # extra flags appended to mdcat
+bat = []       # extra flags appended to bat
+glow = []      # extra flags appended to glow
+mdcat = []     # extra flags appended to mdcat
 ```
 
 | Key | Type | Default | Description |
@@ -463,7 +463,7 @@ mdcat = ""     # extra flags appended to mdcat
 | `after_create` | string | `"edit"` | What to do after creating a note: `"edit"` (open in editor) or `"none"` |
 | `previewer` | string or array | `["bat", "glow", "mdcat"]` | Previewer fallback list – tries each in order, uses first one found (see below) |
 | `previewer_custom_command` | string | `""` | Command to run for the `"custom"` previewer entry (file path passed as `$1`) |
-| `previewer_flags` | table | `{}` | Extra CLI flags appended to built-in previewer commands (see below) |
+| `previewer_flags` | table | `{}` | Extra CLI flags appended to built-in previewer commands; each value is a string or array (see below) |
 | `delete_method` | string | `"trash"` | How to delete notes: `"trash"` uses `trash-put` or `gio trash` (recoverable), `"rm"` permanently deletes |
 | `delete_confirm` | string | `"always"` | Whether to confirm before single-note delete: `"always"` shows a `[y/N]` prompt, `"never"` deletes immediately. Multi-select delete always requires `YES` regardless of this setting |
 
@@ -511,13 +511,19 @@ For the `"custom"` entry, the command string is evaluated by the shell, so you c
 
 #### Previewer flags
 
-The `previewer_flags` table lets you pass extra CLI flags to the built-in previewers. Each key corresponds to a previewer name, and the value is a string of flags appended to notenav's default invocation.
+The `previewer_flags` table lets you pass extra CLI flags to the built-in previewers. Each key corresponds to a previewer name, and the value is an array of flags (or a plain string for simple cases) appended to notenav's default invocation.
 
 ```toml
 [ui.previewer_flags]
-bat = "--theme=Nord"              # appended after: bat -p --color always
-glow = "-s dark"                  # appended after: glow -w $cols
-mdcat = "--local"                 # appended after: mdcat --columns $cols
+bat = ["--theme", "Monokai Extended"]   # appended after: bat -p --color always
+glow = ["-s", "dark"]                   # appended after: glow -w $cols
+mdcat = ["--local"]                     # appended after: mdcat --columns $cols
+```
+
+Plain strings still work for backward compatibility – they are split on spaces:
+
+```toml
+bat = "--theme=Nord"              # equivalent to ["--theme=Nord"]
 ```
 
 notenav always passes a minimal set of flags for correct operation:
