@@ -16,7 +16,7 @@ show_archive = false       # true to show done/removed by default
 wrap_preview = false       # true to wrap the preview pane by default
 
 [ui]
-header = "compact"       # "auto" | "full" | "compact" – auto uses compact when terminal is short
+header = "clean"         # "clean" | "guided"
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode (/ key and ad-hoc -i)

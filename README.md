@@ -2,7 +2,7 @@
 
 Your notes deserve a proper interface. Not a browser tab, not an Electron app – a fast, keyboard-driven TUI that feels like editing code[^1]. Finally, task and note management that's seamless and, dare we say, _fun_!
 
-Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions; select a note and edit it in your favorite editor – all without leaving the terminal. Friendly learning curve: with the default configuration, every keybinding is displayed on-screen.
+Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions; select a note and edit it in your favorite editor – all without leaving the terminal. Friendly learning curve: press `?` for a keybinding reference at any time.
 
 Workflows are fully customizable: define your own note types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with five built-in workflows for common patterns.
 
@@ -19,7 +19,7 @@ ssh notenav.sh            # default editor: nvim (for editing note files)
 ssh nano@notenav.sh       # or: vim, nvim, nano, emacs
 ```
 
-Cycle filters (`t`, `s`, `p`), try query presets (`tab`/`shift-tab`), create notes (`n`), and advance statuses with `a` – everything works out of the box.
+Cycle filters (`ft`, `fs`, `fp`), try query presets (`tab`/`shift-tab`), create notes (`n`), and advance statuses with `a` – everything works out of the box.
 
 Alternatively, after [installing](#install) `nn`, try it locally with the [demo notebook](https://github.com/jqueiroz/notenav-demo):
 
@@ -115,9 +115,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `n` | Create [**n**]ew note |
 | `a` / `A` | Advance / reverse status |
 | `+` or `>` / `-` or `<` | Bump priority in the +/- direction (see `priority_plus` setting) |
-| `t` | Filter by [**t**]ype (`T` to clear) |
-| `s` | Filter by [**s**]tatus (`S` to clear) |
-| `p` | Filter by [**p**]riority (`P` to clear) |
+| `f` then `t`/`s`/`p`/`#` | [**f**]ilter by type, status, priority, or #tags (picker with "all" to clear) |
 | `0` | Clear all filters (return to "all" view; preserves display settings, pins, and marks) |
 | `R` | [**R**]eset everything: filters, pins, marks, and display settings |
 | `tab` / `shift-tab` | Next / previous query preset |
@@ -125,11 +123,11 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `g` | [**g**]o-to query preset |
 | `1`–`9` | Jump to query preset by number |
 | `c` then `s`/`p`/`t` | [**c**]hange status, priority, or type |
-| `f` then `t` | [**f**]ilter-by tags |
 | `m` then `m`/`a`/`d`/`D`/`f` | [**m**]ark: toggle, add selected, unmark selected, clear all, filter to marked |
 | `z` then `o`/`r`/`g`/`h`/`w` | Display: order-by, reverse sort, group-by, toggle archived, toggle wrap |
 | `/` | Fuzzy search (type to filter by title/metadata) |
-| `?` | Content search (live grep of note bodies) |
+| `/?` | Content search (press `/` then `?` – live grep of note bodies) |
+| `?` | Toggle help overlay (keybinding reference) |
 | `esc` | Exit search / prefix mode, or clear query |
 | `space` | Toggle multi-select |
 | `r` | [**r**]efresh note list |
@@ -142,7 +140,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `q` | Quit |
 
-These keybindings apply to all workflows, including custom ones. With the default configuration, every keybinding is displayed on-screen. See [docs/tui.md](docs/tui.md) for the full reference.
+These keybindings apply to all workflows, including custom ones. Press `?` for a keybinding reference at any time. See [docs/tui.md](docs/tui.md) for the full reference.
 
 When an action like `a` (advance status) or `+` (bump priority) causes a note to no longer match your active filters, the note stays visible in its natural sort position as a **ghost row** with a yellow `pinned` badge. This means you never lose sight of what you just changed and the cursor never jumps. Pins accumulate across multiple actions and survive filter changes. Press `x` to clear all pins, or `R` to reset everything (i.e. filters, pins, sort, grouping, and display settings).
 

@@ -141,7 +141,7 @@ description = "Concrete, actionable unit of work"
 | `show_untyped` | *(default)* Also shows notes that have no `type` field in their frontmatter. These appear with a dim `·` icon. Useful when migrating an existing vault or mixing typed and untyped notes. |
 | `show_all` | Shows all notes regardless of type, including notes with type values not defined in the workflow. Unknown types appear with dim styling. |
 
-When filtering by a specific type (`t` key or `type=task`), only notes matching that type are shown regardless of this setting.
+When filtering by a specific type (`ft` key or `type=task`), only notes matching that type are shown regardless of this setting.
 
 ### `[status]`
 
@@ -188,7 +188,7 @@ blocked = "new"
 | `initial` | string | Status assigned to newly created notes and when pressing `a` on a note that has no status |
 | `display_order` | array | *(optional)* Override display order (group headers); defaults to `values` order |
 | `archive` | array | Statuses hidden by default; press `zh` to toggle visibility |
-| `filter_cycle` | array | Order when pressing `s` to cycle the filter (`"all"` is auto-prepended) |
+| `filter_cycle` | array | Subset of statuses shown when cycling filters via `]`/`[` presets (`"all"` is auto-prepended); the `fs` picker shows all statuses |
 | `default_color` | string | Fallback color for statuses not in `[status.colors]` |
 | `[status.colors]` | table | Color name or ANSI code per status |
 | `[status.descriptions]` | table | *(optional)* Human-readable description per status; shown in `nn doctor` |
@@ -233,7 +233,7 @@ default_color = "yellow"
 |-----|------|-------------|
 | `enabled` | boolean | Set to `false` to disable priority entirely (default: `true`) |
 | `values` | array | Valid priority levels; array order = sort order (first = highest) |
-| `filter_cycle` | array | Order when pressing `p` to cycle the filter (`"all"` is auto-prepended, `"none"` is auto-appended) |
+| `filter_cycle` | array | Subset of priorities shown when cycling filters via `]`/`[` presets (`"all"` is auto-prepended, `"none"` is auto-appended); the `fp` picker shows all priorities |
 | `unset_position` | string | Where unprioritized notes sort: `"first"` or `"last"` |
 | `default_color` | string | Fallback color for priorities not in `[priority.colors]` |
 | `[priority.colors]` | table | Color name or ANSI code per priority level |
@@ -274,7 +274,7 @@ nn tag=backend tag=api              # notes tagged "backend" OR "api"
 nn type=task tag=backend            # tasks tagged "backend"
 ```
 
-In the TUI, press `f` then `t` to open a multi-select tag picker. See [TUI Reference – Tags](tui.md#tags) for details.
+In the TUI, press `f` then `#` to open a multi-select tag picker. See [TUI Reference – Tags](tui.md#tags) for details.
 
 **In query presets:** use `tag=` in the `args` string, just like other filter keys:
 
@@ -434,7 +434,7 @@ TUI preferences.
 
 ```toml
 [ui]
-header = "compact"       # "auto" | "full" | "compact"
+header = "clean"         # "clean" | "guided"
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode (/ key and ad-hoc -i)
@@ -454,7 +454,7 @@ mdcat = []     # extra flags appended to mdcat
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `header` | string | `"compact"` | Header display density: `"auto"` uses compact when the terminal is shorter than 35 rows, `"full"` always shows the full header, `"compact"` condenses each section to one line (prefix modes temporarily expand their section to show sub-key hints) |
+| `header` | string | `"clean"` | Header display density: `"clean"` shows three lines (presets, filter/display state, stats) with a `?:help` hint, `"guided"` condenses each section to one line with keybinding hints |
 | `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR`, then falls back to nvim → vim → vi → nano → emacs |
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode (`/` key and ad-hoc `-i`) |

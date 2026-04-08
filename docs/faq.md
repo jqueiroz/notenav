@@ -132,7 +132,7 @@ tags:                                # multi-line list
   - tech-debt
 ```
 
-**Filtering in the TUI:** press `f` then `t` to open a tag picker. Select multiple tags with `space`/`tab` – filtering uses OR logic (matches notes with *any* selected tag). Tags combine with other active filters using AND.
+**Filtering in the TUI:** press `f` then `#` to open a tag picker. Select multiple tags with `space`/`tab` – filtering uses OR logic (matches notes with *any* selected tag). Tags combine with other active filters using AND.
 
 **Filtering on the command line:**
 

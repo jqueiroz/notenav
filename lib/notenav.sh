@@ -859,7 +859,7 @@ nn_precompute_workflow() {
   NN_DEFAULT_WRAP=$(nn_cfg '.defaults.wrap_preview // false')
 
   # UI preferences
-  NN_UI_HEADER=$(nn_cfg '.ui.header // "compact"')
+  NN_UI_HEADER=$(nn_cfg '.ui.header // "clean"')
   NN_UI_EDITOR=$(nn_cfg '.ui.editor // empty')
   NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // ": "')
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
@@ -890,8 +890,8 @@ nn_precompute_workflow() {
   NN_REFRESH_MAX_FILES=$(nn_cfg '.refresh.max_files // 0')
 
   # Validate UI/refresh enum values (fail fast on invalid config)
-  case "$NN_UI_HEADER" in auto|full|compact) ;;
-    *) echo "notenav: ui.header '$NN_UI_HEADER' invalid (must be 'auto', 'full', or 'compact')" >&2; return 1 ;; esac
+  case "$NN_UI_HEADER" in clean|guided) ;;
+    *) echo "notenav: ui.header '$NN_UI_HEADER' invalid (must be 'clean' or 'guided')" >&2; return 1 ;; esac
   case "$NN_UI_EXIT_MESSAGE" in none|fortune) ;;
     *) echo "notenav: ui.exit_message '$NN_UI_EXIT_MESSAGE' invalid (must be 'none' or 'fortune')" >&2; return 1 ;; esac
   case "$NN_UI_PRIORITY_PLUS" in demote|promote) ;;
@@ -2208,8 +2208,8 @@ nn_doctor() {
     _ui_hdr=$(nn_cfg '.ui.header // empty')
     if [[ -n "$_ui_hdr" ]]; then
       case "$_ui_hdr" in
-        auto|full|compact) ;;
-        *) _warn "ui.header '$_ui_hdr' invalid (must be 'auto', 'full', or 'compact')" ;;
+        clean|guided) ;;
+        *) _warn "ui.header '$_ui_hdr' invalid (must be 'clean' or 'guided')" ;;
       esac
     fi
     local _ui_editor
@@ -3620,19 +3620,126 @@ selected=$(echo "$ordered" | fzf --multi --reverse --prompt 'tags: ' \
 if [ $? -eq 0 ]; then
   if [ -n "$selected" ]; then
     printf '%s\n' "$selected" > "$dir/.f_tags"
-    _tc=$(printf '%s\n' "$selected" | wc -l)
-    if [ "$_tc" -eq 1 ]; then
-      printf 'tags: %s' "$selected" > "$dir/.last_action"
-    else
-      printf 'tags: %d selected' "$_tc" > "$dir/.last_action"
-    fi
+    : > "$dir/.last_action"
   else
     : > "$dir/.f_tags"
-    printf 'tags: all' > "$dir/.last_action"
+    : > "$dir/.last_action"
   fi
 fi
 ENDTAGS
     chmod +x "$_nn_dir/tags.sh"
+
+    # Filter picker: single-select picker for type/status/priority with "all" option
+    cat > "$_nn_dir/filterpick.sh" << 'ENDFILTPICK'
+#!/usr/bin/env bash
+dir="$1"; field="$2"
+# Build display list with "all" at top
+case "$field" in
+  type)
+    all_line="all"
+    [ -z "${NO_COLOR+x}" ] && all_line=$(printf '\033[90mall\033[0m')
+    vals="$all_line"
+    while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
+      if [ -n "${NO_COLOR+x}" ]; then
+        if [ -n "$desc" ]; then vals="$vals"$'\n'"$ic $v  – $desc"; else vals="$vals"$'\n'"$ic $v"; fi
+      else
+        if [ -n "$desc" ]; then
+          vals="$vals"$'\n'"$(printf '\033[%sm%s %s\033[0m  \033[90m– %s\033[0m' "$clr" "$ic" "$v" "$desc")"
+        else
+          vals="$vals"$'\n'"$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
+        fi
+      fi
+    done < "$dir/.schema_types"
+    cur_val=$(cat "$dir/.f_type" 2>/dev/null); cur_val="${cur_val%%[[:space:]]}"
+    if [ -n "$cur_val" ]; then
+      cur_pos=$(awk -F'\t' -v v="$cur_val" '$1==v{print NR+1;exit}' "$dir/.schema_types")
+    else cur_pos=1; fi ;;
+  status)
+    all_line="all"
+    [ -z "${NO_COLOR+x}" ] && all_line=$(printf '\033[90mall\033[0m')
+    vals="$all_line"
+    while IFS=$'\t' read -r v desc || [ -n "$v" ]; do
+      if [ -n "${NO_COLOR+x}" ]; then
+        if [ -n "$desc" ]; then vals="$vals"$'\n'"$v  – $desc"; else vals="$vals"$'\n'"$v"; fi
+      else
+        if [ -n "$desc" ]; then
+          vals="$vals"$'\n'"$(printf '%s  \033[90m– %s\033[0m' "$v" "$desc")"
+        else
+          vals="$vals"$'\n'"$v"
+        fi
+      fi
+    done < "$dir/.schema_status_descs"
+    cur_val=$(cat "$dir/.f_status" 2>/dev/null); cur_val="${cur_val%%[[:space:]]}"
+    if [ -n "$cur_val" ]; then
+      cur_pos=$(awk -v v="$cur_val" '$0==v{print NR+1;exit}' "$dir/.schema_status_values")
+    else cur_pos=1; fi ;;
+  priority)
+    [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 1
+    _use_tsv=1
+    if [ -z "${NO_COLOR+x}" ]; then
+      vals=$(printf '\t\033[90mall\033[0m')
+    else
+      vals=$(printf '\tall')
+    fi
+    while IFS= read -r v || [ -n "$v" ]; do
+      lbl=$(awk -F'\t' -v k="$v" '$1==k{print $2;exit}' "$dir/.schema_priority_labels")
+      [ -z "$lbl" ] && lbl="P$v"
+      vals="$vals"$'\n'"$v"$'\t'"$lbl"
+    done < "$dir/.schema_priority_values"
+    if [ -z "${NO_COLOR+x}" ]; then
+      vals="$vals"$'\n'"none"$'\t'$(printf '\033[90m<unset>\033[0m')
+    else
+      vals="$vals"$'\n'"none"$'\t'"<unset>"
+    fi
+    cur_val=$(cat "$dir/.f_priority" 2>/dev/null); cur_val="${cur_val%%[[:space:]]}"
+    if [ "$cur_val" = "none" ]; then
+      cur_pos=$(( $(wc -l < "$dir/.schema_priority_values") + 2 ))
+    elif [ -n "$cur_val" ]; then
+      cur_pos=$(awk -v v="$cur_val" '$0==v{print NR+1;exit}' "$dir/.schema_priority_values")
+    else cur_pos=1; fi ;;
+  *) echo "notenav: filterpick: unknown field '$field'" >&2; exit 2 ;;
+esac
+_fzf_ansi=(--ansi)
+[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+pos_bind=()
+[ -n "$cur_pos" ] && pos_bind=(--bind "load:pos($cur_pos)")
+_tsv_args=()
+[ -n "${_use_tsv:-}" ] && _tsv_args=(--delimiter $'\t' --with-nth 2)
+if [ -n "${NO_COLOR+x}" ]; then
+  _hdr='Enter apply · Esc cancel'
+else
+  _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
+fi
+selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "filter $field: " \
+  --border --border-label " Filter $field " \
+  --header "$_hdr" \
+  "${pos_bind[@]}" "${_tsv_args[@]}" \
+  --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
+[ -z "$selected" ] && exit 1
+# Extract raw value
+if [ -n "${_use_tsv:-}" ]; then
+  # Tab-delimited: raw_value\tdisplay_label
+  selected=$(printf '%s' "$selected" | awk -F'\t' '{print $1}')
+else
+  # Strip ANSI, description suffix, icon prefix to get raw value
+  selected=$(printf '%s' "$selected" | sed "s/$(printf '\033')\[[0-9;]*m//g" | sed 's/  – .*//' | awk '{print $NF}')
+fi
+case "$field" in
+  type)     f=".f_type" ;;
+  status)   f=".f_status" ;;
+  priority) f=".f_priority" ;;
+esac
+if [ "$selected" = "all" ] || [ -z "$selected" ]; then
+  : > "$dir/$f"
+elif [ "$selected" = "none" ] && [ "$field" = "priority" ]; then
+  printf 'none\n' > "$dir/$f"
+else
+  printf '%s\n' "$selected" > "$dir/$f"
+fi
+: > "$dir/.f_sq"
+: > "$dir/.last_action"
+ENDFILTPICK
+    chmod +x "$_nn_dir/filterpick.sh"
 
     # Prompt helper: outputs change-prompt(PROMPT) using the stored return-to prompt
     cat > "$_nn_dir/cprompt.sh" << 'ENDCPROMPT'
@@ -3691,12 +3798,11 @@ if [ -n "$query" ]; then
       grep -Frl --include='*.md' -- "$query" "$scope_path" 2>/dev/null > "$dir/.f_match_paths"
     fi
   fi
-  _cq="$query"; [ ${#_cq} -gt 20 ] && _cq="${_cq:0:17}..."
-  printf 'content: "%s"' "$_cq" > "$dir/.last_action"
+  : > "$dir/.last_action"
 else
   : > "$dir/.f_match"
   : > "$dir/.f_match_paths"
-  printf 'content: cleared' > "$dir/.last_action"
+  : > "$dir/.last_action"
 fi
 ENDCSPERSIST
     chmod +x "$_nn_dir/csearch_persist.sh"
@@ -5040,35 +5146,11 @@ case "$action" in
   refresh) ;;  # just re-apply filters (after tag picker / action scripts)
   *) nn_assert "filter: unknown action '$action'" ;;
 esac
-# Update status line for user-initiated filter/display changes (not refresh –
-# action scripts set their own .last_action before calling filter.sh refresh)
+# Clear stale action feedback for filter/display changes – the header shows
+# filter state directly.  Action scripts (bulk edit, delete, new note) set
+# their own .last_action before calling filter.sh refresh, so those survive.
 if [ "$action" != "refresh" ]; then
-  _la=""
-  case "$action" in
-    type)           if [ -n "$ft" ]; then _la="type: $ft"; else _la="type: all"; fi ;;
-    status)         if [ -n "$fs" ]; then _la="status: $fs"; else _la="status: all"; fi ;;
-    priority)       if [ -n "$fp" ]; then _la="priority: $fp"; else _la="priority: all"; fi ;;
-    clear-type)     _la="type: all" ;;
-    clear-status)   _la="status: all" ;;
-    clear-priority) _la="priority: all" ;;
-    sort)           _la="sort: $fsort" ;;
-    sort-reverse)   if [ -n "$fsort_rev" ]; then _la="sort: reversed"; else _la="sort: default direction"; fi ;;
-    group)          if [ -n "$fgroup" ]; then _la="group: $fgroup"; else _la="group: none"; fi ;;
-    archive)        if [ -n "$farchive" ]; then _la="archive: showing"; else _la="archive: hidden"; fi ;;
-    clear-preset)   _la="preset: all" ;;
-    reset)          _la="reset" ;;
-    next|prev|sq*|pick)
-      _sq=$(cat "$dir/.f_sq" 2>/dev/null)
-      if [ -n "$_sq" ]; then _la="preset: $_sq"; else _la="preset: all"; fi ;;
-    clear-sort)     _la="sort: default" ;;
-    clear-group)    _la="group: none" ;;
-    clear-tags)     _la="tags: all" ;;
-    clear-pins)     _la="pins cleared" ;;
-    restore-pins)   _la="pins restored" ;;
-    mark-toggle|mark-add|mark-remove|mark-clear|mark-filter) ;;  # marks are visible via badge; no status line
-    *) ;;
-  esac
-  [ -n "$_la" ] && printf '%s' "$_la" > "$dir/.last_action"
+  : > "$dir/.last_action"
 fi
 printf '%s\n' "$ft" > "$dir/.f_type"; printf '%s\n' "$fs" > "$dir/.f_status"
 printf '%s\n' "$fp" > "$dir/.f_priority"
@@ -5247,13 +5329,11 @@ fmt_dim() {
     ic=$(awk -F'\t' -v v="$val" '$1 == v {printf "%s ", $2; exit}' "$dir/.schema_type_icons")
     label="${ic}${val}"
   else label="${val:-all}"; fi
-  case "$key" in t) suffix="ype";; s) suffix="tatus";; p) suffix="riority";; *) suffix="";; esac
+  case "$key" in t) suffix="type";; s) suffix="status";; p) suffix="priority";; *) suffix="";; esac
   if [ -n "$val" ]; then
-    # Filter active: cyan key, bold value
-    printf ' \033[36m[\033[1;36m%s\033[0;36m]%s:\033[0m \033[1m%s\033[0m' "$key" "$suffix" "$label"
+    printf ' %s: \033[1m%s\033[0m' "$suffix" "$label"
   else
-    # No filter: keys cyan, value dim
-    printf ' \033[36m[%s]%s:\033[0m \033[90mall\033[0m' "$key" "$suffix"
+    printf ' %s: \033[90mall\033[0m' "$suffix"
   fi
 }
 t_s=$(fmt_dim t "$ft"); s_s=$(fmt_dim s "$fs"); p_s=$(fmt_dim p "$fp")
@@ -5266,15 +5346,11 @@ fi
 # Header line 2+: numbered query presets with count badges, wrapped to terminal width
 active_sq=$(cat "$dir/.f_sq" 2>/dev/null)
 if _termsize=$(stty size < /dev/tty 2>/dev/null) && [ -n "$_termsize" ]; then
-  rows=${_termsize%% *}; cols=${_termsize##* }
+  cols=${_termsize##* }
 else
   cols=$(tput cols 2>/dev/null || echo 80)
-  rows=$(tput lines 2>/dev/null || echo 40)
 fi
 _header_mode=$(cat "$dir/.schema_header_mode" 2>/dev/null)
-if [ "$_header_mode" = "auto" ]; then
-  if [ "$rows" -lt 35 ]; then _header_mode="compact"; else _header_mode="full"; fi
-fi
 # Count matches for "all" (respects archive toggle)
 all_cond="$vis_cond"
 [ -z "$farchive" ] && all_cond="$all_cond$archive_cond"
@@ -5326,20 +5402,18 @@ fi
 # Section labels and keybinding help
 # Filters section: type/status/priority + per-line filter-by options with [f] hint + value
 filters_top=$(printf '\033[1;90m Filters:\033[0m%s%s%s' "$t_s" "$s_s" "$p_s")
-# Each filter-by option: [f] [key] label: value (normal + active variants)
+# f-mode sub-key hints (normal + active variants)
 if [ -n "$tag_s" ]; then
-  ftags_s=$(printf '       \033[36m[f]\033[0m then \033[36m[t]\033[0mags:%s' "$tag_s")
-  ftags_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mags:%s' "$tag_s")
+  _ftag_s_active=$(printf '\033[1;36m[#]\033[1;37mtags:%s' "$tag_s")
 else
-  ftags_s=$(printf '       \033[36m[f]\033[0m then \033[36m[t]\033[0mags: \033[90mnone\033[0m')
-  ftags_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mags: \033[90mnone\033[0m')
+  _ftag_s_active=$(printf '\033[1;36m[#]\033[1;37mtags: \033[90mnone\033[0m')
 fi
+ftags_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mype \033[1;36m[s]\033[1;37mtatus \033[1;36m[p]\033[1;37mriority %s\033[0m' "$_ftag_s_active")
 if [ -n "$fmatch" ]; then
-  fmatch_s=$(printf '\n       \033[36m[?]\033[0m content: \033[1m"%s"\033[0m' "$fmatch")
+  fmatch_s=$(printf '\n       \033[36m[/?]\033[0m content: \033[1m"%s"\033[0m' "$fmatch")
 else
   fmatch_s=""
 fi
-filters_lbl=$(printf '%s\n%s%s' "$filters_top" "$ftags_s" "$fmatch_s")
 filters_lbl_f=$(printf '%s\n%s%s' "$filters_top" "$ftags_s_active" "$fmatch_s")
 # Display section: per-line [z] options with current value
 default_sort=$(head -n 1 "$dir/.schema_defaults")
@@ -5353,74 +5427,48 @@ case "$fsort" in
   *)                nn_assert "unknown sort '$fsort'" ;;
 esac
 sort_desc="$sort_hint"; [ -n "$sort_dir" ] && sort_desc="$sort_hint, $sort_dir"
-zorder_s=$(printf '       \033[36m[z]\033[0m then \033[36m[o]\033[0mrder-by: \033[1m%s\033[0m' "$sort_desc")
 zorder_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder-by: \033[1m%s\033[0m' "$sort_desc")
 if [ -n "$fsort_rev" ]; then
-  zrev_s=$(printf '       \033[36m[z]\033[0m then \033[36m[r]\033[0meverse: \033[1mon\033[0m')
   zrev_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[r]\033[1;37meverse: \033[1mon\033[0m')
 else
-  zrev_s=$(printf '       \033[36m[z]\033[0m then \033[36m[r]\033[0meverse: \033[90moff\033[0m')
   zrev_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[r]\033[1;37meverse: \033[90moff\033[0m')
 fi
 if [ -n "$fgroup" ]; then
-  zgroup_s=$(printf '       \033[36m[z]\033[0m then \033[36m[g]\033[0mroup-by: \033[1m%s\033[0m' "$fgroup")
   zgroup_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[g]\033[1;37mroup-by: \033[1m%s\033[0m' "$fgroup")
 else
-  zgroup_s=$(printf '       \033[36m[z]\033[0m then \033[36m[g]\033[0mroup-by: \033[90mnone\033[0m')
   zgroup_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[g]\033[1;37mroup-by: \033[90mnone\033[0m')
 fi
 archive_label=$(cat "$dir/.schema_archive_label")
 if [ -n "$farchive" ]; then
-  zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0midden: \033[1mshowing %s\033[0m' "$archive_label")
   zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[1mshowing %s\033[0m' "$archive_label")
 else
-  zarchive_s=$(printf '       \033[36m[z]\033[0m then \033[36m[h]\033[0midden: \033[90mhiding %s\033[0m' "$archive_label")
   zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[90mhiding %s\033[0m' "$archive_label")
 fi
 if [ -n "$fwrap" ]; then
-  zwrap_s=$(printf '       \033[36m[z]\033[0m then \033[36m[w]\033[0mrap preview: \033[1mon\033[0m')
   zwrap_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[w]\033[1;37mrap preview: \033[1mon\033[0m')
 else
-  zwrap_s=$(printf '       \033[36m[z]\033[0m then \033[36m[w]\033[0mrap preview: \033[90moff\033[0m')
   zwrap_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[w]\033[1;37mrap preview: \033[90moff\033[0m')
 fi
-display_lbl=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s" "$zrev_s" "$zgroup_s" "$zarchive_s" "$zwrap_s")
 display_lbl_z=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zrev_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
-presets_hint=$(printf '\033[90m          \033[36mtab\033[90m/\033[36mshift-tab\033[90m ←→ next/prev  \033[36m[0-9]\033[90m jump to preset \033[90m·\033[0m \033[36m[g]\033[90m pick preset\033[0m')
-_pri_hint=""
-if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
-  pri_plus_mode=$(cat "$dir/.schema_priority_plus" 2>/dev/null)
-  if [ "$pri_plus_mode" = "promote" ]; then
-    _pri_hint=' \033[90m·\033[0m \033[36m[+]\033[0m promote pri \033[90m·\033[0m \033[36m[-]\033[0m demote pri'
-  else
-    _pri_hint=' \033[90m·\033[0m \033[36m[+]\033[0m demote pri \033[90m·\033[0m \033[36m[-]\033[0m promote pri'
-  fi
-fi
-actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance status \033[90m·\033[0m \033[36m[A]\033[0m reverse advance%b \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[b]\033[0mulk edit \033[90m·\033[0m \033[36m[d]\033[0melete \033[90m·\033[0m \033[36m[x]\033[0m clear pins \033[90m·\033[0m \033[36m[X]\033[0m restore pins' "$_pri_hint")
-change_lbl=$(printf '\033[1;90m Change:\033[0m \033[36m[c]\033[0m then \033[36m[s]\033[0mtatus \033[90m·\033[0m \033[36m[p]\033[0mriority \033[90m·\033[0m \033[36m[t]\033[0mype')
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
 mark_count=0; [ -s "$dir/.marked.snap" ] && mark_count=$(awk 'NF{n++} END{print n+0}' "$dir/.marked.snap")
 _mcount_s=""; [ "$mark_count" -gt 0 ] && _mcount_s="${mark_count} marked \033[90m·\033[0m "
 if [ -n "$fmarked" ]; then
-  _mfilt_s='\033[36m[f]\033[0m filter: \033[1mon\033[0m'
   _mfilt_s_active='\033[1;36m[f]\033[1;37m filter: \033[1mon\033[0m'
 else
-  _mfilt_s='\033[36m[f]\033[0m filter: \033[90moff\033[0m'
   _mfilt_s_active='\033[1;36m[f]\033[1;37m filter: \033[90moff\033[0m'
 fi
-marks_lbl=$(printf '\033[1;90m Marks:\033[0m %b\033[36m[m]\033[0m then \033[36m[m]\033[0mtoggle \033[90m·\033[0m \033[36m[a]\033[0mdd sel \033[90m·\033[0m \033[36m[d]\033[0m unmark sel \033[90m·\033[0m \033[36m[D]\033[0m clear \033[90m·\033[0m %b' "$_mcount_s" "$_mfilt_s")
 marks_lbl_active=$(printf '\033[1;90m Marks:\033[0m %b\033[1;33m[m]\033[0m \033[1;37mthen \033[1;36m[m]\033[1;37mtoggle \033[90m·\033[0m \033[1;36m[a]\033[1;37mdd sel \033[90m·\033[0m \033[1;36m[d]\033[1;37m unmark sel \033[90m·\033[0m \033[1;36m[D]\033[1;37m clear \033[90m·\033[0m %b\033[0m' "$_mcount_s" "$_mfilt_s_active")
-keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search \033[90m·\033[0m \033[36m[?]\033[0m grep \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[R]\033[0meset \033[90m·\033[0m \033[36m[q]\033[0muit')
-stats_lbl=$(printf '\033[1;90m Results:\033[0m %s' "$stats_s")
-if [ "$_header_mode" = "compact" ]; then
+keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search \033[90m·\033[0m \033[36m[/?]\033[0m grep \033[90m·\033[0m \033[36m[?]\033[0m help \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[R]\033[0meset \033[90m·\033[0m \033[36m[q]\033[0muit')
+if [ "$_header_mode" = "guided" ]; then
   # Compact: merge filters+tags+content+count onto one line
   if [ -n "$tag_s" ]; then
     _ctag_s=$(printf '  tags:%s' "$tag_s")
   else
     _ctag_s=$(printf '  tags:\033[90mnone\033[0m')
   fi
-  _cmatch_s=""; [ -n "$fmatch" ] && _cmatch_s=$(printf '  \033[36m?\033[0m:\033[1m"%s"\033[0m' "$fmatch")
+  _cmatch_s=""; [ -n "$fmatch" ] && _cmatch_s=$(printf '  \033[36m/?\033[0m:\033[1m"%s"\033[0m' "$fmatch")
   cfilters_lbl=$(printf '\033[1;90m Filters:\033[0m%s%s%s%s%s' "$t_s" "$s_s" "$p_s" "$_ctag_s" "$_cmatch_s")
   cqueries_lbl=$(printf '%s \033[90m· tab/1-9/g\033[0m' "$queries_lbl")
   # Compact: display values on one line with direction arrow
@@ -5438,22 +5486,107 @@ if [ "$_header_mode" = "compact" ]; then
   fi
   cactions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[c]\033[0mhange \033[90m·\033[0m \033[36m[m]\033[0marks%b \033[90m·\033[0m \033[36m[b]\033[0mulk \033[90m·\033[0m \033[36m[d]\033[0mel' "$_cmcount_s")
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header"
-  # Mode-active headers: expand the active section to full-mode for sub-key guidance
+  # Mode-active headers: expand the active section to show sub-key guidance
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$filters_lbl_f" "$cdisplay_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header-f"
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$display_lbl_z" "$cactions_lbl" "$keys_lbl" > "$dir/.header-z"
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$marks_lbl_active" "$keys_lbl" > "$dir/.header-m"
-else
-  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl" "$stats_lbl" "$display_lbl" "$actions_lbl" "$change_lbl" "$marks_lbl" "$keys_lbl" > "$dir/.header"
-  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl" "$stats_lbl" "$display_lbl" "$actions_lbl" "$change_lbl_active" "$marks_lbl" "$keys_lbl" > "$dir/.header-c"
-  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl_f" "$stats_lbl" "$display_lbl" "$actions_lbl" "$change_lbl" "$marks_lbl" "$keys_lbl" > "$dir/.header-f"
-  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl" "$stats_lbl" "$display_lbl_z" "$actions_lbl" "$change_lbl" "$marks_lbl" "$keys_lbl" > "$dir/.header-z"
-  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' "$queries_lbl" "$presets_hint" "$filters_lbl" "$stats_lbl" "$display_lbl" "$actions_lbl" "$change_lbl" "$marks_lbl_active" "$keys_lbl" > "$dir/.header-m"
+elif [ "$_header_mode" = "clean" ]; then
+  # Minimal: 2 lines – presets (no key hint) + active state only
+  mqueries_lbl="$queries_lbl"
+  # Build state line: only non-default filter/display values
+  _mparts=""
+  if [ -n "$ft" ]; then
+    _mic=$(awk -F'\t' -v v="$ft" '$1 == v {printf "%s ", $2; exit}' "$dir/.schema_type_icons")
+    _mparts="type:\033[1m${_mic}${ft}\033[0m"
+  fi
+  if [ -n "$fs" ]; then
+    [ -n "$_mparts" ] && _mparts="$_mparts  "
+    _mparts="${_mparts}status:\033[1m${fs}\033[0m"
+  fi
+  if [ -n "$fp" ]; then
+    [ -n "$_mparts" ] && _mparts="$_mparts  "
+    _mplbl="$fp"; [ "$fp" = "none" ] && _mplbl="<unset>"
+    _mplbl_full=$(awk -F'\t' -v v="$fp" '$1 == v {print $2; exit}' "$dir/.schema_priority_labels")
+    [ -n "$_mplbl_full" ] && _mplbl="$_mplbl_full"
+    _mparts="${_mparts}priority:\033[1m${_mplbl}\033[0m"
+  fi
+  if [ -s "$dir/.f_tags" ]; then
+    [ -n "$_mparts" ] && _mparts="$_mparts  "
+    _mtag_list=$(tr '\n' ' ' < "$dir/.f_tags" | sed 's/ $//')
+    _mparts="${_mparts}tags:\033[35m${_mtag_list}\033[0m"
+  fi
+  if [ -n "$fmatch" ]; then
+    [ -n "$_mparts" ] && _mparts="$_mparts  "
+    _mparts="${_mparts}?:\033[1m\"${fmatch}\"\033[0m"
+  fi
+  if [ "$mark_count" -gt 0 ]; then
+    [ -n "$_mparts" ] && _mparts="$_mparts  "
+    if [ -n "$fmarked" ]; then
+      _mparts="${_mparts}marks:\033[1m${mark_count} (filtered)\033[0m"
+    else
+      _mparts="${_mparts}marks:\033[1m${mark_count}\033[0m"
+    fi
+  fi
+  # Display settings (only non-defaults)
+  _mdparts=""
+  _marrow=""; [ -n "$fsort" ] && { [ -n "$fsort_rev" ] && _marrow="↑" || _marrow="↓"; }
+  if [ "$fsort" != "$default_sort" ] || [ -n "$fsort_rev" ]; then
+    _mdparts="order:\033[1m${fsort}${_marrow}\033[0m"
+  fi
+  if [ -n "$fgroup" ]; then
+    [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
+    _mdparts="${_mdparts}group:\033[1m${fgroup}\033[0m"
+  fi
+  if [ -n "$farchive" ]; then
+    [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
+    _mdparts="${_mdparts}archive:\033[1mon\033[0m"
+  fi
+  # Build filter line (only when non-defaults active) and stats line (always)
+  mstats_lbl=$(printf ' %s' "$stats_s")
+  if [ -n "$_mparts" ] && [ -n "$_mdparts" ]; then
+    mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m %b  \033[90m|\033[0m  \033[1;90mDisplay:\033[0m %b' "$_mparts" "$_mdparts")
+  elif [ -n "$_mparts" ]; then
+    mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m %b' "$_mparts")
+  elif [ -n "$_mdparts" ]; then
+    mfilter_lbl=$(printf '\033[1;90m Display:\033[0m %b' "$_mdparts")
+  else
+    mfilter_lbl=""
+  fi
+  # Mode-active 4th lines (single-line variants with active styling)
+  if [ -n "$tag_s" ]; then
+    _mftag_hint=$(printf '\033[1;36m[#]\033[1;37mtags:%s' "$tag_s")
+  else
+    _mftag_hint=$(printf '\033[1;36m[#]\033[1;37mtags: \033[90mnone\033[0m')
+  fi
+  _mfilter_f=$(printf '\033[1;90m Filter:\033[0m \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mype \033[1;36m[s]\033[1;37mtatus \033[1;36m[p]\033[1;37mriority %s\033[0m' "$_mftag_hint")
+  _mgroup_v="none"; [ -n "$fgroup" ] && _mgroup_v="$fgroup"
+  _marchive_v="off"; [ -n "$farchive" ] && _marchive_v="on"
+  _mwrap_v="off"; [ -n "$fwrap" ] && _mwrap_v="on"
+  _mrev_v="off"; [ -n "$fsort_rev" ] && _mrev_v="on"
+  _mdisplay_z=$(printf '\033[1;90m Display:\033[0m \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder:\033[1m%s\033[0m%s  \033[1;36m[r]\033[1;37mev:\033[1m%s\033[0m  \033[1;36m[g]\033[1;37mroup:\033[1m%s\033[0m  \033[1;36m[h]\033[1;37midden:\033[1m%s\033[0m  \033[1;36m[w]\033[1;37mrap:\033[1m%s\033[0m' "$sort_hint" "$_marrow" "$_mrev_v" "$_mgroup_v" "$_marchive_v" "$_mwrap_v")
+  # Always 3 lines: presets / filters / stats [+ mode hints]
+  [ -z "$mfilter_lbl" ] && mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m \033[90m(none)\033[0m')
+  printf '%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" > "$dir/.header"
+  printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$change_lbl_active" > "$dir/.header-c"
+  printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$_mfilter_f" > "$dir/.header-f"
+  printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$_mdisplay_z" > "$dir/.header-z"
+  printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$marks_lbl_active" > "$dir/.header-m"
 fi
-search_keys_lbl=$(printf '\033[1;90m Search:\033[0m type to filter \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[tab]\033[0m keep filter \033[90m·\033[0m \033[36m[esc]\033[0m cancel')
+search_keys_lbl=$(printf '\033[1;90m Search:\033[0m type to filter \033[90m·\033[0m \033[36m[?]\033[0m content search \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[tab]\033[0m keep filter \033[90m·\033[0m \033[36m[esc]\033[0m cancel')
 printf '%s' "$search_keys_lbl" > "$dir/.header-search"
 csearch_keys_lbl=$(printf '\033[1;90m Content search:\033[0m type to grep \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[tab]\033[0m keep filter \033[90m·\033[0m \033[36m[esc]\033[0m cancel')
 printf '%s' "$csearch_keys_lbl" > "$dir/.header-csearch"
+# Help header: keybinding reference (toggled by ? in normal mode)
+_pri_help_hint=""
+if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
+  _pri_help_hint=' \033[36m[+]\033[0m/\033[36m[-]\033[0m priority'
+fi
+help_filters_lbl=$(printf '\033[1;90m Filters:\033[0m \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[t]\033[0mype \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[s]\033[0mtatus \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[p]\033[0mriority \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[#]\033[0mtags  \033[36m[R]\033[0meset  \033[90mtab/1-9/g presets\033[0m')
+help_display_lbl=$(printf '\033[1;90m Display:\033[0m \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[o]\033[0mrder \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[r]\033[0meverse \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[g]\033[0mroup \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[h]\033[0midden \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[w]\033[0mrap')
+help_actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[36m[e]\033[0mdit \033[36m[n]\033[0mew \033[36m[r]\033[0mefresh \033[36m[c]\033[0mhange \033[36m[m]\033[0marks \033[36m[b]\033[0mulk \033[36m[d]\033[0mel%b' "$_pri_help_hint")
+help_keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search  \033[36m[/?]\033[0m content search  \033[36m[enter]\033[0m open  \033[36m[?]\033[0m close help  \033[36m[q]\033[0muit')
+printf '%s\n%s\n%s\n%s' "$help_filters_lbl" "$help_display_lbl" "$help_actions_lbl" "$help_keys_lbl" > "$dir/.header-help"
 # Always write Dylan placeholder for preview when no item is selected
 # Visible width is measured after final content is written to .empty_placeholder
     printf '\n  [34m╭─────────────────────────────────────────────────╮[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                [35m♩[0m [1;36m♪[0m [32m♫[0m [36m♩[0m [35m♪[0m [31m♫[0m [32m♩[0m [1;36m♪[0m [35m♩[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    ───────────────────────────────────────────  [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore vim comes to a crawl?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore they turn to a scrawl?[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, can save us all.[0m      [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore we call vim unprepared?[0m               [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore adrift he'\''s declared?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is simply [1;31mn²[0m[1;33m.[0m         [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore dear vim hits a wall?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is [1;31mnn[0m[1;33m, after all.[0m     [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m            [35m♩[0m                                    [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                      [36m♪[0m                          [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m         [35m♫[0m                                       [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                   [32m♩[0m                             [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
@@ -5464,9 +5597,9 @@ if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned.snap" ]; then
   if [ "$raw_total" -eq 0 ]; then
     _has_wf=""; [ -s "$dir/.has_project_config" ] && _has_wf=1
     if [ -n "$_has_wf" ]; then
-    printf '\n  [90m╭─────────────────────────────────────────────────╮[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                   [1;33mDON'\''T PANIC[0m                   [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    ───────────────────────────────────────────  [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    No notes here – yet.                         [90m│[0m\n  [90m│[0m    Press [36mn[0m to create your first note.           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m              [31m·[0m       [35m✦[0m                          [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m         [36m✦[0m                [32m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                  [1;37m·[0m                              [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m             [35m✦[0m            [34m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: check out the keybinding[0m                [90m│[0m\n  [90m│[0m    [37mindications on the footer, and[0m               [90m│[0m\n  [90m│[0m    [37mhappy note-taking![0m                           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
+    printf '\n  [90m╭─────────────────────────────────────────────────╮[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                   [1;33mDON'\''T PANIC[0m                   [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    ───────────────────────────────────────────  [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    No notes here – yet.                         [90m│[0m\n  [90m│[0m    Press [36mn[0m to create your first note.           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m              [31m·[0m       [35m✦[0m                          [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m         [36m✦[0m                [32m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                  [1;37m·[0m                              [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m             [35m✦[0m            [34m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: press [36m?[37m for a keybinding[0m                [90m│[0m\n  [90m│[0m    [37mreference at any time, and[0m                   [90m│[0m\n  [90m│[0m    [37mhappy note-taking![0m                           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
     else
-    printf '\n  [90m╭─────────────────────────────────────────────────╮[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                   [1;33mDON'\''T PANIC[0m                   [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    ───────────────────────────────────────────  [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    No notes here – yet.                         [90m│[0m\n  [90m│[0m    Press [36mn[0m to create your first note.           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m              [31m·[0m       [35m✦[0m                          [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m         [36m✦[0m                [32m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                  [1;37m·[0m                              [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m             [35m✦[0m            [34m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: the footer shows all[0m                    [90m│[0m\n  [90m│[0m    [37mavailable keybindings.[0m                       [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: run [36mnn init[37m to customize[0m                [90m│[0m\n  [90m│[0m    [37mthis notebook.[0m                               [90m│[0m\n  [90m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
+    printf '\n  [90m╭─────────────────────────────────────────────────╮[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                   [1;33mDON'\''T PANIC[0m                   [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    ───────────────────────────────────────────  [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    No notes here – yet.                         [90m│[0m\n  [90m│[0m    Press [36mn[0m to create your first note.           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m              [31m·[0m       [35m✦[0m                          [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m         [36m✦[0m                [32m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                  [1;37m·[0m                              [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m             [35m✦[0m            [34m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: press [36m?[37m for keybinding[0m                  [90m│[0m\n  [90m│[0m    [37mhelp at any time.[0m                            [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: run [36mnn init[37m to customize[0m                [90m│[0m\n  [90m│[0m    [37mthis notebook.[0m                               [90m│[0m\n  [90m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
     fi
   else
     # Filters narrowed to zero – prepend a hint above the poem
@@ -5525,7 +5658,7 @@ printf '%s' "${_border_action//)/}" > "$dir/.border_action"
 # NO_COLOR: strip ANSI escape sequences from header/placeholder files
 if [ -n "${NO_COLOR+x}" ]; then
   _nc_esc=$(printf '\033')
-  for _nc_f in "$dir/.header" "$dir/.header-c" "$dir/.header-f" "$dir/.header-z" "$dir/.header-m" "$dir/.header-search" "$dir/.header-csearch" "$dir/.empty_placeholder"; do
+  for _nc_f in "$dir/.header" "$dir/.header-c" "$dir/.header-f" "$dir/.header-z" "$dir/.header-m" "$dir/.header-search" "$dir/.header-csearch" "$dir/.header-help" "$dir/.empty_placeholder"; do
     [ -f "$_nc_f" ] && sed "s/${_nc_esc}\[[0-9;]*m//g" "$_nc_f" > "$_nc_f.tmp" && mv "$_nc_f.tmp" "$_nc_f"
   done
 fi
@@ -5536,7 +5669,7 @@ elif test -f "$dir/.nn-search"; then _hdr="$dir/.header-search"
 else
   _hdr="$dir/.header"
   _m=$(cat "$dir/.nn-mode" 2>/dev/null)
-  case "$_m" in c) _hdr="$dir/.header-c" ;; f) _hdr="$dir/.header-f" ;; z) _hdr="$dir/.header-z" ;; m) _hdr="$dir/.header-m" ;; esac
+  case "$_m" in c) _hdr="$dir/.header-c" ;; f) _hdr="$dir/.header-f" ;; z) _hdr="$dir/.header-z" ;; m) _hdr="$dir/.header-m" ;; h) _hdr="$dir/.header-help" ;; esac
 fi
 # Skip reload during content search – csearch.sh manages its own list via change:reload
 if test -f "$dir/.nn-csearch"; then
@@ -5790,10 +5923,10 @@ ENDDELETE
       _nn_fzf_start_watcher="+execute-silent($_nn_dir/watcher.sh $_nn_dir &)"
     fi
 
-    # Keys to unbind/rebind when toggling search mode (/ or ? key)
-    # Excludes: enter, tab, esc (search-aware transforms), ctrl-j/ctrl-k (page nav),
+    # Keys to unbind/rebind when toggling search mode (/ key)
+    # Excludes: ?, enter, tab, esc (search-aware transforms), ctrl-j/ctrl-k (page nav),
     #           [ ] (search-aware transforms), change (mode-aware transform)
-    local _nn_search_unbind='/,?,t,T,s,S,p,P,h,1,2,3,4,5,6,7,8,9,0,R,g,a,A,+,>,-,<,n,c,e,f,z,o,r,w,b,x,X,m,d,D,j,k,J,K,space,q,shift-tab'
+    local _nn_search_unbind='/,t,s,p,#,h,1,2,3,4,5,6,7,8,9,0,R,g,a,A,+,>,-,<,n,c,e,f,z,o,r,w,b,x,X,m,d,D,j,k,J,K,space,q,shift-tab'
 
     # Prompt shown after / tab-persist (indicates active search query)
     local _nn_persist_prompt
@@ -5806,9 +5939,16 @@ ENDDELETE
     # Store the return-to prompt (read by cprompt.sh on mode exits)
     printf '%s' "$NN_UI_COMMAND_PROMPT" > "$_nn_dir/.nn-prompt"
 
+    # In clean mode, show ?:help hint on the header border (right-aligned)
+    local _nn_fzf_header_label=()
+    if [[ "$NN_UI_HEADER" = "clean" ]]; then
+      _nn_fzf_header_label=(--header-label ' ?:help ' --header-label-pos -1:bottom)
+    fi
+
     fzf "${_nn_fzf_ansi[@]}" --delimiter $'\t' --with-nth 2.. < "$_nn_dir/.current" \
       "${_nn_fzf_listen[@]}" \
       --header '' --header-first \
+      "${_nn_fzf_header_label[@]}" \
       --style full:rounded \
       --info hidden \
       --list-label "$(cat "$_nn_dir/.border")" \
@@ -5818,12 +5958,10 @@ ENDDELETE
       --preview "$_nn_dir/preview.sh {1}" \
       --prompt "$NN_UI_COMMAND_PROMPT" \
       "${_nn_fzf_wrap[@]}" \
-      --bind "t:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/tags.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-list-label(cat $_nn_dir/.border)+transform-input-label(cat $_nn_dir/.border_action)+deselect-all+refresh-preview'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir type; fi]" \
-      --bind "T:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-type; fi]" \
-      --bind "s:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-list-label(cat $_nn_dir/.border)+transform-input-label(cat $_nn_dir/.border_action)+deselect-all+refresh-preview'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir status; fi]" \
-      --bind "S:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-status; fi]" \
-      --bind "p:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-list-label(cat $_nn_dir/.border)+transform-input-label(cat $_nn_dir/.border_action)+deselect-all+refresh-preview'; elif test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir priority; fi]" \
-      --bind "P:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-priority; fi]" \
+      --bind "t:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/filterpick.sh $_nn_dir type)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir type)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-list-label(cat $_nn_dir/.border)+transform-input-label(cat $_nn_dir/.border_action)+deselect-all+refresh-preview'; fi]" \
+      --bind "s:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/filterpick.sh $_nn_dir status)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir status)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-list-label(cat $_nn_dir/.border)+transform-input-label(cat $_nn_dir/.border_action)+deselect-all+refresh-preview'; fi]" \
+      --bind "p:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/filterpick.sh $_nn_dir priority)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test \"\$m\" = c; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.c_sel; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/bulkset.sh $_nn_dir priority)+reload(cat $_nn_dir/.current)+transform-header(cat $_nn_dir/.header)+transform-list-label(cat $_nn_dir/.border)+transform-input-label(cat $_nn_dir/.border_action)+deselect-all+refresh-preview'; fi]" \
+      --bind "#:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/tags.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; fi]" \
       --bind "]:transform[if test -f $_nn_dir/.nn-search || test -f $_nn_dir/.nn-csearch; then :; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir next; fi; fi]" \
       --bind "[:transform[if test -f $_nn_dir/.nn-search || test -f $_nn_dir/.nn-csearch; then :; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir prev; fi; fi]" \
       --bind "h:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir archive; fi]" \
@@ -5862,7 +6000,7 @@ ENDDELETE
       --bind "D:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-clear; fi]" \
       --bind "start:execute-silent(rm -f $_nn_dir/.nn-search $_nn_dir/.nn-csearch)+transform-header(cat $_nn_dir/.header)${_nn_fzf_start_watcher}" \
       --bind "/:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then touch $_nn_dir/.nn-search; echo 'unbind($_nn_search_unbind)+change-prompt($NN_UI_SEARCH_PROMPT)+transform-header(cat $_nn_dir/.header-search)'; fi]" \
-      --bind "?:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then _fq=\$(cat $_nn_dir/.f_match 2>/dev/null); printf '%s' \"\$_fq\" > $_nn_dir/.csearch_q; touch $_nn_dir/.nn-csearch; echo 'unbind($_nn_search_unbind)+disable-search+transform-query(cat $_nn_dir/.csearch_q)+change-prompt(? )+transform-header(cat $_nn_dir/.header-csearch)'; fi]" \
+      --bind "?:transform[if test -f $_nn_dir/.nn-csearch; then :; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' {q} > $_nn_dir/.csearch_q; touch $_nn_dir/.nn-csearch; echo 'disable-search+change-prompt(/? )+transform-header(cat $_nn_dir/.header-csearch)+reload($_nn_dir/csearch.sh $_nn_dir)'; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo h > $_nn_dir/.nn-mode; echo 'change-prompt(? )+transform-header(cat $_nn_dir/.header-help)'; elif test \"\$m\" = h; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; fi; fi]" \
       --bind "j:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)+down'; else echo down; fi]" \
       --bind "k:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)+up'; else echo up; fi]" \
       --bind "ctrl-j:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)+page-down'; else echo page-down; fi]" \

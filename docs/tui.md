@@ -4,7 +4,7 @@
 
 ## Keybindings
 
-The faceted browser uses a modal system with seven modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), **display** (prefix `z`), **mark** (prefix `m`), **search** (`/`), and **content search** (`?`). Press `esc` to return to command mode from any other mode. Navigation keys (`j`/`k`, `ctrl-j`/`ctrl-k`, `space`) also exit the current prefix mode and perform their normal action.
+The faceted browser uses a modal system with eight modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), **display** (prefix `z`), **mark** (prefix `m`), **help** (`?`), **search** (`/`), and **content search** (`/?`). Press `esc` to return to command mode from any other mode. Navigation keys (`j`/`k`, `ctrl-j`/`ctrl-k`, `space`) also exit the current prefix mode and perform their normal action.
 
 ### Command mode
 
@@ -17,12 +17,6 @@ The faceted browser uses a modal system with seven modes: **command** (default),
 | `A` | Reverse status (follows `status.lifecycle.reverse`) |
 | `+` / `>` | Bump priority in the `+` direction (see `priority_plus` setting) |
 | `-` / `<` | Bump priority in the `-` direction |
-| `t` | Filter by type (cycles through types) |
-| `T` | Clear type filter |
-| `s` | Filter by status (cycles through `filter_cycle`) |
-| `S` | Clear status filter |
-| `p` | Filter by priority (cycles through `filter_cycle`, then `none`) |
-| `P` | Clear priority filter |
 | `tab` / `shift-tab` | Next / previous query preset |
 | `[` and `]` | Next / previous query preset (same as above) |
 | `g` | Go-to query preset (opens picker) |
@@ -40,7 +34,7 @@ The faceted browser uses a modal system with seven modes: **command** (default),
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `J` / `K` | Scroll preview down / up |
 | `/` | Enter search mode – fuzzy-filter the list by typing |
-| `?` | Enter content search – live grep of note bodies |
+| `?` | Toggle help overlay – keybinding reference |
 | `esc` | Exit search / prefix mode, or clear query |
 | `q` | Quit |
 
@@ -61,7 +55,10 @@ Press `f` to enter filter mode. The prompt changes to `f `. Then press one of:
 
 | Key | Action |
 |-----|--------|
-| `t` | Filter by tags (multi-select picker; OR logic – matches notes with *any* selected tag) |
+| `t` | Filter by type (picker with all types; select "all" to clear) |
+| `s` | Filter by status (picker with all statuses; select "all" to clear) |
+| `p` | Filter by priority (picker with all priorities + unset; select "all" to clear) |
+| `#` | Filter by tags (multi-select picker; OR logic – matches notes with *any* selected tag) |
 | `f` or `esc` | Cancel, return to command mode |
 
 ### Display mode (prefix `z`)
@@ -131,7 +128,7 @@ tags:
 
 Quoted values (`tags: ["backend", "api"]`) are also accepted – quotes are stripped during parsing.
 
-**Filtering in the TUI:** press `f` then `t` to open a multi-select tag picker. The picker lists every tag found in the notebook. Use `space`/`tab` to toggle tags, `enter` to apply. Previously selected tags appear at the top and are pre-selected.
+**Filtering in the TUI:** press `f` then `#` to open a multi-select tag picker. The picker lists every tag found in the notebook. Use `space`/`tab` to toggle tags, `enter` to apply. Previously selected tags appear at the top and are pre-selected.
 
 Tag filtering uses **OR logic** – selecting `backend` and `api` shows notes tagged with *either* (or both). Tags combine with other active filters using AND logic: if you also filter by `type=task`, you see tasks tagged `backend` OR `api`. Active tags appear in magenta in the filter status line.
 
@@ -170,15 +167,22 @@ Press `/` to enter search mode. The prompt changes to `/ ` and the header collap
 
 | Key | Action |
 |-----|--------|
+| `?` | Switch to content search (live grep of note bodies) |
 | `enter` | Open the focused note, clear query, return to command mode |
 | `tab` | Keep the fuzzy filter active and return to command mode |
 | `esc` | Cancel search, clear query, return to command mode |
 
 When you exit search mode via `tab`, the query stays in fzf's input – the list remains filtered. Press `esc` in command mode to clear it. This lets you quickly narrow the list by title: type a query, press `tab`, then do normal command-mode actions on the narrowed set.
 
-### Content search mode (`?`)
+### Help mode (`?`)
 
-Press `?` to enter content search mode. The prompt changes to `? ` and fzf switches to live-grep mode – each keystroke searches note bodies using `rg`/`grep` (or `zk --match` when available). The list updates to show only notes containing the query. If a content filter is already active, the query is pre-filled so you can refine or replace it.
+Press `?` to toggle the help overlay – a keybinding reference showing all available keys grouped by section (filters, display, actions, keys). Press `?` again, `esc`, or any navigation key to dismiss.
+
+Help mode uses `.nn-mode` value `h`. While help is showing, action keys are blocked – you must exit help first.
+
+### Content search mode (`/?`)
+
+Press `/` to enter search mode, then `?` to switch to content search. The prompt changes to `/? ` and fzf switches to live-grep mode – each keystroke searches note bodies using `rg`/`grep` (or `zk --match` when available). The list updates to show only notes containing the query. Any text already typed in search mode carries over as the initial content search query.
 
 | Key | Action |
 |-----|--------|
@@ -186,7 +190,7 @@ Press `?` to enter content search mode. The prompt changes to `? ` and fzf switc
 | `tab` | Persist the content filter and return to command mode |
 | `esc` | Cancel search, return to command mode |
 
-When you exit via `tab`, the content query is saved as a pipeline-level filter (shown as `[?] content:` in the header). This filter survives reloads and individual filter changes (cycling type, status, priority, tags). It is cleared by preset switches (`tab`/`shift-tab`, `1`–`9`), `0` (clear preset), or `R` (full reset). You can also clear it by entering `?` with an empty query and pressing `tab`.
+When you exit via `tab`, the content query is saved as a pipeline-level filter (shown as `?:` in the header). This filter survives reloads and individual filter changes (cycling type, status, priority, tags). It is cleared by preset switches (`tab`/`shift-tab`, `1`–`9`), `0` (clear preset), or `R` (full reset). You can also clear it by entering `/?` with an empty query and pressing `tab`.
 
 ### Interactive ad-hoc mode (`-i`)
 
@@ -208,6 +212,5 @@ A simplified set of keybindings for `nn key=value ... -i`:
 
 The `ui.header` setting controls how much space the header occupies:
 
-- **`compact`** (default) – collapses filters, display options, and actions into one line each, dropping the presets hint and results lines. When a prefix mode is active (`c`/`f`/`z`/`m`), the relevant section temporarily expands to its full form to show sub-key hints, then collapses on exit.
-- **`full`** – always shows the expanded header with per-key hints for every mode.
-- **`auto`** – uses the compact layout when the terminal is shorter than 35 rows, full layout otherwise. The header adapts after any keypress following a terminal resize.
+- **`clean`** (default) – three lines: query presets, active filter/display state (with `?:help` hint), and result stats. Only non-default filter values are shown; when everything is at defaults, the filter line reads "Filters: (none)". When a prefix mode is active (`c`/`f`/`z`/`m`), a fourth line appears temporarily with sub-key hints.
+- **`guided`** – condenses each section to one line with keybinding hints (e.g. `[t]ype`, `[a]dvance`). When a prefix mode is active, the relevant section temporarily expands to show sub-key hints, then collapses on exit.
