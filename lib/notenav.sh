@@ -5051,14 +5051,8 @@ case "$action" in
     : > "$dir/.f_marked" ;;
 esac
 case "$action" in
-  type)     ft=$(cycle type next "$ft"); : > "$dir/.f_sq" ;;
-  status)   fs=$(cycle status next "$fs"); : > "$dir/.f_sq" ;;
-  priority) fp=$(cycle priority next "$fp"); : > "$dir/.f_sq" ;;
   sort)     fsort=$(cycle sort next "$fsort"); fsort_rev="" ;;
   sort-reverse) [ -n "$fsort_rev" ] && fsort_rev="" || fsort_rev="rev" ;;
-  clear-type) ft=""; : > "$dir/.f_sq" ;;
-  clear-status) fs=""; : > "$dir/.f_sq" ;;
-  clear-priority) fp=""; : > "$dir/.f_sq" ;;
   clear-sort) { IFS= read -r fsort; IFS= read -r _; IFS= read -r _; IFS= read -r _sr; } < "$dir/.schema_defaults"
     [ "$_sr" = "true" ] && fsort_rev="rev" || fsort_rev=""
     echo "$fsort_rev" > "$dir/.f_sort_rev" ;;
@@ -5462,7 +5456,7 @@ fi
 marks_lbl_active=$(printf '\033[1;90m Marks:\033[0m %b\033[1;33m[m]\033[0m \033[1;37mthen \033[1;36m[m]\033[1;37mtoggle \033[90m·\033[0m \033[1;36m[a]\033[1;37mdd sel \033[90m·\033[0m \033[1;36m[d]\033[1;37m unmark sel \033[90m·\033[0m \033[1;36m[D]\033[1;37m clear \033[90m·\033[0m %b\033[0m' "$_mcount_s" "$_mfilt_s_active")
 keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search \033[90m·\033[0m \033[36m[/?]\033[0m grep \033[90m·\033[0m \033[36m[?]\033[0m help \033[90m·\033[0m \033[36m[H]\033[0m clean mode \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[R]\033[0meset \033[90m·\033[0m \033[36m[q]\033[0muit')
 if [ "$_header_mode" = "guided" ]; then
-  # Compact: merge filters+tags+content+count onto one line
+  # Guided: merge filters+tags+content+count onto one line
   if [ -n "$tag_s" ]; then
     _ctag_s=$(printf '  tags:%s' "$tag_s")
   else
@@ -5471,13 +5465,13 @@ if [ "$_header_mode" = "guided" ]; then
   _cmatch_s=""; [ -n "$fmatch" ] && _cmatch_s=$(printf '  \033[36m/?\033[0m:\033[1m"%s"\033[0m' "$fmatch")
   cfilters_lbl=$(printf '\033[1;90m Filters:\033[0m%s%s%s%s%s' "$t_s" "$s_s" "$p_s" "$_ctag_s" "$_cmatch_s")
   cqueries_lbl=$(printf '%s \033[90m· tab/1-9/g\033[0m' "$queries_lbl")
-  # Compact: display values on one line with direction arrow
+  # Guided: display values on one line with direction arrow
   _csort_arrow=""; [ -n "$fsort" ] && { [ -n "$fsort_rev" ] && _csort_arrow="↑" || _csort_arrow="↓"; }
   _cgroup_v="none"; [ -n "$fgroup" ] && _cgroup_v="$fgroup"
   _carchive_v="off"; [ -n "$farchive" ] && _carchive_v="on"
   _cwrap_v="off"; [ -n "$fwrap" ] && _cwrap_v="on"
   cdisplay_lbl=$(printf ' \033[36m[z]\033[0m\033[1;90m Display:\033[0m order:\033[1m%s\033[0m%s  group:\033[1m%s\033[0m  archive:\033[1m%s\033[0m  wrap:\033[1m%s\033[0m' "$sort_hint" "$_csort_arrow" "$_cgroup_v" "$_carchive_v" "$_cwrap_v")
-  # Compact: actions + change + marks on one line
+  # Guided: actions + change + marks on one line
   _cmcount_s=""
   if [ "$mark_count" -gt 0 ] && [ -n "$fmarked" ]; then
     _cmcount_s=$(printf ' \033[1m(%d filtered)\033[0m' "$mark_count")
@@ -5492,7 +5486,7 @@ if [ "$_header_mode" = "guided" ]; then
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$display_lbl_z" "$cactions_lbl" "$keys_lbl" > "$dir/.header-z"
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$marks_lbl_active" "$keys_lbl" > "$dir/.header-m"
 elif [ "$_header_mode" = "clean" ]; then
-  # Minimal: 2 lines – presets (no key hint) + active state only
+  # Clean: 3 lines – presets, filter/display state, stats
   mqueries_lbl="$queries_lbl"
   # Build state line: only non-default filter/display values
   _mparts=""
@@ -5543,7 +5537,7 @@ elif [ "$_header_mode" = "clean" ]; then
     _mdparts="${_mdparts}archive:\033[1mon\033[0m"
   fi
   # Build filter line (only when non-defaults active) and stats line (always)
-  mstats_lbl=$(printf ' %s' "$stats_s")
+  mstats_lbl=$(printf '\033[1;90m Results:\033[0m %s' "$stats_s")
   if [ -n "$_mparts" ] && [ -n "$_mdparts" ]; then
     mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m %b  \033[90m|\033[0m  \033[1;90mDisplay:\033[0m %b' "$_mparts" "$_mdparts")
   elif [ -n "$_mparts" ]; then

@@ -19,7 +19,7 @@ ssh notenav.sh            # default editor: nvim (for editing note files)
 ssh nano@notenav.sh       # or: vim, nvim, nano, emacs
 ```
 
-Cycle filters (`ft`, `fs`, `fp`), try query presets (`tab`/`shift-tab`), create notes (`n`), and advance statuses with `a` – everything works out of the box.
+Filter notes (`ft`, `fs`, `fp`), try query presets (`tab`/`shift-tab`), create notes (`n`), and advance statuses with `a` – everything works out of the box.
 
 Alternatively, after [installing](#install) `nn`, try it locally with the [demo notebook](https://github.com/jqueiroz/notenav-demo):
 

@@ -96,7 +96,7 @@ When you perform an inline action – advance status (`a`/`A`), bump priority (`
 
 **Accumulative:** each action adds to the set of pinned items. Advancing one note and then bumping another leaves both pinned.
 
-**Sticky:** pins survive filter changes (cycling type, status, priority, tags, or content search). They persist until you explicitly clear them.
+**Sticky:** pins survive filter changes (changing type, status, priority, tags, or content search). They persist until you explicitly clear them.
 
 **Clearing pins:**
 
@@ -191,7 +191,7 @@ Press `/` to enter search mode, then `?` to switch to content search. The prompt
 | `tab` | Persist the content filter and return to command mode |
 | `esc` | Cancel search, return to command mode |
 
-When you exit via `tab`, the content query is saved as a pipeline-level filter (shown as `?:` in the header). This filter survives reloads and individual filter changes (cycling type, status, priority, tags). It is cleared by preset switches (`tab`/`shift-tab`, `1`–`9`), `0` (clear preset), or `R` (full reset). You can also clear it by entering `/?` with an empty query and pressing `tab`.
+When you exit via `tab`, the content query is saved as a pipeline-level filter (shown as `?:` in the header). This filter survives reloads and individual filter changes (changing type, status, priority, tags). It is cleared by preset switches (`tab`/`shift-tab`, `1`–`9`), `0` (clear preset), or `R` (full reset). You can also clear it by entering `/?` with an empty query and pressing `tab`.
 
 ### Interactive ad-hoc mode (`-i`)
 
