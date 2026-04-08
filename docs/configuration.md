@@ -188,7 +188,7 @@ blocked = "new"
 | `initial` | string | Status assigned to newly created notes and when pressing `a` on a note that has no status |
 | `display_order` | array | *(optional)* Override display order (group headers); defaults to `values` order |
 | `archive` | array | Statuses hidden by default; press `zh` to toggle visibility |
-| `filter_cycle` | array | Subset of statuses shown when cycling filters via `]`/`[` presets (`"all"` is auto-prepended); the `fs` picker shows all statuses |
+| `filter_cycle` | array | Statuses available when cycling via `]`/`[` presets (`"all"` is auto-prepended); the `fs` picker shows all statuses regardless |
 | `default_color` | string | Fallback color for statuses not in `[status.colors]` |
 | `[status.colors]` | table | Color name or ANSI code per status |
 | `[status.descriptions]` | table | *(optional)* Human-readable description per status; shown in `nn doctor` |
@@ -233,7 +233,7 @@ default_color = "yellow"
 |-----|------|-------------|
 | `enabled` | boolean | Set to `false` to disable priority entirely (default: `true`) |
 | `values` | array | Valid priority levels; array order = sort order (first = highest) |
-| `filter_cycle` | array | Subset of priorities shown when cycling filters via `]`/`[` presets (`"all"` is auto-prepended, `"none"` is auto-appended); the `fp` picker shows all priorities |
+| `filter_cycle` | array | Priorities available when cycling via `]`/`[` presets (`"all"` is auto-prepended, `"none"` is auto-appended); the `fp` picker shows all priorities regardless |
 | `unset_position` | string | Where unprioritized notes sort: `"first"` or `"last"` |
 | `default_color` | string | Fallback color for priorities not in `[priority.colors]` |
 | `[priority.colors]` | table | Color name or ANSI code per priority level |
@@ -434,7 +434,7 @@ TUI preferences.
 
 ```toml
 [ui]
-header = "clean"         # "clean" | "guided"
+initial_header_mode = "clean"  # "clean" | "guided" – toggle at runtime with H
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = ": "    # prompt in normal (command) mode
 search_prompt = "/ "     # prompt in search mode (/ key and ad-hoc -i)
@@ -454,7 +454,7 @@ mdcat = []     # extra flags appended to mdcat
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `header` | string | `"clean"` | Header display density: `"clean"` shows three lines (presets, filter/display state, stats) with a `?:help` hint, `"guided"` condenses each section to one line with keybinding hints |
+| `initial_header_mode` | string | `"clean"` | Initial header mode on launch: `"clean"` shows three lines (presets, filter/display state, stats), `"guided"` shows keybinding hints. Toggle at runtime with `H` |
 | `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR`, then falls back to nvim → vim → vi → nano → emacs |
 | `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode (`/` key and ad-hoc `-i`) |

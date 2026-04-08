@@ -28,6 +28,7 @@ The faceted browser uses a modal system with eight modes: **command** (default),
 | `b` | Bulk edit selected notes (opens editor with markdown table) |
 | `d` | Delete selected note(s) – single: `y/N` prompt; multi-select: lists targets, requires `YES` (see `delete_method` and `delete_confirm` settings) |
 | `w` | Toggle preview wrap |
+| `H` | Toggle header mode between `clean` (state only) and `guided` (keybinding hints) |
 | `x` | Clear all pinned ghost rows |
 | `X` | Restore pins from last clear (one-shot undo) |
 | `j` / `k` | Move down / up |
@@ -210,7 +211,7 @@ A simplified set of keybindings for `nn key=value ... -i`:
 
 ## Header display density
 
-The `ui.header` setting controls how much space the header occupies:
+The `ui.initial_header_mode` setting controls the header on launch. Press `H` to toggle between modes at any time.
 
 - **`clean`** (default) – three lines: query presets, active filter/display state (with `?:help` hint), and result stats. Only non-default filter values are shown; when everything is at defaults, the filter line reads "Filters: (none)". When a prefix mode is active (`c`/`f`/`z`/`m`), a fourth line appears temporarily with sub-key hints.
 - **`guided`** – condenses each section to one line with keybinding hints (e.g. `[t]ype`, `[a]dvance`). When a prefix mode is active, the relevant section temporarily expands to show sub-key hints, then collapses on exit.

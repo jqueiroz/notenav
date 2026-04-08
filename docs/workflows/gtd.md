@@ -81,7 +81,7 @@ Create notes freely with `n`. Everything starts in **inbox**. Don't worry about 
 
 ### 2. Clarify
 
-Filter to inbox notes (`fs` to cycle to inbox status). For each item, ask: "Is this actionable?"
+Filter to inbox notes (`fs` to pick inbox status). For each item, ask: "Is this actionable?"
 
 - **Yes, one step** → set type to `action`, advance to `next` with `a`
 - **Yes, multiple steps** → set type to `project`, advance to `next`

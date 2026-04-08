@@ -128,6 +128,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `/` | Fuzzy search (type to filter by title/metadata) |
 | `/?` | Content search (press `/` then `?` – live grep of note bodies) |
 | `?` | Toggle help overlay (keybinding reference) |
+| `H` | Toggle header mode (clean ↔ guided) |
 | `esc` | Exit search / prefix mode, or clear query |
 | `space` | Toggle multi-select |
 | `r` | [**r**]efresh note list |

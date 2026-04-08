@@ -15,7 +15,7 @@
 # wrap_preview = false          # true to wrap the preview pane by default
 
 # [ui]
-# header = "clean"              # "clean" | "guided"
+# initial_header_mode = "clean"  # "clean" | "guided" – toggle at runtime with H
 # editor = ""                   # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 # command_prompt = ": "         # prompt in normal (command) mode
 # search_prompt = "/ "          # prompt in search mode (/ key and ad-hoc -i)
