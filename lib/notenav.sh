@@ -5455,22 +5455,78 @@ else
 fi
 marks_lbl_active=$(printf '\033[1;90m Marks:\033[0m %b\033[1;33m[m]\033[0m \033[1;37mthen \033[1;36m[m]\033[1;37mtoggle \033[90m·\033[0m \033[1;36m[a]\033[1;37mdd sel \033[90m·\033[0m \033[1;36m[d]\033[1;37m unmark sel \033[90m·\033[0m \033[1;36m[D]\033[1;37m clear \033[90m·\033[0m %b\033[0m' "$_mcount_s" "$_mfilt_s_active")
 keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search \033[90m·\033[0m \033[36m[/?]\033[0m grep \033[90m·\033[0m \033[36m[?]\033[0m help \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[R]\033[0meset \033[90m·\033[0m \033[36m[q]\033[0muit')
-if [ "$_header_mode" = "guided" ]; then
-  # Guided: merge filters+tags+content+count onto one line
-  if [ -n "$tag_s" ]; then
-    _ctag_s=$(printf ' \033[36m[#]\033[0mtags:%s' "$tag_s")
+# Build active-only filter/display state (shared by both header modes)
+_mparts=""
+if [ -n "$ft" ]; then
+  _mic=$(awk -F'\t' -v v="$ft" '$1 == v {printf "%s ", $2; exit}' "$dir/.schema_type_icons")
+  _mparts="type:\033[1m${_mic}${ft}\033[0m"
+fi
+if [ -n "$fs" ]; then
+  [ -n "$_mparts" ] && _mparts="$_mparts  "
+  _mparts="${_mparts}status:\033[1m${fs}\033[0m"
+fi
+if [ -n "$fp" ]; then
+  [ -n "$_mparts" ] && _mparts="$_mparts  "
+  _mplbl="$fp"; [ "$fp" = "none" ] && _mplbl="<unset>"
+  _mplbl_full=$(awk -F'\t' -v v="$fp" '$1 == v {print $2; exit}' "$dir/.schema_priority_labels")
+  [ -n "$_mplbl_full" ] && _mplbl="$_mplbl_full"
+  _mparts="${_mparts}priority:\033[1m${_mplbl}\033[0m"
+fi
+if [ -s "$dir/.f_tags" ]; then
+  [ -n "$_mparts" ] && _mparts="$_mparts  "
+  _mtag_list=$(tr '\n' ' ' < "$dir/.f_tags" | sed 's/ $//')
+  _mparts="${_mparts}tags:\033[35m${_mtag_list}\033[0m"
+fi
+if [ -n "$fmatch" ]; then
+  [ -n "$_mparts" ] && _mparts="$_mparts  "
+  _mparts="${_mparts}?:\033[1m\"${fmatch}\"\033[0m"
+fi
+if [ "$mark_count" -gt 0 ]; then
+  [ -n "$_mparts" ] && _mparts="$_mparts  "
+  if [ -n "$fmarked" ]; then
+    _mparts="${_mparts}marks:\033[1m${mark_count} (filtered)\033[0m"
   else
-    _ctag_s=$(printf ' \033[36m[#]\033[0mtags:\033[90mnone\033[0m')
+    _mparts="${_mparts}marks:\033[1m${mark_count}\033[0m"
   fi
-  _cmatch_s=""; [ -n "$fmatch" ] && _cmatch_s=$(printf '  \033[36m/?\033[0m:\033[1m"%s"\033[0m' "$fmatch")
-  cfilters_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m%s%s%s%s%s' "$t_s" "$s_s" "$p_s" "$_ctag_s" "$_cmatch_s")
+fi
+_mdparts=""
+_marrow=""; [ -n "$fsort" ] && { [ -n "$fsort_rev" ] && _marrow="↑" || _marrow="↓"; }
+if [ "$fsort" != "$default_sort" ] || [ -n "$fsort_rev" ]; then
+  _mdparts="order:\033[1m${fsort}${_marrow}\033[0m"
+fi
+if [ -n "$fgroup" ]; then
+  [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
+  _mdparts="${_mdparts}group:\033[1m${fgroup}\033[0m"
+fi
+if [ -n "$farchive" ]; then
+  [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
+  _mdparts="${_mdparts}archive:\033[1mon\033[0m"
+fi
+# Assemble filter/display line with mode-appropriate prefixes
+mstats_lbl=$(printf '\033[1;90m Results:\033[0m %s' "$stats_s")
+if [ -n "$_mparts" ] && [ -n "$_mdparts" ]; then
+  mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m %b  \033[90m|\033[0m  \033[1;90mDisplay:\033[0m %b' "$_mparts" "$_mdparts")
+elif [ -n "$_mparts" ]; then
+  mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m %b' "$_mparts")
+elif [ -n "$_mdparts" ]; then
+  mfilter_lbl=$(printf '\033[1;90m Display:\033[0m %b' "$_mdparts")
+else
+  mfilter_lbl=""
+fi
+[ -z "$mfilter_lbl" ] && mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m \033[90m(none)\033[0m')
+if [ "$_header_mode" = "guided" ]; then
+  # Guided: clean filter state + keybinding hint lines
   cqueries_lbl=$(printf '%s \033[90m· tab/1-9/g\033[0m' "$queries_lbl")
-  # Guided: display values on one line with direction arrow
-  _csort_arrow=""; [ -n "$fsort" ] && { [ -n "$fsort_rev" ] && _csort_arrow="↑" || _csort_arrow="↓"; }
-  _cgroup_v="none"; [ -n "$fgroup" ] && _cgroup_v="$fgroup"
-  _carchive_v="off"; [ -n "$farchive" ] && _carchive_v="on"
-  _cwrap_v="off"; [ -n "$fwrap" ] && _cwrap_v="on"
-  cdisplay_lbl=$(printf ' \033[36m[z]\033[0m\033[1;90m Display:\033[0m order:\033[1m%s\033[0m%s  group:\033[1m%s\033[0m  archive:\033[1m%s\033[0m  wrap:\033[1m%s\033[0m' "$sort_hint" "$_csort_arrow" "$_cgroup_v" "$_carchive_v" "$_cwrap_v")
+  # Add [f]/[z] prefix hints to filter/display line
+  if [ -n "$_mparts" ] && [ -n "$_mdparts" ]; then
+    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m %b  \033[90m|\033[0m  \033[1;90mDisplay \033[36m[z]\033[1;90m:\033[0m %b' "$_mparts" "$_mdparts")
+  elif [ -n "$_mparts" ]; then
+    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m %b' "$_mparts")
+  elif [ -n "$_mdparts" ]; then
+    gfilter_lbl=$(printf '\033[1;90m Display \033[36m[z]\033[1;90m:\033[0m %b' "$_mdparts")
+  else
+    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m \033[90m(none)\033[0m')
+  fi
   # Guided: actions + change + marks on one line
   _cmcount_s=""
   if [ "$mark_count" -gt 0 ] && [ -n "$fmarked" ]; then
@@ -5479,74 +5535,15 @@ if [ "$_header_mode" = "guided" ]; then
     _cmcount_s=$(printf ' \033[1m(%d)\033[0m' "$mark_count")
   fi
   cactions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[c]\033[0mhange \033[90m·\033[0m \033[36m[m]\033[0marks%b \033[90m·\033[0m \033[36m[b]\033[0mulk \033[90m·\033[0m \033[36m[d]\033[0mel' "$_cmcount_s")
-  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header"
+  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$mstats_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header"
   # Mode-active headers: expand the active section to show sub-key guidance
-  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
-  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$filters_lbl_f" "$cdisplay_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header-f"
-  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$display_lbl_z" "$cactions_lbl" "$keys_lbl" > "$dir/.header-z"
-  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$cfilters_lbl" "$cdisplay_lbl" "$marks_lbl_active" "$keys_lbl" > "$dir/.header-m"
+  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$mstats_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
+  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$filters_lbl_f" "$mstats_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header-f"
+  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$display_lbl_z" "$cactions_lbl" "$keys_lbl" > "$dir/.header-z"
+  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$mstats_lbl" "$marks_lbl_active" "$keys_lbl" > "$dir/.header-m"
 elif [ "$_header_mode" = "clean" ]; then
   # Clean: 3 lines – presets, filter/display state, stats
   mqueries_lbl="$queries_lbl"
-  # Build state line: only non-default filter/display values
-  _mparts=""
-  if [ -n "$ft" ]; then
-    _mic=$(awk -F'\t' -v v="$ft" '$1 == v {printf "%s ", $2; exit}' "$dir/.schema_type_icons")
-    _mparts="type:\033[1m${_mic}${ft}\033[0m"
-  fi
-  if [ -n "$fs" ]; then
-    [ -n "$_mparts" ] && _mparts="$_mparts  "
-    _mparts="${_mparts}status:\033[1m${fs}\033[0m"
-  fi
-  if [ -n "$fp" ]; then
-    [ -n "$_mparts" ] && _mparts="$_mparts  "
-    _mplbl="$fp"; [ "$fp" = "none" ] && _mplbl="<unset>"
-    _mplbl_full=$(awk -F'\t' -v v="$fp" '$1 == v {print $2; exit}' "$dir/.schema_priority_labels")
-    [ -n "$_mplbl_full" ] && _mplbl="$_mplbl_full"
-    _mparts="${_mparts}priority:\033[1m${_mplbl}\033[0m"
-  fi
-  if [ -s "$dir/.f_tags" ]; then
-    [ -n "$_mparts" ] && _mparts="$_mparts  "
-    _mtag_list=$(tr '\n' ' ' < "$dir/.f_tags" | sed 's/ $//')
-    _mparts="${_mparts}tags:\033[35m${_mtag_list}\033[0m"
-  fi
-  if [ -n "$fmatch" ]; then
-    [ -n "$_mparts" ] && _mparts="$_mparts  "
-    _mparts="${_mparts}?:\033[1m\"${fmatch}\"\033[0m"
-  fi
-  if [ "$mark_count" -gt 0 ]; then
-    [ -n "$_mparts" ] && _mparts="$_mparts  "
-    if [ -n "$fmarked" ]; then
-      _mparts="${_mparts}marks:\033[1m${mark_count} (filtered)\033[0m"
-    else
-      _mparts="${_mparts}marks:\033[1m${mark_count}\033[0m"
-    fi
-  fi
-  # Display settings (only non-defaults)
-  _mdparts=""
-  _marrow=""; [ -n "$fsort" ] && { [ -n "$fsort_rev" ] && _marrow="↑" || _marrow="↓"; }
-  if [ "$fsort" != "$default_sort" ] || [ -n "$fsort_rev" ]; then
-    _mdparts="order:\033[1m${fsort}${_marrow}\033[0m"
-  fi
-  if [ -n "$fgroup" ]; then
-    [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
-    _mdparts="${_mdparts}group:\033[1m${fgroup}\033[0m"
-  fi
-  if [ -n "$farchive" ]; then
-    [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
-    _mdparts="${_mdparts}archive:\033[1mon\033[0m"
-  fi
-  # Build filter line (only when non-defaults active) and stats line (always)
-  mstats_lbl=$(printf '\033[1;90m Results:\033[0m %s' "$stats_s")
-  if [ -n "$_mparts" ] && [ -n "$_mdparts" ]; then
-    mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m %b  \033[90m|\033[0m  \033[1;90mDisplay:\033[0m %b' "$_mparts" "$_mdparts")
-  elif [ -n "$_mparts" ]; then
-    mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m %b' "$_mparts")
-  elif [ -n "$_mdparts" ]; then
-    mfilter_lbl=$(printf '\033[1;90m Display:\033[0m %b' "$_mdparts")
-  else
-    mfilter_lbl=""
-  fi
   # Mode-active 4th lines (single-line variants with active styling)
   if [ -n "$tag_s" ]; then
     _mftag_hint=$(printf '\033[1;36m[#]\033[1;37mtags:%s' "$tag_s")
@@ -5559,8 +5556,6 @@ elif [ "$_header_mode" = "clean" ]; then
   _mwrap_v="off"; [ -n "$fwrap" ] && _mwrap_v="on"
   _mrev_v="off"; [ -n "$fsort_rev" ] && _mrev_v="on"
   _mdisplay_z=$(printf '\033[1;90m Display:\033[0m \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder:\033[1m%s\033[0m%s  \033[1;36m[r]\033[1;37mev:\033[1m%s\033[0m  \033[1;36m[g]\033[1;37mroup:\033[1m%s\033[0m  \033[1;36m[h]\033[1;37midden:\033[1m%s\033[0m  \033[1;36m[w]\033[1;37mrap:\033[1m%s\033[0m' "$sort_hint" "$_marrow" "$_mrev_v" "$_mgroup_v" "$_marchive_v" "$_mwrap_v")
-  # Always 3 lines: presets / filters / stats [+ mode hints]
-  [ -z "$mfilter_lbl" ] && mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m \033[90m(none)\033[0m')
   printf '%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" > "$dir/.header"
   printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$change_lbl_active" > "$dir/.header-c"
   printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$_mfilter_f" > "$dir/.header-f"
@@ -5937,6 +5932,8 @@ ENDDELETE
     local _nn_fzf_header_label=(--header-label-pos -1:bottom)
     if [[ "$NN_UI_HEADER" = "clean" ]]; then
       _nn_fzf_header_label+=(--header-label ' ?:help  H: switch to guided mode ')
+    else
+      _nn_fzf_header_label+=(--header-label ' H: switch to clean mode ')
     fi
 
     fzf "${_nn_fzf_ansi[@]}" --delimiter $'\t' --with-nth 2.. < "$_nn_dir/.current" \
