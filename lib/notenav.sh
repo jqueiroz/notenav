@@ -5461,7 +5461,7 @@ else
   _mfilt_s_active='\033[1;36m[f]\033[1;37m filter: \033[90moff\033[0m'
 fi
 marks_lbl_active=$(printf '\033[1;90m Marks:\033[0m %b\033[1;33m[m]\033[0m \033[1;37mthen \033[1;36m[m]\033[1;37mtoggle \033[90m·\033[0m \033[1;36m[a]\033[1;37mdd sel \033[90m·\033[0m \033[1;36m[d]\033[1;37m unmark sel \033[90m·\033[0m \033[1;36m[D]\033[1;37m clear \033[90m·\033[0m %b\033[0m' "$_mcount_s" "$_mfilt_s_active")
-keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search \033[90m·\033[0m \033[36m[?]\033[0m help \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[R]\033[0meset filters \033[90m·\033[0m \033[36m[q]\033[0muit')
+keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search \033[90m·\033[0m \033[36m[?]\033[0m help \033[90m·\033[0m \033[36m[space]\033[0m select \033[90m·\033[0m \033[36m[w]\033[0mrap \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[0]\033[0m/\033[36m[R]\033[0m clear/reset \033[90m·\033[0m \033[36m[q]\033[0muit')
 # Build active-only filter/display state (shared by both header modes)
 _mparts=""
 if [ -n "$ft" ]; then
@@ -5545,7 +5545,11 @@ if [ "$_header_mode" = "guided" ]; then
   elif [ "$mark_count" -gt 0 ]; then
     _cmcount_s=$(printf ' \033[1m(%d)\033[0m' "$mark_count")
   fi
-  cactions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[c]\033[0mhange \033[90m·\033[0m \033[36m[m]\033[0marks%b \033[90m·\033[0m \033[36m[b]\033[0mulk \033[90m·\033[0m \033[36m[d]\033[0mel' "$_cmcount_s")
+  _gpri_hint=""
+  if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
+    _gpri_hint=' \033[90m·\033[0m \033[36m[+]\033[0m/\033[36m[-]\033[0m priority'
+  fi
+  cactions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[90m·\033[0m \033[36m[A]\033[0m reverse%b \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[c]\033[0mhange \033[90m·\033[0m \033[36m[m]\033[0marks%b \033[90m·\033[0m \033[36m[b]\033[0mulk \033[90m·\033[0m \033[36m[d]\033[0mel \033[90m·\033[0m \033[36m[x]\033[0m/\033[36m[X]\033[0m pins' "$_gpri_hint" "$_cmcount_s")
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$mstats_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header"
   # Mode-active headers: expand the active section to show sub-key guidance
   printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$mstats_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
