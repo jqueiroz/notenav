@@ -5602,7 +5602,7 @@ else
 fi
 if [ "$_header_mode" = "guided" ]; then
   # Guided: clean filter state + keybinding hint lines
-  cqueries_lbl=$(printf '%s \033[90m· tab/1-9/g\033[0m' "$queries_lbl")
+  cqueries_lbl="$queries_lbl"
   # Filters and Display on separate lines with [f]/[z] prefix hints
   if [ -n "$_mparts" ]; then
     gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m %b' "$_mparts")
