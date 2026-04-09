@@ -3742,6 +3742,77 @@ fi
 ENDFILTPICK
     chmod +x "$_nn_dir/filterpick.sh"
 
+    # Sort-order picker: single-select picker for sort field
+    cat > "$_nn_dir/sortpick.sh" << 'ENDSORTPICK'
+#!/usr/bin/env bash
+dir="$1"
+cur_sort=$(cat "$dir/.f_sort")
+vals=""
+pos=1; n=1
+while IFS= read -r v || [ -n "$v" ]; do
+  [ -n "$vals" ] && vals="$vals"$'\n'
+  vals="$vals$v"
+  [ "$v" = "$cur_sort" ] && pos=$n
+  n=$((n + 1))
+done < "$dir/.schema_sort_options"
+_fzf_ansi=(--ansi)
+[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+if [ -n "${NO_COLOR+x}" ]; then
+  _hdr='Enter apply · Esc cancel'
+else
+  _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
+fi
+selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "sort by: " \
+  --border --border-label " Sort order " \
+  --header "$_hdr" \
+  --bind "load:pos($pos)" \
+  --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
+[ -z "$selected" ] && exit 1
+printf '%s\n' "$selected" > "$dir/.f_sort"
+echo "" > "$dir/.f_sort_rev"
+: > "$dir/.last_action"
+ENDSORTPICK
+    chmod +x "$_nn_dir/sortpick.sh"
+
+    # Group-by picker: single-select picker for group field
+    cat > "$_nn_dir/grouppick.sh" << 'ENDGROUPPICK'
+#!/usr/bin/env bash
+dir="$1"
+cur_group=$(cat "$dir/.f_group")
+vals=""
+pos=1; n=1
+while IFS= read -r v || [ -n "$v" ]; do
+  [ -n "$vals" ] && vals="$vals"$'\n'
+  if [ -z "$v" ]; then
+    if [ -n "${NO_COLOR+x}" ]; then vals="${vals}none"; else vals="${vals}"$(printf '\033[90mnone\033[0m'); fi
+    [ -z "$cur_group" ] && pos=$n
+  else
+    vals="$vals$v"
+    [ "$v" = "$cur_group" ] && pos=$n
+  fi
+  n=$((n + 1))
+done < "$dir/.schema_group_options"
+_fzf_ansi=(--ansi)
+[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+if [ -n "${NO_COLOR+x}" ]; then
+  _hdr='Enter apply · Esc cancel'
+else
+  _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
+fi
+selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "group by: " \
+  --border --border-label " Group by " \
+  --header "$_hdr" \
+  --bind "load:pos($pos)" \
+  --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
+[ -z "$selected" ] && exit 1
+# Strip ANSI for "none" option
+selected=$(printf '%s' "$selected" | sed "s/$(printf '\033')\[[0-9;]*m//g")
+[ "$selected" = "none" ] && selected=""
+printf '%s\n' "$selected" > "$dir/.f_group"
+: > "$dir/.last_action"
+ENDGROUPPICK
+    chmod +x "$_nn_dir/grouppick.sh"
+
     # Prompt helper: outputs change-prompt(PROMPT) using the stored return-to prompt
     cat > "$_nn_dir/cprompt.sh" << 'ENDCPROMPT'
 #!/usr/bin/env bash
@@ -5979,7 +6050,7 @@ ENDDELETE
       --bind "9:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq9; fi]" \
       --bind "0:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-preset; fi]" \
       --bind "R:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf 'clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir reset; fi]" \
-      --bind "g:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir group; elif test -z \"\$m\"; then echo 'execute($_nn_dir/querypick.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir pick)'; fi]" \
+      --bind "g:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/grouppick.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test -z \"\$m\"; then echo 'execute($_nn_dir/querypick.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir pick)'; fi]" \
       --bind "a:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.m_sel; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-add; elif test -z \"\$m\"; then $_nn_dir/cyclestatus.sh $_nn_dir {1} fwd; $_nn_dir/reload_at.sh $_nn_dir {1}; printf +refresh-preview; fi]" \
       --bind "A:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/cyclestatus.sh $_nn_dir {1} rev; $_nn_dir/reload_at.sh $_nn_dir {1}; printf +refresh-preview; fi]" \
       --bind "+:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/bumppri.sh $_nn_dir {1} $_nn_plus_dir; $_nn_dir/reload_at.sh $_nn_dir {1}; printf +refresh-preview; fi]" \
@@ -5991,7 +6062,7 @@ ENDDELETE
       --bind "e:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)+refresh-preview'; fi]" \
       --bind "f:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-filter; elif test \"\$m\" = f; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; elif test -z \"\$m\"; then echo f > $_nn_dir/.nn-mode; echo 'change-prompt(f )+transform-header(cat $_nn_dir/.header-f)'; fi]" \
       --bind "z:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; elif test -z \"\$m\"; then echo z > $_nn_dir/.nn-mode; echo 'change-prompt(z )+transform-header(cat $_nn_dir/.header-z)'; fi]" \
-      --bind "o:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir sort; fi]" \
+      --bind "o:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/sortpick.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; fi]" \
       --bind "r:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir sort-reverse; elif test -z \"\$m\"; then $_nn_dir/reload_raw.sh $_nn_dir 2>/dev/null; $_nn_dir/filter.sh $_nn_dir refresh; fi]" \
       --bind "w:transform[$_nn_dir/wrapkey.sh $_nn_dir]" \
       --multi \
