@@ -3556,6 +3556,7 @@ ENDFNFIND
     echo "$NN_DEFAULT_GROUP" > "$_nn_dir/.f_group"
     [[ "$NN_DEFAULT_ARCHIVE" == "true" ]] && echo "show" > "$_nn_dir/.f_archive" || : > "$_nn_dir/.f_archive"
     : > "$_nn_dir/.f_match"
+    : > "$_nn_dir/.f_title"
     [[ "$NN_DEFAULT_WRAP" == "true" ]] && echo "on" > "$_nn_dir/.f_wrap" || : > "$_nn_dir/.f_wrap"
     : > "$_nn_dir/.marked"
     : > "$_nn_dir/.f_marked"
@@ -3785,6 +3786,7 @@ dir="$1"
 query=$(cat "$dir/.csearch_q" 2>/dev/null)
 if [ -n "$query" ]; then
   printf '%s\n' "$query" > "$dir/.f_match"
+  : > "$dir/.f_title"
   has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
   scope_path=$(cat "$dir/.scope_path")
   if [ "$has_zk" = "true" ]; then
@@ -5018,7 +5020,7 @@ apply_sq() {
   name="${line%%	*}"; args="${line#*	}"
   [ "$args" = "$name" ] && args=""  # no tab found – name-only preset
   # Reset filters then apply query preset's key=value pairs
-  ft=""; fs=""; fp=""; fmatch=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
+  ft=""; fs=""; fp=""; fmatch=""; ftitle=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_title"
   local -a _sq_arr
   read -ra _sq_arr <<< "$args"
   for a in "${_sq_arr[@]}"; do
@@ -5033,7 +5035,7 @@ apply_sq() {
 ft=$(cat "$dir/.f_type"); fs=$(cat "$dir/.f_status")
 fp=$(cat "$dir/.f_priority")
 fsort=$(cat "$dir/.f_sort"); fsort_rev=$(cat "$dir/.f_sort_rev" 2>/dev/null); fgroup=$(cat "$dir/.f_group")
-farchive=$(cat "$dir/.f_archive"); fmatch=$(cat "$dir/.f_match")
+farchive=$(cat "$dir/.f_archive"); fmatch=$(cat "$dir/.f_match"); ftitle=$(cat "$dir/.f_title" 2>/dev/null)
 fwrap=$(cat "$dir/.f_wrap" 2>/dev/null)
 fmarked=$(cat "$dir/.f_marked" 2>/dev/null)
 fwrap_was="$fwrap"
@@ -5085,8 +5087,8 @@ case "$action" in
     fi ;;
   sq*) apply_sq "${action#sq}" ;;
   pick) [ -f "$dir/.f_pick" ] && apply_sq "$(cat "$dir/.f_pick")" && rm -f "$dir/.f_pick" ;;
-  clear-preset) ft=""; fs=""; fp=""; fmatch=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths" ;;
-  reset) ft=""; fs=""; fp=""; fmatch=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
+  clear-preset) ft=""; fs=""; fp=""; fmatch=""; ftitle=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_title" ;;
+  reset) ft=""; fs=""; fp=""; fmatch=""; ftitle=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_title"
     { IFS= read -r fsort; IFS= read -r fgroup; IFS= read -r _a; IFS= read -r _sr; IFS= read -r _w; } < "$dir/.schema_defaults"
     [ "$_a" = "true" ] && farchive="show" || farchive=""
     [ "$_sr" = "true" ] && fsort_rev="rev" || fsort_rev=""
@@ -5233,13 +5235,18 @@ if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
   _raw_input="$dir/.raw_matched"
   _count_input="$dir/.raw_matched"
 fi
+if [ -n "$ftitle" ]; then
+  awk -F'\t' -v q="$ftitle" 'BEGIN{q=tolower(q)} tolower($5)~q' "$_raw_input" > "$dir/.raw_title"
+  _raw_input="$dir/.raw_title"
+  _count_input="$dir/.raw_title"
+fi
 if [ -n "$fmarked" ] && [ -s "$dir/.marked.snap" ]; then
   awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.marked.snap" "$_raw_input" > "$dir/.raw_marked"
   _raw_input="$dir/.raw_marked"
   _count_input="$dir/.raw_marked"
 fi
 # Widen _raw_input with pinned paths so ghost rows survive pre-filtering
-if [ -s "$dir/.pinned.snap" ] && { { [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; } || { [ -n "$fmarked" ] && [ -s "$dir/.marked.snap" ]; }; }; then
+if [ -s "$dir/.pinned.snap" ] && { { [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; } || [ -n "$ftitle" ] || { [ -n "$fmarked" ] && [ -s "$dir/.marked.snap" ]; }; }; then
   cat "$_raw_input" > "$dir/.raw_prefiltered"
   awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.pinned.snap" "$dir/.raw.snap" >> "$dir/.raw_prefiltered"
   awk -F'\t' '!seen[$6]++' "$dir/.raw_prefiltered" > "$dir/.raw_widened"
@@ -5477,9 +5484,12 @@ if [ -s "$dir/.f_tags" ]; then
   _mtag_list=$(tr '\n' ' ' < "$dir/.f_tags" | sed 's/ $//')
   _mparts="${_mparts}tags:\033[35m${_mtag_list}\033[0m"
 fi
-if [ -n "$fmatch" ]; then
+if [ -n "$ftitle" ]; then
   [ -n "$_mparts" ] && _mparts="$_mparts  "
-  _mparts="${_mparts}?:\033[1m\"${fmatch}\"\033[0m"
+  _mparts="${_mparts}search:\033[1m\"${ftitle}\"\033[0m"
+elif [ -n "$fmatch" ]; then
+  [ -n "$_mparts" ] && _mparts="$_mparts  "
+  _mparts="${_mparts}content:\033[1m\"${fmatch}\"\033[0m"
 fi
 if [ "$mark_count" -gt 0 ]; then
   [ -n "$_mparts" ] && _mparts="$_mparts  "
@@ -5917,14 +5927,6 @@ ENDDELETE
     #           [ ] (search-aware transforms), change (mode-aware transform)
     local _nn_search_unbind='/,t,s,p,#,h,H,1,2,3,4,5,6,7,8,9,0,R,g,a,A,+,>,-,<,n,c,e,f,z,o,r,w,b,x,X,m,d,D,j,k,J,K,space,q,tab,shift-tab'
 
-    # Prompt shown after / tab-persist (indicates active search query)
-    local _nn_persist_prompt
-    if [[ -n "${NO_COLOR+x}" ]]; then
-      _nn_persist_prompt="search: "
-    else
-      printf -v _nn_persist_prompt '\033[36msearch: \033[0m'
-    fi
-
     # Store the return-to prompt (read by cprompt.sh on mode exits)
     printf '%s' "$NN_UI_COMMAND_PROMPT" > "$_nn_dir/.nn-prompt"
 
@@ -5990,7 +5992,7 @@ ENDDELETE
       --bind "d:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.m_sel; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-remove; elif test -z \"\$m\"; then printf '%s\n' {+1} > $_nn_dir/.delete_targets; echo 'execute($_nn_dir/delete.sh)+transform($_nn_dir/reload_at.sh $_nn_dir)+deselect-all'; fi]" \
       --bind "D:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-clear; fi]" \
       --bind "start:execute-silent(rm -f $_nn_dir/.nn-search $_nn_dir/.nn-csearch)+transform-header(cat $_nn_dir/.header)${_nn_fzf_start_watcher}" \
-      --bind "/:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then touch $_nn_dir/.nn-search; echo 'unbind($_nn_search_unbind)+change-prompt($NN_UI_SEARCH_PROMPT)+transform-header(cat $_nn_dir/.header-search)'; fi]" \
+      --bind "/:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then touch $_nn_dir/.nn-search; _tq=\$(cat $_nn_dir/.f_title 2>/dev/null); if test -n \"\$_tq\"; then printf '%s' \"\$_tq\" > $_nn_dir/.csearch_q; echo 'unbind($_nn_search_unbind)+change-prompt($NN_UI_SEARCH_PROMPT)+transform-query(cat $_nn_dir/.csearch_q)+transform-header(cat $_nn_dir/.header-search)'; else echo 'unbind($_nn_search_unbind)+change-prompt($NN_UI_SEARCH_PROMPT)+transform-header(cat $_nn_dir/.header-search)'; fi; fi]" \
       --bind "?:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; touch $_nn_dir/.nn-search; echo 'enable-search+change-prompt($NN_UI_SEARCH_PROMPT)+transform-header(cat $_nn_dir/.header-search)+reload(cat $_nn_dir/.current)'; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' {q} > $_nn_dir/.csearch_q; touch $_nn_dir/.nn-csearch; echo 'disable-search+change-prompt(/? )+transform-header(cat $_nn_dir/.header-csearch)+reload($_nn_dir/csearch.sh $_nn_dir)'; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo h > $_nn_dir/.nn-mode; echo 'change-prompt(? )+transform-header(cat $_nn_dir/.header-help)'; elif test \"\$m\" = h; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; fi; fi]" \
       --bind "j:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)+down'; else echo down; fi]" \
       --bind "k:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)+up'; else echo up; fi]" \
@@ -6001,7 +6003,7 @@ ENDDELETE
       --bind "change:transform[if test -f $_nn_dir/.nn-csearch; then printf '%s' {q} > $_nn_dir/.csearch_q; echo 'reload($_nn_dir/csearch.sh $_nn_dir)'; elif test -f $_nn_dir/.nn-search; then :; else echo clear-query; fi]" \
       --bind "tab:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir next; fi]" \
       --bind "shift-tab:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir prev; fi]" \
-      --bind "esc:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; $_nn_dir/csearch_persist.sh $_nn_dir; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir refresh; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$_nn_persist_prompt' > $_nn_dir/.nn-prompt; echo 'rebind($_nn_search_unbind)+change-prompt($_nn_persist_prompt)+transform-header(cat $_nn_dir/.header)'; else m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; else printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; echo 'clear-query+change-prompt($NN_UI_COMMAND_PROMPT)'; fi; fi]" \
+      --bind "esc:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; : > $_nn_dir/.f_title; $_nn_dir/csearch_persist.sh $_nn_dir; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir refresh; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' {q} > $_nn_dir/.f_title; : > $_nn_dir/.f_match; : > $_nn_dir/.f_match_paths; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir refresh; else m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; else printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; echo 'clear-query+change-prompt($NN_UI_COMMAND_PROMPT)'; fi; fi]" \
       --bind "H:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then cur=\$(cat $_nn_dir/.schema_header_mode); if test \"\$cur\" = clean; then printf guided > $_nn_dir/.schema_header_mode; printf '+change-header-label( H: switch to clean mode )+'; $_nn_dir/filter.sh $_nn_dir refresh; else printf clean > $_nn_dir/.schema_header_mode; printf '+change-header-label( ?:help  H: switch to guided mode )+'; $_nn_dir/filter.sh $_nn_dir refresh; fi; fi]" \
       --bind 'J:preview-page-down,K:preview-page-up' \
       --bind "enter:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+reload(cat $_nn_dir/.current)+execute($_nn_dir/edit.sh)+refresh-preview'; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+execute($_nn_dir/edit.sh)+refresh-preview'; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)+refresh-preview'; fi; fi]"
