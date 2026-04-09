@@ -434,9 +434,9 @@ TUI preferences.
 
 ```toml
 [ui]
-initial_header_mode = "clean"  # "clean" | "guided" – toggle at runtime with H
+initial_header_mode = "clean"  # "clean" | "guided" – toggle at runtime with h
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
-command_prompt = ": "    # prompt in normal (command) mode
+command_prompt = " "     # prompt in normal (command) mode (blank to minimize input area)
 search_prompt = "/ "     # prompt in search mode (/ key and ad-hoc -i)
 exit_message = "none"    # "none" or "fortune"
 priority_plus = "demote" # what the + key does to priority
@@ -454,9 +454,9 @@ mdcat = []     # extra flags appended to mdcat
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `initial_header_mode` | string | `"clean"` | Initial header mode on launch: `"clean"` shows three lines (presets, filter/display state, stats), `"guided"` shows keybinding hints. Toggle at runtime with `H` |
+| `initial_header_mode` | string | `"clean"` | Initial header mode on launch: `"clean"` shows four lines (presets, filters, display, stats), `"guided"` adds keybinding hint lines. Toggle at runtime with `h` |
 | `editor` | string | `""` | Editor for opening notes; empty uses `$EDITOR`, then falls back to nvim → vim → vi → nano → emacs |
-| `command_prompt` | string | `": "` | fzf prompt string in normal (command) mode |
+| `command_prompt` | string | `" "` | fzf prompt string in normal (command) mode (blank to minimize input area) |
 | `search_prompt` | string | `"/ "` | fzf prompt string in search mode (`/` key and ad-hoc `-i`) |
 | `exit_message` | string | `"none"` | What to show on exit: `"none"` or `"fortune"` (a fun quote) |
 | `priority_plus` | string | `"demote"` | What the `+` key does to priority (see below) |

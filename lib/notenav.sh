@@ -5633,7 +5633,7 @@ if [ "$_header_mode" = "guided" ]; then
   printf '%s\n%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$display_lbl_z" "$mstats_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header-z"
   printf '%s\n%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$gdisplay_lbl" "$mstats_lbl" "$marks_lbl_active" "$keys_lbl" > "$dir/.header-m"
 elif [ "$_header_mode" = "clean" ]; then
-  # Clean: 3 lines – presets, filter/display state, stats
+  # Clean: 4 lines – presets, filters, display, stats
   mqueries_lbl="$queries_lbl"
   # Mode-active 4th lines (single-line variants with active styling)
   if [ -n "$tag_s" ]; then
@@ -5649,7 +5649,7 @@ elif [ "$_header_mode" = "clean" ]; then
   _mdisplay_z=$(printf '\033[1;90m Display:\033[0m \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder:\033[1m%s\033[0m%s  \033[1;36m[r]\033[1;37mev:\033[1m%s\033[0m  \033[1;36m[g]\033[1;37mroup:\033[1m%s\033[0m  \033[1;36m[h]\033[1;37midden:\033[1m%s\033[0m  \033[1;36m[w]\033[1;37mrap:\033[1m%s\033[0m' "$sort_hint" "$_marrow" "$_mrev_v" "$_mgroup_v" "$_marchive_v" "$_mwrap_v")
   printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mdisplay_lbl" "$mstats_lbl" > "$dir/.header"
   printf '%s\n%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mdisplay_lbl" "$mstats_lbl" "$change_lbl_active" > "$dir/.header-c"
-  printf '%s\n%s\n%s\n%s\n%s' "$mqueries_lbl" "$_mfilter_f" "$mdisplay_lbl" "$mstats_lbl" > "$dir/.header-f"
+  printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$_mfilter_f" "$mdisplay_lbl" "$mstats_lbl" > "$dir/.header-f"
   printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$_mdisplay_z" "$mstats_lbl" > "$dir/.header-z"
   printf '%s\n%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mdisplay_lbl" "$mstats_lbl" "$marks_lbl_active" > "$dir/.header-m"
 fi

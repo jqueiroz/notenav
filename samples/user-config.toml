@@ -15,9 +15,9 @@
 # wrap_preview = false          # true to wrap the preview pane by default
 
 # [ui]
-# initial_header_mode = "clean"  # "clean" | "guided" – toggle at runtime with H
+# initial_header_mode = "clean"  # "clean" | "guided" – toggle at runtime with h
 # editor = ""                   # empty = $EDITOR, then nvim/vim/vi/nano/emacs
-# command_prompt = ": "         # prompt in normal (command) mode
+# command_prompt = " "          # prompt in normal (command) mode (blank to minimize input area)
 # search_prompt = "/ "          # prompt in search mode (/ key and ad-hoc -i)
 # exit_message = "none"         # "none" or "fortune" (fun quote on exit)
 # priority_plus = "demote"      # "demote": + lowers urgency (P1→P2)

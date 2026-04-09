@@ -10,8 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 
 - **`d` delete note(s)** – press `d` in command mode to delete the focused note, or all multi-selected notes. Single-delete prompts `y/N` (respects `delete_confirm`); multi-delete lists all targets and requires typing `YES`. Configurable via `ui.delete_method` (`"trash"` or `"rm"`) and `ui.delete_confirm` (`"always"` or `"never"`). Trash mode uses `trash-put` or `gio trash` with a fallback to `rm`.
-- **`/` search mode** – press `/` in the main TUI to fuzzy-filter notes by title and metadata. Three exits: `enter` (open note), `tab` (keep filter active), `esc` (cancel). The `tab`-persist flow lets you narrow the list and then use command-mode actions on the results.
-- **`/?` content search mode** – press `/` then `?` to switch from title search to live grep of note bodies (uses `rg`/`grep`, or `zk --match` when available). Same three exits as `/`. Pressing `tab` persists the content filter at the pipeline level, surviving reloads and filter changes.
+- **`/` search mode** – press `/` to search by title (fuzzy-filter) or by note contents (live grep). Press `?` to toggle between modes. Two exits: `enter` (open note) and `esc` (keep filter active). Re-entering `/` resumes the last search mode and query.
+- **`/?` content search** – press `?` while in title search to switch to content search (uses `rg`/`grep`, or `zk --match` when available). The query carries over. Press `esc` to persist as a pipeline-level filter.
 - **`?` help toggle** – press `?` to show a keybinding reference overlay; press again to dismiss. Especially useful with the `clean` header mode.
 - **`h` header mode toggle** – press `h` to switch between `clean` (state only) and `guided` (keybinding hints) header modes at runtime.
 - Named color aliases for workflow config – use `"red"`, `"bold-red"`, `"dim"`, etc. instead of raw ANSI codes like `"31;1"`. Raw codes still accepted. All built-in workflows now use named colors.

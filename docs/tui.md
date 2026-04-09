@@ -172,17 +172,17 @@ Press `/` to enter search mode. The prompt changes to `/ ` and the header collap
 | `enter` | Open the focused note, clear query, return to command mode |
 | `esc` | Return to command mode, keeping the search filter active |
 
-When you exit search mode via `esc`, the query stays in fzf's input – the list remains filtered. Press `esc` again in command mode to clear it. This lets you quickly narrow the list by title: type a query, press `esc`, then do normal command-mode actions on the narrowed set.
+When you exit search mode via `esc`, the query is saved as a pipeline-level title filter (shown as `title:"query"` in the header). Press `esc` again in command mode to clear it. This lets you quickly narrow the list by title: type a query, press `esc`, then do normal command-mode actions on the narrowed set. Re-entering `/` pre-fills the query from the active filter.
 
-### Help mode (`?`)
+### Help overlay (`?`)
 
-Press `?` to toggle the help overlay – a keybinding reference showing all available keys grouped by section (filters, display, actions, keys). Press `?` again, `esc`, or any navigation key to dismiss.
+Press `?` to toggle the help overlay – a keybinding reference showing all available keys grouped by section (filters, display, actions, keys). Press `?` again or `esc` to dismiss.
 
-Help mode uses `.nn-mode` value `h`. While help is showing, action keys are blocked – you must exit help first.
+The help overlay is non-blocking: all keys work while help is showing. Navigation keys (`j`/`k`) scroll the list while the reference stays visible. Mode entries (`f`, `z`, `c`) dismiss help naturally via their header swap.
 
 ### Content search mode (`/?`)
 
-Press `/` to enter search mode, then `?` to switch to content search. The prompt changes to `/? ` and fzf switches to live-grep mode – each keystroke searches note bodies using `rg`/`grep` (or `zk --match` when available). The list updates to show only notes containing the query. Any text already typed in search mode carries over as the initial content search query.
+Press `/` to enter search mode, then `?` to switch to content search (or just `/` if a content filter is already active – it resumes the last search mode). The prompt changes to `/? ` and fzf switches to live-grep mode – each keystroke searches note bodies using `rg`/`grep` (or `zk --match` when available). The list updates to show only notes containing the query. Any text already typed in search mode carries over as the initial content search query.
 
 | Key | Action |
 |-----|--------|
@@ -190,7 +190,7 @@ Press `/` to enter search mode, then `?` to switch to content search. The prompt
 | `enter` | Open the focused note, return to command mode |
 | `esc` | Return to command mode, persisting the content filter |
 
-When you exit via `esc`, the content query is saved as a pipeline-level filter (shown as `?:` in the header). This filter survives reloads and individual filter changes (changing type, status, priority, tags). It is cleared by preset switches (`tab`/`shift-tab`, `1`–`9`), `0` (clear preset), or `R` (full reset). You can also clear it by entering `/?` with an empty query and pressing `esc`.
+When you exit via `esc`, the content query is saved as a pipeline-level filter (shown as `content:"query"` in the header). This filter survives reloads and individual filter changes (changing type, status, priority, tags). It is cleared by preset switches (`tab`/`shift-tab`, `1`–`9`), `0` (clear preset), or `R` (full reset). You can also clear it by entering `/?` with an empty query and pressing `esc`.
 
 ### Interactive ad-hoc mode (`-i`)
 
@@ -212,5 +212,5 @@ A simplified set of keybindings for `nn key=value ... -i`:
 
 The `ui.initial_header_mode` setting controls the header on launch. Press `h` to toggle between modes at any time.
 
-- **`clean`** (default) – three lines: query presets, active filter/display state (with `?:help` hint), and result stats. Only non-default filter values are shown; when everything is at defaults, the filter line reads "Filters: (none)". When a prefix mode is active (`c`/`f`/`z`/`m`), a fourth line appears temporarily with sub-key hints.
+- **`clean`** (default) – four lines: query presets, filters, display, and result stats (with `?:help` hint on the header border). Only non-default filter/display values are shown; when at defaults, lines read "Filters: (none)" and "Display: (defaults)". When a prefix mode is active (`c`/`f`/`z`/`m`), a fifth line appears temporarily with sub-key hints.
 - **`guided`** – condenses each section to one line with keybinding hints (e.g. `[t]ype`, `[a]dvance`). When a prefix mode is active, the relevant section temporarily expands to show sub-key hints, then collapses on exit.
