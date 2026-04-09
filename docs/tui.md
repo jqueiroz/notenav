@@ -68,9 +68,9 @@ Press `z` to enter display mode. The prompt changes to `z `. Then press one of:
 
 | Key | Action |
 |-----|--------|
-| `o` | Cycle sort order: created, modified, title, priority |
+| `o` | Pick sort order (picker: created, modified, title, priority) |
 | `r` | Toggle sort direction (ascending / descending) |
-| `g` | Cycle grouping: none, type, status |
+| `g` | Pick grouping (picker: none, type, status) |
 | `h` | Toggle visibility of archived statuses |
 | `w` | Toggle title wrapping in preview |
 | `z` or `esc` | Cancel, return to command mode |
@@ -213,4 +213,4 @@ A simplified set of keybindings for `nn key=value ... -i`:
 The `ui.initial_header_mode` setting controls the header on launch. Press `h` to toggle between modes at any time.
 
 - **`guided`** (default) – six lines: query presets, filters with `[f]` hint, display with `[z]` hint, result stats, actions with keybinding hints, and keys line. When a prefix mode is active, the relevant section temporarily expands to show sub-key hints, then collapses on exit.
-- **`clean`** – four lines: query presets, filters, display, and result stats (with `?:help` hint on the header border). Only non-default filter/display values are shown; when at defaults, lines read "Filters: (none)" and "Display: (defaults)". When a prefix mode is active, a fifth line appears temporarily with sub-key hints.
+- **`clean`** – four lines: query presets, filters, display, and result stats (with `?:help` hint on the header border). Only non-default filter/display values are shown; when at defaults, lines read "Filters: (none)" and "Display: (defaults)". When a prefix mode is active, the relevant line is replaced with sub-key hints (for `f`/`z`) or a fifth line is appended (for `c`/`m`).

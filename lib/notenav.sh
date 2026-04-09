@@ -5061,28 +5061,6 @@ ENDQP
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"; action="$2"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-cycle() {
-  local dim="$1" direction="$2" cur="$3"
-  local -a vals
-  case "$dim" in
-    type)     mapfile -t vals < "$dir/.schema_type_values"; vals=("" "${vals[@]}") ;;
-    status)   mapfile -t vals < "$dir/.schema_status_filter_cycle"; vals=("" "${vals[@]}") ;;
-    priority)
-      if [ "$(cat "$dir/.schema_priority_enabled")" = "false" ]; then vals=(""); else
-        mapfile -t vals < "$dir/.schema_priority_filter_cycle"; vals=("" "${vals[@]}" "none")
-      fi ;;
-    sort)     mapfile -t vals < "$dir/.schema_sort_options" ;;
-    group)    mapfile -t vals < "$dir/.schema_group_options" ;;
-    *) nn_assert "cycle: unknown dimension '$dim'" ;;
-  esac
-  local total=${#vals[@]} idx=0 i
-  for i in "${!vals[@]}"; do
-    [ "${vals[$i]}" = "$cur" ] && idx=$i && break
-  done
-  [ "$direction" = "next" ] && idx=$(( (idx + 1) % total )) \
-                             || idx=$(( (idx - 1 + total) % total ))
-  echo "${vals[$idx]}"
-}
 apply_sq() {
   local num="$1" line name args
   [ ! -f "$dir/.queries" ] && return
@@ -5124,7 +5102,6 @@ case "$action" in
     : > "$dir/.f_marked" ;;
 esac
 case "$action" in
-  sort)     fsort=$(cycle sort next "$fsort"); fsort_rev="" ;;
   sort-reverse) [ -n "$fsort_rev" ] && fsort_rev="" || fsort_rev="rev" ;;
   clear-sort) { IFS= read -r fsort; IFS= read -r _; IFS= read -r _; IFS= read -r _sr; } < "$dir/.schema_defaults"
     [ "$_sr" = "true" ] && fsort_rev="rev" || fsort_rev=""
@@ -5167,7 +5144,6 @@ case "$action" in
     [ "$_w" = "true" ] && fwrap="on" || fwrap=""
     echo "$fwrap" > "$dir/.f_wrap" ;;
   clear-tags) : > "$dir/.f_tags" ;;
-  group) fgroup=$(cycle group next "$fgroup") ;;
   clear-group) fgroup="" ;;
   archive) [ -n "$farchive" ] && farchive="" || farchive="show" ;;
   clear-pins) ;;  # pins already cleared above; just re-render
