@@ -212,5 +212,5 @@ A simplified set of keybindings for `nn key=value ... -i`:
 
 The `ui.initial_header_mode` setting controls the header on launch. Press `h` to toggle between modes at any time.
 
-- **`clean`** (default) – four lines: query presets, filters, display, and result stats (with `?:help` hint on the header border). Only non-default filter/display values are shown; when at defaults, lines read "Filters: (none)" and "Display: (defaults)". When a prefix mode is active (`c`/`f`/`z`/`m`), a fifth line appears temporarily with sub-key hints.
-- **`guided`** – condenses each section to one line with keybinding hints (e.g. `[t]ype`, `[a]dvance`). When a prefix mode is active, the relevant section temporarily expands to show sub-key hints, then collapses on exit.
+- **`guided`** (default) – six lines: query presets, filters with `[f]` hint, display with `[z]` hint, result stats, actions with keybinding hints, and keys line. When a prefix mode is active, the relevant section temporarily expands to show sub-key hints, then collapses on exit.
+- **`clean`** – four lines: query presets, filters, display, and result stats (with `?:help` hint on the header border). Only non-default filter/display values are shown; when at defaults, lines read "Filters: (none)" and "Display: (defaults)". When a prefix mode is active, a fifth line appears temporarily with sub-key hints.
