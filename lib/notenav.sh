@@ -5127,7 +5127,7 @@ case "$action" in
           cur_idx=$(( (cur_idx - 1 + positions) % positions ))
         fi
         if [ "$cur_idx" -eq 0 ]; then
-          ft=""; fs=""; fp=""; fmatch=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"
+          ft=""; fs=""; fp=""; fmatch=""; ftitle=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_title"
         else
           apply_sq "$cur_idx"
         fi
@@ -5486,6 +5486,7 @@ if [ -n "$fgroup" ]; then
 else
   zgroup_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[g]\033[1;37mroup-by: \033[90mnone\033[0m')
 fi
+archive_label=$(cat "$dir/.schema_archive_label")
 if [ -n "$farchive" ]; then
   zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[1mshowing %s\033[0m' "$archive_label")
 else
@@ -5545,7 +5546,6 @@ if [ "$mark_count" -gt 0 ]; then
     _mparts="${_mparts}marks:\033[1m${mark_count}\033[0m"
   fi
 fi
-archive_label=$(cat "$dir/.schema_archive_label")
 _mdparts=""
 _marrow=""; [ -n "$fsort" ] && { [ -n "$fsort_rev" ] && _marrow="↑" || _marrow="↓"; }
 if [ "$fsort" != "$default_sort" ] || [ -n "$fsort_rev" ]; then
@@ -5990,7 +5990,7 @@ ENDDELETE
     # Store the return-to prompt (read by cprompt.sh on mode exits)
     printf '%s' "$NN_UI_COMMAND_PROMPT" > "$_nn_dir/.nn-prompt"
 
-    # Always set header-label position so H toggle works from either starting mode
+    # Always set header-label position so h toggle works from either starting mode
     local _nn_fzf_header_label=(--header-label-pos -1:bottom)
     if [[ "$NN_UI_HEADER" = "clean" ]]; then
       _nn_fzf_header_label+=(--header-label ' ?:help  h: switch to guided mode ')
