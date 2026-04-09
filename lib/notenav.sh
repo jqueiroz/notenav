@@ -5536,7 +5536,7 @@ if [ "$_header_mode" = "guided" ]; then
   if [ -n "$_mdparts" ]; then
     gdisplay_lbl=$(printf '\033[1;90m Display \033[36m[z]\033[1;90m:\033[0m %b' "$_mdparts")
   else
-    gdisplay_lbl=$(printf '\033[1;90m Display \033[36m[z]\033[0m')
+    gdisplay_lbl=$(printf '\033[1;90m Display \033[36m[z]\033[1;90m:\033[0m \033[90m(defaults)\033[0m')
   fi
   # Guided: actions + change + marks on one line
   _cmcount_s=""
