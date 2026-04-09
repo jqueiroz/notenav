@@ -5562,9 +5562,9 @@ elif [ "$_header_mode" = "clean" ]; then
   printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$_mdisplay_z" > "$dir/.header-z"
   printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$marks_lbl_active" > "$dir/.header-m"
 fi
-search_keys_lbl=$(printf '\033[1;90m Search:\033[0m type to filter \033[90m·\033[0m \033[36m[?]\033[0m content search \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[tab]\033[0m keep filter \033[90m·\033[0m \033[36m[esc]\033[0m cancel')
+search_keys_lbl=$(printf '\033[1;90m Search:\033[0m type to filter \033[90m·\033[0m \033[36m[?]\033[0m content search \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[esc]\033[0m back')
 printf '%s' "$search_keys_lbl" > "$dir/.header-search"
-csearch_keys_lbl=$(printf '\033[1;90m Content search:\033[0m type to grep \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[tab]\033[0m keep filter \033[90m·\033[0m \033[36m[esc]\033[0m cancel')
+csearch_keys_lbl=$(printf '\033[1;90m Content search:\033[0m type to grep \033[90m·\033[0m \033[36m[?]\033[0m title search \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[esc]\033[0m back')
 printf '%s' "$csearch_keys_lbl" > "$dir/.header-csearch"
 # Help header: keybinding reference (toggled by ? in normal mode)
 _pri_help_hint=""
@@ -5915,7 +5915,7 @@ ENDDELETE
     # Keys to unbind/rebind when toggling search mode (/ key)
     # Excludes: ?, enter, tab, esc (search-aware transforms), ctrl-j/ctrl-k (page nav),
     #           [ ] (search-aware transforms), change (mode-aware transform)
-    local _nn_search_unbind='/,t,s,p,#,h,H,1,2,3,4,5,6,7,8,9,0,R,g,a,A,+,>,-,<,n,c,e,f,z,o,r,w,b,x,X,m,d,D,j,k,J,K,space,q,shift-tab'
+    local _nn_search_unbind='/,t,s,p,#,h,H,1,2,3,4,5,6,7,8,9,0,R,g,a,A,+,>,-,<,n,c,e,f,z,o,r,w,b,x,X,m,d,D,j,k,J,K,space,q,tab,shift-tab'
 
     # Prompt shown after / tab-persist (indicates active search query)
     local _nn_persist_prompt
@@ -5999,9 +5999,9 @@ ENDDELETE
       --bind "space:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)+toggle'; else echo toggle; fi]" \
       --bind 'q:abort' \
       --bind "change:transform[if test -f $_nn_dir/.nn-csearch; then printf '%s' {q} > $_nn_dir/.csearch_q; echo 'reload($_nn_dir/csearch.sh $_nn_dir)'; elif test -f $_nn_dir/.nn-search; then :; else echo clear-query; fi]" \
-      --bind "tab:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; $_nn_dir/csearch_persist.sh $_nn_dir; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir refresh; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$_nn_persist_prompt' > $_nn_dir/.nn-prompt; echo 'rebind($_nn_search_unbind)+change-prompt($_nn_persist_prompt)+transform-header(cat $_nn_dir/.header)'; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir next; fi; fi]" \
+      --bind "tab:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir next; fi]" \
       --bind "shift-tab:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir prev; fi]" \
-      --bind "esc:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; echo 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+reload(cat $_nn_dir/.current)'; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; echo 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)'; else m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; else printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; echo 'clear-query+change-prompt($NN_UI_COMMAND_PROMPT)'; fi; fi]" \
+      --bind "esc:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; $_nn_dir/csearch_persist.sh $_nn_dir; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir refresh; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$_nn_persist_prompt' > $_nn_dir/.nn-prompt; echo 'rebind($_nn_search_unbind)+change-prompt($_nn_persist_prompt)+transform-header(cat $_nn_dir/.header)'; else m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; else printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; echo 'clear-query+change-prompt($NN_UI_COMMAND_PROMPT)'; fi; fi]" \
       --bind "H:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then cur=\$(cat $_nn_dir/.schema_header_mode); if test \"\$cur\" = clean; then printf guided > $_nn_dir/.schema_header_mode; printf '+change-header-label( H: switch to clean mode )+'; $_nn_dir/filter.sh $_nn_dir refresh; else printf clean > $_nn_dir/.schema_header_mode; printf '+change-header-label( ?:help  H: switch to guided mode )+'; $_nn_dir/filter.sh $_nn_dir refresh; fi; fi]" \
       --bind 'J:preview-page-down,K:preview-page-up' \
       --bind "enter:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+reload(cat $_nn_dir/.current)+execute($_nn_dir/edit.sh)+refresh-preview'; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+execute($_nn_dir/edit.sh)+refresh-preview'; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)+refresh-preview'; fi; fi]"

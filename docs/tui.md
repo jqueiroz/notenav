@@ -170,10 +170,9 @@ Press `/` to enter search mode. The prompt changes to `/ ` and the header collap
 |-----|--------|
 | `?` | Switch to content search (live grep of note bodies) |
 | `enter` | Open the focused note, clear query, return to command mode |
-| `tab` | Keep the fuzzy filter active and return to command mode |
-| `esc` | Cancel search, clear query, return to command mode |
+| `esc` | Return to command mode, keeping the search filter active |
 
-When you exit search mode via `tab`, the query stays in fzf's input – the list remains filtered. Press `esc` in command mode to clear it. This lets you quickly narrow the list by title: type a query, press `tab`, then do normal command-mode actions on the narrowed set.
+When you exit search mode via `esc`, the query stays in fzf's input – the list remains filtered. Press `esc` again in command mode to clear it. This lets you quickly narrow the list by title: type a query, press `esc`, then do normal command-mode actions on the narrowed set.
 
 ### Help mode (`?`)
 
@@ -187,11 +186,11 @@ Press `/` to enter search mode, then `?` to switch to content search. The prompt
 
 | Key | Action |
 |-----|--------|
+| `?` | Switch back to title search |
 | `enter` | Open the focused note, return to command mode |
-| `tab` | Persist the content filter and return to command mode |
-| `esc` | Cancel search, return to command mode |
+| `esc` | Return to command mode, persisting the content filter |
 
-When you exit via `tab`, the content query is saved as a pipeline-level filter (shown as `?:` in the header). This filter survives reloads and individual filter changes (changing type, status, priority, tags). It is cleared by preset switches (`tab`/`shift-tab`, `1`–`9`), `0` (clear preset), or `R` (full reset). You can also clear it by entering `/?` with an empty query and pressing `tab`.
+When you exit via `esc`, the content query is saved as a pipeline-level filter (shown as `?:` in the header). This filter survives reloads and individual filter changes (changing type, status, priority, tags). It is cleared by preset switches (`tab`/`shift-tab`, `1`–`9`), `0` (clear preset), or `R` (full reset). You can also clear it by entering `/?` with an empty query and pressing `esc`.
 
 ### Interactive ad-hoc mode (`-i`)
 
