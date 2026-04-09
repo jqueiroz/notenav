@@ -4048,7 +4048,7 @@ if [ -n "$value" ]; then
     priority) grep -qxF "$value" "$dir/.schema_priority_values" || { echo "notenav: refusing to write invalid priority: $value" >&2; exit 1; } ;;
   esac
 fi
-count=0; first_ok=""
+count=0; first_ok=""; ok_files=()
 for file in "$@"; do
   [ ! -f "$file" ] && continue
   # Check for frontmatter before attempting write
@@ -4068,12 +4068,14 @@ for file in "$@"; do
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":( |$)" { print field ": " value; found=1; skip_cont=1; next }
     { print }
-  ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; true; } || rm -f "$_ftmp"
+  ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
 done
-# Pin acted-on files so they stay visible after filter (accumulative + dedup)
-{ cat "$dir/.pinned" 2>/dev/null; [ $# -gt 0 ] && printf '%s\n' "$@"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
-mv "$dir/.pinned.tmp" "$dir/.pinned"
-rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
+# Pin only successfully modified files so they stay visible after filter (accumulative + dedup)
+if [ ${#ok_files[@]} -gt 0 ]; then
+  { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${ok_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
+  mv "$dir/.pinned.tmp" "$dir/.pinned"
+  rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
+fi
 if [ "$count" -eq 0 ] && [ "${_no_fm:-0}" -gt 0 ]; then
   printf '⚠ %d note(s) skipped – no frontmatter' "$_no_fm" > "$dir/.last_action"
 elif [ "$count" -eq 0 ]; then
@@ -4407,10 +4409,11 @@ skipped_nofm=0
 apply_errors=""
 prev_path=""
 update_args=()
+ok_files=()
 _apply_note() {
   [ -z "$prev_path" ] && return
   if "$dir/bulkedit_update.sh" "$prev_path" "${update_args[@]}" 2>/dev/null; then
-    count=$((count + 1))
+    count=$((count + 1)); ok_files+=("$prev_path")
   else
     first_line=$(head -n 1 "$prev_path" 2>/dev/null)
     if [ "$first_line" != "---" ]; then
@@ -4440,6 +4443,10 @@ fi
 if [ "$count" -gt 0 ]; then
   printf "${_c_green}Updated %d note(s)${_c_reset}\n" "$count" > /dev/tty
   printf 'bulk edit → %d notes' "$count" > "$dir/.last_action"
+  # Pin modified files so they stay visible after filter (accumulative + dedup)
+  { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${ok_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
+  mv "$dir/.pinned.tmp" "$dir/.pinned"
+  rm -f "$dir/.pinned.bak"
 fi
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
@@ -5304,7 +5311,8 @@ pinned_awk=$(cat "$dir/.awk_color_pinned")
 marked_awk=$(cat "$dir/.awk_color_marked")
 if [ -s "$dir/.pinned.snap" ] || [ -s "$dir/.marked.snap" ]; then
   do_sort "$fsort" < "$_raw_input" | "$nn_gawk" -F'\t' -v now="$now" \
-    -v marked_file="$dir/.marked.snap" -v pinned_file="$dir/.pinned.snap" -v mfilt="$fmarked" '
+    -v marked_file="$dir/.marked.snap" -v pinned_file="$dir/.pinned.snap" -v mfilt="$fmarked" \
+    -v ghost_file="$dir/.pin_ghost_count" '
     BEGIN {
       while ((getline line < marked_file) > 0) if (line != "") is_marked[line]=1
       close(marked_file)
@@ -5313,12 +5321,14 @@ if [ -s "$dir/.pinned.snap" ] || [ -s "$dir/.marked.snap" ]; then
     }
     '"${cond}"' && ($6 in is_marked) { '"${marked_awk}"' }
     '"${cond}"' && !($6 in is_marked) && !(mfilt != "" && ($6 in is_pinned)) { '"${awk_body}"' }
-    '"${cond}"' && !($6 in is_marked) && mfilt != "" && ($6 in is_pinned) { '"${pinned_awk}"' }
-    !('"${cond}"') && ($6 in is_pinned) && ($6 in is_marked) { '"${marked_awk}"' }
-    !('"${cond}"') && ($6 in is_pinned) && !($6 in is_marked) { '"${pinned_awk}"' }
+    '"${cond}"' && !($6 in is_marked) && mfilt != "" && ($6 in is_pinned) { gc++; '"${pinned_awk}"' }
+    !('"${cond}"') && ($6 in is_pinned) && ($6 in is_marked) { gc++; '"${marked_awk}"' }
+    !('"${cond}"') && ($6 in is_pinned) && !($6 in is_marked) { gc++; '"${pinned_awk}"' }
+    END { printf "%d", gc+0 > ghost_file }
   ' > "$dir/.current"
 else
   do_sort "$fsort" < "$_raw_input" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
+  printf '0' > "$dir/.pin_ghost_count"
 fi
 # Pipeline: AWK filter → count → grouping → empty-view → border/output
 # Ghost rows (pinned items failing filters) are already in .current from the multi-rule AWK above.
@@ -5647,8 +5657,8 @@ printf '%s\n%s\n%s\n%s' "$help_filters_lbl" "$help_display_lbl" "$help_actions_l
 # Visible width is measured after final content is written to .empty_placeholder
     printf '\n  [34m╭─────────────────────────────────────────────────╮[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                [35m♩[0m [1;36m♪[0m [32m♫[0m [36m♩[0m [35m♪[0m [31m♫[0m [32m♩[0m [1;36m♪[0m [35m♩[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    ───────────────────────────────────────────  [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore vim comes to a crawl?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore they turn to a scrawl?[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, can save us all.[0m      [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore we call vim unprepared?[0m               [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore adrift he'\''s declared?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is simply [1;31mn²[0m[1;33m.[0m         [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore dear vim hits a wall?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is [1;31mnn[0m[1;33m, after all.[0m     [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m            [35m♩[0m                                    [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                      [36m♪[0m                          [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m         [35m♫[0m                                       [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                   [32m♩[0m                             [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
 [ -f "$dir/.empty_easteregg_override" ] && cat "$dir/.empty_easteregg_override" > "$dir/.empty_placeholder"
-# Show Adams placeholder + dummy entry when view is truly empty (skip if pinned items present)
-if [ "$count" -eq 0 ] && [ ! -s "$dir/.pinned.snap" ]; then
+# Show Adams placeholder + dummy entry when view is truly empty (skip if ghost rows present)
+if [ "$count" -eq 0 ] && ! [ -s "$dir/.current" ]; then
   raw_total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap" | wc -l)
   if [ "$raw_total" -eq 0 ]; then
     _has_wf=""; [ -s "$dir/.has_project_config" ] && _has_wf=1
@@ -5678,7 +5688,7 @@ fi
 # Measure placeholder visible width (strip ANSI, find longest line) for preview.sh centering
 awk 'BEGIN{esc=sprintf("%c",27)} {gsub(esc"\\[[0-9;]*m",""); if(length>m) m=length} END{print m+0}' "$dir/.empty_placeholder" > "$dir/.empty_placeholder_width"
 total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap" | wc -l)
-pin_count=0; [ -s "$dir/.pinned.snap" ] && pin_count=$(awk 'NF{n++} END{print n+0}' "$dir/.pinned.snap")
+pin_count=$(cat "$dir/.pin_ghost_count" 2>/dev/null || echo 0)
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 mark_s=""; [ "$mark_count" -gt 0 ] && mark_s=" · ${mark_count} marked"
 _wf_name=$(cat "$dir/.schema_workflow_name" 2>/dev/null)
