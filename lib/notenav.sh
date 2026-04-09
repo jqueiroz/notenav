@@ -5486,7 +5486,7 @@ if [ -s "$dir/.f_tags" ]; then
 fi
 if [ -n "$ftitle" ]; then
   [ -n "$_mparts" ] && _mparts="$_mparts  "
-  _mparts="${_mparts}search:\033[1m\"${ftitle}\"\033[0m"
+  _mparts="${_mparts}title:\033[1m\"${ftitle}\"\033[0m"
 elif [ -n "$fmatch" ]; then
   [ -n "$_mparts" ] && _mparts="$_mparts  "
   _mparts="${_mparts}content:\033[1m\"${fmatch}\"\033[0m"
