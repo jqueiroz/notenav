@@ -5461,7 +5461,7 @@ else
   _mfilt_s_active='\033[1;36m[f]\033[1;37m filter: \033[90moff\033[0m'
 fi
 marks_lbl_active=$(printf '\033[1;90m Marks:\033[0m %b\033[1;33m[m]\033[0m \033[1;37mthen \033[1;36m[m]\033[1;37mtoggle \033[90m·\033[0m \033[1;36m[a]\033[1;37mdd sel \033[90m·\033[0m \033[1;36m[d]\033[1;37m unmark sel \033[90m·\033[0m \033[1;36m[D]\033[1;37m clear \033[90m·\033[0m %b\033[0m' "$_mcount_s" "$_mfilt_s_active")
-keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search \033[90m·\033[0m \033[36m[?]\033[0m help \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[R]\033[0meset \033[90m·\033[0m \033[36m[q]\033[0muit')
+keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search \033[90m·\033[0m \033[36m[?]\033[0m help \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[R]\033[0meset filters \033[90m·\033[0m \033[36m[q]\033[0muit')
 # Build active-only filter/display state (shared by both header modes)
 _mparts=""
 if [ -n "$ft" ]; then
@@ -5528,14 +5528,15 @@ if [ "$_header_mode" = "guided" ]; then
   # Guided: clean filter state + keybinding hint lines
   cqueries_lbl=$(printf '%s \033[90m· tab/1-9/g\033[0m' "$queries_lbl")
   # Add [f]/[z] prefix hints to filter/display line
+  _gdisplay=$(printf '\033[1;90mDisplay \033[36m[z]\033[0m')
   if [ -n "$_mparts" ] && [ -n "$_mdparts" ]; then
-    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m %b  \033[90m|\033[0m  \033[1;90mDisplay \033[36m[z]\033[1;90m:\033[0m %b' "$_mparts" "$_mdparts")
+    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m %b  \033[90m|\033[0m  %s\033[1;90m:\033[0m %b' "$_mparts" "$_gdisplay" "$_mdparts")
   elif [ -n "$_mparts" ]; then
-    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m %b' "$_mparts")
+    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m %b  \033[90m|\033[0m  %s' "$_mparts" "$_gdisplay")
   elif [ -n "$_mdparts" ]; then
-    gfilter_lbl=$(printf '\033[1;90m Display \033[36m[z]\033[1;90m:\033[0m %b' "$_mdparts")
+    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m \033[90m(none)\033[0m  \033[90m|\033[0m  %s\033[1;90m:\033[0m %b' "$_gdisplay" "$_mdparts")
   else
-    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m \033[90m(none)\033[0m')
+    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m \033[90m(none)\033[0m  \033[90m|\033[0m  %s' "$_gdisplay")
   fi
   # Guided: actions + change + marks on one line
   _cmcount_s=""
@@ -5581,7 +5582,7 @@ _pri_help_hint=""
 if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
   _pri_help_hint=' \033[36m[+]\033[0m/\033[36m[-]\033[0m priority'
 fi
-help_filters_lbl=$(printf '\033[1;90m Filters:\033[0m \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[t]\033[0mype \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[s]\033[0mtatus \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[p]\033[0mriority \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[#]\033[0mtags  \033[36m[R]\033[0meset  \033[90mtab/1-9/g presets\033[0m')
+help_filters_lbl=$(printf '\033[1;90m Filters:\033[0m \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[t]\033[0mype \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[s]\033[0mtatus \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[p]\033[0mriority \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[#]\033[0mtags  \033[36m[R]\033[0meset filters  \033[90mtab/1-9/g presets\033[0m')
 help_display_lbl=$(printf '\033[1;90m Display:\033[0m \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[o]\033[0mrder \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[r]\033[0meverse \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[g]\033[0mroup \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[h]\033[0midden \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[w]\033[0mrap')
 help_actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[36m[e]\033[0mdit \033[36m[n]\033[0mew \033[36m[r]\033[0mefresh \033[36m[c]\033[0mhange \033[36m[m]\033[0marks \033[36m[b]\033[0mulk \033[36m[d]\033[0mel%b' "$_pri_help_hint")
 help_keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search  \033[36m[/\033[0m then \033[36m?]\033[0m content search  \033[36m[H]\033[0m toggle header  \033[36m[enter]\033[0m open  \033[36m[?]\033[0m close help  \033[36m[q]\033[0muit')
