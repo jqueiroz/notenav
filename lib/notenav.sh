@@ -5527,16 +5527,16 @@ fi
 if [ "$_header_mode" = "guided" ]; then
   # Guided: clean filter state + keybinding hint lines
   cqueries_lbl=$(printf '%s \033[90m· tab/1-9/g\033[0m' "$queries_lbl")
-  # Add [f]/[z] prefix hints to filter/display line
-  _gdisplay=$(printf '\033[1;90mDisplay \033[36m[z]\033[0m')
-  if [ -n "$_mparts" ] && [ -n "$_mdparts" ]; then
-    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m %b  \033[90m|\033[0m  %s\033[1;90m:\033[0m %b' "$_mparts" "$_gdisplay" "$_mdparts")
-  elif [ -n "$_mparts" ]; then
-    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m %b  \033[90m|\033[0m  %s' "$_mparts" "$_gdisplay")
-  elif [ -n "$_mdparts" ]; then
-    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m \033[90m(none)\033[0m  \033[90m|\033[0m  %s\033[1;90m:\033[0m %b' "$_gdisplay" "$_mdparts")
+  # Filters and Display on separate lines with [f]/[z] prefix hints
+  if [ -n "$_mparts" ]; then
+    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m %b' "$_mparts")
   else
-    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m \033[90m(none)\033[0m  \033[90m|\033[0m  %s' "$_gdisplay")
+    gfilter_lbl=$(printf '\033[1;90m Filters \033[36m[f]\033[1;90m:\033[0m \033[90m(none)\033[0m')
+  fi
+  if [ -n "$_mdparts" ]; then
+    gdisplay_lbl=$(printf '\033[1;90m Display \033[36m[z]\033[1;90m:\033[0m %b' "$_mdparts")
+  else
+    gdisplay_lbl=$(printf '\033[1;90m Display \033[36m[z]\033[0m')
   fi
   # Guided: actions + change + marks on one line
   _cmcount_s=""
@@ -5550,12 +5550,12 @@ if [ "$_header_mode" = "guided" ]; then
     _gpri_hint=' \033[90m·\033[0m \033[36m[+]\033[0m/\033[36m[-]\033[0m priority'
   fi
   cactions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[90m·\033[0m \033[36m[A]\033[0m reverse%b \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[c]\033[0mhange \033[90m·\033[0m \033[36m[m]\033[0marks%b \033[90m·\033[0m \033[36m[b]\033[0mulk \033[90m·\033[0m \033[36m[d]\033[0mel \033[90m·\033[0m \033[36m[x]\033[0m/\033[36m[X]\033[0m pins' "$_gpri_hint" "$_cmcount_s")
-  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$mstats_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header"
+  printf '%s\n%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$gdisplay_lbl" "$mstats_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header"
   # Mode-active headers: expand the active section to show sub-key guidance
-  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$mstats_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
-  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$filters_lbl_f" "$mstats_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header-f"
-  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$display_lbl_z" "$cactions_lbl" "$keys_lbl" > "$dir/.header-z"
-  printf '%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$mstats_lbl" "$marks_lbl_active" "$keys_lbl" > "$dir/.header-m"
+  printf '%s\n%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$gdisplay_lbl" "$mstats_lbl" "$change_lbl_active" "$keys_lbl" > "$dir/.header-c"
+  printf '%s\n%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$filters_lbl_f" "$gdisplay_lbl" "$mstats_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header-f"
+  printf '%s\n%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$display_lbl_z" "$mstats_lbl" "$cactions_lbl" "$keys_lbl" > "$dir/.header-z"
+  printf '%s\n%s\n%s\n%s\n%s\n%s' "$cqueries_lbl" "$gfilter_lbl" "$gdisplay_lbl" "$mstats_lbl" "$marks_lbl_active" "$keys_lbl" > "$dir/.header-m"
 elif [ "$_header_mode" = "clean" ]; then
   # Clean: 3 lines – presets, filter/display state, stats
   mqueries_lbl="$queries_lbl"
