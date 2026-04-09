@@ -5655,7 +5655,7 @@ elif [ "$_header_mode" = "clean" ]; then
 fi
 search_keys_lbl=$(printf '\033[1;90m Search \033[1;37mby title\033[1;90m:\033[0m type to filter \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[esc]\033[0m back\n \033[90mpress \033[36m?\033[90m to search by note contents instead\033[0m')
 printf '%s' "$search_keys_lbl" > "$dir/.header-search"
-csearch_keys_lbl=$(printf '\033[1;90m Search \033[1;37mby contents\033[1;90m:\033[0m type to grep \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[esc]\033[0m back\n \033[90mpress \033[36m?\033[90m to search by title instead\033[0m')
+csearch_keys_lbl=$(printf '\033[1;90m Search \033[1;37mby contents\033[1;90m:\033[0m type to filter \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[esc]\033[0m back\n \033[90mpress \033[36m?\033[90m to search by title instead\033[0m')
 printf '%s' "$csearch_keys_lbl" > "$dir/.header-csearch"
 # Help header: keybinding reference (toggled by ? in normal mode)
 _pri_help_hint=""
