@@ -5512,18 +5512,18 @@ if [ -n "$farchive" ]; then
   [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
   _mdparts="${_mdparts}archive:\033[1mon\033[0m"
 fi
-# Assemble filter/display line with mode-appropriate prefixes
+# Assemble filter + display + stats lines (shared by both modes)
 mstats_lbl=$(printf '\033[1;90m Results:\033[0m %s' "$stats_s")
-if [ -n "$_mparts" ] && [ -n "$_mdparts" ]; then
-  mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m %b  \033[90m|\033[0m  \033[1;90mDisplay:\033[0m %b' "$_mparts" "$_mdparts")
-elif [ -n "$_mparts" ]; then
+if [ -n "$_mparts" ]; then
   mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m %b' "$_mparts")
-elif [ -n "$_mdparts" ]; then
-  mfilter_lbl=$(printf '\033[1;90m Display:\033[0m %b' "$_mdparts")
 else
-  mfilter_lbl=""
+  mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m \033[90m(none)\033[0m')
 fi
-[ -z "$mfilter_lbl" ] && mfilter_lbl=$(printf '\033[1;90m Filters:\033[0m \033[90m(none)\033[0m')
+if [ -n "$_mdparts" ]; then
+  mdisplay_lbl=$(printf '\033[1;90m Display:\033[0m %b' "$_mdparts")
+else
+  mdisplay_lbl=$(printf '\033[1;90m Display:\033[0m \033[90m(defaults)\033[0m')
+fi
 if [ "$_header_mode" = "guided" ]; then
   # Guided: clean filter state + keybinding hint lines
   cqueries_lbl=$(printf '%s \033[90m· tab/1-9/g\033[0m' "$queries_lbl")
@@ -5571,11 +5571,11 @@ elif [ "$_header_mode" = "clean" ]; then
   _mwrap_v="off"; [ -n "$fwrap" ] && _mwrap_v="on"
   _mrev_v="off"; [ -n "$fsort_rev" ] && _mrev_v="on"
   _mdisplay_z=$(printf '\033[1;90m Display:\033[0m \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder:\033[1m%s\033[0m%s  \033[1;36m[r]\033[1;37mev:\033[1m%s\033[0m  \033[1;36m[g]\033[1;37mroup:\033[1m%s\033[0m  \033[1;36m[h]\033[1;37midden:\033[1m%s\033[0m  \033[1;36m[w]\033[1;37mrap:\033[1m%s\033[0m' "$sort_hint" "$_marrow" "$_mrev_v" "$_mgroup_v" "$_marchive_v" "$_mwrap_v")
-  printf '%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" > "$dir/.header"
-  printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$change_lbl_active" > "$dir/.header-c"
-  printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$_mfilter_f" > "$dir/.header-f"
-  printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$_mdisplay_z" > "$dir/.header-z"
-  printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mstats_lbl" "$marks_lbl_active" > "$dir/.header-m"
+  printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mdisplay_lbl" "$mstats_lbl" > "$dir/.header"
+  printf '%s\n%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mdisplay_lbl" "$mstats_lbl" "$change_lbl_active" > "$dir/.header-c"
+  printf '%s\n%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mdisplay_lbl" "$mstats_lbl" "$_mfilter_f" > "$dir/.header-f"
+  printf '%s\n%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$_mdisplay_z" "$mstats_lbl" "$marks_lbl_active" > "$dir/.header-z"
+  printf '%s\n%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mdisplay_lbl" "$mstats_lbl" "$marks_lbl_active" > "$dir/.header-m"
 fi
 search_keys_lbl=$(printf '\033[1;90m Search \033[1;37mby title\033[1;90m:\033[0m type to filter \033[90m·\033[0m \033[36m[enter]\033[0m open \033[90m·\033[0m \033[36m[esc]\033[0m back\n \033[90mpress \033[36m?\033[90m to search by note contents instead\033[0m')
 printf '%s' "$search_keys_lbl" > "$dir/.header-search"
