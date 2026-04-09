@@ -5439,7 +5439,6 @@ if [ -n "$fgroup" ]; then
 else
   zgroup_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[g]\033[1;37mroup-by: \033[90mnone\033[0m')
 fi
-archive_label=$(cat "$dir/.schema_archive_label")
 if [ -n "$farchive" ]; then
   zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[1mshowing %s\033[0m' "$archive_label")
 else
@@ -5499,6 +5498,7 @@ if [ "$mark_count" -gt 0 ]; then
     _mparts="${_mparts}marks:\033[1m${mark_count}\033[0m"
   fi
 fi
+archive_label=$(cat "$dir/.schema_archive_label")
 _mdparts=""
 _marrow=""; [ -n "$fsort" ] && { [ -n "$fsort_rev" ] && _marrow="↑" || _marrow="↓"; }
 if [ "$fsort" != "$default_sort" ] || [ -n "$fsort_rev" ]; then
@@ -5510,7 +5510,12 @@ if [ -n "$fgroup" ]; then
 fi
 if [ -n "$farchive" ]; then
   [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
-  _mdparts="${_mdparts}archive:\033[1mon\033[0m"
+  _archive_short=$(echo "$archive_label" | awk -F/ '{if(NF<=2) print $0; else print $1"/"$2"/..."}')
+  _mdparts="${_mdparts}showing \033[1m${_archive_short}\033[0m"
+fi
+if [ -n "$fwrap" ]; then
+  [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
+  _mdparts="${_mdparts}wrap:\033[1mon\033[0m"
 fi
 # Assemble filter + display + stats lines (shared by both modes)
 mstats_lbl=$(printf '\033[1;90m Results:\033[0m %s' "$stats_s")
