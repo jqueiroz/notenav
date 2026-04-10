@@ -4069,6 +4069,7 @@ if [ -n "$value" ]; then
 fi
 count=0; first_ok=""; ok_files=()
 for file in "$@"; do
+  case "$file" in *.empty_placeholder) continue ;; esac
   [ ! -f "$file" ] && continue
   # Check for frontmatter before attempting write
   first_line=$(head -n 1 "$file")
@@ -4241,6 +4242,13 @@ else
   files=()
   while IFS= read -r f || [ -n "$f" ]; do [ -n "$f" ] && files+=("$f"); done < "$dir/.c_sel"
 fi
+# Strip placeholder sentinel (empty-view dummy entry)
+_filtered=()
+for _f in "${files[@]}"; do
+  case "$_f" in *.empty_placeholder) continue ;; esac
+  _filtered+=("$_f")
+done
+files=("${_filtered[@]}")
 [ ${#files[@]} -eq 0 ] && exit 0
 # Pick value (pass file paths for context display)
 "$dir/fieldpick.sh" "$dir" "$field" "${files[@]}" || exit 0
@@ -4550,6 +4558,7 @@ datafile="$dir/.bulkedit_data"
 : > "$datafile"
 while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   [ -z "$fpath" ] && continue
+  case "$fpath" in *.empty_placeholder) continue ;; esac
   p="$fpath" awk -F'\t' '$6 == ENVIRON["p"] {
     t = $5; gsub(/\|/, "\\|", t); gsub(/[\n\r]/, " ", t)
     tags = $4; gsub(/\|/, "\\|", tags)
@@ -4557,6 +4566,8 @@ while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
     exit
   }' "$dir/.raw" >> "$datafile"
 done < <(awk '{a[NR]=$0} END{for(i=NR;i>0;i--)print a[i]}' "$dir/.current")
+# Nothing to bulk-edit (e.g. empty view)
+[ ! -s "$datafile" ] && { rm -f "$datafile"; exit 0; }
 # Write heading with instructions and valid values
 notecount=$(wc -l < "$datafile")
 label="notes"; [ "$notecount" -eq 1 ] && label="note"
@@ -5067,6 +5078,7 @@ ENDNN
     cat > "$_nn_dir/cyclestatus.sh" << 'ENDCS'
 #!/usr/bin/env bash
 dir="$1"; file="$2"; direction="${3:-fwd}"
+case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 cur=$(p="$file" awk -F'\t' '$6 == ENVIRON["p"] {print $2; exit}' "$dir/.raw")
 if [ -z "$cur" ]; then
@@ -5091,6 +5103,7 @@ ENDCS
 #!/usr/bin/env bash
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"; file="$2"; direction="$3"
+case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
 cur=$(p="$file" awk -F'\t' '$6 == ENVIRON["p"] {print $3; exit}' "$dir/.raw")
@@ -5245,6 +5258,7 @@ case "$action" in
     fi ;;
   mark-toggle)
     path="$3"
+    case "$path" in *.empty_placeholder) path="" ;; esac
     if [ -n "$path" ]; then
       if grep -qxF "$path" "$dir/.marked" 2>/dev/null; then
         { grep -vxF "$path" "$dir/.marked" || true; } > "$dir/.marked.tmp"
@@ -5261,11 +5275,15 @@ case "$action" in
     fi ;;
   mark-add)
     if [ -s "$dir/.m_sel" ]; then
+      grep -v '\.empty_placeholder$' "$dir/.m_sel" > "$dir/.m_sel.tmp" || true
+      mv "$dir/.m_sel.tmp" "$dir/.m_sel"
       { cat "$dir/.marked" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.marked.tmp"
       mv "$dir/.marked.tmp" "$dir/.marked"
     fi ;;
   mark-remove)
     if [ -s "$dir/.m_sel" ]; then
+      grep -v '\.empty_placeholder$' "$dir/.m_sel" > "$dir/.m_sel.tmp" || true
+      mv "$dir/.m_sel.tmp" "$dir/.m_sel"
       # Pin the unmarked items when mark filter is on so they don't vanish
       if [ -n "$fmarked" ]; then
         { cat "$dir/.pinned" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp" \
@@ -5892,6 +5910,7 @@ dir=$(dirname "$0")
 # Read targets (one path per line)
 targets=()
 while IFS= read -r f || [ -n "$f" ]; do
+  case "$f" in *.empty_placeholder) continue ;; esac
   [ -n "$f" ] && [ -f "$f" ] && targets+=("$f")
 done < "$dir/.delete_targets"
 [ ${#targets[@]} -eq 0 ] && exit 0
