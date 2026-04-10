@@ -5878,6 +5878,7 @@ ENDWK
 dir=$(dirname "$0")
 nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
 target=$(cat "$dir/.edit_target" 2>/dev/null)
+case "$target" in *.empty_placeholder) exit 0 ;; esac
 [ -f "$target" ] && ${nn_editor:-vi} "$target"
 ENDEDIT
     chmod +x "$_nn_dir/edit.sh"
