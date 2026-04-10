@@ -5365,7 +5365,16 @@ if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
   _count_input="$dir/.raw_matched"
 fi
 if [ -n "$ftitle" ]; then
-  awk -F'\t' -v q="$ftitle" 'BEGIN{q=tolower(q)} tolower($5)~q' "$_raw_input" > "$dir/.raw_title"
+  # Literal substring match by default; ~ prefix opts in to AWK ERE regex.
+  case "$ftitle" in
+    '~'*)
+      _tq="${ftitle#'~'}"
+      awk -F'\t' -v q="$_tq" 'BEGIN{q=tolower(q)} tolower($5)~q' "$_raw_input" > "$dir/.raw_title" 2>/dev/null
+      ;;
+    *)
+      awk -F'\t' -v q="$ftitle" 'BEGIN{q=tolower(q)} index(tolower($5),q)' "$_raw_input" > "$dir/.raw_title"
+      ;;
+  esac
   _raw_input="$dir/.raw_title"
   _count_input="$dir/.raw_title"
 fi

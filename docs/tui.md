@@ -174,6 +174,8 @@ Press `/` to enter search mode. The prompt changes to `/ ` and the header collap
 
 When you exit search mode via `esc`, the query is saved as a pipeline-level title filter (shown as `title:"query"` in the header). Press `esc` again in command mode to clear it. This lets you quickly narrow the list by title: type a query, press `esc`, then do normal command-mode actions on the narrowed set. Re-entering `/` pre-fills the query from the active filter.
 
+The persisted title filter is a literal substring match by default. To opt in to AWK ERE regex matching, prefix the query with `~` – for example, `~^meeting` (titles starting with "meeting") or `~bug|issue` (titles containing either word). The `~` prefix is shown in the header (`title:"~pattern"`) so the active mode is always visible. An invalid regex produces an empty result set with no error. Note that `?` cannot be used as a regex quantifier because it is bound to the search-mode toggle – use `{0,1}` instead (e.g. `~tasks{0,1}` to match "task" or "tasks").
+
 ### Help overlay (`?`)
 
 Press `?` to toggle the help overlay – a keybinding reference showing all available keys grouped by section (filters, display, actions, keys). Press `?` again or `esc` to dismiss.
