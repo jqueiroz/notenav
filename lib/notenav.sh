@@ -4306,7 +4306,7 @@ fi
 _ftmp=$(mktemp "$file.XXXXXX") || exit 1
 # No frontmatter: prepend a new block with the requested values, then the body
 if [ "$has_fm" = 0 ]; then
-  {
+  if {
     printf '%s\n' "---"
     [ "$has_type" = 1 ] && [ -n "$set_type" ] && printf 'type: %s\n' "$set_type"
     [ "$has_status" = 1 ] && [ -n "$set_status" ] && printf 'status: %s\n' "$set_status"
@@ -4314,8 +4314,12 @@ if [ "$has_fm" = 0 ]; then
     [ "$has_tags" = 1 ] && [ -n "$set_tags" ] && printf 'tags:\n%s\n' "$set_tags"
     printf '%s\n' "---"
     cat "$file"
-  } > "$_ftmp" && mv "$_ftmp" "$file" || rm -f "$_ftmp"
-  exit 0
+  } > "$_ftmp" && mv "$_ftmp" "$file"; then
+    exit 0
+  else
+    rm -f "$_ftmp"
+    exit 1
+  fi
 fi
 set_type="$set_type" set_status="$set_status" \
     set_priority="$set_priority" set_tags="$set_tags" \
