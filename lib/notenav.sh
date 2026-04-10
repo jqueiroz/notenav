@@ -4475,7 +4475,17 @@ _would_drop() {
       if [ "$_pin_fp" = "none" ]; then [ -n "$v" ]
       elif [ -n "$_pin_fp" ]; then [ "$_pin_fp" != "$v" ]
       else return 1; fi ;;
-    tags) [ -s "$dir/.f_tags" ] ;;
+    tags)
+      [ ! -s "$dir/.f_tags" ] && return 1
+      # Check if any filtered tag is missing from the new (space-separated) value.
+      # Pad both sides with spaces to respect tag boundaries (so filter "bar" doesn't match "foobar").
+      local _hay=" $v " _ft _pad
+      while IFS= read -r _ft || [ -n "$_ft" ]; do
+        [ -z "$_ft" ] && continue
+        _pad=" $_ft "
+        [[ "$_hay" != *"$_pad"* ]] && return 0
+      done < "$dir/.f_tags"
+      return 1 ;;
     *) return 1 ;;
   esac
 }
