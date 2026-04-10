@@ -85,15 +85,27 @@ nn type=task tag=backend tag=api    # tasks tagged "backend" OR "api"
 | Flag | Description |
 |------|-------------|
 | `-i`, `--interactive` | Open results in an interactive fzf picker instead of plain output |
+| `-l`, `--long` | Plain output as TSV: `type<TAB>status<TAB>priority<TAB>title<TAB>path` (one note per line, all five columns always present, empty fields render as empty strings) |
+| `-0`, `--print0` | Plain output as NUL-separated absolute paths, suitable for `xargs -0` and similar tools |
 | `--` | Stop filter parsing; remaining arguments are passed through to `zk list` (ignored without zk) |
 
-**Plain output format:**
+`-l`, `-0`, and `-i` are mutually exclusive.
+
+**Plain output format (default):**
 
 ```
 [type] [priority] [status] title
 ```
 
-If priorities are disabled in the workflow, the priority column is omitted.
+If priorities are disabled in the workflow, the priority column is omitted. The default format is intended for human reading; use `-l` or `-0` for scripting.
+
+**Examples for piping:**
+
+```bash
+nn type=task -l                           # TSV with paths
+nn type=task -0 | xargs -0 wc -l          # count lines in matching notes
+nn type=task status=active -0 | xargs -0 grep -l TODO
+```
 
 ### `nn init` – Create project config
 
@@ -180,7 +192,7 @@ nn doctor
 
 5. **Notebook:** confirms a notebook is reachable from the current directory by looking for `.nn/workflow.toml`. Reports the notebook root, markdown file count, `.nnignore` pattern count, and active backend (zk or native).
 
-6. **Notes:** scans markdown files and checks frontmatter values against the workflow definition. Reports notes with unrecognized type, status, or priority values (summary counts, the unknown values found, and up to 5 example file paths). Priority is only checked when enabled in the workflow. Notes with no type or status are reported as informational. Scans up to 2000 files.
+6. **Notes:** scans markdown files and checks frontmatter values against the workflow definition. Reports notes with unrecognized type, status, or priority values (summary counts, the unknown values found, and up to 5 example file paths). Priority is only checked when enabled in the workflow. Notes with no type or status, and notes with no frontmatter at all, are reported as informational. Scans up to 2000 files.
 
 **Output markers:**
 

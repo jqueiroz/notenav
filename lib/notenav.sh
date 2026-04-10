@@ -742,7 +742,7 @@ nn_precompute_workflow() {
     return 1
   fi
   NN_TYPE_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.type.default_color // "36"')")
-  _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be a color name or ANSI code)" >&2; return 1; }
+  _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
   NN_TYPE_VISIBILITY=$(nn_cfg '.type.visibility // "show_untyped"')
   case "$NN_TYPE_VISIBILITY" in show_defined|show_untyped|show_all) ;;
     *) echo "notenav: type.visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" >&2; return 1 ;; esac
@@ -751,7 +751,7 @@ nn_precompute_workflow() {
     _jv=$(_nn_jq_esc "$_v")
     NN_TYPE_ICONS[$_v]=$(nn_cfg ".type.\"$_jv\".icon // \"*\"")
     NN_TYPE_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".type.\"$_jv\".color // \"$NN_TYPE_DEFAULT_COLOR\"")")
-    _nn_valid_color "${NN_TYPE_COLORS[$_v]}" || { echo "notenav: type.$_v.color '${NN_TYPE_COLORS[$_v]}' invalid (must be a color name or ANSI code)" >&2; return 1; }
+    _nn_valid_color "${NN_TYPE_COLORS[$_v]}" || { echo "notenav: type.$_v.color '${NN_TYPE_COLORS[$_v]}' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
     NN_TYPE_DESCS[$_v]=$(nn_cfg ".type.\"$_jv\".description // \"\"")
   done
 
@@ -760,12 +760,12 @@ nn_precompute_workflow() {
   mapfile -t NN_STATUS_ARCHIVE < <(nn_cfg '.status.archive // [] | .[]')
   mapfile -t NN_STATUS_FILTER_CYCLE < <(nn_cfg '.status.filter_cycle // [] | .[]')
   NN_STATUS_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.status.default_color // "90"')")
-  _nn_valid_color "$NN_STATUS_DEFAULT_COLOR" || { echo "notenav: status.default_color '$NN_STATUS_DEFAULT_COLOR' invalid (must be a color name or ANSI code)" >&2; return 1; }
+  _nn_valid_color "$NN_STATUS_DEFAULT_COLOR" || { echo "notenav: status.default_color '$NN_STATUS_DEFAULT_COLOR' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
   declare -gA NN_STATUS_COLORS NN_STATUS_DESCS
   for _v in "${NN_STATUS_VALUES[@]}"; do
     _jv=$(_nn_jq_esc "$_v")
     NN_STATUS_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".status.colors.\"$_jv\" // \"$NN_STATUS_DEFAULT_COLOR\"")")
-    _nn_valid_color "${NN_STATUS_COLORS[$_v]}" || { echo "notenav: status.colors.$_v '${NN_STATUS_COLORS[$_v]}' invalid (must be a color name or ANSI code)" >&2; return 1; }
+    _nn_valid_color "${NN_STATUS_COLORS[$_v]}" || { echo "notenav: status.colors.$_v '${NN_STATUS_COLORS[$_v]}' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
     NN_STATUS_DESCS[$_v]=$(nn_cfg ".status.descriptions.\"$_jv\" // \"\"")
   done
 
@@ -807,7 +807,7 @@ nn_precompute_workflow() {
     mapfile -t NN_PRIORITY_VALUES < <(nn_cfg '.priority.values[]')
     mapfile -t NN_PRIORITY_FILTER_CYCLE < <(nn_cfg '.priority.filter_cycle // [] | .[]')
     NN_PRIORITY_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.priority.default_color // "33"')")
-    _nn_valid_color "$NN_PRIORITY_DEFAULT_COLOR" || { echo "notenav: priority.default_color '$NN_PRIORITY_DEFAULT_COLOR' invalid (must be a color name or ANSI code)" >&2; return 1; }
+    _nn_valid_color "$NN_PRIORITY_DEFAULT_COLOR" || { echo "notenav: priority.default_color '$NN_PRIORITY_DEFAULT_COLOR' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
     NN_PRIORITY_UNSET_POS=$(nn_cfg '.priority.unset_position // "last"')
 
     # -- Priority invariants --
@@ -827,7 +827,7 @@ nn_precompute_workflow() {
     for _v in "${NN_PRIORITY_VALUES[@]}"; do
       _jv=$(_nn_jq_esc "$_v")
       NN_PRIORITY_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".priority.colors.\"$_jv\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")")
-      _nn_valid_color "${NN_PRIORITY_COLORS[$_v]}" || { echo "notenav: priority.colors.$_v '${NN_PRIORITY_COLORS[$_v]}' invalid (must be a color name or ANSI code)" >&2; return 1; }
+      _nn_valid_color "${NN_PRIORITY_COLORS[$_v]}" || { echo "notenav: priority.colors.$_v '${NN_PRIORITY_COLORS[$_v]}' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
       _label=$(nn_cfg ".priority.labels.\"$_jv\" // empty")
       NN_PRIORITY_LABELS[$_v]="${_label:-P$_v}"
     done
@@ -1741,13 +1741,13 @@ nn_doctor() {
     fi
     # Warn on invalid color formats
     if [[ -n "$_typ_default_color" ]] && ! _valid_color "$_typ_default_color"; then
-      _warn "type.default_color '$_typ_default_color' is not a valid color name or ANSI code"
+      _warn "type.default_color '$_typ_default_color' is not a valid color name or ANSI code (e.g. 'cyan', 'bold-red', '31;1')"
     fi
     for _ev in "${_typ_values[@]}"; do
       local _color _jev; _jev=$(_nn_jq_esc "$_ev")
       _color=$(nn_cfg ".type.\"$_jev\".color // empty")
       if [[ -n "$_color" ]] && ! _valid_color "$_color"; then
-        _warn "type.$_ev.color '$_color' is not a valid color name or ANSI code"
+        _warn "type.$_ev.color '$_color' is not a valid color name or ANSI code (e.g. 'cyan', 'bold-red', '31;1')"
       fi
     done
     # Validate type display_order
@@ -1953,13 +1953,13 @@ nn_doctor() {
     fi
     # Warn on invalid color formats
     if [[ -n "$_sta_default_color" ]] && ! _valid_color "$_sta_default_color"; then
-      _warn "status.default_color '$_sta_default_color' is not a valid color name or ANSI code"
+      _warn "status.default_color '$_sta_default_color' is not a valid color name or ANSI code (e.g. 'cyan', 'bold-red', '31;1')"
     fi
     for _stv in "${_sta_values[@]}"; do
       local _scolor _jstv; _jstv=$(_nn_jq_esc "$_stv")
       _scolor=$(nn_cfg ".status.colors.\"$_jstv\" // empty")
       if [[ -n "$_scolor" ]] && ! _valid_color "$_scolor"; then
-        _warn "status.colors.$_stv '$_scolor' is not a valid color name or ANSI code"
+        _warn "status.colors.$_stv '$_scolor' is not a valid color name or ANSI code (e.g. 'cyan', 'bold-red', '31;1')"
       fi
     done
     # Validate status.colors keys reference valid values
@@ -2117,13 +2117,13 @@ nn_doctor() {
       fi
       # Warn on invalid color formats
       if [[ -n "$_pri_default_color" ]] && ! _valid_color "$_pri_default_color"; then
-        _warn "priority.default_color '$_pri_default_color' is not a valid color name or ANSI code"
+        _warn "priority.default_color '$_pri_default_color' is not a valid color name or ANSI code (e.g. 'cyan', 'bold-red', '31;1')"
       fi
       for _pcv in "${_pri_values[@]}"; do
         local _pcolor _jpcv; _jpcv=$(_nn_jq_esc "$_pcv")
         _pcolor=$(nn_cfg ".priority.colors.\"$_jpcv\" // empty")
         if [[ -n "$_pcolor" ]] && ! _valid_color "$_pcolor"; then
-          _warn "priority.colors.$_pcv '$_pcolor' is not a valid color name or ANSI code"
+          _warn "priority.colors.$_pcv '$_pcolor' is not a valid color name or ANSI code (e.g. 'cyan', 'bold-red', '31;1')"
         fi
       done
       # Validate priority.colors keys reference valid values
@@ -2556,13 +2556,39 @@ nn_doctor() {
     _warn "No markdown files found"
   fi
 
+  # Load .nnignore so we can both report patterns and compute the actual
+  # exclusion count (default exclusions like CLAUDE.md/LICENSE.md are
+  # always applied, even without a .nnignore file).
+  _nn_load_nnignore "$_nn_root"
+
+  # Count how many of the markdown files would be excluded by .nnignore +
+  # default exclusions. Build the same prune list as _nn_find_md_with_mtime
+  # so dir-style ignore patterns are honored.
+  local _ign_excluded=0
+  if [[ "$_note_count" -gt 0 ]] 2>/dev/null; then
+    local -a _ign_prune=(-name .git -o -name .zk -o -name .obsidian -o -name node_modules -o -name .nn)
+    local _ign_dir
+    for _ign_dir in "${_NN_IGNORE_DIRS[@]}"; do
+      _ign_prune+=(-o -name "$_ign_dir")
+    done
+    local _ign_after
+    _ign_after=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune -o -name '*.md' -type f -print 2>/dev/null \
+      | awk '{printf "\t\t\t\t\t%s\n", $0}' \
+      | _nn_ignore_pipe \
+      | wc -l | tr -d ' ')
+    _ign_excluded=$(( _note_count - _ign_after ))
+    [[ $_ign_excluded -lt 0 ]] && _ign_excluded=0
+  fi
+
   # .nnignore status
+  local _ign_excluded_suffix=""
+  [[ $_ign_excluded -gt 0 ]] && _ign_excluded_suffix=", excluded $_ign_excluded file(s)"
   if [[ -f "$_nn_root/.nnignore" ]]; then
     local _ign_count
     _ign_count=$(grep -cvE '^[[:space:]]*(#|$)' "$_nn_root/.nnignore" 2>/dev/null) || _ign_count=0
-    _pass ".nnignore: $_ign_count pattern(s) ${_dim}(+ default exclusions)${_reset}"
+    _pass ".nnignore: $_ign_count pattern(s)${_ign_excluded_suffix} ${_dim}(+ default exclusions)${_reset}"
   else
-    _info "No .nnignore ${_dim}(default exclusions active)${_reset}"
+    _info "No .nnignore${_ign_excluded_suffix} ${_dim}(default exclusions active)${_reset}"
   fi
 
   # Backend status
@@ -2625,9 +2651,9 @@ nn_doctor() {
       | head -2000 \
       | "$_fm_gawk" '
       {
-        file = $0; type = ""; status = ""; priority = ""; in_fm = 0; fm_lines = 0
+        file = $0; type = ""; status = ""; priority = ""; in_fm = 0; had_fm = 0; fm_lines = 0
         while ((getline line < file) > 0) {
-          if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; NR_FILE++; continue }
+          if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; had_fm = 1; NR_FILE++; continue }
           NR_FILE++
           if (in_fm) {
             if (line ~ /^---[[:space:]]*$/) break
@@ -2647,18 +2673,25 @@ nn_doctor() {
           } else break
         }
         close(file); NR_FILE = 0
-        printf "%s\t%s\t%s\t%s\n", type, status, priority, file
+        printf "%s\t%s\t%s\t%s\t%s\n", type, status, priority, had_fm, file
       }
       BEGIN { NR_FILE = 0 }')
 
     local _fm_unknown_types=0 _fm_unknown_statuses=0 _fm_unknown_priorities=0
-    local _fm_no_type=0 _fm_no_status=0
+    local _fm_no_type=0 _fm_no_status=0 _fm_no_frontmatter=0
     local -A _fm_seen_bad_types _fm_seen_bad_statuses _fm_seen_bad_priorities
     local _fm_bad_types="" _fm_bad_statuses="" _fm_bad_priorities=""
     local -a _fm_example_type_files=() _fm_example_status_files=() _fm_example_priority_files=()
     local _fm_max_examples=5
-    while IFS=$'\t' read -r _fm_type _fm_status _fm_priority _fm_file; do
+    while IFS=$'\t' read -r _fm_type _fm_status _fm_priority _fm_had_fm _fm_file; do
       [[ -z "$_fm_file" ]] && continue
+      # Files without any frontmatter block are reported separately and
+      # excluded from the per-field empty checks below (they would otherwise
+      # double-count as both "no type" and "no status").
+      if [[ "$_fm_had_fm" != "1" ]]; then
+        (( _fm_no_frontmatter++ )) || true
+        continue
+      fi
       # Check type
       if [[ -z "$_fm_type" ]]; then
         (( _fm_no_type++ )) || true
@@ -2735,6 +2768,9 @@ nn_doctor() {
     if [[ "$_fm_issues" == "false" ]]; then
       _pass "All notes have valid frontmatter values"
     fi
+    if [[ $_fm_no_frontmatter -gt 0 ]]; then
+      _info "$_fm_no_frontmatter note(s) have no frontmatter ${_dim}(visible but not editable via inline actions)${_reset}"
+    fi
     if [[ $_fm_no_type -gt 0 || $_fm_no_status -gt 0 ]]; then
       local _fm_info_parts=""
       [[ $_fm_no_type -gt 0 ]] && _fm_info_parts+="$_fm_no_type without type"
@@ -2743,10 +2779,13 @@ nn_doctor() {
         _fm_info_parts+="$_fm_no_status without status"
       }
       _info "$_fm_info_parts ${_dim}(may be intentional)${_reset}"
-      # Warn if show_defined would hide every note (all have empty type)
+    fi
+    # Warn if show_defined would hide every note (notes with no type AND
+    # notes with no frontmatter are both effectively untyped).
+    if [[ "$NN_TYPE_VISIBILITY" == "show_defined" && $(( _fm_no_type + _fm_no_frontmatter )) -gt 0 ]]; then
       local _fm_total_scanned
       _fm_total_scanned=$(printf '%s\n' "$_fm_scan" | grep -c '[^[:space:]]' 2>/dev/null || echo 0)
-      if [[ "$NN_TYPE_VISIBILITY" == "show_defined" && $_fm_no_type -gt 0 && $_fm_no_type -ge $_fm_total_scanned ]]; then
+      if [[ $(( _fm_no_type + _fm_no_frontmatter )) -ge $_fm_total_scanned ]]; then
         _warn "All notes have empty type – they will be hidden (type.visibility = \"show_defined\")"
         echo "          Set type.visibility = \"show_untyped\" or add type: to note frontmatter"
       fi
@@ -3085,11 +3124,15 @@ _nn_fetch_remote() {
   fi
 
   # Download to temp file
-  local tmpfile
+  local tmpfile errfile
   tmpfile=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
-  trap 'rm -f "$tmpfile" "${_cache_tmp:-}"' RETURN
-  if ! curl -fsSL --connect-timeout 10 --max-time 30 --max-filesize 1048576 "$url" -o "$tmpfile"; then
+  errfile=$(mktemp) || { rm -f "$tmpfile"; echo "notenav: mktemp failed" >&2; return 1; }
+  trap 'rm -f "$tmpfile" "$errfile" "${_cache_tmp:-}"' RETURN
+  if ! curl -fsSL --connect-timeout 10 --max-time 30 --max-filesize 1048576 "$url" -o "$tmpfile" 2>"$errfile"; then
     echo "notenav: failed to download $url" >&2
+    if [[ -s "$errfile" ]]; then
+      sed 's/^/  /' "$errfile" >&2
+    fi
     return 1
   fi
 
@@ -3309,6 +3352,8 @@ Options:
   -h, --help           Show this help
   -V, --version        Show version
   -i, --interactive    Open results in an fzf picker instead of plain output
+  -l, --long           Plain output: TSV (type, status, priority, title, path)
+  -0, --print0         Plain output: NUL-separated absolute paths (for xargs -0)
   --                   Stop filter parsing; remaining args passed to zk list
 
 Filter keys: type, status, priority, tag
@@ -3318,6 +3363,8 @@ Examples:
   nn inbox                       run the "inbox" query preset
   nn type=task status=active     ad-hoc query (plain output)
   nn type=task priority=1 -i     ad-hoc query (interactive)
+  nn type=task -l                ad-hoc query (TSV with paths)
+  nn type=task -0 | xargs -0 wc -l   pipe paths into other tools
 
 Config:
   Project:  .nn/workflow.toml
@@ -3563,6 +3610,32 @@ ENDFNFIND
 
     # Get all notes
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "$_scope_path" > "$_nn_dir/.raw"
+
+    # Pre-flight: warn if any indexed notes have unrecognized type/status/
+    # priority values. Cheap awk pass over data we just indexed; doctor has
+    # the full report (per-field counts and example file paths).
+    if [[ -s "$_nn_dir/.raw" ]]; then
+      local _pf_pe=1
+      [[ "$NN_PRIORITY_ENABLED" == "false" ]] && _pf_pe=0
+      local _pf_bad
+      _pf_bad=$("${_NN_GAWK:-awk}" -F'\t' \
+        -v ts="${NN_TYPE_VALUES[*]}" -v ss="${NN_STATUS_VALUES[*]}" -v ps="${NN_PRIORITY_VALUES[*]}" -v pe="$_pf_pe" '
+        BEGIN {
+          n = split(ts, a, " "); for (i=1;i<=n;i++) tk[a[i]]=1
+          n = split(ss, b, " "); for (i=1;i<=n;i++) sk[b[i]]=1
+          n = split(ps, c, " "); for (i=1;i<=n;i++) pk[c[i]]=1
+        }
+        {
+          if (($1 != "" && !($1 in tk)) \
+           || ($2 != "" && !($2 in sk)) \
+           || (pe && $3 != "" && !($3 in pk))) bad++
+        }
+        END { print bad+0 }
+      ' "$_nn_dir/.raw" 2>/dev/null)
+      if [[ "$_pf_bad" =~ ^[0-9]+$ ]] && (( _pf_bad > 0 )); then
+        echo "notenav: $_pf_bad note(s) have unrecognized frontmatter values – run 'nn doctor' for details" >&2
+      fi
+    fi
 
     # Initialize filter state (empty = all)
     : > "$_nn_dir/.f_type"
@@ -4447,7 +4520,12 @@ fi
 
 # No valid changes?
 if [ ! -s "$changes" ]; then
-  [ -z "$errors" ] && printf "${_c_dim}No changes${_c_reset}\n" > /dev/tty
+  if [ -n "$errors" ]; then
+    printf 'bulk edit → all rejected' > "$dir/.last_action"
+  else
+    printf "${_c_dim}No changes${_c_reset}\n" > /dev/tty
+    printf 'bulk edit → no changes' > "$dir/.last_action"
+  fi
   exit 0
 fi
 
@@ -4471,12 +4549,14 @@ printf "\nApply to %d %s? [y/N] " "$note_count" "$label" > /dev/tty
 read -r answer < /dev/tty
 case "$answer" in [yY]*) ;; *)
   printf "${_c_dim}Cancelled${_c_reset}\n" > /dev/tty
+  printf 'bulk edit → cancelled' > "$dir/.last_action"
   exit 0
   ;;
 esac
 
 # Pass 2: apply confirmed changes
 count=0
+fail_count=0
 apply_errors=""
 prev_path=""
 update_args=()
@@ -4524,6 +4604,7 @@ _apply_note() {
     done
   else
     apply_errors="${apply_errors}Failed to update $(basename "$prev_path")\n"
+    fail_count=$((fail_count + 1))
   fi
 }
 while IFS=$'\t' read -r path _ field _ new_val; do
@@ -4542,13 +4623,23 @@ if [ -n "$apply_errors" ]; then
 fi
 if [ "$count" -gt 0 ]; then
   printf "${_c_green}Updated %d note(s)${_c_reset}\n" "$count" > /dev/tty
-  printf 'bulk edit → %d notes' "$count" > "$dir/.last_action"
   # Pin files whose changes would cause them to leave the current view
   if [ ${#pin_files[@]} -gt 0 ]; then
     { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${pin_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
     mv "$dir/.pinned.tmp" "$dir/.pinned"
     rm -f "$dir/.pinned.bak"
   fi
+fi
+# Action label summary: cover all combinations so the user sees feedback
+# even when nothing applied or some notes failed.
+if [ "$count" -gt 0 ] && [ "$fail_count" -gt 0 ]; then
+  printf 'bulk edit → %d updated, %d failed' "$count" "$fail_count" > "$dir/.last_action"
+elif [ "$count" -gt 0 ]; then
+  printf 'bulk edit → %d updated' "$count" > "$dir/.last_action"
+elif [ "$fail_count" -gt 0 ]; then
+  printf 'bulk edit → %d failed' "$fail_count" > "$dir/.last_action"
+else
+  printf 'bulk edit → no changes' > "$dir/.last_action"
 fi
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
@@ -5810,11 +5901,12 @@ _pri_help_hint=""
 if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
   _pri_help_hint=' \033[36m[+]\033[0m/\033[36m[-]\033[0m priority'
 fi
-help_filters_lbl=$(printf '\033[1;90m Filters:\033[0m \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[t]\033[0mype \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[s]\033[0mtatus \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[p]\033[0mriority \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[#]\033[0mtags  \033[36m[R]\033[0meset filters  \033[90mtab/1-9/g presets\033[0m')
+help_filters_lbl=$(printf '\033[1;90m Filters:\033[0m \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[t]\033[0mype \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[s]\033[0mtatus \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[p]\033[0mriority \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[#]\033[0mtags  \033[36m[0]\033[0mclear preset  \033[36m[R]\033[0meset all  \033[90mtab/shift-tab/1-9/g presets\033[0m')
 help_display_lbl=$(printf '\033[1;90m Display:\033[0m \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[o]\033[0mrder \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[r]\033[0meverse \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[g]\033[0mroup \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[h]\033[0midden \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[w]\033[0mrap')
-help_actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[36m[e]\033[0mdit \033[36m[n]\033[0mew \033[36m[r]\033[0mefresh \033[36m[c]\033[0mhange \033[36m[m]\033[0marks \033[36m[b]\033[0mulk \033[36m[d]\033[0mel%b' "$_pri_help_hint")
+help_actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance/\033[36m[A]\033[0mreverse status%b \033[36m[c]\033[0mhange \033[36m[e]\033[0mdit \033[36m[n]\033[0mew \033[36m[b]\033[0mulk \033[36m[d]\033[0mel \033[36m[r]\033[0mefresh' "$_pri_help_hint")
+help_marks_lbl=$(printf '\033[1;90m Marks/pins:\033[0m \033[36m[m]\033[0m\033[90m→\033[0m\033[36m[m]\033[0mark/\033[36m[a]\033[0mll/\033[36m[d]\033[0mel/\033[36m[D]\033[0mclear/\033[36m[f]\033[0milter  \033[36m[x]\033[0mclear pins/\033[36m[X]\033[0mrestore  \033[36m[space]\033[0m multi-select')
 help_keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search  \033[36m[/\033[0m then \033[36m?]\033[0m content search  \033[36m[h]\033[0m toggle header  \033[36m[enter]\033[0m open  \033[36m[?]\033[0m close help  \033[36m[q]\033[0muit')
-printf '%s\n%s\n%s\n%s' "$help_filters_lbl" "$help_display_lbl" "$help_actions_lbl" "$help_keys_lbl" > "$dir/.header-help"
+printf '%s\n%s\n%s\n%s\n%s' "$help_filters_lbl" "$help_display_lbl" "$help_actions_lbl" "$help_marks_lbl" "$help_keys_lbl" > "$dir/.header-help"
 # Always write Dylan placeholder for preview when no item is selected
 # Visible width is measured after final content is written to .empty_placeholder
     printf '\n  [34m╭─────────────────────────────────────────────────╮[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                [35m♩[0m [1;36m♪[0m [32m♫[0m [36m♩[0m [35m♪[0m [31m♫[0m [32m♩[0m [1;36m♪[0m [35m♩[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    ───────────────────────────────────────────  [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore vim comes to a crawl?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore they turn to a scrawl?[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, can save us all.[0m      [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore we call vim unprepared?[0m               [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore adrift he'\''s declared?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is simply [1;31mn²[0m[1;33m.[0m         [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore dear vim hits a wall?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is [1;31mnn[0m[1;33m, after all.[0m     [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m            [35m♩[0m                                    [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                      [36m♪[0m                          [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m         [35m♫[0m                                       [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                   [32m♩[0m                             [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
@@ -6361,12 +6453,14 @@ ENDDELETE
   # ---- AD-HOC QUERY ----
   declare -A filters
   local -a filter_tags=()
-  local interactive=false zk_args=() parsing_filters=true
+  local interactive=false long_output=false null_output=false zk_args=() parsing_filters=true
 
   while [[ $# -gt 0 ]]; do
     if $parsing_filters; then
       case "$1" in
         -i|--interactive) interactive=true; shift ;;
+        -l|--long) long_output=true; shift ;;
+        -0|--print0) null_output=true; shift ;;
         --) parsing_filters=false; shift ;;
         --*) echo "notenav: unknown flag: $1" >&2; echo "notenav: run 'nn --help' for usage" >&2; shopt -u nullglob; return 1 ;;
         -?*) echo "notenav: unknown flag: $1" >&2; echo "notenav: run 'nn --help' for usage" >&2; shopt -u nullglob; return 1 ;;
@@ -6390,6 +6484,16 @@ ENDDELETE
 
   if [[ ${#zk_args[@]} -eq 0 ]]; then
     zk_args=("$_scope_path")
+  fi
+
+  # Reject incompatible output-mode combinations
+  if $long_output && $null_output; then
+    echo "notenav: -l and -0 cannot be combined" >&2
+    shopt -u nullglob; return 1
+  fi
+  if $interactive && ($long_output || $null_output); then
+    echo "notenav: -l and -0 are plain-output flags and cannot be combined with -i" >&2
+    shopt -u nullglob; return 1
   fi
 
   # Validate ad-hoc filter values against known workflow values
@@ -6482,8 +6586,15 @@ ENDDELETE
     rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"
     trap - EXIT
   else
+    # Build the awk format string for the chosen output mode.
     local _adhoc_fmt
-    if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
+    if $null_output; then
+      # NUL-separated absolute paths (column 6)
+      _adhoc_fmt='{printf "%s%c", $6, 0}'
+    elif $long_output; then
+      # TSV: type, status, priority, title, path
+      _adhoc_fmt='{printf "%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $5, $6}'
+    elif [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
       local _adhoc_pl='pl = "P" $3'
       local _v _esc_label _esc_v
       for _v in "${NN_PRIORITY_VALUES[@]}"; do
@@ -6500,14 +6611,21 @@ ENDDELETE
     else
       _adhoc_fmt='{printf "[%s] [%s] %s\n", $1, $2, $5}'
     fi
-    local _adhoc_out
-    _adhoc_out=$(_nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
+
+    # Write through a tempfile so NULs (in -0 mode) survive — bash command
+    # substitution strips them. Tempfile also avoids loading the whole list
+    # into memory for very large notebooks.
+    local _adhoc_tmp
+    _adhoc_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
+    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
       | _nn_adhoc_sort \
-      | awk -F'\t' "$_adhoc_fmt")
-    if [ -n "$_adhoc_out" ]; then
-      printf '%s\n' "$_adhoc_out"
+      | awk -F'\t' "$_adhoc_fmt" > "$_adhoc_tmp"
+    if [ -s "$_adhoc_tmp" ]; then
+      cat "$_adhoc_tmp"
+      rm -f "$_adhoc_tmp"
     else
+      rm -f "$_adhoc_tmp"
       local _filt_desc=""
       [[ -n "${filters[type]}" ]] && _filt_desc+=" type=${filters[type]}"
       [[ -n "${filters[status]}" ]] && _filt_desc+=" status=${filters[status]}"
@@ -6517,6 +6635,11 @@ ENDDELETE
         echo "notenav: no matching notes for${_filt_desc}" >&2
       else
         echo "notenav: no matching notes" >&2
+      fi
+      # Only suggest -i in default human-readable mode; -l and -0 users
+      # have already opted into pipe output.
+      if [[ -t 2 ]] && ! $long_output && ! $null_output; then
+        echo "notenav: (try -i for an interactive picker)" >&2
       fi
     fi
   fi

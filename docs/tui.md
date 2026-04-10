@@ -178,7 +178,7 @@ The persisted title filter is a literal substring match by default. To opt in to
 
 ### Help overlay (`?`)
 
-Press `?` to toggle the help overlay – a keybinding reference showing all available keys grouped by section (filters, display, actions, keys). Press `?` again or `esc` to dismiss.
+Press `?` to toggle the help overlay – a keybinding reference showing all available keys grouped by section (filters, display, actions, marks/pins, keys). Press `?` again or `esc` to dismiss.
 
 The help overlay is non-blocking: all keys work while help is showing. Navigation keys (`j`/`k`) scroll the list while the reference stays visible. Mode entries (`f`, `z`, `c`) dismiss help naturally via their header swap.
 
