@@ -14,6 +14,7 @@ sort_reverse = false       # true to reverse the default sort direction
 group_by = ""              # "" (none) | "type" | "status"
 show_archive = false       # true to show done/removed by default
 wrap_preview = false       # true to wrap the preview pane by default
+pin_mode = "auto"          # "auto" (only when item would leave view) | "always"
 
 [ui]
 initial_header_mode = "guided"  # "clean" | "guided" – toggle at runtime with h

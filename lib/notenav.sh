@@ -857,6 +857,7 @@ nn_precompute_workflow() {
   NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // ""')
   NN_DEFAULT_ARCHIVE=$(nn_cfg '.defaults.show_archive // false')
   NN_DEFAULT_WRAP=$(nn_cfg '.defaults.wrap_preview // false')
+  NN_DEFAULT_PIN_MODE=$(nn_cfg '.defaults.pin_mode // "auto"')
 
   # UI preferences
   NN_UI_HEADER=$(nn_cfg '.ui.initial_header_mode // "guided"')
@@ -910,6 +911,8 @@ nn_precompute_workflow() {
     echo "notenav: defaults.sort_by is 'priority' but priority is disabled" >&2; return 1; fi
   case "$NN_DEFAULT_GROUP" in type|status|"") ;;
     *) echo "notenav: defaults.group_by '$NN_DEFAULT_GROUP' invalid (must be 'type', 'status', or empty)" >&2; return 1 ;; esac
+  case "$NN_DEFAULT_PIN_MODE" in auto|always) ;;
+    *) echo "notenav: defaults.pin_mode '$NN_DEFAULT_PIN_MODE' invalid (must be 'auto' or 'always')" >&2; return 1 ;; esac
 
   # ZK format (hardcoded – the entire pipeline assumes this exact column layout)
   NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{join tags " "}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
@@ -996,6 +999,7 @@ nn_write_workflow_files() {
     : > "$dir/.schema_archive"
   fi
   printf '%s' "$NN_PRIORITY_ENABLED" > "$dir/.schema_priority_enabled"
+  printf '%s' "$NN_DEFAULT_PIN_MODE" > "$dir/.schema_pin_mode"
 
   # Type details (TSV: value\ticon\tcolor\tdescription)
   local _v
@@ -2190,6 +2194,14 @@ nn_doctor() {
     _def_wrap=$(nn_cfg '.defaults.wrap_preview // empty')
     if [[ -n "$_def_wrap" && "$_def_wrap" != "true" && "$_def_wrap" != "false" ]]; then
       _warn "defaults.wrap_preview '$_def_wrap' invalid (must be true or false)"
+    fi
+    local _def_pin
+    _def_pin=$(nn_cfg '.defaults.pin_mode // empty')
+    if [[ -n "$_def_pin" ]]; then
+      case "$_def_pin" in
+        auto|always) ;;
+        *) _warn "defaults.pin_mode '$_def_pin' invalid (must be 'auto' or 'always')" ;;
+      esac
     fi
     # Check for unrecognized keys in [defaults]
     if [[ -n "$_known_defaults" ]]; then
@@ -3391,7 +3403,7 @@ EOF
       NN_PRIORITY_DEFAULT_COLOR NN_PRIORITY_UNSET_POS \
       NN_PRIORITY_COLORS NN_PRIORITY_LABELS NN_PRIORITY_UP NN_PRIORITY_DOWN \
       NN_TYPE_DISPLAY_ORDER NN_STATUS_DISPLAY_ORDER \
-      NN_DEFAULT_SORT NN_DEFAULT_SORT_REV NN_DEFAULT_GROUP NN_DEFAULT_ARCHIVE NN_DEFAULT_WRAP \
+      NN_DEFAULT_SORT NN_DEFAULT_SORT_REV NN_DEFAULT_GROUP NN_DEFAULT_ARCHIVE NN_DEFAULT_WRAP NN_DEFAULT_PIN_MODE \
       NN_UI_HEADER NN_UI_EDITOR NN_UI_COMMAND_PROMPT NN_UI_SEARCH_PROMPT \
       NN_UI_EXIT_MESSAGE NN_UI_PRIORITY_PLUS NN_UI_AFTER_CREATE \
       NN_UI_PREVIEWER NN_UI_PREVIEWER_CUSTOM \
@@ -4070,8 +4082,35 @@ for file in "$@"; do
     { print }
   ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
 done
-# Pin only successfully modified files so they stay visible after filter (accumulative + dedup)
-if [ ${#ok_files[@]} -gt 0 ]; then
+# Pin check: "always" pins every modified file; "auto" only pins when the
+# new value would cause the item to leave the current view
+_pin_mode=$(cat "$dir/.schema_pin_mode" 2>/dev/null || echo auto)
+_need_pin=false
+if [ "$_pin_mode" = "always" ]; then
+  _need_pin=true
+else
+  case "$field" in
+    type)
+      _ff=$(cat "$dir/.f_type" 2>/dev/null)
+      [ -n "$_ff" ] && [ "$_ff" != "$value" ] && _need_pin=true ;;
+    status)
+      _ff=$(cat "$dir/.f_status" 2>/dev/null)
+      if [ -n "$_ff" ]; then
+        [ "$_ff" != "$value" ] && _need_pin=true
+      elif [ -z "$(cat "$dir/.f_archive" 2>/dev/null)" ] && [ -s "$dir/.schema_archive" ]; then
+        # No explicit status filter – check if archive would hide this status
+        grep -qxF "$value" "$dir/.schema_archive" && _need_pin=true
+      fi ;;
+    priority)
+      _ff=$(cat "$dir/.f_priority" 2>/dev/null)
+      if [ "$_ff" = "none" ]; then
+        [ -n "$value" ] && _need_pin=true
+      elif [ -n "$_ff" ]; then
+        [ "$_ff" != "$value" ] && _need_pin=true
+      fi ;;
+  esac
+fi
+if $_need_pin && [ ${#ok_files[@]} -gt 0 ]; then
   { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${ok_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
   mv "$dir/.pinned.tmp" "$dir/.pinned"
   rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
@@ -4409,11 +4448,38 @@ skipped_nofm=0
 apply_errors=""
 prev_path=""
 update_args=()
-ok_files=()
+pin_files=()
+# Pin mode: "always" pins every modified file; "auto" only when item would leave view
+_pin_mode=$(cat "$dir/.schema_pin_mode" 2>/dev/null || echo auto)
+_pin_ft=$(cat "$dir/.f_type" 2>/dev/null)
+_pin_fs=$(cat "$dir/.f_status" 2>/dev/null)
+_pin_fp=$(cat "$dir/.f_priority" 2>/dev/null)
+_pin_fa=$(cat "$dir/.f_archive" 2>/dev/null)
+_would_drop() {
+  [ "$_pin_mode" = "always" ] && return 0
+  local f="${1%%=*}" v="${1#*=}"
+  case "$f" in
+    type) [ -n "$_pin_ft" ] && [ "$_pin_ft" != "$v" ] ;;
+    status)
+      if [ -n "$_pin_fs" ]; then [ "$_pin_fs" != "$v" ]
+      elif [ -z "$_pin_fa" ] && [ -s "$dir/.schema_archive" ]; then grep -qxF "$v" "$dir/.schema_archive"
+      else return 1; fi ;;
+    priority)
+      if [ "$_pin_fp" = "none" ]; then [ -n "$v" ]
+      elif [ -n "$_pin_fp" ]; then [ "$_pin_fp" != "$v" ]
+      else return 1; fi ;;
+    tags) [ -s "$dir/.f_tags" ] ;;
+    *) return 1 ;;
+  esac
+}
 _apply_note() {
   [ -z "$prev_path" ] && return
   if "$dir/bulkedit_update.sh" "$prev_path" "${update_args[@]}" 2>/dev/null; then
-    count=$((count + 1)); ok_files+=("$prev_path")
+    count=$((count + 1))
+    # Check if any changed field would cause the item to leave the current view
+    for _pa in "${update_args[@]}"; do
+      if _would_drop "$_pa"; then pin_files+=("$prev_path"); break; fi
+    done
   else
     first_line=$(head -n 1 "$prev_path" 2>/dev/null)
     if [ "$first_line" != "---" ]; then
@@ -4443,10 +4509,12 @@ fi
 if [ "$count" -gt 0 ]; then
   printf "${_c_green}Updated %d note(s)${_c_reset}\n" "$count" > /dev/tty
   printf 'bulk edit → %d notes' "$count" > "$dir/.last_action"
-  # Pin modified files so they stay visible after filter (accumulative + dedup)
-  { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${ok_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
-  mv "$dir/.pinned.tmp" "$dir/.pinned"
-  rm -f "$dir/.pinned.bak"
+  # Pin files whose changes would cause them to leave the current view
+  if [ ${#pin_files[@]} -gt 0 ]; then
+    { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${pin_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
+    mv "$dir/.pinned.tmp" "$dir/.pinned"
+    rm -f "$dir/.pinned.bak"
+  fi
 fi
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
