@@ -2743,6 +2743,13 @@ nn_doctor() {
         _fm_info_parts+="$_fm_no_status without status"
       }
       _info "$_fm_info_parts ${_dim}(may be intentional)${_reset}"
+      # Warn if show_defined would hide every note (all have empty type)
+      local _fm_total_scanned
+      _fm_total_scanned=$(printf '%s\n' "$_fm_scan" | grep -c '[^[:space:]]' 2>/dev/null || echo 0)
+      if [[ "$NN_TYPE_VISIBILITY" == "show_defined" && $_fm_no_type -gt 0 && $_fm_no_type -ge $_fm_total_scanned ]]; then
+        _warn "All notes have empty type – they will be hidden (type.visibility = \"show_defined\")"
+        echo "          Set type.visibility = \"show_untyped\" or add type: to note frontmatter"
+      fi
     fi
     if [[ "$_note_count" -gt 2000 ]]; then
       _info "Scanned first 2000 of $_note_count files"
