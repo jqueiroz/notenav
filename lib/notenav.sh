@@ -5213,6 +5213,8 @@ ENDQP
 #!/usr/bin/env bash
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"; action="$2"
+# Clear placeholder-active flag; re-set later if the empty-narrowed branch fires
+rm -f "$dir/.empty_narrowed_active"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 apply_sq() {
   local num="$1" line name args
@@ -5828,18 +5830,73 @@ if [ "$count" -eq 0 ] && ! [ -s "$dir/.current" ]; then
     printf '\n  [90m╭─────────────────────────────────────────────────╮[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                   [1;33mDON'\''T PANIC[0m                   [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    ───────────────────────────────────────────  [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    No notes here – yet.                         [90m│[0m\n  [90m│[0m    Press [36mn[0m to create your first note.           [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m              [31m·[0m       [35m✦[0m                          [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m         [36m✦[0m                [32m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                  [1;37m·[0m                              [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m             [35m✦[0m            [34m·[0m                      [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: press [36m?[37m for keybinding[0m                  [90m│[0m\n  [90m│[0m    [37mhelp at any time.[0m                            [90m│[0m\n  [90m│[0m                                                 [90m│[0m\n  [90m│[0m    [37mTip: run [36mnn init[37m to customize[0m                [90m│[0m\n  [90m│[0m    [37mthis notebook.[0m                               [90m│[0m\n  [90m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
     fi
   else
-    # Filters narrowed to zero – prepend a hint above the poem
-    _hint='\033[90m(press \033[36mR\033[90m to reset filters)\033[0m'
+    # Filters narrowed to zero – the hint message is rendered into the list
+    # pane below; the placeholder (preview pane) keeps just the poem.
+    _empty_narrowed=1
+    _hint_plain='(press R to reset filters)'
+    _hint_color='\033[90m(press \033[36mR\033[90m to reset filters)\033[0m'
     # If no filters are active and archive is hidden, R won't help – suggest zh
     if [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && [ -z "$fmatch" ] && [ -z "$fmarked" ] && [ -z "$active_sq" ] && ! [ -s "$dir/.f_tags" ] && [ -z "$farchive" ] && [ -s "$dir/.schema_archive" ]; then
-      _hint='\033[90m(press \033[36mzh\033[90m to show archived notes)\033[0m'
+      _hint_plain='(press zh to show archived notes)'
+      _hint_color='\033[90m(press \033[36mzh\033[90m to show archived notes)\033[0m'
     fi
-    {
-      printf '\n\n  \033[33mNo matching notes\033[0m \033[90m– but here'\''s a poem for you:\033[0m\n  '"$_hint"'\n'
-      cat "$dir/.empty_placeholder"
-    } > "$dir/.empty_placeholder.tmp" && mv "$dir/.empty_placeholder.tmp" "$dir/.empty_placeholder"
   fi
-  if [ -n "${NO_COLOR+x}" ]; then
+  if [ -n "${_empty_narrowed:-}" ]; then
+    # Mark placeholder mode so the resize binding knows to refresh centering
+    : > "$dir/.empty_narrowed_active"
+    # Render the hint inside the list pane (left side) using a stack of dummy
+    # rows. All rows reference .empty_placeholder so existing handlers no-op.
+    _msg1_plain="No matching notes"
+    # Terminal dimensions are written to sidecar files by the parent shell at
+    # fzf launch (and refreshed on resize). Fall back to a sensible default if
+    # the files are missing for any reason.
+    _term_cols=$(cat "$dir/.term_cols" 2>/dev/null)
+    case "$_term_cols" in ''|*[!0-9]*) _term_cols=80 ;; esac
+    _term_rows=$(cat "$dir/.term_rows" 2>/dev/null)
+    case "$_term_rows" in ''|*[!0-9]*) _term_rows=24 ;; esac
+    # Preview takes ~50% of the width; list pane content area is the other half
+    _list_w=$(( _term_cols / 2 - 4 ))
+    [ "$_list_w" -lt 30 ] && _list_w=$(( _term_cols - 4 ))
+    _pad1=$(( (_list_w - ${#_msg1_plain}) / 2 ))
+    _pad2=$(( (_list_w - ${#_hint_plain}) / 2 ))
+    [ "$_pad1" -lt 1 ] && _pad1=1
+    [ "$_pad2" -lt 1 ] && _pad2=1
+    _sp1=$(printf '%*s' "$_pad1" '')
+    _sp2=$(printf '%*s' "$_pad2" '')
+    if [ -n "${NO_COLOR+x}" ]; then
+      _row1="${_sp1}${_msg1_plain}"
+      _row2="${_sp2}${_hint_plain}"
+    else
+      _row1=$(printf '%s\033[33m%s\033[0m' "$_sp1" "$_msg1_plain")
+      _row2=$(printf '%s%b' "$_sp2" "$_hint_color")
+    fi
+    # List pane height ≈ rows minus header (~6) and borders (~4). Empty rows
+    # only force visible spacing if the entire list area is filled, so we
+    # generate _list_h total rows and balance padding above and below the msg.
+    _list_h=$(( _term_rows - 10 ))
+    [ "$_list_h" -lt 6 ] && _list_h=6
+    _bot_pad=$(( (_list_h - 2) / 2 ))
+    _top_pad=$(( _list_h - 2 - _bot_pad ))
+    [ "$_bot_pad" -lt 0 ] && _bot_pad=0
+    [ "$_top_pad" -lt 0 ] && _top_pad=0
+    # Default fzf layout: input line 0 sits at the bottom of the list area
+    # (just above the prompt) and items extend upward. Write bottom padding
+    # first, then the hint, then the intro, then top padding.
+    {
+      _i=0
+      while [ "$_i" -lt "$_bot_pad" ]; do
+        printf '%s\t \n' "$dir/.empty_placeholder"
+        _i=$((_i + 1))
+      done
+      printf '%s\t%s\n' "$dir/.empty_placeholder" "$_row2"
+      printf '%s\t%s\n' "$dir/.empty_placeholder" "$_row1"
+      _i=0
+      while [ "$_i" -lt "$_top_pad" ]; do
+        printf '%s\t \n' "$dir/.empty_placeholder"
+        _i=$((_i + 1))
+      done
+    } > "$dir/.current"
+  elif [ -n "${NO_COLOR+x}" ]; then
     printf '%s\t  ~\n' "$dir/.empty_placeholder" > "$dir/.current"
   else
     printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
@@ -5908,6 +5965,12 @@ else
 fi
 ENDFILTER
     chmod +x "$_nn_dir/filter.sh"
+
+    # Snapshot terminal dimensions before the initial filter.sh refresh so the
+    # empty-state placeholder centers correctly even on the first render.
+    # Refreshed on resize via the resize binding below.
+    printf '%s' "${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}" > "$_nn_dir/.term_cols"
+    printf '%s' "${LINES:-$(tput lines 2>/dev/null || echo 24)}" > "$_nn_dir/.term_rows"
 
     # Generate initial results, stats, and header via filter.sh
     "$_nn_dir/filter.sh" "$_nn_dir" refresh > /dev/null
@@ -6224,6 +6287,7 @@ ENDDELETE
       --bind "d:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; printf '%s\n' {+1} > $_nn_dir/.m_sel; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-remove; elif test -z \"\$m\"; then printf '%s\n' {+1} > $_nn_dir/.delete_targets; echo 'execute($_nn_dir/delete.sh)+transform($_nn_dir/reload_at.sh $_nn_dir)+deselect-all'; fi]" \
       --bind "D:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-clear; fi]" \
       --bind "start:execute-silent(rm -f $_nn_dir/.nn-search $_nn_dir/.nn-csearch $_nn_dir/.nn-help)+transform-header(cat $_nn_dir/.header)${_nn_fzf_start_watcher}" \
+      --bind "resize:transform[printf %s \"\$FZF_COLUMNS\" > $_nn_dir/.term_cols; printf %s \"\$FZF_LINES\" > $_nn_dir/.term_rows; if test -f $_nn_dir/.empty_narrowed_active; then $_nn_dir/filter.sh $_nn_dir refresh; fi]" \
       --bind "/:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then rm -f $_nn_dir/.nn-help; cp $_nn_dir/.f_title $_nn_dir/.f_title.bak 2>/dev/null; cp $_nn_dir/.f_match $_nn_dir/.f_match.bak 2>/dev/null; cp $_nn_dir/.f_match_paths $_nn_dir/.f_match_paths.bak 2>/dev/null; _cq=\$(cat $_nn_dir/.f_match 2>/dev/null); _tq=\$(cat $_nn_dir/.f_title 2>/dev/null); if test -n \"\$_cq\"; then touch $_nn_dir/.nn-csearch; printf '%s' \"\$_cq\" > $_nn_dir/.csearch_q; echo 'unbind($_nn_search_unbind)+disable-search+change-prompt(/? )+transform-query(cat $_nn_dir/.csearch_q)+transform-header(cat $_nn_dir/.header-csearch)+reload($_nn_dir/csearch.sh $_nn_dir)'; elif test -n \"\$_tq\"; then touch $_nn_dir/.nn-search; printf '%s' \"\$_tq\" > $_nn_dir/.csearch_q; echo 'unbind($_nn_search_unbind)+change-prompt($NN_UI_SEARCH_PROMPT)+transform-query(cat $_nn_dir/.csearch_q)+transform-header(cat $_nn_dir/.header-search)'; else touch $_nn_dir/.nn-search; echo 'unbind($_nn_search_unbind)+change-prompt($NN_UI_SEARCH_PROMPT)+transform-header(cat $_nn_dir/.header-search)'; fi; fi]" \
       --bind "?:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; touch $_nn_dir/.nn-search; echo 'enable-search+change-prompt($NN_UI_SEARCH_PROMPT)+transform-header(cat $_nn_dir/.header-search)+reload(cat $_nn_dir/.current)'; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' {q} > $_nn_dir/.csearch_q; touch $_nn_dir/.nn-csearch; echo 'disable-search+change-prompt(/? )+transform-header(cat $_nn_dir/.header-csearch)+reload($_nn_dir/csearch.sh $_nn_dir)'; elif test -f $_nn_dir/.nn-help; then rm $_nn_dir/.nn-help; echo 'transform-header(cat $_nn_dir/.header)'; else m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; fi; touch $_nn_dir/.nn-help; echo 'transform-header(cat $_nn_dir/.header-help)'; fi]" \
       --bind "j:transform[m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)+down'; else echo down; fi]" \
