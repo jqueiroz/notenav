@@ -31,7 +31,7 @@ notenav has three primary modes of operation:
 
 Launches the faceted browser. Requires a terminal (`$TERM` must not be `dumb`).
 
-The TUI indexes all notes (via `zk list` when zk is installed, or via native frontmatter parsing otherwise), applies filters, and displays results in fzf with a preview pane showing note contents and – when zk is available – outgoing links and backlinks. All keybindings are displayed on-screen by default. See [TUI Reference](tui.md) for the full keybinding reference.
+The TUI indexes all notes (via `zk list` when zk is installed, or via native frontmatter parsing otherwise), applies filters, and displays results in fzf with a preview pane showing note contents and – when zk is available – outgoing links and backlinks. Keybindings are progressively discoverable on-screen – primary actions are shown in the header, mode-specific bindings appear when you enter each mode, and `?` opens a full reference. See [TUI Reference](tui.md) for the complete keybinding list.
 
 Notes are scoped by working directory: at the notebook root you see everything, from a subdirectory you see only that subtree.
 
