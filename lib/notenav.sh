@@ -1671,7 +1671,7 @@ nn_doctor() {
     local _ts_count=0 _ts_url
     while IFS= read -r _ts_url || [[ -n "$_ts_url" ]]; do
       [[ -z "$_ts_url" || "$_ts_url" == \#* ]] && continue
-      (( _ts_count++ ))
+      (( _ts_count++ )) || true
       local _cache_path
       _cache_path=$(_nn_url_cache_path "$_ts_url")
       if [[ -f "$_cache_path" ]]; then
@@ -2488,7 +2488,7 @@ nn_doctor() {
 
     while IFS=$'\t' read -r _qname _qargs; do
       [[ -z "$_qname" ]] && continue
-      (( _qp_count++ ))
+      (( _qp_count++ )) || true
       local -a _qp_arr
       read -ra _qp_arr <<< "$_qargs"
       local _arg
@@ -2994,7 +2994,7 @@ _nn_init_user() {
   if [[ -n "$workflow_arg" ]]; then
     local _tmp
     _tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
-    trap 'rm -f "$_tmp"' INT TERM
+    trap 'rm -f "$_tmp"' RETURN
     # shellcheck disable=SC2015  # intentional: || cleanup handles both awk and mv failure
     wf="$workflow_arg" awk \
       '/^# default_workflow = / { print "default_workflow = \"" ENVIRON["wf"] "\""; next } { print }' \
@@ -4224,7 +4224,7 @@ selected=$(printf '%b' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $
 [ -z "$selected" ] && exit 1
 # Strip description suffix (e.g. "active  – Currently being worked on" → "active")
 # then strip icon prefix (e.g. "◆ task" → "task"); use last word in case icon is empty
-selected=$(echo "$selected" | sed 's/  – .*//' | awk '{print $NF}')
+selected=$(echo "$selected" | sed "s/$(printf '\033')\[[0-9;]*m//g" | sed 's/  – .*//' | awk '{print $NF}')
 printf '%s\n' "$field" > "$dir/.fp_field"
 printf '%s\n' "$selected" > "$dir/.fp_value"
 ENDFP
