@@ -5070,16 +5070,49 @@ case "$after_create" in
   none) printf "\n  ${tc}%s %s · %s – Created!${_nn_reset}\n  ${_nn_dim}%s${_nn_reset}\n\n" "$icon" "$selected" "$title" "$rel_path" > /dev/tty ;;
   *) nn_assert "newnote: unknown after_create '$after_create'" ;;
 esac
+# Open in editor first so any frontmatter edits are picked up by the refresh below
+case "$after_create" in
+  edit) nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
+        ${nn_editor:-vi} "$new_path" < /dev/tty > /dev/tty ;;
+esac
+# Pin the new note when it would be hidden by active filters, so the cursor
+# can land on it after fzf resumes (mirrors auto-pin logic in action.sh).
+# Known initial state: type=$selected, status=$_nn_initial_status,
+# priority=(none), tags=(none), marked=no.
+_pin_mode=$(cat "$dir/.schema_pin_mode" 2>/dev/null || echo auto)
+_need_pin=false
+if [ "$_pin_mode" = "always" ]; then
+  _need_pin=true
+else
+  _ff=$(cat "$dir/.f_type" 2>/dev/null)
+  [ -n "$_ff" ] && [ "$_ff" != "$selected" ] && _need_pin=true
+  if ! $_need_pin; then
+    _ff=$(cat "$dir/.f_status" 2>/dev/null)
+    if [ -n "$_ff" ]; then
+      [ "$_ff" != "$_nn_initial_status" ] && _need_pin=true
+    elif [ -z "$(cat "$dir/.f_archive" 2>/dev/null)" ] && [ -n "$_nn_initial_status" ] && [ -s "$dir/.schema_archive" ]; then
+      grep -qxF "$_nn_initial_status" "$dir/.schema_archive" && _need_pin=true
+    fi
+  fi
+  if ! $_need_pin; then
+    _ff=$(cat "$dir/.f_priority" 2>/dev/null)
+    [ -n "$_ff" ] && [ "$_ff" != "none" ] && _need_pin=true
+  fi
+  if ! $_need_pin && [ -n "$(cat "$dir/.f_marked" 2>/dev/null)" ]; then _need_pin=true; fi
+  if ! $_need_pin && [ -s "$dir/.f_tags" ]; then _need_pin=true; fi
+fi
+if $_need_pin; then
+  { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$new_path"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
+  mv "$dir/.pinned.tmp" "$dir/.pinned"
+  rm -f "$dir/.pinned.bak"
+fi
 # Regenerate raw
 _la_title="${title//[()]/}"; [ ${#_la_title} -gt 40 ] && _la_title="${_la_title:0:37}..."
 printf 'new %s → %s' "$selected" "$_la_title" > "$dir/.last_action"
 "$dir/reload_raw.sh" "$dir"
 "$dir/filter.sh" "$dir" refresh > /dev/null
-# Open in editor
-case "$after_create" in
-  edit) nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
-        ${nn_editor:-vi} "$new_path" < /dev/tty > /dev/tty ;;
-esac
+# Tell reload_at.sh (called by the n-binding) where to position the cursor
+printf '%s\n' "$new_path" > "$dir/.reload_at_path"
 ENDNN
     chmod +x "$_nn_dir/newnote.sh"
 
@@ -5136,6 +5169,12 @@ ENDBP
     cat > "$_nn_dir/reload_at.sh" << 'ENDRA'
 #!/usr/bin/env bash
 dir="$1"; path="$2"
+# Fallback: scripts that don't know the target path (e.g. newnote.sh) can
+# write it to .reload_at_path before exiting; consume it here.
+if [ -z "$path" ] && [ -f "$dir/.reload_at_path" ]; then
+  path=$(cat "$dir/.reload_at_path")
+  rm -f "$dir/.reload_at_path"
+fi
 n=""
 [ -n "$path" ] && n=$(p="$path" awk -F'\t' '$1==ENVIRON["p"]{print NR;exit}' "$dir/.current")
 border=$(cat "$dir/.border" 2>/dev/null || echo " nn ")
