@@ -2645,11 +2645,16 @@ nn_doctor() {
       _info "Frontmatter validation skipped (requires gawk)"
     else
 
+    # Use the ASCII unit separator (\x1f) between fields instead of tab.
+    # Bash `read` with IFS=$'\t' collapses adjacent tabs (tab is a whitespace
+    # IFS character), which silently corrupts rows with empty fields like
+    # priority. \x1f is non-whitespace so empty fields are preserved.
     local _fm_scan
     _fm_scan=$(find "$_nn_root" \( -name .git -o -name .zk -o -name .obsidian -o -name node_modules -o -name .nn \) -prune \
       -o -name '*.md' -type f -print 2>/dev/null \
       | head -2000 \
       | "$_fm_gawk" '
+      BEGIN { US = sprintf("%c", 31); NR_FILE = 0 }
       {
         file = $0; type = ""; status = ""; priority = ""; in_fm = 0; had_fm = 0; fm_lines = 0
         while ((getline line < file) > 0) {
@@ -2673,9 +2678,8 @@ nn_doctor() {
           } else break
         }
         close(file); NR_FILE = 0
-        printf "%s\t%s\t%s\t%s\t%s\n", type, status, priority, had_fm, file
-      }
-      BEGIN { NR_FILE = 0 }')
+        printf "%s%s%s%s%s%s%s%s%s\n", type, US, status, US, priority, US, had_fm, US, file
+      }')
 
     local _fm_unknown_types=0 _fm_unknown_statuses=0 _fm_unknown_priorities=0
     local _fm_no_type=0 _fm_no_status=0 _fm_no_frontmatter=0
@@ -2683,7 +2687,7 @@ nn_doctor() {
     local _fm_bad_types="" _fm_bad_statuses="" _fm_bad_priorities=""
     local -a _fm_example_type_files=() _fm_example_status_files=() _fm_example_priority_files=()
     local _fm_max_examples=5
-    while IFS=$'\t' read -r _fm_type _fm_status _fm_priority _fm_had_fm _fm_file; do
+    while IFS=$'\x1f' read -r _fm_type _fm_status _fm_priority _fm_had_fm _fm_file; do
       [[ -z "$_fm_file" ]] && continue
       # Files without any frontmatter block are reported separately and
       # excluded from the per-field empty checks below (they would otherwise
@@ -4526,6 +4530,9 @@ if [ ! -s "$changes" ]; then
     printf "${_c_dim}No changes${_c_reset}\n" > /dev/tty
     printf 'bulk edit → no changes' > "$dir/.last_action"
   fi
+  # Regenerate .border_action so the action label updates after we exit;
+  # the success path below already does this via filter.sh refresh.
+  "$dir/filter.sh" "$dir" refresh > /dev/null
   exit 0
 fi
 
@@ -4550,6 +4557,8 @@ read -r answer < /dev/tty
 case "$answer" in [yY]*) ;; *)
   printf "${_c_dim}Cancelled${_c_reset}\n" > /dev/tty
   printf 'bulk edit → cancelled' > "$dir/.last_action"
+  # Regenerate .border_action so the action label updates after we exit.
+  "$dir/filter.sh" "$dir" refresh > /dev/null
   exit 0
   ;;
 esac
