@@ -3292,8 +3292,8 @@ notenav_main() {
     cat <<'EOF'
 Usage: nn                        interactive TUI
        nn <query-name>           run a saved query preset
-       nn key=value ...          ad-hoc filter (plain output)
-       nn key=value ... -i       ad-hoc filter (interactive)
+       nn key=value ...          ad-hoc query (plain output)
+       nn key=value ... -i       ad-hoc query (interactive)
        nn init [workflow]        create project config (.nn/workflow.toml)
        nn init --user [workflow] create user config
        nn doctor                 check setup and diagnose problems
@@ -3309,8 +3309,8 @@ Filter keys: type, status, priority, tag
 Examples:
   nn                             launch the TUI (faceted browser)
   nn inbox                       run the "inbox" query preset
-  nn type=task status=active     ad-hoc filter (plain output)
-  nn type=task priority=1 -i     ad-hoc filter (interactive)
+  nn type=task status=active     ad-hoc query (plain output)
+  nn type=task priority=1 -i     ad-hoc query (interactive)
 
 Config:
   Project:  .nn/workflow.toml
