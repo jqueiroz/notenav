@@ -4074,7 +4074,15 @@ for file in "$@"; do
   # Check for frontmatter before attempting write
   first_line=$(head -n 1 "$file")
   if [ "$first_line" != "---" ]; then
-    _no_fm=$((${_no_fm:-0} + 1))
+    # No frontmatter – clearing a field is a no-op; otherwise create one
+    [ -z "$value" ] && continue
+    _ftmp=$(mktemp "$file.XXXXXX") || continue
+    {
+      printf '%s\n' "---"
+      printf '%s: %s\n' "$field" "$value"
+      printf '%s\n' "---"
+      cat "$file"
+    } > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
     continue
   fi
   # Update field within YAML frontmatter (between first --- and second ---)
@@ -4123,17 +4131,13 @@ if $_need_pin && [ ${#ok_files[@]} -gt 0 ]; then
   mv "$dir/.pinned.tmp" "$dir/.pinned"
   rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
 fi
-if [ "$count" -eq 0 ] && [ "${_no_fm:-0}" -gt 0 ]; then
-  printf '⚠ %d note(s) skipped – no frontmatter' "$_no_fm" > "$dir/.last_action"
-elif [ "$count" -eq 0 ]; then
+if [ "$count" -eq 0 ]; then
   printf '⚠ no files modified' > "$dir/.last_action"
 else
   _la_title=$(p="${first_ok:-}" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
   _la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
   if [ "$count" -gt 1 ]; then _la_title="$_la_title +$((count - 1)) more"; fi
-  _la_msg=$(printf '%s → %s · %s' "$field" "$value" "$_la_title")
-  if [ "${_no_fm:-0}" -gt 0 ]; then _la_msg="⚠ ${_no_fm} skipped (no frontmatter) · $_la_msg"; fi
-  printf '%s' "$_la_msg" > "$dir/.last_action"
+  printf '%s → %s · %s' "$field" "$value" "$_la_title" > "$dir/.last_action"
 fi
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
@@ -4265,12 +4269,9 @@ nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 # Usage: bulkedit_update.sh <file> field=value [field=value ...]
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
-# Refuse to write files without frontmatter (prevents data loss)
 first_line=$(head -n 1 "$file")
-if [ "$first_line" != "---" ]; then
-  echo "notenav: skipping $file (no frontmatter)" >&2
-  exit 1
-fi
+has_fm=1
+[ "$first_line" != "---" ] && has_fm=0
 # Parse field=value pairs into individual vars
 set_type=""; set_status=""; set_priority=""; set_tags=""
 has_type=0; has_status=0; has_priority=0; has_tags=0
@@ -4303,6 +4304,19 @@ if [ "$has_priority" = 1 ] && [ -n "$set_priority" ]; then
   grep -qxF "$set_priority" "$_beu_dir/.schema_priority_values" || { echo "notenav: refusing to write invalid priority: $set_priority" >&2; exit 1; }
 fi
 _ftmp=$(mktemp "$file.XXXXXX") || exit 1
+# No frontmatter: prepend a new block with the requested values, then the body
+if [ "$has_fm" = 0 ]; then
+  {
+    printf '%s\n' "---"
+    [ "$has_type" = 1 ] && [ -n "$set_type" ] && printf 'type: %s\n' "$set_type"
+    [ "$has_status" = 1 ] && [ -n "$set_status" ] && printf 'status: %s\n' "$set_status"
+    [ "$has_priority" = 1 ] && [ -n "$set_priority" ] && printf 'priority: %s\n' "$set_priority"
+    [ "$has_tags" = 1 ] && [ -n "$set_tags" ] && printf 'tags:\n%s\n' "$set_tags"
+    printf '%s\n' "---"
+    cat "$file"
+  } > "$_ftmp" && mv "$_ftmp" "$file" || rm -f "$_ftmp"
+  exit 0
+fi
 set_type="$set_type" set_status="$set_status" \
     set_priority="$set_priority" set_tags="$set_tags" \
     "$nn_gawk" -v has_type="$has_type" -v has_status="$has_status" \
@@ -4459,7 +4473,6 @@ esac
 
 # Pass 2: apply confirmed changes
 count=0
-skipped_nofm=0
 apply_errors=""
 prev_path=""
 update_args=()
@@ -4506,12 +4519,7 @@ _apply_note() {
       if _would_drop "$_pa"; then pin_files+=("$prev_path"); break; fi
     done
   else
-    first_line=$(head -n 1 "$prev_path" 2>/dev/null)
-    if [ "$first_line" != "---" ]; then
-      skipped_nofm=$((skipped_nofm + 1))
-    else
-      apply_errors="${apply_errors}Failed to update $(basename "$prev_path")\n"
-    fi
+    apply_errors="${apply_errors}Failed to update $(basename "$prev_path")\n"
   fi
 }
 while IFS=$'\t' read -r path _ field _ new_val; do
@@ -4527,9 +4535,6 @@ _apply_note
 # Report results
 if [ -n "$apply_errors" ]; then
   printf "${_c_red}%b${_c_reset}" "$apply_errors" > /dev/tty
-fi
-if [ "$skipped_nofm" -gt 0 ]; then
-  printf "${_c_yellow}Skipped %d file(s) without frontmatter${_c_reset}\n" "$skipped_nofm" > /dev/tty
 fi
 if [ "$count" -gt 0 ]; then
   printf "${_c_green}Updated %d note(s)${_c_reset}\n" "$count" > /dev/tty
