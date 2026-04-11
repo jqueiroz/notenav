@@ -2848,19 +2848,31 @@ nn_doctor() {
       fi
     }
 
+    # Hint shown when an unrecognized value contains '#'. notenav's frontmatter
+    # parser doesn't strip YAML inline comments, so `type: task # important`
+    # is stored verbatim as the type. This only fires for validated fields
+    # (type/status/priority) where '#' is essentially never legitimate.
+    _fm_hash_hint() {
+      echo "          ${_dim}Hint: values containing '#' may be YAML inline comments,${_reset}"
+      echo "          ${_dim}which notenav does not strip. Remove the comment or quote the value.${_reset}"
+    }
+
     local _fm_issues=false
     if [[ $_fm_unknown_types -gt 0 ]]; then
       _warn "$_fm_unknown_types note(s) have unrecognized type values: $_fm_bad_types"
+      [[ "$_fm_bad_types" == *"#"* ]] && _fm_hash_hint
       _fm_show_examples "$_fm_unknown_types" "${_fm_example_type_files[@]}"
       _fm_issues=true
     fi
     if [[ $_fm_unknown_statuses -gt 0 ]]; then
       _warn "$_fm_unknown_statuses note(s) have unrecognized status values: $_fm_bad_statuses"
+      [[ "$_fm_bad_statuses" == *"#"* ]] && _fm_hash_hint
       _fm_show_examples "$_fm_unknown_statuses" "${_fm_example_status_files[@]}"
       _fm_issues=true
     fi
     if [[ $_fm_unknown_priorities -gt 0 ]]; then
       _warn "$_fm_unknown_priorities note(s) have unrecognized priority values: $_fm_bad_priorities"
+      [[ "$_fm_bad_priorities" == *"#"* ]] && _fm_hash_hint
       _fm_show_examples "$_fm_unknown_priorities" "${_fm_example_priority_files[@]}"
       _fm_issues=true
     fi
@@ -2910,7 +2922,7 @@ nn_doctor() {
     echo "$fails check(s) failed, $warns warning(s)."
   fi
 
-  unset -f _pass _info _warn _fail _valid_color _in_array _dupes _is_array _all_strings _hint _fzf_hint _fm_show_examples
+  unset -f _pass _info _warn _fail _valid_color _in_array _dupes _is_array _all_strings _hint _fzf_hint _fm_show_examples _fm_hash_hint
   [[ $fails -gt 0 ]] && return 1
   return 0
 }
