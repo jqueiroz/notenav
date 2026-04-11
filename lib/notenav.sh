@@ -5685,9 +5685,11 @@ fmt_dim() {
     printf ' \033[36m[%s]\033[0m%s: \033[90mall\033[0m' "$key" "$suffix"
   fi
 }
-# When priority is disabled, suppress priority from filter/change/help
-# headers so users aren't directed at dead bindings.
-if [ "$(cat "$dir/.schema_priority_enabled")" = "false" ]; then
+# Cache priority-enabled state once for the rest of the header rendering.
+# When false, suppress priority from filter/change/help headers (and the
+# static p_s value below) so users aren't directed at dead bindings.
+_pri_enabled=$(cat "$dir/.schema_priority_enabled" 2>/dev/null)
+if [ "$_pri_enabled" = "false" ]; then
   _pri_filter_chunk=""
   _pri_change_chunk=""
   _pri_help_chunk=""
@@ -5697,7 +5699,7 @@ else
   _pri_help_chunk=$(printf '\033[36m[f]\033[0m\033[90m→\033[0m\033[36m[p]\033[0mriority ')
 fi
 t_s=$(fmt_dim t "$ft"); s_s=$(fmt_dim s "$fs")
-if [ "$(cat "$dir/.schema_priority_enabled")" = "false" ]; then p_s=""; else p_s=$(fmt_dim p "$fp"); fi
+if [ "$_pri_enabled" = "false" ]; then p_s=""; else p_s=$(fmt_dim p "$fp"); fi
 # Show active tags in header if any
 tag_s=""
 if [ -s "$dir/.f_tags" ]; then
@@ -5911,7 +5913,7 @@ if [ "$_header_mode" = "guided" ]; then
     _cmcount_s=$(printf ' \033[1m(%d)\033[0m' "$mark_count")
   fi
   _gpri_hint=""
-  if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
+  if [ "$_pri_enabled" != "false" ]; then
     _gpri_hint=' \033[90m·\033[0m \033[36m[+]\033[0m/\033[36m[-]\033[0m priority'
   fi
   cactions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance \033[90m·\033[0m \033[36m[A]\033[0m reverse%b \033[90m·\033[0m \033[36m[e]\033[0mdit \033[90m·\033[0m \033[36m[n]\033[0mew \033[90m·\033[0m \033[36m[r]\033[0mefresh \033[90m·\033[0m \033[36m[c]\033[0mhange \033[90m·\033[0m \033[36m[m]\033[0marks%b \033[90m·\033[0m \033[36m[b]\033[0mulk \033[90m·\033[0m \033[36m[d]\033[0mel \033[90m·\033[0m \033[36m[x]\033[0m/\033[36m[X]\033[0m pins' "$_gpri_hint" "$_cmcount_s")
@@ -5948,7 +5950,7 @@ csearch_keys_lbl=$(printf '\033[1;90m Search \033[1;37mby contents\033[1;90m:\03
 printf '%s' "$csearch_keys_lbl" > "$dir/.header-csearch"
 # Help header: keybinding reference (toggled by ? in normal mode)
 _pri_help_hint=""
-if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
+if [ "$_pri_enabled" != "false" ]; then
   _pri_help_hint=' \033[36m[+]\033[0m/\033[36m[-]\033[0m priority'
 fi
 help_filters_lbl=$(printf '\033[1;90m Filters:\033[0m \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[t]\033[0mype \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[s]\033[0mtatus %s\033[36m[f]\033[0m\033[90m→\033[0m\033[36m[#]\033[0mtags  \033[36m[0]\033[0mclear preset  \033[36m[R]\033[0meset all  \033[90mtab/shift-tab/1-9/g presets\033[0m' "$_pri_help_chunk")
