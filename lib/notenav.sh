@@ -2331,13 +2331,19 @@ nn_doctor() {
     if [[ -n "$_ui_prev_custom" && ! " $_ui_prev_list " =~ " custom " ]]; then
       _warn "ui.previewer_custom_command is set but ui.previewer does not include 'custom'"
     fi
-    # Previewer summary – list each configured previewer with status
-    # Missing previewers are warnings until a usable one is found,
-    # then info (nice-to-have, not a problem).
+    # Previewer summary – list each configured previewer with status.
+    #
+    # Two-pass rendering: scan first to find which previewers are usable,
+    # then render each as pass / info / warn. Missing previewers are info
+    # whenever any other previewer was found (the order in `ui.previewer`
+    # is a fallback chain, not a checklist) and only warned-about when the
+    # whole chain came up empty. Misconfigured entries (e.g. `custom`
+    # without `previewer_custom_command`) stay warnings either way – they
+    # signal a config error, not a missing tool.
     echo ""
     echo "Previewers ${_dim}(first available is used)${_reset}:"
-    local _prev_any_found=false _prev_active="" _pv
-    _prev_miss() { if [[ "$_prev_any_found" == "true" ]]; then _info "$@"; else _warn "$@"; fi; }
+    local -a _prev_status=() _prev_label=() _prev_active_label=()
+    local _pv
     # shellcheck disable=SC2249  # only bat/glow/mdcat are valid previewers
     for _pv in ${_ui_prev_list:-bat glow mdcat}; do
       case "$_pv" in
@@ -2345,56 +2351,88 @@ nn_doctor() {
           if command -v bat >/dev/null 2>&1; then
             local _bat_ver
             _bat_ver=$(bat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
-            _pass "bat ${_bat_ver:-installed}"
-            _prev_any_found=true
-            [[ -z "$_prev_active" ]] && _prev_active="bat"
+            _prev_status+=("found")
+            _prev_label+=("bat ${_bat_ver:-installed}")
+            _prev_active_label+=("bat")
           elif command -v batcat >/dev/null 2>&1; then
             local _batcat_ver
             _batcat_ver=$(batcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
-            _pass "bat ${_batcat_ver:-installed} (as batcat)"
-            _prev_any_found=true
-            [[ -z "$_prev_active" ]] && _prev_active="bat (batcat)"
+            _prev_status+=("found")
+            _prev_label+=("bat ${_batcat_ver:-installed} (as batcat)")
+            _prev_active_label+=("bat (batcat)")
           else
-            _prev_miss "bat not found"
+            _prev_status+=("missing")
+            _prev_label+=("bat not found")
+            _prev_active_label+=("")
           fi ;;
         glow)
           if command -v glow >/dev/null 2>&1; then
             local _glow_ver
             _glow_ver=$(glow --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
-            _pass "glow ${_glow_ver:-installed}"
-            _prev_any_found=true
-            [[ -z "$_prev_active" ]] && _prev_active="glow"
+            _prev_status+=("found")
+            _prev_label+=("glow ${_glow_ver:-installed}")
+            _prev_active_label+=("glow")
           else
-            _prev_miss "glow not found"
+            _prev_status+=("missing")
+            _prev_label+=("glow not found")
+            _prev_active_label+=("")
           fi ;;
         mdcat)
           if command -v mdcat >/dev/null 2>&1; then
             local _mdcat_ver
             _mdcat_ver=$(mdcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
-            _pass "mdcat ${_mdcat_ver:-installed}"
-            _prev_any_found=true
-            [[ -z "$_prev_active" ]] && _prev_active="mdcat"
+            _prev_status+=("found")
+            _prev_label+=("mdcat ${_mdcat_ver:-installed}")
+            _prev_active_label+=("mdcat")
           else
-            _prev_miss "mdcat not found"
+            _prev_status+=("missing")
+            _prev_label+=("mdcat not found")
+            _prev_active_label+=("")
           fi ;;
         custom)
           if [[ -n "$_ui_prev_custom" ]]; then
             local _custom_bin="${_ui_prev_custom%% *}"
             if command -v "$_custom_bin" >/dev/null 2>&1; then
-              _pass "custom ($_custom_bin)"
-              _prev_any_found=true
-              [[ -z "$_prev_active" ]] && _prev_active="custom ($_custom_bin)"
+              _prev_status+=("found")
+              _prev_label+=("custom ($_custom_bin)")
+              _prev_active_label+=("custom ($_custom_bin)")
             else
-              _prev_miss "custom command '$_custom_bin' not found"
+              _prev_status+=("missing")
+              _prev_label+=("custom command '$_custom_bin' not found")
+              _prev_active_label+=("")
             fi
           else
-            _warn "ui.previewer includes 'custom' but ui.previewer_custom_command is empty"
+            _prev_status+=("misconfigured")
+            _prev_label+=("ui.previewer includes 'custom' but ui.previewer_custom_command is empty")
+            _prev_active_label+=("")
           fi ;;
         plain)
-          _pass "plain (cat)"
-          _prev_any_found=true
-          [[ -z "$_prev_active" ]] && _prev_active="plain"
+          _prev_status+=("found")
+          _prev_label+=("plain (cat)")
+          _prev_active_label+=("plain")
           ;;
+      esac
+    done
+
+    # Pass 1: determine the active previewer (first 'found' wins).
+    local _prev_any_found=false _prev_active="" _i
+    for _i in "${!_prev_status[@]}"; do
+      if [[ "${_prev_status[$_i]}" == "found" ]]; then
+        _prev_any_found=true
+        [[ -z "$_prev_active" ]] && _prev_active="${_prev_active_label[$_i]}"
+      fi
+    done
+
+    # Pass 2: render. 'missing' is always info – when a fallback was found
+    # it's a non-issue, and when *nothing* was found the trailing summary
+    # below carries the (single) warning with actionable advice. This
+    # avoids the previous behavior of emitting one warning per missing
+    # previewer plus one more for the summary.
+    for _i in "${!_prev_status[@]}"; do
+      case "${_prev_status[$_i]}" in
+        found)         _pass "${_prev_label[$_i]}" ;;
+        missing)       _info "${_prev_label[$_i]}" ;;
+        misconfigured) _warn "${_prev_label[$_i]}" ;;
       esac
     done
     if [[ "$_prev_any_found" == "true" ]]; then
@@ -2487,6 +2525,18 @@ nn_doctor() {
       fi
     fi
 
+    # Detect query presets that aren't tables (e.g. `[queries] foo = "bar"`
+    # at the top level instead of `[queries.foo]`). Without this guard the
+    # downstream `.value | keys[]` / `.value.args` pipelines would error,
+    # jq's stderr is silenced, and the malformed entry would never be
+    # reported. Each subsequent pipeline also adds `select(.value | type ==
+    # "object")` so the bad entry is skipped cleanly after being flagged.
+    local _qp_bad_name _qp_bad_kind
+    while IFS=$'\t' read -r _qp_bad_name _qp_bad_kind; do
+      [[ -z "$_qp_bad_name" ]] && continue
+      _qp_warns+="$_qp_bad_name: must be a table, got $_qp_bad_kind; "
+    done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | select(.value | type != "object") | "\(.key)\t\(.value | type)"')
+
     # Check for unrecognized keys in query presets
     local _qp_name _qp_key
     while IFS=$'\t' read -r _qp_name _qp_key; do
@@ -2495,7 +2545,7 @@ nn_doctor() {
         args|order) ;;
         *) _qp_warns+="$_qp_name: unknown key '$_qp_key'; " ;;
       esac
-    done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | .key as $n | (.value | keys[]) as $k | "\($n)\t\($k)"')
+    done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | select(.value | type == "object") | .key as $n | (.value | keys[]) as $k | "\($n)\t\($k)"')
 
     # Validate query order values are numeric
     local _qo_name _qo_val
@@ -2504,7 +2554,7 @@ nn_doctor() {
       if [[ -n "$_qo_val" && ! "$_qo_val" =~ ^[0-9]+$ ]]; then
         _qp_warns+="$_qo_name: order '$_qo_val' is not numeric; "
       fi
-    done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.order // "")"')
+    done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | select(.value | type == "object") | "\(.key)\t\(.value.order // "")"')
 
     while IFS=$'\t' read -r _qname _qargs; do
       [[ -z "$_qname" ]] && continue
@@ -2540,7 +2590,7 @@ nn_doctor() {
           *) _qp_warns+="$_qname: unknown filter key '$_key'; " ;;
         esac
       done
-    done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.args // "")"')
+    done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | select(.value | type == "object") | "\(.key)\t\(.value.args // "")"')
 
     if [[ -n "$_qp_warns" ]]; then
       _warn "Query presets: $_qp_count presets – ${_qp_warns%"; "}"
@@ -2857,7 +2907,7 @@ nn_doctor() {
     echo "$fails check(s) failed, $warns warning(s)."
   fi
 
-  unset -f _pass _info _warn _fail _valid_color _in_array _dupes _is_array _all_strings _hint _fzf_hint _prev_miss _fm_show_examples
+  unset -f _pass _info _warn _fail _valid_color _in_array _dupes _is_array _all_strings _hint _fzf_hint _fm_show_examples
   [[ $fails -gt 0 ]] && return 1
   return 0
 }
