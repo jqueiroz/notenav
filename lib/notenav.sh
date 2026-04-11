@@ -2558,8 +2558,13 @@ nn_doctor() {
 
   # Load .nnignore so we can both report patterns and compute the actual
   # exclusion count (default exclusions like CLAUDE.md/LICENSE.md are
-  # always applied, even without a .nnignore file).
-  _nn_load_nnignore "$_nn_root"
+  # always applied, even without a .nnignore file). Capture parse warnings
+  # to a tempfile so we can re-emit them as structured _warn lines after
+  # the .nnignore status row, instead of letting them interleave with the
+  # doctor's output as raw stderr.
+  local _ign_warn_tmp
+  _ign_warn_tmp=$(mktemp) || { _fail "mktemp failed (TMPDIR=${TMPDIR:-/tmp})"; return 1; }
+  _nn_load_nnignore "$_nn_root" 2>"$_ign_warn_tmp"
 
   # Count how many of the markdown files would be excluded by .nnignore +
   # default exclusions. Build the same prune list as _nn_find_md_with_mtime
@@ -2590,6 +2595,15 @@ nn_doctor() {
   else
     _info "No .nnignore${_ign_excluded_suffix} ${_dim}(default exclusions active)${_reset}"
   fi
+  # Re-emit captured .nnignore parse warnings as structured _warn lines so
+  # they appear under the status row and contribute to the warning count.
+  if [[ -s "$_ign_warn_tmp" ]]; then
+    local _ign_warn_line
+    while IFS= read -r _ign_warn_line || [[ -n "$_ign_warn_line" ]]; do
+      _warn "${_ign_warn_line#notenav: }"
+    done < "$_ign_warn_tmp"
+  fi
+  rm -f "$_ign_warn_tmp"
 
   # Backend status
   if [[ "$_has_zk" == "true" ]]; then
