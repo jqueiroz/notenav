@@ -61,6 +61,7 @@ jobs:
 
       - name: Zettelkasten workflow (priority disabled)
         run: |
+          rm -rf /tmp/nn-zk-test
           mkdir -p /tmp/nn-zk-test
           cd /tmp/nn-zk-test
           bash "$GITHUB_WORKSPACE/bin/nn" init zettelkasten
@@ -85,6 +86,7 @@ jobs:
             bash "$GITHUB_WORKSPACE/bin/nn" --version
             bash "$GITHUB_WORKSPACE/bin/nn" doctor
             bash "$GITHUB_WORKSPACE/bin/nn" type=task || true
+            rm -rf /tmp/nn-zk-test
             mkdir -p /tmp/nn-zk-test
             cd /tmp/nn-zk-test
             bash "$GITHUB_WORKSPACE/bin/nn" init zettelkasten
@@ -112,6 +114,7 @@ jobs:
             bash "$GITHUB_WORKSPACE/bin/nn" --version
             bash "$GITHUB_WORKSPACE/bin/nn" doctor
             bash "$GITHUB_WORKSPACE/bin/nn" type=task || true
+            rm -rf /tmp/nn-zk-test
             mkdir -p /tmp/nn-zk-test
             cd /tmp/nn-zk-test
             bash "$GITHUB_WORKSPACE/bin/nn" init zettelkasten
