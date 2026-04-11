@@ -5685,7 +5685,19 @@ fmt_dim() {
     printf ' \033[36m[%s]\033[0m%s: \033[90mall\033[0m' "$key" "$suffix"
   fi
 }
-t_s=$(fmt_dim t "$ft"); s_s=$(fmt_dim s "$fs"); p_s=$(fmt_dim p "$fp")
+# When priority is disabled, suppress priority from filter/change/help
+# headers so users aren't directed at dead bindings.
+if [ "$(cat "$dir/.schema_priority_enabled")" = "false" ]; then
+  _pri_filter_chunk=""
+  _pri_change_chunk=""
+  _pri_help_chunk=""
+else
+  _pri_filter_chunk=$(printf '\033[1;36m[p]\033[1;37mriority ')
+  _pri_change_chunk=$(printf ' \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority')
+  _pri_help_chunk=$(printf '\033[36m[f]\033[0m\033[90m→\033[0m\033[36m[p]\033[0mriority ')
+fi
+t_s=$(fmt_dim t "$ft"); s_s=$(fmt_dim s "$fs")
+if [ "$(cat "$dir/.schema_priority_enabled")" = "false" ]; then p_s=""; else p_s=$(fmt_dim p "$fp"); fi
 # Show active tags in header if any
 tag_s=""
 if [ -s "$dir/.f_tags" ]; then
@@ -5757,7 +5769,7 @@ if [ -n "$tag_s" ]; then
 else
   _ftag_s_active=$(printf '\033[1;36m[#]\033[1;37mtags: \033[90mnone\033[0m')
 fi
-ftags_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mype \033[1;36m[s]\033[1;37mtatus \033[1;36m[p]\033[1;37mriority %s\033[0m' "$_ftag_s_active")
+ftags_s_active=$(printf '       \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mype \033[1;36m[s]\033[1;37mtatus %s%s\033[0m' "$_pri_filter_chunk" "$_ftag_s_active")
 if [ -n "$fmatch" ]; then
   fmatch_s=$(printf '\n       \033[36m[/?]\033[0m content: \033[1m"%s"\033[0m' "$fmatch")
 else
@@ -5800,7 +5812,7 @@ else
 fi
 display_lbl_z=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zrev_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
-change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus \033[90m·\033[0m \033[1;36m[p]\033[1;37mriority \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m')
+change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus%s \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m' "$_pri_change_chunk")
 mark_count=0; [ -s "$dir/.marked.snap" ] && mark_count=$(awk 'NF{n++} END{print n+0}' "$dir/.marked.snap")
 _mcount_s=""; [ "$mark_count" -gt 0 ] && _mcount_s="${mark_count} marked \033[90m·\033[0m "
 if [ -n "$fmarked" ]; then
@@ -5918,7 +5930,7 @@ elif [ "$_header_mode" = "clean" ]; then
   else
     _mftag_hint=$(printf '\033[1;36m[#]\033[1;37mtags: \033[90mnone\033[0m')
   fi
-  _mfilter_f=$(printf '\033[1;90m Filters:\033[0m \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mype \033[1;36m[s]\033[1;37mtatus \033[1;36m[p]\033[1;37mriority %s\033[0m' "$_mftag_hint")
+  _mfilter_f=$(printf '\033[1;90m Filters:\033[0m \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mype \033[1;36m[s]\033[1;37mtatus %s%s\033[0m' "$_pri_filter_chunk" "$_mftag_hint")
   _mgroup_v="none"; [ -n "$fgroup" ] && _mgroup_v="$fgroup"
   _marchive_v="off"; [ -n "$farchive" ] && _marchive_v="on"
   _mwrap_v="off"; [ -n "$fwrap" ] && _mwrap_v="on"
@@ -5939,7 +5951,7 @@ _pri_help_hint=""
 if [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
   _pri_help_hint=' \033[36m[+]\033[0m/\033[36m[-]\033[0m priority'
 fi
-help_filters_lbl=$(printf '\033[1;90m Filters:\033[0m \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[t]\033[0mype \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[s]\033[0mtatus \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[p]\033[0mriority \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[#]\033[0mtags  \033[36m[0]\033[0mclear preset  \033[36m[R]\033[0meset all  \033[90mtab/shift-tab/1-9/g presets\033[0m')
+help_filters_lbl=$(printf '\033[1;90m Filters:\033[0m \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[t]\033[0mype \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[s]\033[0mtatus %s\033[36m[f]\033[0m\033[90m→\033[0m\033[36m[#]\033[0mtags  \033[36m[0]\033[0mclear preset  \033[36m[R]\033[0meset all  \033[90mtab/shift-tab/1-9/g presets\033[0m' "$_pri_help_chunk")
 help_display_lbl=$(printf '\033[1;90m Display:\033[0m \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[o]\033[0mrder \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[r]\033[0meverse \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[g]\033[0mroup \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[h]\033[0midden \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[w]\033[0mrap')
 help_actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance/\033[36m[A]\033[0mreverse status%b \033[36m[c]\033[0mhange \033[36m[e]\033[0mdit \033[36m[n]\033[0mew \033[36m[b]\033[0mulk \033[36m[d]\033[0mel \033[36m[r]\033[0mefresh' "$_pri_help_hint")
 help_marks_lbl=$(printf '\033[1;90m Marks/pins:\033[0m \033[36m[m]\033[0m\033[90m→\033[0m\033[36m[m]\033[0mark/\033[36m[a]\033[0mll/\033[36m[d]\033[0mel/\033[36m[D]\033[0mclear/\033[36m[f]\033[0milter  \033[36m[x]\033[0mclear pins/\033[36m[X]\033[0mrestore  \033[36m[space]\033[0m multi-select')
