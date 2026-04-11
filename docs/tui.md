@@ -72,7 +72,7 @@ Press `z` to enter display mode. The prompt changes to `z `. Then press one of:
 | `r` | Toggle sort direction (ascending / descending) |
 | `g` | Pick grouping (picker: none, type, status) |
 | `h` | Toggle visibility of archived statuses |
-| `w` | Toggle title wrapping in preview |
+| `w` | Toggle preview wrap |
 | `z` or `esc` | Cancel, return to command mode |
 
 ### Mark mode (prefix `m`)

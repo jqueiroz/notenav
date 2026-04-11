@@ -42,11 +42,11 @@ Every note moves through a lifecycle: **new** → **active** → **done**. Notes
 
 | Status | Meaning | Color |
 |--------|---------|-------|
-| new | Just captured, not yet started | dim |
+| new | Not yet started | dim |
 | active | Currently being worked on | green |
 | blocked | Waiting on an external dependency | red |
-| done | Completed (archived by default) | dim |
-| removed | Soft-deleted (tombstone, not part of the lifecycle or filter cycle) | dim |
+| done | Completed – archived by default | dim |
+| removed | Discarded or no longer relevant – tombstone, not part of the lifecycle or filter cycle | dim |
 
 ### Lifecycle
 
@@ -71,7 +71,7 @@ Four levels, P1 (highest) to P4 (lowest). Notes without a priority sort last.
 
 | Level | Meaning | Color |
 |-------|---------|-------|
-| P1 | Critical | bold red |
+| P1 | Critical | bold-red |
 | P2 | High | yellow |
 | P3 | Medium | yellow |
 | P4 | Low | yellow |

@@ -19,7 +19,7 @@ ssh notenav.sh            # default editor: nvim (for editing note files)
 ssh nano@notenav.sh       # or: vim, nvim, nano, emacs
 ```
 
-Filter notes (`ft`, `fs`, `fp`), try query presets (`tab`/`shift-tab`), create notes (`n`), and advance statuses with `a` – everything works out of the box.
+Filter notes (`f` then `t`/`s`/`p`), try query presets (`tab`/`shift-tab`), create notes (`n`), and advance statuses with `a` – everything works out of the box.
 
 Alternatively, after [installing](#install) `nn`, try it locally with the [demo notebook](https://github.com/jqueiroz/notenav-demo):
 
@@ -129,6 +129,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `/?` | Content search (press `/` then `?` – live grep of note bodies) |
 | `?` | Toggle help overlay (keybinding reference) |
 | `h` | Toggle header mode (clean ↔ guided) |
+| `w` | Toggle preview wrap |
 | `esc` | Exit search / prefix mode, or clear query |
 | `space` | Toggle multi-select |
 | `r` | [**r**]efresh note list |
@@ -141,7 +142,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `q` | Quit |
 
-These keybindings apply to all workflows, including custom ones. Press `?` for a keybinding reference at any time. See [docs/tui.md](docs/tui.md) for the full reference.
+A few keys are mode-aware: pressing `h` in command mode toggles the header, but in display mode (after `z`) it toggles archived visibility; `w` toggles preview wrap from either mode. These keybindings apply to all workflows, including custom ones. Press `?` for a keybinding reference at any time. See [docs/tui.md](docs/tui.md) for the full reference.
 
 When an action like `a` (advance status) or `+` (bump priority) causes a note to no longer match your active filters, the note stays visible in its natural sort position as a **ghost row** with a yellow `pinned` badge. This means you never lose sight of what you just changed and the cursor never jumps. Pins accumulate across multiple actions and survive filter changes. Press `x` to clear all pins, or `R` to reset everything (i.e. filters, pins, sort, grouping, and display settings).
 

@@ -40,11 +40,11 @@ Linear progression mirroring the ADO work item lifecycle:
 
 | Status | Meaning | Color |
 |--------|---------|-------|
-| new | Created, not yet started | dim |
+| new | Not yet triaged | dim |
 | active | In progress | green |
-| resolved | Done, pending verification | blue |
-| closed | Verified and complete (archived by default) | dim |
-| removed | Cancelled or invalid (tombstone, not part of the lifecycle or filter cycle) | dim |
+| resolved | Fix or feature complete, pending verification | blue |
+| closed | Verified and closed – archived by default | dim |
+| removed | Discarded or no longer relevant – cancelled or invalid tombstone, not part of the lifecycle or filter cycle | dim |
 
 ### Lifecycle
 
@@ -67,7 +67,7 @@ Four levels, matching typical issue tracker severity:
 
 | Level | Meaning | Color |
 |-------|---------|-------|
-| P1 | Critical – drop everything | bold red |
+| P1 | Critical – drop everything | bold-red |
 | P2 | High – do soon | yellow |
 | P3 | Medium – normal priority | yellow |
 | P4 | Low – when time allows | dim |

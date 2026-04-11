@@ -48,10 +48,10 @@ Linear maturity progression – how developed and reviewed a note is:
 
 | Status | Meaning | Color |
 |--------|---------|-------|
-| draft | First pass – rough, possibly incomplete | yellow |
-| review | Needs another look – check clarity, add links | blue |
-| mature | Well-developed, connected, ready to build on | green |
-| archived | No longer actively maintained (archived by default) | dim |
+| draft | Initial capture, not yet developed | yellow |
+| review | Being refined and linked | blue |
+| mature | Fully developed, well-connected idea – ready to build on | green |
+| archived | No longer actively maintained – archived by default | dim |
 
 ### Lifecycle
 

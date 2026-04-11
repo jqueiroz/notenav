@@ -41,11 +41,11 @@ Each status maps to a GTD list:
 | Status | GTD List | Meaning | Color |
 |--------|----------|---------|-------|
 | inbox | Inbox | Captured but not yet clarified | yellow |
-| next | Next Actions | Ready to do – the immediate to-do list | green |
-| waiting | Waiting For | Delegated or blocked on someone else | blue |
-| someday | Someday/Maybe | Interesting but not committed to now | dim |
-| done | Done | Completed (archived by default) | dim |
-| dropped | Dropped | Decided not to pursue | dim |
+| next | Next Actions | Clarified and ready to do – the immediate to-do list | green |
+| waiting | Waiting For | Blocked on someone else | blue |
+| someday | Someday/Maybe | Parked for later consideration | dim |
+| done | Done | Completed – archived by default | dim |
+| dropped | Dropped | Intentionally removed | dim |
 
 ### Lifecycle
 
@@ -69,7 +69,7 @@ Three levels only. GTD favors context and energy level over rigid priority schem
 
 | Level | Meaning | Color |
 |-------|---------|-------|
-| P1 | Must do | bold red |
+| P1 | Must do | bold-red |
 | P2 | Should do | yellow |
 | P3 | Could do | dim |
 

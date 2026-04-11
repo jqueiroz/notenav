@@ -423,7 +423,7 @@ pin_mode = "auto"         # auto | always
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `sort_by` | string | `"created"` | Sort order for notes |
+| `sort_by` | string | `"created"` | Sort order for notes (`"priority"` only meaningful when the active workflow has `priority.enabled = true`) |
 | `sort_reverse` | boolean | `false` | Whether to reverse the default sort direction |
 | `group_by` | string | `""` | Grouping in the list; `""` for no grouping |
 | `show_archive` | boolean | `false` | Whether archived statuses are visible on launch |
