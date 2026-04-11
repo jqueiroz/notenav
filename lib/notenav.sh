@@ -419,6 +419,7 @@ _nn_resolve_color() {
   case "$c" in
     bold-*)   mod=";1"; base="${c#bold-}" ;;
     bright-*) base="${c#bright-}" ;;
+    *) ;;  # no modifier prefix; use $c as-is
   esac
   # Base color lookup
   local code
@@ -973,6 +974,7 @@ nn_precompute_workflow() {
       NN_TYPE_VIS_COND="($_known_cond) && length(\$6) > 0" ;;
     show_all)
       NN_TYPE_VIS_COND='length($6) > 0' ;;
+    *) nn_assert "unknown type.visibility '$NN_TYPE_VISIBILITY'" ;;
   esac
 }
 
@@ -1203,7 +1205,7 @@ _nn_load_nnignore() {
     fi
     # Warn about characters that are valid in shell globs but would break the
     # awk regex (brackets, parens, pipes, etc.)
-    if [[ "$g_pat" == *[\[\]\(\)\+\|\{\}\^\$\\]* ]]; then
+    if [[ "$g_pat" == *[\[\]\(\)\+\|\{\}^\$\\]* ]]; then
       echo "notenav: .nnignore: unsupported regex characters in glob pattern '$g_pat' – skipping" >&2
       continue
     fi
@@ -2433,6 +2435,7 @@ nn_doctor() {
         found)         _pass "${_prev_label[$_i]}" ;;
         missing)       _info "${_prev_label[$_i]}" ;;
         misconfigured) _warn "${_prev_label[$_i]}" ;;
+        *) nn_assert "unknown previewer status '${_prev_status[$_i]}'" ;;
       esac
     done
     if [[ "$_prev_any_found" == "true" ]]; then
@@ -6741,7 +6744,7 @@ ENDDELETE
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
       | _nn_adhoc_sort \
       | awk -F'\t' "$_adhoc_fmt" > "$_adhoc_tmp"
-    if [ -s "$_adhoc_tmp" ]; then
+    if [[ -s "$_adhoc_tmp" ]]; then
       cat "$_adhoc_tmp"
       rm -f "$_adhoc_tmp"
     else
