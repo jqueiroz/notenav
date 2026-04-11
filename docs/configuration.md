@@ -408,7 +408,7 @@ sort_by = "created"             # created | modified | title | priority
 sort_reverse = false            # true to reverse the default sort direction
 group_by = "none"               # none | type | status
 type_visibility = "show_untyped" # show_defined | show_untyped | show_all
-show_archive = false            # true to show archived statuses by default
+archive_visibility = "hide"     # hide | show | only – which archive statuses appear
 wrap_preview = false            # true to wrap the preview pane by default
 pin_mode = "auto"               # auto | always
 ```
@@ -417,11 +417,21 @@ pin_mode = "auto"               # auto | always
 |-----|------|---------|-------------|
 | `sort_by` | string | `"created"` | Sort order for notes (`"priority"` only meaningful when the active workflow has `priority.enabled = true`) |
 | `sort_reverse` | boolean | `false` | Whether to reverse the default sort direction |
-| `group_by` | string | `"none"` | Grouping in the list; `"none"` for no grouping. The legacy empty string `""` is still accepted as a synonym for `"none"`. |
-| `type_visibility` | string | `"show_untyped"` | Which notes appear based on their type field (see below). The legacy location `[type] visibility = ...` is still accepted but deprecated. |
-| `show_archive` | boolean | `false` | Whether archived statuses are visible on launch |
+| `group_by` | string | `"none"` | Grouping in the list; `"none"` for no grouping |
+| `type_visibility` | string | `"show_untyped"` | Which notes appear based on their type field (see below) |
+| `archive_visibility` | string | `"hide"` | Whether archive statuses appear (see below) |
 | `wrap_preview` | boolean | `false` | Whether the preview pane wraps long lines on launch |
 | `pin_mode` | string | `"auto"` | When to create ghost-row pins after actions: `"auto"` pins only when the item would leave the current view; `"always"` pins every modified item |
+
+**`defaults.archive_visibility`** controls how archive statuses (declared per-workflow in `[status] archive = [...]`) participate in the default view:
+
+| Value | Behavior |
+|-------|----------|
+| `hide` | *(default)* Archive statuses are hidden. Press `zh` to cycle to `show`. |
+| `show` | Archive statuses appear alongside everything else. |
+| `only` | Only archive statuses are shown – useful for reviewing what you've finished or dropped. |
+
+The `zh` keybinding cycles through `hide → show → only → hide`. When the active workflow declares no archive statuses, the cycle skips `only` (it would always be empty). The setting only controls the *default* state on launch; the runtime cycle is independent.
 
 **`defaults.type_visibility`** controls which notes appear based on their type field:
 

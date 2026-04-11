@@ -725,9 +725,8 @@ _nn_gen_awk_bodies() {
 nn_precompute_workflow() {
   local _v _jv _fwd _rev _label _up _down
   # Schema version check (absent = 1, future versions rejected)
-  # Accept legacy meta.schema as alias for meta.schema_version
   local _schema_ver
-  _schema_ver=$(nn_cfg '.meta.schema_version // .meta.schema // 1')
+  _schema_ver=$(nn_cfg '.meta.schema_version // 1')
   if ! [[ "$_schema_ver" =~ ^[0-9]+$ ]] || [[ "$_schema_ver" -lt 1 ]]; then
     echo "notenav: invalid schema version '$_schema_ver' in workflow (expected a positive integer)" >&2
     return 1
@@ -745,8 +744,7 @@ nn_precompute_workflow() {
   fi
   NN_TYPE_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.type.default_color // "36"')")
   _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
-  # Accept legacy type.visibility as alias for defaults.type_visibility
-  NN_TYPE_VISIBILITY=$(nn_cfg '.defaults.type_visibility // .type.visibility // "show_untyped"')
+  NN_TYPE_VISIBILITY=$(nn_cfg '.defaults.type_visibility // "show_untyped"')
   case "$NN_TYPE_VISIBILITY" in show_defined|show_untyped|show_all) ;;
     *) echo "notenav: defaults.type_visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" >&2; return 1 ;; esac
   declare -gA NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS
@@ -864,11 +862,11 @@ nn_precompute_workflow() {
   # to `false` – fragile if a default ever flips. See NN_PRIORITY_ENABLED above.
   NN_DEFAULT_SORT=$(nn_cfg '.defaults.sort_by // "created"')
   NN_DEFAULT_SORT_REV=$(nn_cfg 'if (.defaults // {}) | has("sort_reverse") then .defaults.sort_reverse else false end')
-  # Accept both "none" (canonical) and "" (legacy alias) for no grouping;
-  # normalize to "" since the runtime stores group state as empty.
+  # User-facing config uses "none" for no grouping; the runtime stores
+  # group state as the empty string (file convention in .f_group).
   NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // "none"')
   [[ "$NN_DEFAULT_GROUP" == "none" ]] && NN_DEFAULT_GROUP=""
-  NN_DEFAULT_ARCHIVE=$(nn_cfg 'if (.defaults // {}) | has("show_archive") then .defaults.show_archive else false end')
+  NN_DEFAULT_ARCHIVE=$(nn_cfg '.defaults.archive_visibility // "hide"')
   NN_DEFAULT_WRAP=$(nn_cfg 'if (.defaults // {}) | has("wrap_preview") then .defaults.wrap_preview else false end')
   NN_DEFAULT_PIN_MODE=$(nn_cfg '.defaults.pin_mode // "auto"')
 
@@ -901,8 +899,7 @@ nn_precompute_workflow() {
   # Refresh preferences
   NN_REFRESH_MODE=$(nn_cfg '.refresh.mode // "watch"')
   NN_REFRESH_POLL_INTERVAL=$(nn_cfg '.refresh.poll_interval // 30')
-  # Accept legacy refresh.max_files as alias for refresh.auto_max_files
-  NN_REFRESH_MAX_FILES=$(nn_cfg '.refresh.auto_max_files // .refresh.max_files // 0')
+  NN_REFRESH_MAX_FILES=$(nn_cfg '.refresh.auto_max_files // 0')
 
   # Validate UI/refresh enum values (fail fast on invalid config)
   case "$NN_UI_HEADER" in clean|guided) ;;
@@ -925,6 +922,8 @@ nn_precompute_workflow() {
     echo "notenav: defaults.sort_by is 'priority' but priority is disabled" >&2; return 1; fi
   case "$NN_DEFAULT_GROUP" in type|status|"") ;;
     *) echo "notenav: defaults.group_by '$NN_DEFAULT_GROUP' invalid (must be 'none', 'type', or 'status')" >&2; return 1 ;; esac
+  case "$NN_DEFAULT_ARCHIVE" in hide|show|only) ;;
+    *) echo "notenav: defaults.archive_visibility '$NN_DEFAULT_ARCHIVE' invalid (must be 'hide', 'show', or 'only')" >&2; return 1 ;; esac
   case "$NN_DEFAULT_PIN_MODE" in auto|always) ;;
     *) echo "notenav: defaults.pin_mode '$NN_DEFAULT_PIN_MODE' invalid (must be 'auto' or 'always')" >&2; return 1 ;; esac
 
@@ -958,11 +957,23 @@ nn_precompute_workflow() {
     NN_AWK_COLOR_STATS=$(sed "$_nc_strip" <<< "$NN_AWK_COLOR_STATS")
   fi
 
-  # Archive AWK condition (e.g. ' && $2!="done" && $2!="removed"')
+  # Archive AWK conditions:
+  # NN_ARCHIVE_COND      – excludes archive statuses (e.g. ' && $2!="done" && $2!="removed"')
+  #                        appended to the base cond when archive_visibility = "hide"
+  # NN_ARCHIVE_ONLY_COND – includes only archive statuses (e.g. ' && ($2=="done" || $2=="removed")')
+  #                        appended to the base cond when archive_visibility = "only"
+  # When archive_visibility = "show", neither is appended.
   NN_ARCHIVE_COND=""
-  for _v in "${NN_STATUS_ARCHIVE[@]}"; do
-    NN_ARCHIVE_COND+=" && \$2!=\"$(_nn_awk_esc "$_v")\""
-  done
+  NN_ARCHIVE_ONLY_COND=""
+  if [[ ${#NN_STATUS_ARCHIVE[@]} -gt 0 ]]; then
+    local _only_inner=""
+    for _v in "${NN_STATUS_ARCHIVE[@]}"; do
+      NN_ARCHIVE_COND+=" && \$2!=\"$(_nn_awk_esc "$_v")\""
+      [[ -n "$_only_inner" ]] && _only_inner+=" || "
+      _only_inner+="\$2==\"$(_nn_awk_esc "$_v")\""
+    done
+    NN_ARCHIVE_ONLY_COND=" && ($_only_inner)"
+  fi
 
   # Type visibility base condition
   # show_defined: non-empty type required (pre-visibility-setting behavior)
@@ -1055,7 +1066,8 @@ nn_write_workflow_files() {
     printf '%s\t%s\n' "$_v" "${NN_PRIORITY_LABELS[$_v]}"
   done > "$dir/.schema_priority_labels"
 
-  # Defaults (one per line: sort_by, group_by, show_archive, sort_reverse, wrap_preview)
+  # Defaults (one per line: sort_by, group_by, archive_visibility, sort_reverse, wrap_preview)
+  # archive_visibility is one of: hide | show | only
   printf '%s\n%s\n%s\n%s\n%s\n' "$NN_DEFAULT_SORT" "$NN_DEFAULT_GROUP" "$NN_DEFAULT_ARCHIVE" "$NN_DEFAULT_SORT_REV" "$NN_DEFAULT_WRAP" > "$dir/.schema_defaults"
 
   # AWK bodies
@@ -1064,8 +1076,9 @@ nn_write_workflow_files() {
   printf '%s' "$NN_AWK_COLOR_MARKED" > "$dir/.awk_color_marked"
   printf '%s' "$NN_AWK_COLOR_STATS" > "$dir/.awk_color_stats"
 
-  # Archive AWK condition
+  # Archive AWK conditions
   printf '%s' "$NN_ARCHIVE_COND" > "$dir/.schema_archive_cond"
+  printf '%s' "$NN_ARCHIVE_ONLY_COND" > "$dir/.schema_archive_only_cond"
 
   # Type and status order strings (space-separated, for AWK split)
   printf '%s' "$NN_TYPE_ORDER_STR" > "$dir/.schema_type_order"
@@ -1631,8 +1644,6 @@ nn_doctor() {
       _known_ui=$(printf '%s' "$_base_cfg_json" | jq -r '.ui | keys[]' 2>/dev/null | tr '\n' ' ')
       _known_pf=$(printf '%s' "$_base_cfg_json" | jq -r '.ui.previewer_flags | keys[]' 2>/dev/null | tr '\n' ' ')
       _known_refresh=$(printf '%s' "$_base_cfg_json" | jq -r '.refresh | keys[]' 2>/dev/null | tr '\n' ' ')
-      # Deprecated aliases (still accepted; deprecation warned in their dedicated checks)
-      _known_refresh+="max_files "
     fi
 
     # Unrecognized top-level keys (scoped: extends is workflow-only, default_workflow is user-only)
@@ -1817,11 +1828,8 @@ nn_doctor() {
         fi
       done < <(nn_cfg ".type.\"$(_nn_jq_esc "$_ev")\" // {} | keys[]" 2>/dev/null)
     done
-    # Warn on type-level keys that aren't in values or known top-level keys.
-    # `visibility` is the legacy location (now defaults.type_visibility) but
-    # is still accepted, so it stays in the known list to avoid a duplicate
-    # "unrecognized key" warning – the deprecation is handled below.
-    local _typ_known_toplevel="values default_color display_order visibility"
+    # Warn on type-level keys that aren't in values or known top-level keys
+    local _typ_known_toplevel="values default_color display_order"
     local _ek
     while IFS= read -r _ek; do
       [[ -z "$_ek" ]] && continue
@@ -1830,27 +1838,18 @@ nn_doctor() {
         _warn "type.$_ek is not in type.values (typo?)"
       fi
     done < <(nn_cfg '.type // {} | keys[]' 2>/dev/null)
-    # Validate defaults.type_visibility (accept legacy type.visibility)
-    local _typ_vis _typ_vis_key="defaults.type_visibility"
+    # Validate defaults.type_visibility
+    local _typ_vis
     _typ_vis=$(nn_cfg '.defaults.type_visibility // empty')
-    if [[ -z "$_typ_vis" ]]; then
-      _typ_vis=$(nn_cfg '.type.visibility // empty')
-      [[ -n "$_typ_vis" ]] && _typ_vis_key="type.visibility"
-    fi
     if [[ -n "$_typ_vis" ]]; then
       case "$_typ_vis" in
         show_defined|show_untyped|show_all) ;;
-        *) _warn "$_typ_vis_key '$_typ_vis' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" ;;
+        *) _warn "defaults.type_visibility '$_typ_vis' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" ;;
       esac
     fi
-    # Detect legacy type.visibility independently – warn on the layering
-    # violation regardless of whether the new key is also set.
-    if [[ "$(nn_cfg '.type | has("visibility")' 2>/dev/null)" == "true" ]]; then
-      _warn "type.visibility is deprecated; move to defaults.type_visibility (the setting is a user preference, not a workflow definition)"
-    fi
 
-    # Meta sub-key validation (schema is the deprecated alias for schema_version)
-    local _known_meta_keys="name description schema_version schema"
+    # Meta sub-key validation
+    local _known_meta_keys="name description schema_version"
     local _mmk
     while IFS= read -r _mmk; do
       [[ -z "$_mmk" ]] && continue
@@ -1859,20 +1858,14 @@ nn_doctor() {
         _warn "meta: unrecognized key '$_mmk'"
       fi
     done < <(nn_cfg '.meta // {} | keys[]' 2>/dev/null)
-    # Validate meta.schema_version (accept legacy meta.schema)
-    local _doc_schema _doc_schema_key="meta.schema_version"
+    # Validate meta.schema_version
+    local _doc_schema
     _doc_schema=$(nn_cfg '.meta.schema_version // empty')
-    if [[ -z "$_doc_schema" ]]; then
-      _doc_schema=$(nn_cfg '.meta.schema // empty')
-      [[ -n "$_doc_schema" ]] && _doc_schema_key="meta.schema"
-    fi
     if [[ -n "$_doc_schema" ]]; then
       if ! [[ "$_doc_schema" =~ ^[0-9]+$ ]] || [[ "$_doc_schema" -lt 1 ]]; then
-        _fail "$_doc_schema_key '$_doc_schema' is not a valid positive integer"
+        _fail "meta.schema_version '$_doc_schema' is not a valid positive integer"
       elif [[ "$_doc_schema" -gt 1 ]]; then
-        _warn "$_doc_schema_key is $_doc_schema, but this notenav only supports version 1"
-      elif [[ "$_doc_schema_key" == "meta.schema" ]]; then
-        _warn "meta.schema is deprecated; rename to meta.schema_version"
+        _warn "meta.schema_version is $_doc_schema, but this notenav only supports version 1"
       fi
     fi
 
@@ -2229,9 +2222,12 @@ nn_doctor() {
       esac
     fi
     local _def_archive
-    _def_archive=$(nn_cfg '.defaults.show_archive // empty')
-    if [[ -n "$_def_archive" && "$_def_archive" != "true" && "$_def_archive" != "false" ]]; then
-      _warn "defaults.show_archive '$_def_archive' invalid (must be true or false)"
+    _def_archive=$(nn_cfg '.defaults.archive_visibility // empty')
+    if [[ -n "$_def_archive" ]]; then
+      case "$_def_archive" in
+        hide|show|only) ;;
+        *) _warn "defaults.archive_visibility '$_def_archive' invalid (must be 'hide', 'show', or 'only')" ;;
+      esac
     fi
     local _def_sort_rev
     _def_sort_rev=$(nn_cfg '.defaults.sort_reverse // empty')
@@ -2522,22 +2518,10 @@ nn_doctor() {
         _warn "refresh.poll_interval is $_rf_interval (< 5 seconds may be too aggressive)"
       fi
     fi
-    # Validate canonical refresh.auto_max_files
     local _rf_max
     _rf_max=$(nn_cfg '.refresh.auto_max_files // empty')
     if [[ -n "$_rf_max" ]] && ! [[ "$_rf_max" =~ ^[0-9]+$ ]]; then
       _warn "refresh.auto_max_files '$_rf_max' is not a valid integer"
-    fi
-    # Detect deprecated alias refresh.max_files independently – base.toml
-    # always provides auto_max_files, so a fallback chain would never fire.
-    if [[ "$(nn_cfg '.refresh | has("max_files")' 2>/dev/null)" == "true" ]]; then
-      local _rf_max_legacy
-      _rf_max_legacy=$(nn_cfg '.refresh.max_files')
-      if ! [[ "$_rf_max_legacy" =~ ^[0-9]+$ ]]; then
-        _warn "refresh.max_files '$_rf_max_legacy' is not a valid integer"
-      else
-        _warn "refresh.max_files is deprecated; rename to refresh.auto_max_files"
-      fi
     fi
     # Check for unrecognized keys in [refresh]
     if [[ -n "$_known_refresh" ]]; then
@@ -2742,7 +2726,7 @@ nn_doctor() {
   # Auto-refresh threshold check (needs NN_CFG_JSON + _note_count from above)
   if [[ -n "${NN_CFG_JSON:-}" && "$_note_count" -gt 0 ]] 2>/dev/null; then
     local _rf_max_files
-    _rf_max_files=$(nn_cfg '.refresh.auto_max_files // .refresh.max_files // 0')
+    _rf_max_files=$(nn_cfg '.refresh.auto_max_files // 0')
     if [[ "$_rf_max_files" -gt 0 && "$_note_count" -gt "$_rf_max_files" ]] 2>/dev/null; then
       _info "Auto-refresh disabled ($_note_count notes > auto_max_files $_rf_max_files) ${_dim}– press r to refresh manually${_reset}"
     fi
@@ -2930,10 +2914,9 @@ nn_doctor() {
     # Warn if show_defined would hide every note (notes with no type AND
     # notes with no frontmatter are both effectively untyped).
     # NB: doctor calls nn_load_config but not nn_precompute_workflow, so the
-    # NN_TYPE_VISIBILITY env var is not populated here – read from config
-    # directly with the same default + fallback chain as nn_precompute_workflow.
+    # NN_TYPE_VISIBILITY env var is not populated here – read from config.
     local _fm_visibility
-    _fm_visibility=$(nn_cfg '.defaults.type_visibility // .type.visibility // "show_untyped"')
+    _fm_visibility=$(nn_cfg '.defaults.type_visibility // "show_untyped"')
     if [[ "$_fm_visibility" == "show_defined" && $(( _fm_no_type + _fm_no_frontmatter )) -gt 0 ]]; then
       local _fm_total_scanned
       _fm_total_scanned=$(printf '%s\n' "$_fm_scan" | grep -c '[^[:space:]]' 2>/dev/null || echo 0)
@@ -3617,7 +3600,7 @@ EOF
       NN_UI_DELETE_METHOD NN_UI_DELETE_CONFIRM \
       NN_REFRESH_MODE NN_REFRESH_POLL_INTERVAL NN_REFRESH_MAX_FILES \
       NN_ZK_FMT NN_AWK_COLOR NN_AWK_COLOR_BODY NN_AWK_COLOR_PINNED NN_AWK_COLOR_MARKED NN_AWK_COLOR_STATS \
-      NN_TYPE_ORDER_STR NN_STATUS_ORDER_STR NN_AWK_ICON_SETUP NN_ARCHIVE_COND NN_TYPE_VIS_COND \
+      NN_TYPE_ORDER_STR NN_STATUS_ORDER_STR NN_AWK_ICON_SETUP NN_ARCHIVE_COND NN_ARCHIVE_ONLY_COND NN_TYPE_VIS_COND \
       NN_CFG_JSON
     _NN_SEALED=1
   fi
@@ -3798,7 +3781,13 @@ ENDFNFIND
     echo "$NN_DEFAULT_SORT" > "$_nn_dir/.f_sort"
     [[ "$NN_DEFAULT_SORT_REV" == "true" ]] && echo "rev" > "$_nn_dir/.f_sort_rev" || : > "$_nn_dir/.f_sort_rev"
     echo "$NN_DEFAULT_GROUP" > "$_nn_dir/.f_group"
-    [[ "$NN_DEFAULT_ARCHIVE" == "true" ]] && echo "show" > "$_nn_dir/.f_archive" || : > "$_nn_dir/.f_archive"
+    # f_archive: empty = hide, "show" = all, "only" = archive-only
+    case "$NN_DEFAULT_ARCHIVE" in
+      hide) : > "$_nn_dir/.f_archive" ;;
+      show) echo "show" > "$_nn_dir/.f_archive" ;;
+      only) echo "only" > "$_nn_dir/.f_archive" ;;
+      *) nn_assert "init: unknown NN_DEFAULT_ARCHIVE '$NN_DEFAULT_ARCHIVE'" ;;
+    esac
     : > "$_nn_dir/.f_match"
     : > "$_nn_dir/.f_title"
     [[ "$NN_DEFAULT_WRAP" == "true" ]] && echo "on" > "$_nn_dir/.f_wrap" || : > "$_nn_dir/.f_wrap"
@@ -4338,9 +4327,16 @@ else
       _ff=$(cat "$dir/.f_status" 2>/dev/null)
       if [ -n "$_ff" ]; then
         [ "$_ff" != "$value" ] && _need_pin=true
-      elif [ -z "$(cat "$dir/.f_archive" 2>/dev/null)" ] && [ -s "$dir/.schema_archive" ]; then
-        # No explicit status filter – check if archive would hide this status
-        grep -qxF "$value" "$dir/.schema_archive" && _need_pin=true
+      elif [ -s "$dir/.schema_archive" ]; then
+        # No explicit status filter – respect the archive view:
+        #  - hide ("")  : pin if value would now be in archive (hidden)
+        #  - only       : pin if value would now NOT be in archive (hidden)
+        #  - show       : nothing to pin from archive logic
+        _fa_v=$(cat "$dir/.f_archive" 2>/dev/null)
+        case "$_fa_v" in
+          "")   grep -qxF "$value" "$dir/.schema_archive" && _need_pin=true ;;
+          only) grep -qxF "$value" "$dir/.schema_archive" || _need_pin=true ;;
+        esac
       fi ;;
     priority)
       _ff=$(cat "$dir/.f_priority" 2>/dev/null)
@@ -4731,7 +4727,12 @@ _would_drop() {
     type) [ -n "$_pin_ft" ] && [ "$_pin_ft" != "$v" ] ;;
     status)
       if [ -n "$_pin_fs" ]; then [ "$_pin_fs" != "$v" ]
-      elif [ -z "$_pin_fa" ] && [ -s "$dir/.schema_archive" ]; then grep -qxF "$v" "$dir/.schema_archive"
+      elif [ -s "$dir/.schema_archive" ]; then
+        case "$_pin_fa" in
+          "")   grep -qxF "$v" "$dir/.schema_archive" ;;
+          only) ! grep -qxF "$v" "$dir/.schema_archive" ;;
+          *)    return 1 ;;
+        esac
       else return 1; fi ;;
     priority)
       if [ "$_pin_fp" = "none" ]; then [ -n "$v" ]
@@ -5338,8 +5339,12 @@ else
     _ff=$(cat "$dir/.f_status" 2>/dev/null)
     if [ -n "$_ff" ]; then
       [ "$_ff" != "$_nn_initial_status" ] && _need_pin=true
-    elif [ -z "$(cat "$dir/.f_archive" 2>/dev/null)" ] && [ -n "$_nn_initial_status" ] && [ -s "$dir/.schema_archive" ]; then
-      grep -qxF "$_nn_initial_status" "$dir/.schema_archive" && _need_pin=true
+    elif [ -n "$_nn_initial_status" ] && [ -s "$dir/.schema_archive" ]; then
+      _fa_v=$(cat "$dir/.f_archive" 2>/dev/null)
+      case "$_fa_v" in
+        "")   grep -qxF "$_nn_initial_status" "$dir/.schema_archive" && _need_pin=true ;;
+        only) grep -qxF "$_nn_initial_status" "$dir/.schema_archive" || _need_pin=true ;;
+      esac
     fi
   fi
   if ! $_need_pin; then
@@ -5541,14 +5546,27 @@ case "$action" in
   clear-preset) ft=""; fs=""; fp=""; fmatch=""; ftitle=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_title" ;;
   reset) ft=""; fs=""; fp=""; fmatch=""; ftitle=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_sq"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_title"
     { IFS= read -r fsort; IFS= read -r fgroup; IFS= read -r _a; IFS= read -r _sr; IFS= read -r _w; } < "$dir/.schema_defaults"
-    [ "$_a" = "true" ] && farchive="show" || farchive=""
+    case "$_a" in
+      hide) farchive="" ;;
+      show) farchive="show" ;;
+      only) farchive="only" ;;
+      *) nn_assert "reset: unknown archive_visibility '$_a'" ;;
+    esac
     [ "$_sr" = "true" ] && fsort_rev="rev" || fsort_rev=""
     echo "$fsort_rev" > "$dir/.f_sort_rev"
     [ "$_w" = "true" ] && fwrap="on" || fwrap=""
     echo "$fwrap" > "$dir/.f_wrap" ;;
   clear-tags) : > "$dir/.f_tags" ;;
   clear-group) fgroup="" ;;
-  archive) [ -n "$farchive" ] && farchive="" || farchive="show" ;;
+  # archive: cycle hide → show → only → hide. When the workflow has no
+  # archive statuses ("only" would always be empty), skip the only state.
+  archive)
+    case "$farchive" in
+      "") farchive="show" ;;
+      show) [ -s "$dir/.schema_archive" ] && farchive="only" || farchive="" ;;
+      only) farchive="" ;;
+      *) nn_assert "filter: unknown farchive '$farchive'" ;;
+    esac ;;
   clear-pins) ;;  # pins already cleared above; just re-render
   restore-pins)  # one-shot undo of last clear-pins
     if [ -s "$dir/.pinned.bak" ]; then
@@ -5650,9 +5668,16 @@ build_field_cond() {
 }
 vis_cond=$(cat "$dir/.schema_type_vis_cond")
 archive_cond=$(cat "$dir/.schema_archive_cond")
+archive_only_cond=$(cat "$dir/.schema_archive_only_cond")
 cond="$vis_cond"
-# Hide archived statuses unless archive toggle is on or status is explicitly filtered
-[ -z "$farchive" ] && [ -z "$fs" ] && cond="$cond$archive_cond"
+# Apply archive visibility:
+#  - hide ("")  : exclude archive statuses (unless explicitly filtering by status)
+#  - show       : no extra condition
+#  - only       : restrict to archive statuses (still respects status filter intersection)
+case "$farchive" in
+  "")   [ -z "$fs" ] && cond="$cond$archive_cond" ;;
+  only) cond="$cond$archive_only_cond" ;;
+esac
 _tags=""; [ -s "$dir/.f_tags" ] && _tags=$(cat "$dir/.f_tags")
 _field_cond=$(build_field_cond "$ft" "$fs" "$fp" "$_tags")
 [ -n "$_field_cond" ] && cond="$cond && $_field_cond"
@@ -5835,7 +5860,10 @@ fi
 _header_mode=$(cat "$dir/.schema_header_mode" 2>/dev/null)
 # Count matches for "all" (respects archive toggle)
 all_cond="$vis_cond"
-[ -z "$farchive" ] && all_cond="$all_cond$archive_cond"
+case "$farchive" in
+  "")   all_cond="$all_cond$archive_cond" ;;
+  only) all_cond="$all_cond$archive_only_cond" ;;
+esac
 all_count=$(awk -F'\t' "$all_cond"'{n++} END{print n+0}' "$dir/.raw.snap")
 # 0:all highlights only when no filters, no tags, no query preset, defaults
 has_tags=false; [ -s "$dir/.f_tags" ] && has_tags=true
@@ -5851,7 +5879,10 @@ if [ -f "$dir/.queries" ]; then
     n=$((n + 1))
     # Build awk condition for this query
     sq_cond="$vis_cond"
-    [ -z "$farchive" ] && sq_cond="$sq_cond$archive_cond"
+    case "$farchive" in
+      "")   sq_cond="$sq_cond$archive_cond" ;;
+      only) sq_cond="$sq_cond$archive_only_cond" ;;
+    esac
     _sq_type="" _sq_status="" _sq_priority="" _sq_tags=""
     read -ra _sq_badge_arr <<< "$qargs"
     for a in "${_sq_badge_arr[@]}"; do
@@ -5921,11 +5952,14 @@ else
   zgroup_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[g]\033[1;37mroup-by: \033[90mnone\033[0m')
 fi
 archive_label=$(cat "$dir/.schema_archive_label")
-if [ -n "$farchive" ]; then
-  zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[1mshowing %s\033[0m' "$archive_label")
-else
-  zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[90mhiding %s\033[0m' "$archive_label")
-fi
+case "$farchive" in
+  show)
+    zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[1mshowing %s\033[0m' "$archive_label") ;;
+  only)
+    zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[1monly %s\033[0m' "$archive_label") ;;
+  *)
+    zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[90mhiding %s\033[0m' "$archive_label") ;;
+esac
 if [ -n "$fwrap" ]; then
   zwrap_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[w]\033[1;37mrap preview: \033[1mon\033[0m')
 else
@@ -5992,7 +6026,10 @@ fi
 if [ -n "$farchive" ]; then
   [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
   _archive_short=$(echo "$archive_label" | awk -F/ '{if(NF<=2) print $0; else print $1"/"$2"/..."}')
-  _mdparts="${_mdparts}showing \033[1m${_archive_short}\033[0m"
+  case "$farchive" in
+    only) _mdparts="${_mdparts}only \033[1m${_archive_short}\033[0m" ;;
+    *)    _mdparts="${_mdparts}showing \033[1m${_archive_short}\033[0m" ;;
+  esac
 fi
 if [ -n "$fwrap" ]; then
   [ -n "$_mdparts" ] && _mdparts="$_mdparts  "
@@ -6053,7 +6090,11 @@ elif [ "$_header_mode" = "clean" ]; then
   fi
   _mfilter_f=$(printf '\033[1;90m Filters:\033[0m \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mype \033[1;36m[s]\033[1;37mtatus %s%s\033[0m' "$_pri_filter_chunk" "$_mftag_hint")
   _mgroup_v="none"; [ -n "$fgroup" ] && _mgroup_v="$fgroup"
-  _marchive_v="off"; [ -n "$farchive" ] && _marchive_v="on"
+  case "$farchive" in
+    show) _marchive_v="on" ;;
+    only) _marchive_v="only" ;;
+    *)    _marchive_v="off" ;;
+  esac
   _mwrap_v="off"; [ -n "$fwrap" ] && _mwrap_v="on"
   _mrev_v="off"; [ -n "$fsort_rev" ] && _mrev_v="on"
   _mdisplay_z=$(printf '\033[1;90m Display:\033[0m \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder:\033[1m%s\033[0m%s  \033[1;36m[r]\033[1;37mev:\033[1m%s\033[0m  \033[1;36m[g]\033[1;37mroup:\033[1m%s\033[0m  \033[1;36m[h]\033[1;37midden:\033[1m%s\033[0m  \033[1;36m[w]\033[1;37mrap:\033[1m%s\033[0m' "$sort_hint" "$_marrow" "$_mrev_v" "$_mgroup_v" "$_marchive_v" "$_mwrap_v")
@@ -6098,10 +6139,17 @@ if [ "$count" -eq 0 ] && ! [ -s "$dir/.current" ]; then
     _empty_narrowed=1
     _hint_plain='(press R to reset filters)'
     _hint_color='\033[90m(press \033[36mR\033[90m to reset filters)\033[0m'
-    # If no filters are active and archive is hidden, R won't help – suggest zh
-    if [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && [ -z "$fmatch" ] && [ -z "$fmarked" ] && [ -z "$active_sq" ] && ! [ -s "$dir/.f_tags" ] && [ -z "$farchive" ] && [ -s "$dir/.schema_archive" ]; then
-      _hint_plain='(press zh to show archived notes)'
-      _hint_color='\033[90m(press \033[36mzh\033[90m to show archived notes)\033[0m'
+    # If no filters are active and the archive view is hiding everything,
+    # R won't help – suggest cycling zh.
+    if [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && [ -z "$fmatch" ] && [ -z "$fmarked" ] && [ -z "$active_sq" ] && ! [ -s "$dir/.f_tags" ] && [ -s "$dir/.schema_archive" ]; then
+      case "$farchive" in
+        "")
+          _hint_plain='(press zh to show archived notes)'
+          _hint_color='\033[90m(press \033[36mzh\033[90m to show archived notes)\033[0m' ;;
+        only)
+          _hint_plain='(no archived notes – press zh to leave archive-only mode)'
+          _hint_color='\033[90m(no archived notes – press \033[36mzh\033[90m to leave archive-only mode)\033[0m' ;;
+      esac
     fi
   fi
   if [ -n "${_empty_narrowed:-}" ]; then

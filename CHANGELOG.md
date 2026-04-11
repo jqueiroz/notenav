@@ -16,12 +16,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - **`h` header mode toggle** – press `h` to switch between `clean` (state only) and `guided` (keybinding hints) header modes at runtime.
 - Named color aliases for workflow config – use `"red"`, `"bold-red"`, `"dim"`, etc. instead of raw ANSI codes like `"31;1"`. Raw codes still accepted. All built-in workflows now use named colors.
 
+### Added
+
+- **Archive-only view mode** – `defaults.archive_visibility = "only"` (or pressing `zh` twice from the default) shows only notes whose status is in `[status] archive`. Useful for reviewing what you've finished or dropped. The `zh` key now cycles `hide → show → only → hide`.
+
 ### Changed
 
-- **`type.visibility` moved to `defaults.type_visibility`** – this setting was the only user preference living under the workflow-definition `[type]` table. It now lives under `[defaults]` alongside other view preferences. The legacy location is still accepted but `nn doctor` flags it as deprecated.
-- **`refresh.max_files` renamed to `refresh.auto_max_files`** – clarifies that this is the auto-refresh threshold, not a hard cap on indexed files. The old name is still accepted but `nn doctor` flags it as deprecated.
-- **`meta.schema` renamed to `meta.schema_version`** – more descriptive name for the workflow schema version. The old name is still accepted in workflow files but `nn doctor` flags it as deprecated.
-- **`defaults.group_by` accepts `"none"` as the canonical "no grouping" value** – the legacy empty string `""` continues to work as a synonym. Built-in defaults now use `"none"`.
+- **`defaults.show_archive` (boolean) renamed to `defaults.archive_visibility`** – now an enum: `"hide"` (default), `"show"`, or `"only"`. The new `"only"` value is the runtime-visible reason for the rename.
+- **`type.visibility` moved to `defaults.type_visibility`** – this setting was the only user preference living under the workflow-definition `[type]` table. It now lives under `[defaults]` alongside other view preferences.
+- **`refresh.max_files` renamed to `refresh.auto_max_files`** – clarifies that this is the auto-refresh threshold, not a hard cap on indexed files.
+- **`meta.schema` renamed to `meta.schema_version`** – more descriptive name for the workflow schema version.
+- **`defaults.group_by` uses `"none"` as the canonical "no grouping" value** – the built-in defaults use `"none"` instead of the empty string.
 - **`ui.header` renamed to `ui.initial_header_mode`** – sets the header mode on launch (`"clean"` or `"guided"`). Default is `"guided"`. Press `h` to toggle at runtime. The old `"full"`, `"auto"`, and `"compact"` modes have been replaced by `"clean"` and `"guided"`.
 - **Filter keybindings moved under `f` prefix with pickers** – type (`ft`), status (`fs`), priority (`fp`), and tags (`f#`) are now all under the filter mode prefix. Each opens a picker showing all values with an "all" option to clear. `T`/`S`/`P` clear keys removed (pickers replace them).
 - **Sort and group cycling replaced with pickers** – `zo` (sort order) and `zg` (group by) now open single-select pickers instead of cycling through values.
