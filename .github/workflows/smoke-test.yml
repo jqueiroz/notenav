@@ -59,6 +59,15 @@ jobs:
           cd /tmp/nn-test
           bash "$GITHUB_WORKSPACE/bin/nn" type=task || true
 
+      - name: Zettelkasten workflow (priority disabled)
+        run: |
+          mkdir -p /tmp/nn-zk-test
+          cd /tmp/nn-zk-test
+          bash "$GITHUB_WORKSPACE/bin/nn" init zettelkasten
+          bash "$GITHUB_WORKSPACE/bin/nn" doctor
+          printf -- '---\ntype: fleeting\n---\n# zkfleeting-marker\n' > a.md
+          bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkfleeting-marker
+
   smoke-test-freebsd:
     runs-on: ubuntu-latest
     steps:
@@ -76,6 +85,12 @@ jobs:
             bash "$GITHUB_WORKSPACE/bin/nn" --version
             bash "$GITHUB_WORKSPACE/bin/nn" doctor
             bash "$GITHUB_WORKSPACE/bin/nn" type=task || true
+            mkdir -p /tmp/nn-zk-test
+            cd /tmp/nn-zk-test
+            bash "$GITHUB_WORKSPACE/bin/nn" init zettelkasten
+            bash "$GITHUB_WORKSPACE/bin/nn" doctor
+            printf -- '---\ntype: fleeting\n---\n# zkfleeting-marker\n' > a.md
+            bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkfleeting-marker
 
   smoke-test-openbsd:
     runs-on: ubuntu-latest
@@ -97,3 +112,9 @@ jobs:
             bash "$GITHUB_WORKSPACE/bin/nn" --version
             bash "$GITHUB_WORKSPACE/bin/nn" doctor
             bash "$GITHUB_WORKSPACE/bin/nn" type=task || true
+            mkdir -p /tmp/nn-zk-test
+            cd /tmp/nn-zk-test
+            bash "$GITHUB_WORKSPACE/bin/nn" init zettelkasten
+            bash "$GITHUB_WORKSPACE/bin/nn" doctor
+            printf -- '---\ntype: fleeting\n---\n# zkfleeting-marker\n' > a.md
+            bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkfleeting-marker

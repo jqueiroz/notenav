@@ -801,7 +801,10 @@ nn_precompute_workflow() {
   done
 
   # Priority
-  NN_PRIORITY_ENABLED=$(nn_cfg '.priority.enabled // true')
+  # NOTE: do NOT use `.priority.enabled // true` – jq's `//` filters out both
+  # `null` AND `false`, so an explicit `false` would be silently overridden
+  # to `true`. We have to check `has("enabled")` explicitly. Same below.
+  NN_PRIORITY_ENABLED=$(nn_cfg 'if (.priority // {}) | has("enabled") then .priority.enabled else true end')
   declare -gA NN_PRIORITY_COLORS NN_PRIORITY_LABELS NN_PRIORITY_UP NN_PRIORITY_DOWN
   if [[ "$NN_PRIORITY_ENABLED" != "false" ]]; then
     mapfile -t NN_PRIORITY_VALUES < <(nn_cfg '.priority.values[]')
@@ -2020,7 +2023,7 @@ nn_doctor() {
 
     # Priority checks
     local _pri_enabled
-    _pri_enabled=$(nn_cfg '.priority.enabled // true')
+    _pri_enabled=$(nn_cfg 'if (.priority // {}) | has("enabled") then .priority.enabled else true end')
     if [[ "$_pri_enabled" != "true" && "$_pri_enabled" != "false" ]]; then
       _warn "priority.enabled '$_pri_enabled' invalid (must be true or false)"
     fi
@@ -2653,7 +2656,7 @@ nn_doctor() {
     while IFS= read -r _fmv; do [[ -n "$_fmv" ]] && _fm_known_types[$_fmv]=1; done < <(nn_cfg '.type.values // [] | .[]')
     while IFS= read -r _fmv; do [[ -n "$_fmv" ]] && _fm_known_statuses[$_fmv]=1; done < <(nn_cfg '.status.values // [] | .[]')
     local _fm_pri_enabled
-    _fm_pri_enabled=$(nn_cfg '.priority.enabled // true')
+    _fm_pri_enabled=$(nn_cfg 'if (.priority // {}) | has("enabled") then .priority.enabled else true end')
     if [[ "$_fm_pri_enabled" != "false" ]]; then
       while IFS= read -r _fmv; do [[ -n "$_fmv" ]] && _fm_known_priorities[$_fmv]=1; done < <(nn_cfg '.priority.values // [] | .[]')
     fi
