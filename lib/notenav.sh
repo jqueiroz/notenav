@@ -1648,7 +1648,7 @@ nn_doctor() {
     # Run in current shell (not command substitution) so NN_CFG_JSON survives
     unset NN_CFG_JSON
     local _merge_tmpf
-    _merge_tmpf=$(mktemp "${TMPDIR:-/tmp}/nn-doctor-merge.XXXXXX") || { _fail "mktemp failed"; return 1; }
+    _merge_tmpf=$(mktemp "${TMPDIR:-/tmp}/nn-doctor-merge.XXXXXX") || { _fail "mktemp failed (TMPDIR=${TMPDIR:-/tmp})"; return 1; }
     if nn_load_config "$notenav_root" 2>"$_merge_tmpf"; then
       _pass "Config merge OK"
     else
@@ -3036,7 +3036,7 @@ _nn_init_user() {
   # Uses awk to avoid sed delimiter injection from URLs or special characters.
   if [[ -n "$workflow_arg" ]]; then
     local _tmp
-    _tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
+    _tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; return 1; }
     trap 'rm -f "$_tmp"' RETURN
     # shellcheck disable=SC2015  # intentional: || cleanup handles both awk and mv failure
     wf="$workflow_arg" awk \
@@ -3129,8 +3129,8 @@ _nn_fetch_remote() {
 
   # Download to temp file
   local tmpfile errfile
-  tmpfile=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
-  errfile=$(mktemp) || { rm -f "$tmpfile"; echo "notenav: mktemp failed" >&2; return 1; }
+  tmpfile=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; return 1; }
+  errfile=$(mktemp) || { rm -f "$tmpfile"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; return 1; }
   trap 'rm -f "$tmpfile" "$errfile" "${_cache_tmp:-}"' RETURN
   if ! curl -fsSL --connect-timeout 10 --max-time 30 --max-filesize 1048576 "$url" -o "$tmpfile" 2>"$errfile"; then
     echo "notenav: failed to download $url" >&2
@@ -3150,7 +3150,7 @@ _nn_fetch_remote() {
   local cache_path _cache_tmp
   cache_path=$(_nn_url_cache_path "$url")
   mkdir -p "$(dirname "$cache_path")" || { echo "notenav: could not create cache directory" >&2; return 1; }
-  _cache_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; return 1; }
+  _cache_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; return 1; }
   # shellcheck disable=SC2015  # intentional: || cleanup handles both write and mv failure
   {
     printf '# Cached from: %s\n' "$url"
@@ -4016,7 +4016,7 @@ if [ "$has_zk" = "true" ]; then
   _zk_scope=("$scope_path")
   [ -d "$scope_path/.zk" ] && _zk_scope=()
   zk index --quiet 2>/dev/null
-  _zk_err=$(mktemp) || { printf 'mktemp failed – press r to retry' > "$dir/.last_action"; exit 0; }
+  _zk_err=$(mktemp) || { printf 'mktemp failed (TMPDIR=%s) – press r to retry' "${TMPDIR:-/tmp}" > "$dir/.last_action"; exit 0; }
   if zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>"$_zk_err" > "$dir/.raw.tmp" \
     && _nn_apply_ignore "$dir" \
     && mv "$dir/.raw.tmp" "$dir/.raw"; then
@@ -5090,7 +5090,7 @@ _nn_now=$(date '+%Y-%m-%dT%H:%M:%S')
 _nn_initial_status=$(cat "$dir/.schema_status_initial" 2>/dev/null)
 
 if [ "$_nn_has_zk" = "true" ]; then
-  _zk_err=$(mktemp) || { printf "\n  ${_nn_red}mktemp failed${_nn_reset}\n\n" > /dev/tty; exit 1; }
+  _zk_err=$(mktemp) || { printf "\n  ${_nn_red}mktemp failed (TMPDIR=%s)${_nn_reset}\n\n" "${TMPDIR:-/tmp}" > /dev/tty; exit 1; }
   new_path=$(zk new . --template "${selected}.md" --title "$title" --no-input --print-path 2>"$_zk_err")
   if [ -z "$new_path" ]; then
     _zk_msg=$(cat "$_zk_err")
@@ -5137,7 +5137,7 @@ else
   [ -z "$_slug" ] && _slug="note"
   # Escape double quotes for valid YAML
   _yaml_title=$(printf '%s' "$title" | tr '\n' ' ' | sed 's/\\/\\\\/g; s/"/\\"/g')
-  _nn_tmp=$(mktemp "$PWD/.nn-new.XXXXXX") || { printf "\n  ${_nn_red}mktemp failed${_nn_reset}\n\n" > /dev/tty; exit 1; }
+  _nn_tmp=$(mktemp "$PWD/.nn-new.XXXXXX") || { printf "\n  ${_nn_red}mktemp failed in %s (check directory permissions)${_nn_reset}\n\n" "$PWD" > /dev/tty; exit 1; }
   # mktemp creates 0600; widen to match what a normal file creation would produce
   chmod "$(printf '%04o' "$(( 0666 & ~$(umask) ))")" "$_nn_tmp"
   {
@@ -6559,16 +6559,16 @@ ENDDELETE
       echo "notenav: interactive mode requires a terminal (TERM is 'dumb')" >&2
       shopt -u nullglob; return 1
     fi
-    local nn_tmp; nn_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
+    local nn_tmp; nn_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
     if [[ "$nn_tmp" == *[[:space:]\"\'\$\`\\]* ]]; then
       rm -f "$nn_tmp"
       echo "notenav: TMPDIR path contains characters unsafe for shell interpolation." >&2
       echo "notenav: set TMPDIR to a simple path (e.g. /tmp) and try again." >&2
       shopt -u nullglob; return 1
     fi
-    local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
-    local _nn_edit; _nn_edit=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
-    local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
+    local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
+    local _nn_edit; _nn_edit=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
+    local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
     trap 'rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"' EXIT
     _nn_write_preview "$_nn_prev"
     printf '%s' "$_nn_editor" > "$_nn_edit.editor"
@@ -6625,7 +6625,7 @@ ENDDELETE
     # substitution strips them. Tempfile also avoids loading the whole list
     # into memory for very large notebooks.
     local _adhoc_tmp
-    _adhoc_tmp=$(mktemp) || { echo "notenav: mktemp failed" >&2; shopt -u nullglob; return 1; }
+    _adhoc_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
       | _nn_adhoc_sort \
