@@ -4,7 +4,7 @@
 [meta]
 name = "Azure DevOps"
 description = "Feature/task/bug workflow inspired by Azure DevOps"
-schema = 1
+schema_version = 1
 
 # --- Note types ---
 

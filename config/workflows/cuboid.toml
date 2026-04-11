@@ -5,7 +5,7 @@
 [meta]
 name = "Cuboid"
 description = "4×5×4 workflow for personal wikis and mixed notebooks"
-schema = 1
+schema_version = 1
 
 # --- Note types ---
 # Each type represents a kind of note. Shown as icon + name in the TUI.

@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **`refresh.max_files` renamed to `refresh.auto_max_files`** – clarifies that this is the auto-refresh threshold, not a hard cap on indexed files. The old name is still accepted but `nn doctor` flags it as deprecated.
+- **`meta.schema` renamed to `meta.schema_version`** – more descriptive name for the workflow schema version. The old name is still accepted in workflow files but `nn doctor` flags it as deprecated.
+- **`defaults.group_by` accepts `"none"` as the canonical "no grouping" value** – the legacy empty string `""` continues to work as a synonym. Built-in defaults now use `"none"`.
 - **`ui.header` renamed to `ui.initial_header_mode`** – sets the header mode on launch (`"clean"` or `"guided"`). Default is `"guided"`. Press `h` to toggle at runtime. The old `"full"`, `"auto"`, and `"compact"` modes have been replaced by `"clean"` and `"guided"`.
 - **Filter keybindings moved under `f` prefix with pickers** – type (`ft`), status (`fs`), priority (`fp`), and tags (`f#`) are now all under the filter mode prefix. Each opens a picker showing all values with an "all" option to clear. `T`/`S`/`P` clear keys removed (pickers replace them).
 - **Sort and group cycling replaced with pickers** – `zo` (sort order) and `zg` (group by) now open single-select pickers instead of cycling through values.

@@ -97,14 +97,14 @@ Identifies the workflow and declares its schema version.
 [meta]
 name = "My Workflow"
 description = "Custom workflow for my project"
-schema = 1
+schema_version = 1
 ```
 
 | Key | Type | Description |
 |-----|------|-------------|
 | `name` | string | Display name |
 | `description` | string | Short description |
-| `schema` | integer | Schema version (default: `1`). notenav rejects workflows with a version it does not support. |
+| `schema_version` | integer | Schema version (default: `1`). notenav rejects workflows with a version it does not support. The legacy name `schema` is still accepted but deprecated. |
 
 ### `[type]`
 
@@ -415,7 +415,7 @@ Default view settings.
 [defaults]
 sort_by = "created"       # created | modified | title | priority
 sort_reverse = false      # true to reverse the default sort direction
-group_by = ""             # "" (none) | type | status
+group_by = "none"         # none | type | status
 show_archive = false      # true to show archived statuses by default
 wrap_preview = false      # true to wrap the preview pane by default
 pin_mode = "auto"         # auto | always
@@ -425,7 +425,7 @@ pin_mode = "auto"         # auto | always
 |-----|------|---------|-------------|
 | `sort_by` | string | `"created"` | Sort order for notes (`"priority"` only meaningful when the active workflow has `priority.enabled = true`) |
 | `sort_reverse` | boolean | `false` | Whether to reverse the default sort direction |
-| `group_by` | string | `""` | Grouping in the list; `""` for no grouping |
+| `group_by` | string | `"none"` | Grouping in the list; `"none"` for no grouping. The legacy empty string `""` is still accepted as a synonym for `"none"`. |
 | `show_archive` | boolean | `false` | Whether archived statuses are visible on launch |
 | `wrap_preview` | boolean | `false` | Whether the preview pane wraps long lines on launch |
 | `pin_mode` | string | `"auto"` | When to create ghost-row pins after actions: `"auto"` pins only when the item would leave the current view; `"always"` pins every modified item |
@@ -566,14 +566,14 @@ Controls how the TUI detects external changes to notes (edits in another termina
 [refresh]
 mode = "watch"         # "watch" | "poll" | "manual"
 poll_interval = 30     # seconds between polls (poll mode only)
-max_files = 0          # disable auto-refresh above this note count (0 = no limit)
+auto_max_files = 0     # disable auto-refresh above this note count (0 = no limit)
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `mode` | string | `"watch"` | Refresh strategy: `"watch"` (filesystem events via inotifywait/fswatch), `"poll"` (periodic check), or `"manual"` (only on `r` key) |
 | `poll_interval` | integer | `30` | Seconds between polls in poll mode |
-| `max_files` | integer | `0` | Disable auto-refresh when the notebook has more notes than this; `0` means no limit. Manual refresh (`r` key) always works regardless of this setting. |
+| `auto_max_files` | integer | `0` | Disable auto-refresh when the notebook has more notes than this; `0` means no limit. Manual refresh (`r` key) always works regardless of this setting. The legacy name `max_files` is still accepted but deprecated. |
 
 **Mode details:**
 

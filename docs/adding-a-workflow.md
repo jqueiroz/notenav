@@ -6,7 +6,7 @@ Step-by-step guide for adding a new built-in workflow to notenav.
 
 Add `config/workflows/<name>.toml`. Use an existing workflow as a template (e.g. [`zenith.toml`](../config/workflows/zenith.toml)). The file must define:
 
-- **`[meta]`** – `name`, `description`, `schema = 1`
+- **`[meta]`** – `name`, `description`, `schema_version = 1`
 - **`[type]`** – `default_color`, `values` array, and a `[type.<name>]` section for each value with `icon`, `color`, `description`
 - **`[status]`** – `values`, `initial`, `archive`, `filter_cycle`, `default_color`, plus `[status.colors]`, `[status.descriptions]`, `[status.lifecycle.forward]`, `[status.lifecycle.reverse]`
 - **`[priority]`** – `values`, `filter_cycle`, `unset_position`, `default_color`, plus `[priority.colors]`, `[priority.lifecycle.up]`, `[priority.lifecycle.down]` (or set `enabled = false` to disable priority entirely – see `zettelkasten.toml`)

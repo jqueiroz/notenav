@@ -4,7 +4,7 @@
 [meta]
 name = "Zettelkasten"
 description = "Slip-box method for knowledge management"
-schema = 1
+schema_version = 1
 
 # --- Note types ---
 # Follows the classic Zettelkasten note progression:

@@ -725,8 +725,9 @@ _nn_gen_awk_bodies() {
 nn_precompute_workflow() {
   local _v _jv _fwd _rev _label _up _down
   # Schema version check (absent = 1, future versions rejected)
+  # Accept legacy meta.schema as alias for meta.schema_version
   local _schema_ver
-  _schema_ver=$(nn_cfg '.meta.schema // 1')
+  _schema_ver=$(nn_cfg '.meta.schema_version // .meta.schema // 1')
   if ! [[ "$_schema_ver" =~ ^[0-9]+$ ]] || [[ "$_schema_ver" -lt 1 ]]; then
     echo "notenav: invalid schema version '$_schema_ver' in workflow (expected a positive integer)" >&2
     return 1
@@ -862,7 +863,10 @@ nn_precompute_workflow() {
   # to `false` – fragile if a default ever flips. See NN_PRIORITY_ENABLED above.
   NN_DEFAULT_SORT=$(nn_cfg '.defaults.sort_by // "created"')
   NN_DEFAULT_SORT_REV=$(nn_cfg 'if (.defaults // {}) | has("sort_reverse") then .defaults.sort_reverse else false end')
-  NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // ""')
+  # Accept both "none" (canonical) and "" (legacy alias) for no grouping;
+  # normalize to "" since the runtime stores group state as empty.
+  NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // "none"')
+  [[ "$NN_DEFAULT_GROUP" == "none" ]] && NN_DEFAULT_GROUP=""
   NN_DEFAULT_ARCHIVE=$(nn_cfg 'if (.defaults // {}) | has("show_archive") then .defaults.show_archive else false end')
   NN_DEFAULT_WRAP=$(nn_cfg 'if (.defaults // {}) | has("wrap_preview") then .defaults.wrap_preview else false end')
   NN_DEFAULT_PIN_MODE=$(nn_cfg '.defaults.pin_mode // "auto"')
@@ -896,7 +900,8 @@ nn_precompute_workflow() {
   # Refresh preferences
   NN_REFRESH_MODE=$(nn_cfg '.refresh.mode // "watch"')
   NN_REFRESH_POLL_INTERVAL=$(nn_cfg '.refresh.poll_interval // 30')
-  NN_REFRESH_MAX_FILES=$(nn_cfg '.refresh.max_files // 0')
+  # Accept legacy refresh.max_files as alias for refresh.auto_max_files
+  NN_REFRESH_MAX_FILES=$(nn_cfg '.refresh.auto_max_files // .refresh.max_files // 0')
 
   # Validate UI/refresh enum values (fail fast on invalid config)
   case "$NN_UI_HEADER" in clean|guided) ;;
@@ -918,7 +923,7 @@ nn_precompute_workflow() {
   if [[ "$NN_DEFAULT_SORT" == "priority" && "$NN_PRIORITY_ENABLED" == "false" ]]; then
     echo "notenav: defaults.sort_by is 'priority' but priority is disabled" >&2; return 1; fi
   case "$NN_DEFAULT_GROUP" in type|status|"") ;;
-    *) echo "notenav: defaults.group_by '$NN_DEFAULT_GROUP' invalid (must be 'type', 'status', or empty)" >&2; return 1 ;; esac
+    *) echo "notenav: defaults.group_by '$NN_DEFAULT_GROUP' invalid (must be 'none', 'type', or 'status')" >&2; return 1 ;; esac
   case "$NN_DEFAULT_PIN_MODE" in auto|always) ;;
     *) echo "notenav: defaults.pin_mode '$NN_DEFAULT_PIN_MODE' invalid (must be 'auto' or 'always')" >&2; return 1 ;; esac
 
@@ -1625,6 +1630,8 @@ nn_doctor() {
       _known_ui=$(printf '%s' "$_base_cfg_json" | jq -r '.ui | keys[]' 2>/dev/null | tr '\n' ' ')
       _known_pf=$(printf '%s' "$_base_cfg_json" | jq -r '.ui.previewer_flags | keys[]' 2>/dev/null | tr '\n' ' ')
       _known_refresh=$(printf '%s' "$_base_cfg_json" | jq -r '.refresh | keys[]' 2>/dev/null | tr '\n' ' ')
+      # Deprecated aliases (still accepted; deprecation warned in their dedicated checks)
+      _known_refresh+="max_files "
     fi
 
     # Unrecognized top-level keys (scoped: extends is workflow-only, default_workflow is user-only)
@@ -1829,8 +1836,8 @@ nn_doctor() {
       esac
     fi
 
-    # Meta sub-key validation
-    local _known_meta_keys="name description schema"
+    # Meta sub-key validation (schema is the deprecated alias for schema_version)
+    local _known_meta_keys="name description schema_version schema"
     local _mmk
     while IFS= read -r _mmk; do
       [[ -z "$_mmk" ]] && continue
@@ -1839,14 +1846,20 @@ nn_doctor() {
         _warn "meta: unrecognized key '$_mmk'"
       fi
     done < <(nn_cfg '.meta // {} | keys[]' 2>/dev/null)
-    # Validate meta.schema
-    local _doc_schema
-    _doc_schema=$(nn_cfg '.meta.schema // empty')
+    # Validate meta.schema_version (accept legacy meta.schema)
+    local _doc_schema _doc_schema_key="meta.schema_version"
+    _doc_schema=$(nn_cfg '.meta.schema_version // empty')
+    if [[ -z "$_doc_schema" ]]; then
+      _doc_schema=$(nn_cfg '.meta.schema // empty')
+      [[ -n "$_doc_schema" ]] && _doc_schema_key="meta.schema"
+    fi
     if [[ -n "$_doc_schema" ]]; then
       if ! [[ "$_doc_schema" =~ ^[0-9]+$ ]] || [[ "$_doc_schema" -lt 1 ]]; then
-        _fail "meta.schema '$_doc_schema' is not a valid positive integer"
+        _fail "$_doc_schema_key '$_doc_schema' is not a valid positive integer"
       elif [[ "$_doc_schema" -gt 1 ]]; then
-        _warn "meta.schema is $_doc_schema, but this notenav only supports version 1"
+        _warn "$_doc_schema_key is $_doc_schema, but this notenav only supports version 1"
+      elif [[ "$_doc_schema_key" == "meta.schema" ]]; then
+        _warn "meta.schema is deprecated; rename to meta.schema_version"
       fi
     fi
 
@@ -2198,8 +2211,8 @@ nn_doctor() {
     _def_group=$(nn_cfg '.defaults.group_by // empty')
     if [[ -n "$_def_group" ]]; then
       case "$_def_group" in
-        type|status) ;;
-        *) _warn "defaults.group_by '$_def_group' invalid (must be type or status)" ;;
+        none|type|status) ;;
+        *) _warn "defaults.group_by '$_def_group' invalid (must be 'none', 'type', or 'status')" ;;
       esac
     fi
     local _def_archive
@@ -2496,11 +2509,21 @@ nn_doctor() {
         _warn "refresh.poll_interval is $_rf_interval (< 5 seconds may be too aggressive)"
       fi
     fi
+    # Validate canonical refresh.auto_max_files
     local _rf_max
-    _rf_max=$(nn_cfg '.refresh.max_files // empty')
-    if [[ -n "$_rf_max" ]]; then
-      if ! [[ "$_rf_max" =~ ^[0-9]+$ ]]; then
-        _warn "refresh.max_files '$_rf_max' is not a valid integer"
+    _rf_max=$(nn_cfg '.refresh.auto_max_files // empty')
+    if [[ -n "$_rf_max" ]] && ! [[ "$_rf_max" =~ ^[0-9]+$ ]]; then
+      _warn "refresh.auto_max_files '$_rf_max' is not a valid integer"
+    fi
+    # Detect deprecated alias refresh.max_files independently – base.toml
+    # always provides auto_max_files, so a fallback chain would never fire.
+    if [[ "$(nn_cfg '.refresh | has("max_files")' 2>/dev/null)" == "true" ]]; then
+      local _rf_max_legacy
+      _rf_max_legacy=$(nn_cfg '.refresh.max_files')
+      if ! [[ "$_rf_max_legacy" =~ ^[0-9]+$ ]]; then
+        _warn "refresh.max_files '$_rf_max_legacy' is not a valid integer"
+      else
+        _warn "refresh.max_files is deprecated; rename to refresh.auto_max_files"
       fi
     fi
     # Check for unrecognized keys in [refresh]
@@ -2706,9 +2729,9 @@ nn_doctor() {
   # Auto-refresh threshold check (needs NN_CFG_JSON + _note_count from above)
   if [[ -n "${NN_CFG_JSON:-}" && "$_note_count" -gt 0 ]] 2>/dev/null; then
     local _rf_max_files
-    _rf_max_files=$(nn_cfg '.refresh.max_files // 0')
+    _rf_max_files=$(nn_cfg '.refresh.auto_max_files // .refresh.max_files // 0')
     if [[ "$_rf_max_files" -gt 0 && "$_note_count" -gt "$_rf_max_files" ]] 2>/dev/null; then
-      _info "Auto-refresh disabled ($_note_count notes > max_files $_rf_max_files) ${_dim}– press r to refresh manually${_reset}"
+      _info "Auto-refresh disabled ($_note_count notes > auto_max_files $_rf_max_files) ${_dim}– press r to refresh manually${_reset}"
     fi
   fi
 

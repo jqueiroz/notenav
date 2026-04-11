@@ -4,7 +4,7 @@
 [meta]
 name = "Zenith"
 description = "Simple task/idea/reference workflow"
-schema = 1
+schema_version = 1
 
 # --- Note types ---
 # Each type represents a kind of note. Shown as icon + name in the TUI.

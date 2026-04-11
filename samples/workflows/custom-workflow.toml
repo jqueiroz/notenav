@@ -4,7 +4,7 @@
 [meta]
 name = "My Workflow"
 description = "Custom workflow example"
-schema = 1
+schema_version = 1
 
 # Define your note types (note categories).
 # values: valid types; array order = display order in grouped view

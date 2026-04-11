@@ -4,7 +4,7 @@
 [meta]
 name = "GTD"
 description = "Getting Things Done capture-and-process workflow"
-schema = 1
+schema_version = 1
 
 # --- Note types ---
 

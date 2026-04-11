@@ -11,7 +11,7 @@ visibility = "show_untyped"  # "show_defined" | "show_untyped" | "show_all"
 [defaults]
 sort_by = "created"       # "created" | "modified" | "title" | "priority"
 sort_reverse = false       # true to reverse the default sort direction
-group_by = ""              # "" (none) | "type" | "status"
+group_by = "none"          # "none" | "type" | "status"
 show_archive = false       # true to show done/removed by default
 wrap_preview = false       # true to wrap the preview pane by default
 pin_mode = "auto"          # "auto" (only when item would leave view) | "always"
@@ -37,4 +37,4 @@ mdcat = []     # extra flags appended to mdcat (notenav always passes --columns 
 [refresh]
 mode = "watch"         # "watch" | "poll" | "manual"
 poll_interval = 30     # seconds between polls (poll mode only)
-max_files = 0          # disable auto-refresh above this note count (0 = no limit)
+auto_max_files = 0     # disable auto-refresh above this note count (0 = no limit)
