@@ -26,3 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **`f n` (name filter) sub-popup** – replaced by `/` search mode, which is faster (one keystroke) and uses fuzzy matching.
 - **`f c` (content filter) sub-popup** – replaced by `/?` content search mode, which provides live inline results instead of a separate popup.
+
+### Fixed
+
+- **Zettelkasten workflow now respects `priority.enabled = false`** – the loader used `jq '.priority.enabled // true'`, but jq's `//` filters out `false` as well as `null`, so an explicit `false` was silently coerced to `true`. The result was that zettelkasten failed `nn doctor` with three errors and rendered priority bindings, columns, and sort options that did nothing. Hardened the three call sites with explicit `has("enabled")` checks, and applied the same prophylactic fix to the latent `defaults.sort_reverse`/`show_archive`/`wrap_preview` loaders.
+- **Filter, change, and help headers no longer advertise `[p]riority` when priority is disabled** – previously the headers pointed users at sub-key bindings (`fp`, `cp`) that silently no-op'd in zettelkasten. Hidden when `priority.enabled = false`.
