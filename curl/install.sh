@@ -87,6 +87,7 @@ fi
 if [ -n "$missing" ]; then
   case " $missing " in
     *" git "*) err "git is required to install notenav. Install git and try again." ;;
+    *) ;;  # other missing deps fall through to the warning below
   esac
   warn "Missing dependencies:$missing"
   warn "notenav will be installed but may not work until these are available."
