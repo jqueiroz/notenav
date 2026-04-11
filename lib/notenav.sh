@@ -855,11 +855,15 @@ nn_precompute_workflow() {
   [[ ${#NN_STATUS_DISPLAY_ORDER[@]} -eq 0 ]] && NN_STATUS_DISPLAY_ORDER=("${NN_STATUS_VALUES[@]}")
 
   # Defaults
+  # NOTE: boolean defaults must use `has(...)` rather than `// false` because
+  # jq's `//` filters out `false` from the LHS and would silently substitute
+  # the default. Works today only because base.toml happens to default these
+  # to `false` – fragile if a default ever flips. See NN_PRIORITY_ENABLED above.
   NN_DEFAULT_SORT=$(nn_cfg '.defaults.sort_by // "created"')
-  NN_DEFAULT_SORT_REV=$(nn_cfg '.defaults.sort_reverse // false')
+  NN_DEFAULT_SORT_REV=$(nn_cfg 'if (.defaults // {}) | has("sort_reverse") then .defaults.sort_reverse else false end')
   NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // ""')
-  NN_DEFAULT_ARCHIVE=$(nn_cfg '.defaults.show_archive // false')
-  NN_DEFAULT_WRAP=$(nn_cfg '.defaults.wrap_preview // false')
+  NN_DEFAULT_ARCHIVE=$(nn_cfg 'if (.defaults // {}) | has("show_archive") then .defaults.show_archive else false end')
+  NN_DEFAULT_WRAP=$(nn_cfg 'if (.defaults // {}) | has("wrap_preview") then .defaults.wrap_preview else false end')
   NN_DEFAULT_PIN_MODE=$(nn_cfg '.defaults.pin_mode // "auto"')
 
   # UI preferences
