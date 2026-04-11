@@ -1612,7 +1612,9 @@ nn_doctor() {
     local _base_top="" _known_keys_user="" _known_keys_workflow=""
     local _known_defaults="" _known_ui="" _known_pf="" _known_refresh=""
     if [[ -n "$_base_cfg_json" ]]; then
-      local _schema_sections="meta type status priority"
+      # Schema sections workflows define but base.toml doesn't (base has [type]
+      # already, so it's omitted here to avoid a duplicate in _known_keys_user).
+      local _schema_sections="meta status priority"
       _base_top=$(printf '%s' "$_base_cfg_json" | jq -r 'keys[]' 2>/dev/null | tr '\n' ' ')
       _known_keys_user="$_base_top$_schema_sections"
       # Must match the workflow whitelist in nn_load_config() (search "workflow-owned keys")
@@ -1652,33 +1654,47 @@ nn_doctor() {
     done
 
     # Full config merge check
-    # Run in current shell (not command substitution) so NN_CFG_JSON survives
+    # Run in current shell (not command substitution) so NN_CFG_JSON survives.
+    # If mktemp fails (broken TMPDIR, full disk, etc.) fall back to letting
+    # nn_load_config write to stderr directly – aborting the rest of doctor
+    # over a tempfile failure would be far worse than losing pretty formatting.
     unset NN_CFG_JSON
-    local _merge_tmpf
-    _merge_tmpf=$(mktemp "${TMPDIR:-/tmp}/nn-doctor-merge.XXXXXX") || { _fail "mktemp failed (TMPDIR=${TMPDIR:-/tmp})"; return 1; }
-    if nn_load_config "$notenav_root" 2>"$_merge_tmpf"; then
-      _pass "Config merge OK"
+    local _merge_tmpf=""
+    _merge_tmpf=$(mktemp "${TMPDIR:-/tmp}/nn-doctor-merge.XXXXXX" 2>/dev/null) || _merge_tmpf=""
+    if [[ -n "$_merge_tmpf" ]]; then
+      if nn_load_config "$notenav_root" 2>"$_merge_tmpf"; then
+        _pass "Config merge OK"
+      else
+        local _merge_first
+        _merge_first=$(head -n 1 "$_merge_tmpf")
+        _fail "Config merge failed: ${_merge_first:-unknown error}"
+        local _merge_rest
+        _merge_rest=$(tail -n +2 "$_merge_tmpf")
+        [[ -n "$_merge_rest" ]] && echo "$_merge_rest" | while IFS= read -r _line; do echo "      $_line"; done
+      fi
+      rm -f "$_merge_tmpf"
     else
-      local _merge_first
-      _merge_first=$(head -n 1 "$_merge_tmpf")
-      _fail "Config merge failed: ${_merge_first:-unknown error}"
-      local _merge_rest
-      _merge_rest=$(tail -n +2 "$_merge_tmpf")
-      [[ -n "$_merge_rest" ]] && echo "$_merge_rest" | while IFS= read -r _line; do echo "      $_line"; done
+      _warn "mktemp failed (TMPDIR=${TMPDIR:-/tmp}) – config merge errors will go to stderr"
+      if nn_load_config "$notenav_root"; then
+        _pass "Config merge OK"
+      else
+        _fail "Config merge failed (see errors above)"
+      fi
     fi
-    rm -f "$_merge_tmpf"
   fi
 
   # ── Phase 3: Trusted sources ──
 
+  # Only show the Trusted sources section when the file has at least one
+  # non-comment entry – an empty or comment-only file is functionally
+  # equivalent to no file at all and shouldn't get its own header.
   local _ts_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources"
-  if [[ -f "$_ts_file" ]]; then
+  if [[ -f "$_ts_file" ]] && grep -qvE '^[[:space:]]*(#|$)' "$_ts_file" 2>/dev/null; then
     echo ""
     echo "Trusted sources:"
-    local _ts_count=0 _ts_url
+    local _ts_url
     while IFS= read -r _ts_url || [[ -n "$_ts_url" ]]; do
       [[ -z "$_ts_url" || "$_ts_url" == \#* ]] && continue
-      (( _ts_count++ )) || true
       local _cache_path
       _cache_path=$(_nn_url_cache_path "$_ts_url")
       if [[ -f "$_cache_path" ]]; then
@@ -1691,9 +1707,6 @@ nn_doctor() {
         _warn "$_ts_url ${_dim}(not yet downloaded – run 'nn init $_ts_url' to fetch)${_reset}"
       fi
     done < "$_ts_file"
-    if [[ $_ts_count -eq 0 ]]; then
-      _pass "Trusted sources: none configured"
-    fi
   fi
 
   # ── Phase 4: Workflow integrity ──
@@ -2815,7 +2828,12 @@ nn_doctor() {
     fi
     # Warn if show_defined would hide every note (notes with no type AND
     # notes with no frontmatter are both effectively untyped).
-    if [[ "$NN_TYPE_VISIBILITY" == "show_defined" && $(( _fm_no_type + _fm_no_frontmatter )) -gt 0 ]]; then
+    # NB: doctor calls nn_load_config but not nn_precompute_workflow, so the
+    # NN_TYPE_VISIBILITY env var is not populated here – read from config
+    # directly with the same default as nn_precompute_workflow (line 746).
+    local _fm_visibility
+    _fm_visibility=$(nn_cfg '.type.visibility // "show_untyped"')
+    if [[ "$_fm_visibility" == "show_defined" && $(( _fm_no_type + _fm_no_frontmatter )) -gt 0 ]]; then
       local _fm_total_scanned
       _fm_total_scanned=$(printf '%s\n' "$_fm_scan" | grep -c '[^[:space:]]' 2>/dev/null || echo 0)
       if [[ $(( _fm_no_type + _fm_no_frontmatter )) -ge $_fm_total_scanned ]]; then
