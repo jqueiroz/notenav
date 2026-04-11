@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **`type.visibility` moved to `defaults.type_visibility`** – this setting was the only user preference living under the workflow-definition `[type]` table. It now lives under `[defaults]` alongside other view preferences. The legacy location is still accepted but `nn doctor` flags it as deprecated.
 - **`refresh.max_files` renamed to `refresh.auto_max_files`** – clarifies that this is the auto-refresh threshold, not a hard cap on indexed files. The old name is still accepted but `nn doctor` flags it as deprecated.
 - **`meta.schema` renamed to `meta.schema_version`** – more descriptive name for the workflow schema version. The old name is still accepted in workflow files but `nn doctor` flags it as deprecated.
 - **`defaults.group_by` accepts `"none"` as the canonical "no grouping" value** – the legacy empty string `""` continues to work as a synonym. Built-in defaults now use `"none"`.

@@ -4,13 +4,11 @@
 # Choose a built-in workflow: zenith, cuboid, ado, gtd, zettelkasten
 # default_workflow = "zenith"
 
-# [type]
-# visibility = "show_untyped"  # show_defined | show_untyped | show_all
-
 # [defaults]
 # sort_by = "created"           # created | modified | title | priority
 # sort_reverse = false          # true to reverse the default sort direction
 # group_by = "none"             # none | type | status
+# type_visibility = "show_untyped"  # show_defined | show_untyped | show_all
 # show_archive = false          # true to show done/removed by default
 # wrap_preview = false          # true to wrap the preview pane by default
 # pin_mode = "auto"             # auto (only when item would leave view) | always

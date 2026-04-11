@@ -745,9 +745,10 @@ nn_precompute_workflow() {
   fi
   NN_TYPE_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.type.default_color // "36"')")
   _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
-  NN_TYPE_VISIBILITY=$(nn_cfg '.type.visibility // "show_untyped"')
+  # Accept legacy type.visibility as alias for defaults.type_visibility
+  NN_TYPE_VISIBILITY=$(nn_cfg '.defaults.type_visibility // .type.visibility // "show_untyped"')
   case "$NN_TYPE_VISIBILITY" in show_defined|show_untyped|show_all) ;;
-    *) echo "notenav: type.visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" >&2; return 1 ;; esac
+    *) echo "notenav: defaults.type_visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" >&2; return 1 ;; esac
   declare -gA NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS
   for _v in "${NN_TYPE_VALUES[@]}"; do
     _jv=$(_nn_jq_esc "$_v")
@@ -1816,7 +1817,10 @@ nn_doctor() {
         fi
       done < <(nn_cfg ".type.\"$(_nn_jq_esc "$_ev")\" // {} | keys[]" 2>/dev/null)
     done
-    # Warn on type-level keys that aren't in values or known top-level keys
+    # Warn on type-level keys that aren't in values or known top-level keys.
+    # `visibility` is the legacy location (now defaults.type_visibility) but
+    # is still accepted, so it stays in the known list to avoid a duplicate
+    # "unrecognized key" warning – the deprecation is handled below.
     local _typ_known_toplevel="values default_color display_order visibility"
     local _ek
     while IFS= read -r _ek; do
@@ -1826,14 +1830,23 @@ nn_doctor() {
         _warn "type.$_ek is not in type.values (typo?)"
       fi
     done < <(nn_cfg '.type // {} | keys[]' 2>/dev/null)
-    # Validate type.visibility
-    local _typ_vis
-    _typ_vis=$(nn_cfg '.type.visibility // empty')
+    # Validate defaults.type_visibility (accept legacy type.visibility)
+    local _typ_vis _typ_vis_key="defaults.type_visibility"
+    _typ_vis=$(nn_cfg '.defaults.type_visibility // empty')
+    if [[ -z "$_typ_vis" ]]; then
+      _typ_vis=$(nn_cfg '.type.visibility // empty')
+      [[ -n "$_typ_vis" ]] && _typ_vis_key="type.visibility"
+    fi
     if [[ -n "$_typ_vis" ]]; then
       case "$_typ_vis" in
         show_defined|show_untyped|show_all) ;;
-        *) _warn "type.visibility '$_typ_vis' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" ;;
+        *) _warn "$_typ_vis_key '$_typ_vis' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" ;;
       esac
+    fi
+    # Detect legacy type.visibility independently – warn on the layering
+    # violation regardless of whether the new key is also set.
+    if [[ "$(nn_cfg '.type | has("visibility")' 2>/dev/null)" == "true" ]]; then
+      _warn "type.visibility is deprecated; move to defaults.type_visibility (the setting is a user preference, not a workflow definition)"
     fi
 
     # Meta sub-key validation (schema is the deprecated alias for schema_version)
@@ -2918,15 +2931,15 @@ nn_doctor() {
     # notes with no frontmatter are both effectively untyped).
     # NB: doctor calls nn_load_config but not nn_precompute_workflow, so the
     # NN_TYPE_VISIBILITY env var is not populated here – read from config
-    # directly with the same default as nn_precompute_workflow (line 746).
+    # directly with the same default + fallback chain as nn_precompute_workflow.
     local _fm_visibility
-    _fm_visibility=$(nn_cfg '.type.visibility // "show_untyped"')
+    _fm_visibility=$(nn_cfg '.defaults.type_visibility // .type.visibility // "show_untyped"')
     if [[ "$_fm_visibility" == "show_defined" && $(( _fm_no_type + _fm_no_frontmatter )) -gt 0 ]]; then
       local _fm_total_scanned
       _fm_total_scanned=$(printf '%s\n' "$_fm_scan" | grep -c '[^[:space:]]' 2>/dev/null || echo 0)
       if [[ $(( _fm_no_type + _fm_no_frontmatter )) -ge $_fm_total_scanned ]]; then
-        _warn "All notes have empty type – they will be hidden (type.visibility = \"show_defined\")"
-        echo "          Set type.visibility = \"show_untyped\" or add type: to note frontmatter"
+        _warn "All notes have empty type – they will be hidden (defaults.type_visibility = \"show_defined\")"
+        echo "          Set defaults.type_visibility = \"show_untyped\" or add type: to note frontmatter"
       fi
     fi
     if [[ "$_note_count" -gt 2000 ]]; then

@@ -125,23 +125,14 @@ description = "Concrete, actionable unit of work"
 |-----|------|-------------|
 | `values` | array | Valid note types; array order is used as the default display order |
 | `default_color` | string | Fallback color for types not explicitly listed |
-| `visibility` | string | Which notes appear based on their type field (default: `"show_untyped"`) |
 | `display_order` | array | *(optional)* Override display order (group headers and stats bar); defaults to `values` order |
 | `[type.<name>].icon` | string | Single character displayed in the list |
 | `[type.<name>].color` | string | Color name or ANSI code (e.g. `"cyan"`, `"bold-red"`, `"31;1"`) |
 | `[type.<name>].description` | string | What this type represents |
 
+Which notes appear based on their type field is controlled by [`defaults.type_visibility`](#defaults) – it's a user preference, not a workflow definition, so it lives under `[defaults]`.
+
 **Named colors:** `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `dim`. Prefix with `bold-` for bold (e.g. `"bold-red"`) or `bright-` for the bright variant (e.g. `"bright-cyan"`). Raw ANSI codes (`"31"`, `"31;1"`) are also accepted. Named colors map to ANSI palette slots – actual appearance depends on your terminal theme.
-
-**`type.visibility`** controls which notes appear based on their type field:
-
-| Value | Behavior |
-|-------|----------|
-| `show_defined` | Only notes that have a type field in their frontmatter. Notes without a type are hidden; notes with an unknown type value still appear. |
-| `show_untyped` | *(default)* Also shows notes that have no `type` field in their frontmatter. These appear with a dim `·` icon. Useful when migrating an existing vault or mixing typed and untyped notes. |
-| `show_all` | Shows all notes regardless of type, including notes with type values not defined in the workflow. Unknown types appear with dim styling. |
-
-When filtering by a specific type (`ft` key or `type=task`), only notes matching that type are shown regardless of this setting.
 
 ### `[status]`
 
@@ -413,12 +404,13 @@ Default view settings.
 
 ```toml
 [defaults]
-sort_by = "created"       # created | modified | title | priority
-sort_reverse = false      # true to reverse the default sort direction
-group_by = "none"         # none | type | status
-show_archive = false      # true to show archived statuses by default
-wrap_preview = false      # true to wrap the preview pane by default
-pin_mode = "auto"         # auto | always
+sort_by = "created"             # created | modified | title | priority
+sort_reverse = false            # true to reverse the default sort direction
+group_by = "none"               # none | type | status
+type_visibility = "show_untyped" # show_defined | show_untyped | show_all
+show_archive = false            # true to show archived statuses by default
+wrap_preview = false            # true to wrap the preview pane by default
+pin_mode = "auto"               # auto | always
 ```
 
 | Key | Type | Default | Description |
@@ -426,9 +418,20 @@ pin_mode = "auto"         # auto | always
 | `sort_by` | string | `"created"` | Sort order for notes (`"priority"` only meaningful when the active workflow has `priority.enabled = true`) |
 | `sort_reverse` | boolean | `false` | Whether to reverse the default sort direction |
 | `group_by` | string | `"none"` | Grouping in the list; `"none"` for no grouping. The legacy empty string `""` is still accepted as a synonym for `"none"`. |
+| `type_visibility` | string | `"show_untyped"` | Which notes appear based on their type field (see below). The legacy location `[type] visibility = ...` is still accepted but deprecated. |
 | `show_archive` | boolean | `false` | Whether archived statuses are visible on launch |
 | `wrap_preview` | boolean | `false` | Whether the preview pane wraps long lines on launch |
 | `pin_mode` | string | `"auto"` | When to create ghost-row pins after actions: `"auto"` pins only when the item would leave the current view; `"always"` pins every modified item |
+
+**`defaults.type_visibility`** controls which notes appear based on their type field:
+
+| Value | Behavior |
+|-------|----------|
+| `show_defined` | Only notes that have a type field in their frontmatter. Notes without a type are hidden; notes with an unknown type value still appear. |
+| `show_untyped` | *(default)* Also shows notes that have no `type` field in their frontmatter. These appear with a dim `·` icon. Useful when migrating an existing vault or mixing typed and untyped notes. |
+| `show_all` | Shows all notes regardless of type, including notes with type values not defined in the workflow. Unknown types appear with dim styling. |
+
+When filtering by a specific type (`ft` key or `type=task`), only notes matching that type are shown regardless of this setting.
 
 ### `[ui]`
 
