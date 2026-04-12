@@ -2785,9 +2785,15 @@ nn_doctor() {
     # Bash `read` with IFS=$'\t' collapses adjacent tabs (tab is a whitespace
     # IFS character), which silently corrupts rows with empty fields like
     # priority. \x1f is non-whitespace so empty fields are preserved.
+    # Apply the same .nnignore filtering as the runtime so excluded notes
+    # (e.g. archived directories) don't produce spurious warnings.  Reuses
+    # _ign_prune (built in Phase 5) and _nn_ignore_pipe for consistency.
     local _fm_scan
-    _fm_scan=$(find "$_nn_root" \( -name .git -o -name .zk -o -name .obsidian -o -name node_modules -o -name .nn \) -prune \
+    _fm_scan=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune \
       -o -name '*.md' -type f -print 2>/dev/null \
+      | awk '{printf "\t\t\t\t\t%s\n", $0}' \
+      | _nn_ignore_pipe \
+      | awk -F'\t' '{print $6}' \
       | head -2000 \
       | "$_fm_gawk" '
       BEGIN { US = sprintf("%c", 31); NR_FILE = 0 }
