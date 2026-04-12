@@ -1434,10 +1434,10 @@ EOF
 
   # bash
   local bash_ver="${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}"
-  if _nn_ver_cmp "$bash_ver" "4.2"; then
+  if _nn_ver_cmp "$bash_ver" "4"; then
     _pass "bash $bash_ver"
   else
-    _fail "bash $bash_ver (requires 4.2+)"
+    _fail "bash $bash_ver (requires 4+)"
   fi
 
   # fzf

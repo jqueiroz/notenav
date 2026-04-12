@@ -2,7 +2,7 @@
 # Feature/task/bug workflow mirroring ADO work item types
 
 [meta]
-name = "Azure DevOps"
+name = "ADO"
 description = "Feature/task/bug workflow inspired by Azure DevOps"
 schema_version = 1
 
