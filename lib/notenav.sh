@@ -6342,9 +6342,16 @@ if [ "$count" -eq 0 ] && ! [ -s "$dir/.current" ]; then
     _empty_narrowed=1
     _hint_plain='(press R to reset filters)'
     _hint_color='\033[90m(press \033[36mR\033[90m to reset filters)\033[0m'
+    # Search filters persist after exiting search mode and are easy to forget.
+    if [ -n "$fmatch" ]; then
+      _hint_plain="(content:\"$fmatch\" active – enter /? to clear, or R to reset all)"
+      _hint_color=$(printf '\033[90m(content:\033[1m"%s"\033[0;90m active – enter \033[36m/?\033[90m to clear, or \033[36mR\033[90m to reset all)\033[0m' "$fmatch")
+    elif [ -n "$ftitle" ]; then
+      _hint_plain="(title:\"$ftitle\" active – enter / to clear, or R to reset all)"
+      _hint_color=$(printf '\033[90m(title:\033[1m"%s"\033[0;90m active – enter \033[36m/\033[90m to clear, or \033[36mR\033[90m to reset all)\033[0m' "$ftitle")
     # If no filters are active and the archive view is hiding everything,
     # R won't help – suggest opening the archive picker via zh.
-    if [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && [ -z "$fmatch" ] && [ -z "$fmarked" ] && [ -z "$active_sq" ] && ! [ -s "$dir/.f_tags" ] && [ -s "$dir/.schema_archive" ]; then
+    elif [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && [ -z "$fmarked" ] && [ -z "$active_sq" ] && ! [ -s "$dir/.f_tags" ] && [ -s "$dir/.schema_archive" ]; then
       case "$farchive" in
         "")
           _hint_plain='(press zh to show archived notes)'
