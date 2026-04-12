@@ -554,7 +554,8 @@ _nn_gen_awk_bodies() {
       [[ -n "$_known_cond" ]] && _known_cond+=" && "
       _known_cond+="\$1 != \"${_vesc}\""
     done
-    _typ_awk+=$'\n'"  if (${_known_cond}) { tc = \"\\033[90m\"; ic = \"·\" }"
+    # · for untyped (empty), ? for unrecognized (non-empty but not in workflow)
+    _typ_awk+=$'\n'"  if (${_known_cond}) { tc = \"\\033[90m\"; ic = (\$1 == \"\" ? \"·\" : \"?\") }"
   fi
 
   # Status color assignments
@@ -999,20 +1000,14 @@ nn_precompute_workflow() {
   fi
 
   # Type visibility base condition
-  # show_defined: non-empty type required (pre-visibility-setting behavior)
-  # show_untyped: empty type OK, but unknown types still excluded
-  # show_all:     any note with a file path
+  # show_defined: non-empty type required
+  # show_untyped: any note with a file path (untyped and unrecognized types shown dimmed)
+  # show_all:     same as show_untyped (both show all notes; the setting names differ
+  #               for semantic clarity in config)
   case "$NN_TYPE_VISIBILITY" in
     show_defined)
       NN_TYPE_VIS_COND='length($1) > 0' ;;
-    show_untyped)
-      # Accept empty $1 OR $1 matching a known type
-      local _known_cond="\$1 == \"\""
-      for _v in "${NN_TYPE_VALUES[@]}"; do
-        _known_cond+=" || \$1 == \"$(_nn_awk_esc "$_v")\""
-      done
-      NN_TYPE_VIS_COND="($_known_cond) && length(\$6) > 0" ;;
-    show_all)
+    show_untyped|show_all)
       NN_TYPE_VIS_COND='length($6) > 0' ;;
     *) nn_assert "unknown defaults.type_visibility '$NN_TYPE_VISIBILITY'" ;;
   esac

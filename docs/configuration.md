@@ -439,8 +439,8 @@ In the TUI, press `z` then `h` to open a picker that lets you switch between the
 | Value | Behavior |
 |-------|----------|
 | `show_defined` | Only notes that have a type field in their frontmatter. Notes without a type are hidden; notes with an unknown type value still appear. |
-| `show_untyped` | *(default)* Also shows notes that have no `type` field in their frontmatter. These appear with a dim `·` icon. Useful when migrating an existing vault or mixing typed and untyped notes. |
-| `show_all` | Shows all notes regardless of type, including notes with type values not defined in the workflow. Unknown types appear with dim styling. |
+| `show_untyped` | *(default)* Shows all notes. Notes without a type appear with a dim `·` icon; notes with an unrecognized type value appear with a dim `?` icon. |
+| `show_all` | Same as `show_untyped`. Both show all notes; the setting names differ for semantic clarity. |
 
 When filtering by a specific type (`ft` key or `type=task`), only notes matching that type are shown regardless of this setting.
 
