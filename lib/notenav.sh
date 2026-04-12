@@ -3587,7 +3587,7 @@ EOF
     elif [[ $_nn_rc -ne 0 ]]; then
       echo "Invalid n!" >&2; return 1
     fi
-    local _ee_dir; _ee_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn-ee.XXXXXX")
+    local _ee_dir; _ee_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn-ee.XXXXXX") || { echo "notenav: mktemp -d failed (TMPDIR=${TMPDIR:-/tmp})" >&2; return 1; }
     chmod 700 "$_ee_dir"
     local _ee_rc=0
     if _nn_easteregg_decode "$_ee_dir" "$_nn_k"; then
@@ -3766,7 +3766,7 @@ EOF
       echo "notenav: interactive TUI requires a terminal (TERM is 'dumb')" >&2
       shopt -u nullglob; return 1
     fi
-    local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX")
+    local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX") || { echo "notenav: mktemp -d failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
     if [[ "$_nn_dir" == *[[:space:]\"\'\$\`\\]* ]]; then
       rm -rf "$_nn_dir"
       echo "notenav: TMPDIR path contains characters unsafe for shell interpolation." >&2
@@ -3951,7 +3951,7 @@ case "$field" in
         fi
       fi
     done < "$dir/.schema_types"
-    cur_val=$(cat "$dir/.f_type" 2>/dev/null); cur_val="${cur_val%%[[:space:]]}"
+    cur_val=$(cat "$dir/.f_type" 2>/dev/null)
     if [ -n "$cur_val" ]; then
       cur_pos=$(awk -F'\t' -v v="$cur_val" '$1==v{print NR+1;exit}' "$dir/.schema_types")
     else cur_pos=1; fi ;;
@@ -3970,7 +3970,7 @@ case "$field" in
         fi
       fi
     done < "$dir/.schema_status_descs"
-    cur_val=$(cat "$dir/.f_status" 2>/dev/null); cur_val="${cur_val%%[[:space:]]}"
+    cur_val=$(cat "$dir/.f_status" 2>/dev/null)
     if [ -n "$cur_val" ]; then
       cur_pos=$(awk -v v="$cur_val" '$0==v{print NR+1;exit}' "$dir/.schema_status_values")
     else cur_pos=1; fi ;;
@@ -3992,7 +3992,7 @@ case "$field" in
     else
       vals="$vals"$'\n'"none"$'\t'"<unset>"
     fi
-    cur_val=$(cat "$dir/.f_priority" 2>/dev/null); cur_val="${cur_val%%[[:space:]]}"
+    cur_val=$(cat "$dir/.f_priority" 2>/dev/null)
     if [ "$cur_val" = "none" ]; then
       cur_pos=$(( $(wc -l < "$dir/.schema_priority_values") + 2 ))
     elif [ -n "$cur_val" ]; then
@@ -4431,7 +4431,7 @@ for file in "$@"; do
   field="$field" value="$value" "$nn_gawk" '
     BEGIN { field=ENVIRON["field"]; value=ENVIRON["value"] }
     NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
-    in_fm && /^---/ { in_fm=0; if (!found) print field ": " value; print; skip_cont=0; next }
+    in_fm && /^---/ { in_fm=0; if (!found && value != "") print field ": " value; print; skip_cont=0; next }
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
     in_fm && skip_cont && /^[[:blank:]]+-/ { next }
     in_fm && skip_cont { skip_cont=0 }
@@ -6365,10 +6365,12 @@ elif [ -n "$_nb_dir" ]; then
   _ctx=" · $_nb_dir"
 fi
 _border=$(printf ' nn · %d/%d%s%s%s ' "$count" "$total" "$pin_s" "$mark_s" "$_ctx")
-printf '%s' "${_border//)/}" > "$dir/.border"
+_border="${_border//)/}"; _border="${_border//(/}"
+printf '%s' "$_border" > "$dir/.border"
 _border_action=""
 [ -s "$dir/.last_action" ] && _border_action=$(printf ' %s ' "$(cat "$dir/.last_action")")
-printf '%s' "${_border_action//)/}" > "$dir/.border_action"
+_border_action="${_border_action//)/}"; _border_action="${_border_action//(/}"
+printf '%s' "$_border_action" > "$dir/.border_action"
 # NO_COLOR: strip ANSI escape sequences from header/placeholder files
 if [ -n "${NO_COLOR+x}" ]; then
   _nc_esc=$(printf '\033')
