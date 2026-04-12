@@ -504,7 +504,7 @@ A single string (e.g. `previewer = "bat"`) is also accepted and is equivalent to
 | `"bat"` (default) | [bat](https://github.com/sharkdp/bat) (or batcat) | Syntax-highlighted plain text; fast |
 | `"glow"` | [glow](https://github.com/charmbracelet/glow) | Rendered markdown with styling; slower than bat |
 | `"mdcat"` | [mdcat](https://codeberg.org/flausch/mdcat) | Rendered markdown; supports inline images in kitty/iTerm2; slightly slower than bat |
-| `"plain"` | cat | No highlighting or rendering |
+| `"plain"` | cat | No highlighting or rendering; not in the default list – add explicitly if wanted |
 | `"custom"` | user-defined | Runs `previewer_custom_command` with the file path as `$1` |
 
 If no entry in the list is available, the preview falls back to `cat`. Use `nn doctor` to check which previewers are installed.

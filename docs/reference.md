@@ -6,7 +6,7 @@
 
 ```
 nn                                  interactive TUI (faceted browser)
-nn <query-name>                     run a saved query preset
+nn <query-name>                     run a query preset
 nn key=value ...                    ad-hoc filter (plain output)
 nn key=value ... -i                 ad-hoc filter (interactive)
 nn init [--user] [workflow]         create project or user config
@@ -236,6 +236,8 @@ Prints a usage summary and exits.
 | `$NO_COLOR` | Disable colored output (any value) | unset |
 | `$XDG_CONFIG_HOME` | User config directory | `$HOME/.config` |
 | `$XDG_CACHE_HOME` | Cache directory (remote workflows) | `$HOME/.cache` |
+| `$TMPDIR` | Directory for temporary state files during TUI sessions | system default (usually `/tmp`) |
+| `$TERM` | Terminal type – must not be `dumb` for the interactive TUI | set by terminal emulator |
 
 ### File locations
 
@@ -275,6 +277,14 @@ Notes:
 - Glob patterns are matched against the **basename** only.
   Patterns like `foo/*.md` (glob + path) are not supported – use a
   directory pattern (`foo/`) or an exact path pattern instead.
+
+Restrictions – these patterns are rejected with a diagnostic message:
+
+- Nested directory patterns (`foo/bar/`) – use the leaf name (`bar/`) instead.
+- Wildcards in directory patterns (`foo*/`) – use a glob pattern instead.
+- Absolute paths (`/home/user/notes.md`) – use a relative path.
+- Glob patterns containing `/` (`subdir/*.md`) – use a directory pattern or exact path.
+- Glob patterns with regex-special characters (`[`, `]`, `(`, `)`, `+`, `|`, `{`, `}`, `^`, `$`, `\`) – these are not supported in `.nnignore` globs.
 
 **Example `.nnignore`:**
 
