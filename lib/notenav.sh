@@ -5712,7 +5712,7 @@ case "$action" in
     case "$path" in *.empty_placeholder) path="" ;; esac
     if [ -n "$path" ]; then
       if grep -qxF "$path" "$dir/.marked" 2>/dev/null; then
-        { grep -vxF "$path" "$dir/.marked" || true; } > "$dir/.marked.tmp"
+        { grep -vxF "$path" "$dir/.marked" || [ $? -eq 1 ]; } > "$dir/.marked.tmp"
         mv "$dir/.marked.tmp" "$dir/.marked"
         # Pin the unmarked item when mark filter is on so it doesn't vanish
         if [ -n "$fmarked" ]; then
@@ -5726,14 +5726,14 @@ case "$action" in
     fi ;;
   mark-add)
     if [ -s "$dir/.m_sel" ]; then
-      grep -v '\.empty_placeholder$' "$dir/.m_sel" > "$dir/.m_sel.tmp" || true
+      { grep -v '\.empty_placeholder$' "$dir/.m_sel" || [ $? -eq 1 ]; } > "$dir/.m_sel.tmp"
       mv "$dir/.m_sel.tmp" "$dir/.m_sel"
       { cat "$dir/.marked" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.marked.tmp"
       mv "$dir/.marked.tmp" "$dir/.marked"
     fi ;;
   mark-remove)
     if [ -s "$dir/.m_sel" ]; then
-      grep -v '\.empty_placeholder$' "$dir/.m_sel" > "$dir/.m_sel.tmp" || true
+      { grep -v '\.empty_placeholder$' "$dir/.m_sel" || [ $? -eq 1 ]; } > "$dir/.m_sel.tmp"
       mv "$dir/.m_sel.tmp" "$dir/.m_sel"
       # Pin the unmarked items when mark filter is on so they don't vanish
       if [ -n "$fmarked" ]; then
@@ -6610,12 +6610,12 @@ for f in "${targets[@]}"; do
     _del_ok=$((_del_ok + 1))
     # Clean up .pinned
     if [ -s "$dir/.pinned" ]; then
-      { grep -vxF "$f" "$dir/.pinned" || true; } > "$dir/.pinned.tmp"
+      { grep -vxF "$f" "$dir/.pinned" || [ $? -eq 1 ]; } > "$dir/.pinned.tmp"
       mv "$dir/.pinned.tmp" "$dir/.pinned"
     fi
     # Clean up .marked
     if [ -s "$dir/.marked" ]; then
-      { grep -vxF "$f" "$dir/.marked" || true; } > "$dir/.marked.tmp"
+      { grep -vxF "$f" "$dir/.marked" || [ $? -eq 1 ]; } > "$dir/.marked.tmp"
       mv "$dir/.marked.tmp" "$dir/.marked"
     fi
   else
