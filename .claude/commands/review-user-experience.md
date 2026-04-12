@@ -43,7 +43,7 @@ Not "is the error caught" (that's `/audit-code`), but "does the message help the
 - Can a user figure out keybindings without reading docs? Are on-screen hints sufficient?
 - `nn --help`: does it cover all three operating modes with clear examples?
 - Header line: does it show enough context (notebook, workflow, filter state) without clutter?
-- Are less-common features (group-by, sort, archive toggle) findable from the TUI?
+- Are less-common features (group-by, sort, archive visibility) findable from the TUI?
 
 ### 5. Consistency
 

@@ -5920,7 +5920,7 @@ else
   cols=$(tput cols 2>/dev/null || echo 80)
 fi
 _header_mode=$(cat "$dir/.schema_header_mode" 2>/dev/null)
-# Count matches for "all" (respects archive toggle)
+# Count matches for "all" (respects current archive visibility)
 all_cond="$vis_cond"
 case "$farchive" in
   "")   all_cond="$all_cond$archive_cond" ;;
@@ -6202,7 +6202,7 @@ if [ "$count" -eq 0 ] && ! [ -s "$dir/.current" ]; then
     _hint_plain='(press R to reset filters)'
     _hint_color='\033[90m(press \033[36mR\033[90m to reset filters)\033[0m'
     # If no filters are active and the archive view is hiding everything,
-    # R won't help – suggest cycling zh.
+    # R won't help – suggest opening the archive picker via zh.
     if [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && [ -z "$fmatch" ] && [ -z "$fmarked" ] && [ -z "$active_sq" ] && ! [ -s "$dir/.f_tags" ] && [ -s "$dir/.schema_archive" ]; then
       case "$farchive" in
         "")
@@ -6362,15 +6362,26 @@ ENDFILTER
     # Wrap toggle helper: toggles .f_wrap state, outputs toggle-wrap+filter refresh
     cat > "$_nn_dir/wrapkey.sh" << 'ENDWK'
 #!/bin/sh
+# Toggle preview wrap. Honors both display mode (after `z`) and command
+# mode – `w` is a top-level shortcut, so it must work from either mode.
+# Other prefix modes (c, f, m) intentionally no-op so the key doesn't
+# leak through partial chords.
 dir="$1"
 m=$(cat "$dir/.nn-mode" 2>/dev/null)
-if test "$m" = z; then
-  : > "$dir/.nn-mode"
-  if test -n "$(cat "$dir/.f_wrap" 2>/dev/null)"; then : > "$dir/.f_wrap"; else echo on > "$dir/.f_wrap"; fi
-  "$dir/cprompt.sh" "$dir"
-  printf '+toggle-wrap+'
-  "$dir/filter.sh" "$dir" refresh
-fi
+case "$m" in
+  z)
+    : > "$dir/.nn-mode"
+    if test -n "$(cat "$dir/.f_wrap" 2>/dev/null)"; then : > "$dir/.f_wrap"; else echo on > "$dir/.f_wrap"; fi
+    "$dir/cprompt.sh" "$dir"
+    printf '+toggle-wrap+'
+    "$dir/filter.sh" "$dir" refresh
+    ;;
+  '')
+    if test -n "$(cat "$dir/.f_wrap" 2>/dev/null)"; then : > "$dir/.f_wrap"; else echo on > "$dir/.f_wrap"; fi
+    printf 'toggle-wrap+'
+    "$dir/filter.sh" "$dir" refresh
+    ;;
+esac
 ENDWK
     chmod +x "$_nn_dir/wrapkey.sh"
 

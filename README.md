@@ -142,7 +142,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `q` | Quit |
 
-A few keys are mode-aware: pressing `h` in command mode toggles the header, but in display mode (after `z`) it toggles archived visibility; `w` toggles preview wrap from either mode. These keybindings apply to all workflows, including custom ones. Press `?` for a keybinding reference at any time. See [docs/tui.md](docs/tui.md) for the full reference.
+A few keys are mode-aware: pressing `h` in command mode toggles the header, but in display mode (after `z`) it opens an archive visibility picker (hide / show / only); `w` toggles preview wrap from either mode. These keybindings apply to all workflows, including custom ones. Press `?` for a keybinding reference at any time. See [docs/tui.md](docs/tui.md) for the full reference.
 
 When an action like `a` (advance status) or `+` (bump priority) causes a note to no longer match your active filters, the note stays visible in its natural sort position as a **ghost row** with a yellow `pinned` badge. This means you never lose sight of what you just changed and the cursor never jumps. Pins accumulate across multiple actions and survive filter changes. Press `x` to clear all pins, or `R` to reset everything (i.e. filters, pins, sort, grouping, and display settings).
 

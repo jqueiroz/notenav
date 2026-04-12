@@ -178,7 +178,7 @@ blocked = "new"
 | `values` | array | All valid statuses; array order is used as the default display order |
 | `initial` | string | Status assigned to newly created notes and when pressing `a` on a note that has no status |
 | `display_order` | array | *(optional)* Override display order (group headers); defaults to `values` order |
-| `archive` | array | Statuses hidden by default; press `zh` to toggle visibility |
+| `archive` | array | Statuses hidden by default; press `zh` for the archive visibility picker (hide / show / only) |
 | `filter_cycle` | array | Statuses available when cycling via `]`/`[` presets (`"all"` is auto-prepended); the `fs` picker shows all statuses regardless |
 | `default_color` | string | Fallback color for statuses not in `[status.colors]` |
 | `[status.colors]` | table | Color name or ANSI code per status |

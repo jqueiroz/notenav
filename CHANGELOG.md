@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
-- **Archive-only view mode** – `defaults.archive_visibility = "only"` (or pressing `zh` twice from the default) shows only notes whose status is in `[status] archive`. Useful for reviewing what you've finished or dropped. The `zh` key now cycles `hide → show → only → hide`.
+- **Archive-only view mode** – `defaults.archive_visibility = "only"` shows only notes whose status is in `[status] archive`, useful for reviewing what you've finished or dropped. In the TUI, `zh` opens an archive picker (hide / show / only) instead of the previous toggle. The picker omits `only` when the workflow has no archive statuses.
 
 ### Changed
 

@@ -35,7 +35,7 @@ description = "Living documentation; continually updated as understanding grows"
 
 # --- Statuses ---
 # values: all valid statuses; array order = display order in grouped view
-# archive: statuses hidden by default; press 'zh' to toggle visibility
+# archive: statuses hidden by default; press 'zh' for the archive visibility picker
 # filter_cycle: subset for ]/[ preset cycling ("all" is auto-prepended); fs picker shows all
 # default_color: fallback for statuses not explicitly listed in [status.colors]
 #
