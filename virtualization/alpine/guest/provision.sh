@@ -22,19 +22,11 @@ apk add \
   gawk \
   fzf \
   jq \
+  yq \
   git \
   ripgrep \
   bat \
   curl
-
-# yq-go: install from GitHub (Go binaries are statically linked, safe on musl)
-if ! command -v yq >/dev/null 2>&1; then
-  echo ""
-  echo "==> Installing yq-go..."
-  YQ_URL="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
-  curl -fL -o /usr/local/bin/yq "$YQ_URL"
-  chmod +x /usr/local/bin/yq
-fi
 
 echo ""
 echo "==> Adding notenav to PATH..."
