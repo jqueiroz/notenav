@@ -3699,7 +3699,19 @@ EOF
     _NN_GAWK=$(_nn_resolve_gawk)
     # gawk capability probe – mktime/strtonum/3-arg match are required
     if ! "$_NN_GAWK" 'BEGIN { mktime("2020 1 1 0 0 0"); strtonum("0x1") }' /dev/null 2>/dev/null; then
-      echo "notenav: gawk (GNU awk) is required but the current awk lacks mktime/strtonum" >&2
+      local _awk_impl
+      _awk_impl=$("$_NN_GAWK" -W version < /dev/null 2>&1 | head -n 1 || true)
+      case "$_awk_impl" in
+        *mawk*) _awk_impl="mawk" ;;
+        *nawk*) _awk_impl="nawk" ;;
+        *BusyBox*) _awk_impl="busybox awk" ;;
+        *) _awk_impl="" ;;
+      esac
+      if [[ -n "$_awk_impl" ]]; then
+        echo "notenav: gawk (GNU awk) is required (found $_awk_impl, which lacks mktime/strtonum)" >&2
+      else
+        echo "notenav: gawk (GNU awk) is required but the current awk lacks mktime/strtonum" >&2
+      fi
       _nn_gawk_hint
       return 1
     fi
