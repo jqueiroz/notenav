@@ -1106,7 +1106,10 @@ nn_write_workflow_files() {
   printf '%s' "$NN_AWK_ICON_SETUP" > "$dir/.schema_icon_setup"
 
   # UI preferences
-  printf '%s' "$(_nn_resolve_editor "$NN_UI_EDITOR")" > "$dir/.schema_editor"
+  _nn_shellsplit "$(_nn_resolve_editor "$NN_UI_EDITOR")"
+  if (( ${#_nn_split_result[@]} )); then
+    printf '%s\n' "${_nn_split_result[@]}"
+  fi > "$dir/.schema_editor"
   printf '%s' "$NN_UI_AFTER_CREATE" > "$dir/.schema_after_create"
   printf '%s' "$NN_UI_PRIORITY_PLUS" > "$dir/.schema_priority_plus"
   printf '%s' "$NN_UI_DELETE_METHOD" > "$dir/.schema_delete_method"
@@ -5078,8 +5081,9 @@ END {
 cp "$tmpfile" "$origfile"
 rm -f "$datafile"
 # Open editor
-nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
-${nn_editor:-vi} "$tmpfile" </dev/tty >/dev/tty
+mapfile -t nn_editor_cmd < <(cat "$dir/.schema_editor" 2>/dev/null)
+[ ${#nn_editor_cmd[@]} -eq 0 ] && nn_editor_cmd=(vi)
+"${nn_editor_cmd[@]}" "$tmpfile" </dev/tty >/dev/tty
 # Apply changes
 "$dir/bulkedit_apply.sh" "$dir" "$origfile" "$tmpfile"
 ENDBE
@@ -5526,8 +5530,9 @@ case "$after_create" in
 esac
 # Open in editor first so any frontmatter edits are picked up by the refresh below
 case "$after_create" in
-  edit) nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
-        ${nn_editor:-vi} "$new_path" < /dev/tty > /dev/tty ;;
+  edit) mapfile -t nn_editor_cmd < <(cat "$dir/.schema_editor" 2>/dev/null)
+        [ ${#nn_editor_cmd[@]} -eq 0 ] && nn_editor_cmd=(vi)
+        "${nn_editor_cmd[@]}" "$new_path" < /dev/tty > /dev/tty ;;
 esac
 # Pin the new note when it would be hidden by active filters, so the cursor
 # can land on it after fzf resumes (mirrors auto-pin logic in action.sh).
@@ -6553,10 +6558,11 @@ ENDWK
     cat > "$_nn_dir/edit.sh" << 'ENDEDIT'
 #!/usr/bin/env bash
 dir=$(dirname "$0")
-nn_editor=$(cat "$dir/.schema_editor" 2>/dev/null)
+mapfile -t nn_editor_cmd < <(cat "$dir/.schema_editor" 2>/dev/null)
+[ ${#nn_editor_cmd[@]} -eq 0 ] && nn_editor_cmd=(vi)
 target=$(cat "$dir/.edit_target" 2>/dev/null)
 case "$target" in *.empty_placeholder) exit 0 ;; esac
-[ -f "$target" ] && ${nn_editor:-vi} "$target"
+[ -f "$target" ] && "${nn_editor_cmd[@]}" "$target"
 ENDEDIT
     chmod +x "$_nn_dir/edit.sh"
 
@@ -7019,8 +7025,11 @@ ENDDELETE
     local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
     trap 'rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"' EXIT
     _nn_write_preview "$_nn_prev"
-    printf '%s' "$_nn_editor" > "$_nn_edit.editor"
-    printf '#!/usr/bin/env bash\nnn_editor=$(cat "%s" 2>/dev/null)\ntarget=$(cat "%s" 2>/dev/null)\n[ -f "$target" ] && ${nn_editor:-vi} "$target"\n' "$_nn_edit.editor" "$_nn_edit.target" > "$_nn_edit"
+    _nn_shellsplit "$_nn_editor"
+    if (( ${#_nn_split_result[@]} )); then
+      printf '%s\n' "${_nn_split_result[@]}"
+    fi > "$_nn_edit.editor"
+    printf '#!/usr/bin/env bash\nmapfile -t nn_editor_cmd < <(cat "%s" 2>/dev/null)\n[ ${#nn_editor_cmd[@]} -eq 0 ] && nn_editor_cmd=(vi)\ntarget=$(cat "%s" 2>/dev/null)\n[ -f "$target" ] && "${nn_editor_cmd[@]}" "$target"\n' "$_nn_edit.editor" "$_nn_edit.target" > "$_nn_edit"
     chmod +x "$_nn_edit"
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
