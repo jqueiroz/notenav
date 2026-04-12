@@ -427,11 +427,11 @@ pin_mode = "auto"               # auto | always
 
 | Value | Behavior |
 |-------|----------|
-| `hide` | *(default)* Archive statuses are hidden. Press `zh` to cycle to `show`. |
+| `hide` | *(default)* Archive statuses are hidden. |
 | `show` | Archive statuses appear alongside everything else. |
 | `only` | Only archive statuses are shown – useful for reviewing what you've finished or dropped. |
 
-The `zh` keybinding cycles through `hide → show → only → hide`. When the active workflow declares no archive statuses, the cycle skips `only` (it would always be empty). The setting only controls the *default* state on launch; the runtime cycle is independent.
+In the TUI, press `z` then `h` to open a picker that lets you switch between the three modes at runtime. The picker omits the `only` option when the active workflow declares no archive statuses. The config setting only controls the *initial* state on launch; runtime selections are not persisted. Setting `archive_visibility = "only"` in a workflow that declares no archive statuses is rejected at startup.
 
 **`defaults.type_visibility`** controls which notes appear based on their type field:
 
