@@ -4611,7 +4611,7 @@ case "$field" in
   status)
     vals=""
     while IFS=$'\t' read -r v desc || [ -n "$v" ]; do
-      [ -n "$vals" ] && vals="$vals\n"
+      [ -n "$vals" ] && vals="$vals"$'\n'
       if [ -n "${NO_COLOR+x}" ]; then
         if [ -n "$desc" ]; then vals="$vals$v  – $desc"; else vals="$vals$v"; fi
       else
@@ -4626,13 +4626,13 @@ case "$field" in
     [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 1
     vals=""
     while IFS= read -r v || [ -n "$v" ]; do
-      [ -n "$vals" ] && vals="$vals\n"
+      [ -n "$vals" ] && vals="$vals"$'\n'
       vals="$vals$v"
     done < "$dir/.schema_priority_values" ;;
   type)
     vals=""
     while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
-      [ -n "$vals" ] && vals="$vals\n"
+      [ -n "$vals" ] && vals="$vals"$'\n'
       if [ -n "${NO_COLOR+x}" ]; then
         if [ -n "$desc" ]; then vals="$vals$ic $v  – $desc"; else vals="$vals$ic $v"; fi
       else
@@ -4651,7 +4651,7 @@ pos_bind=()
 [ -n "$cur_pos" ] && pos_bind=(--bind "load:pos($cur_pos)")
 _fzf_ansi=(--ansi)
 [ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
-selected=$(printf '%b' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $field: " \
+selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $field: " \
   --border --border-label " Set $field " \
   --header "$hdr" \
   "${pos_bind[@]}" \
@@ -5028,8 +5028,8 @@ while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   [ -z "$fpath" ] && continue
   case "$fpath" in *.empty_placeholder) continue ;; esac
   p="$fpath" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {
-    t = $5; gsub(/\|/, "\\|", t); gsub(/[\n\r]/, " ", t)
-    tags = $4; gsub(/\|/, "\\|", tags)
+    t = $5; gsub(/\|/, "\xe2\x94\x82", t); gsub(/[\n\r]/, " ", t)
+    tags = $4; gsub(/\|/, "\xe2\x94\x82", tags)
     printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, tags, $6, t
     exit
   }' "$dir/.raw" >> "$datafile"
