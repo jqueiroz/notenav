@@ -15,9 +15,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - **`?` help toggle** – press `?` to show a keybinding reference overlay; press again to dismiss. Especially useful with the `clean` header mode.
 - **`h` header mode toggle** – press `h` to switch between `clean` (state only) and `guided` (keybinding hints) header modes at runtime.
 - Named color aliases for workflow config – use `"red"`, `"bold-red"`, `"dim"`, etc. instead of raw ANSI codes like `"31;1"`. Raw codes still accepted. All built-in workflows now use named colors.
-
-### Added
-
 - **Archive-only view mode** – `defaults.archive_visibility = "only"` shows only notes whose status is in `[status] archive`, useful for reviewing what you've finished or dropped. In the TUI, `zh` opens an archive picker (hide / show / only) instead of the previous toggle. The picker omits `only` when the workflow has no archive statuses.
 
 ### Changed
