@@ -63,9 +63,6 @@ if check_dep yq; then
   if ! printf 'x = 1\n' | yq -p=toml -o=json '.' >/dev/null 2>&1; then
     warn "yq found but does not appear to be yq-go (github.com/mikefarah/yq)."
     warn "notenav requires yq-go, not the Python yq. Install: https://github.com/mikefarah/yq#install"
-    if [ -f /etc/debian_version ]; then
-      warn "On Debian/Ubuntu, the 'yq' package is Python yq – install yq-go manually."
-    fi
     missing="$missing yq"
   fi
 fi
