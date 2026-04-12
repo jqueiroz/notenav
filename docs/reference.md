@@ -158,7 +158,7 @@ nn doctor
 **Validation phases:**
 
 1. **Dependencies:** checks that required tools are installed and meet version requirements:
-   - bash 4+
+   - bash 4.2+
    - fzf 0.58+
    - yq (yq-go, **not** yq-python)
    - jq

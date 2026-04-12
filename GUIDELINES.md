@@ -10,7 +10,7 @@ Rules and conventions for contributing to notenav.
 
 ## Shell scripting
 
-- Target **bash 4+**. Use `#!/usr/bin/env bash` (not hardcoded `/bin/bash`).
+- Target **bash 4.2+** (`declare -gA` needs 4.2). Use `#!/usr/bin/env bash` (not hardcoded `/bin/bash`).
 - Quote all variable expansions. Use `local var; var=$(cmd)` so `local` doesn't mask exit codes.
 - Use `mktemp` for temp files – never predictable names in `/tmp`.
 - Sanitize user-supplied or config-derived values before interpolating into AWK/sed expressions (escape `\` and `"`).

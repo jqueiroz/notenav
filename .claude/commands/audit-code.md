@@ -60,7 +60,7 @@ Read all source files (`bin/nn`, `lib/notenav.sh`, `curl/install.sh`, `flake.nix
 #### Installation & packaging
 - **Install script**: XDG-compliant paths, idempotent, handles updates cleanly
 - **Nix flake**: `flake.lock` committed for reproducibility; runtime deps complete
-- **Dependency checking**: version requirements verified at startup (fzf 0.58+, bash 4+, yq-go not yq-python)
+- **Dependency checking**: version requirements verified at startup (fzf 0.58+, bash 4.2+, yq-go not yq-python)
 
 #### Accessibility
 - **Color**: respect `NO_COLOR`, don't rely solely on color to convey information (icons help here)

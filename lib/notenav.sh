@@ -1434,12 +1434,12 @@ EOF
   # ── Phase 1: Dependencies ──
   echo "Dependencies:"
 
-  # bash
+  # bash – 4.2+ required for declare -gA (global associative arrays)
   local bash_ver="${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}"
-  if _nn_ver_cmp "$bash_ver" "4"; then
+  if _nn_ver_cmp "$bash_ver" "4.2"; then
     _pass "bash $bash_ver"
   else
-    _fail "bash $bash_ver (requires 4+)"
+    _fail "bash $bash_ver (requires 4.2+)"
   fi
 
   # fzf
@@ -3673,8 +3673,9 @@ EOF
   # Guard: skip on recursive re-entry (named query dispatch calls notenav_main again)
   if [[ -z "${_NN_SEALED:-}" ]]; then
     # Runtime dependency checks
-    if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
-      echo "notenav: bash 4+ required (found ${BASH_VERSION})" >&2
+    # bash 4.2+ required for declare -gA (global associative arrays)
+    if [[ "${BASH_VERSINFO[0]}" -lt 4 ]] || [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -lt 2 ]]; then
+      echo "notenav: bash 4.2+ required (found ${BASH_VERSION})" >&2
       _nn_hint bash bash bash bash app-shells/bash bash bash bash ""
       return 1
     fi
@@ -6031,11 +6032,11 @@ fmt_dim() {
   if [ "$key" = "p" ] && [ -n "$val" ]; then
     if [ "$val" = "none" ]; then label="<unset>"
     else
-      label=$(awk -F'\t' -v v="$val" '$1 == v {print $2; exit}' "$dir/.schema_priority_labels")
+      label=$(v="$val" $nn_gawk -F'\t' '$1 == ENVIRON["v"] {print $2; exit}' "$dir/.schema_priority_labels")
       [ -z "$label" ] && label="P$val"
     fi
   elif [ "$key" = "t" ] && [ -n "$val" ]; then
-    ic=$(awk -F'\t' -v v="$val" '$1 == v {printf "%s ", $2; exit}' "$dir/.schema_type_icons")
+    ic=$(v="$val" $nn_gawk -F'\t' '$1 == ENVIRON["v"] {printf "%s ", $2; exit}' "$dir/.schema_type_icons")
     label="${ic}${val}"
   else label="${val:-all}"; fi
   case "$key" in t) suffix="ype";; s) suffix="tatus";; p) suffix="riority";; *) suffix="";; esac
@@ -6196,7 +6197,7 @@ keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search \033[90m·\
 # Build active-only filter/display state (shared by both header modes)
 _mparts=""
 if [ -n "$ft" ]; then
-  _mic=$(awk -F'\t' -v v="$ft" '$1 == v {printf "%s ", $2; exit}' "$dir/.schema_type_icons")
+  _mic=$(v="$ft" $nn_gawk -F'\t' '$1 == ENVIRON["v"] {printf "%s ", $2; exit}' "$dir/.schema_type_icons")
   _mparts="type:\033[1m${_mic}${ft}\033[0m"
 fi
 if [ -n "$fs" ]; then
@@ -6206,7 +6207,7 @@ fi
 if [ -n "$fp" ]; then
   [ -n "$_mparts" ] && _mparts="$_mparts  "
   _mplbl="$fp"; [ "$fp" = "none" ] && _mplbl="<unset>"
-  _mplbl_full=$(awk -F'\t' -v v="$fp" '$1 == v {print $2; exit}' "$dir/.schema_priority_labels")
+  _mplbl_full=$(v="$fp" $nn_gawk -F'\t' '$1 == ENVIRON["v"] {print $2; exit}' "$dir/.schema_priority_labels")
   [ -n "$_mplbl_full" ] && _mplbl="$_mplbl_full"
   _mparts="${_mparts}priority:\033[1m${_mplbl}\033[0m"
 fi

@@ -75,11 +75,13 @@ if ! check_dep zk; then
   warn "zk not found (optional – install for faster indexing and link graph)"
 fi
 
-# bash version check (need 4+)
+# bash version check (need 4.2+ for declare -gA)
 if check_dep bash; then
-  bash_version=$(bash -c 'echo "${BASH_VERSINFO[0]}"' 2>/dev/null)
-  if [ -n "$bash_version" ] && [ "$bash_version" -lt 4 ] 2>/dev/null; then
-    warn "bash $bash_version found but notenav requires bash 4+."
+  bash_version=$(bash -c 'echo "${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}"' 2>/dev/null)
+  bash_major="${bash_version%%.*}"
+  bash_minor="${bash_version#*.}"
+  if [ -n "$bash_major" ] && { [ "$bash_major" -lt 4 ] || { [ "$bash_major" -eq 4 ] && [ "$bash_minor" -lt 2 ]; }; } 2>/dev/null; then
+    warn "bash $bash_version found but notenav requires bash 4.2+."
     warn "On macOS: brew install bash (or use the Nix install)."
   fi
 fi

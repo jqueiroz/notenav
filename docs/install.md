@@ -4,7 +4,7 @@
 
 ## Requirements
 
-- **bash 4+:** notenav is a bash script (your default shell can be anything; bash 4+ just needs to be installed). macOS ships with bash 3.2; use the Nix install path or `brew install bash`. On FreeBSD, install via `pkg install bash`
+- **bash 4.2+:** notenav is a bash script (your default shell can be anything; bash 4.2+ just needs to be installed). macOS ships with bash 3.2; use the Nix install path or `brew install bash`. On FreeBSD, install via `pkg install bash`
 - **[fzf](https://github.com/junegunn/fzf)** 0.58+: TUI framework
 - **[yq](https://github.com/mikefarah/yq)** (yq-go): TOML→JSON conversion for config/workflow loading. **Must be [Mike Farah's yq](https://github.com/mikefarah/yq)** (written in Go), not the [Python yq wrapper](https://github.com/kislyuk/yq) – they are different tools that share the same name. Install via `brew install yq`, `go install github.com/mikefarah/yq/v4@latest`, or your package manager. Verify with `yq --version` (should show `v4.x.x`)
 - **[jq](https://github.com/jqlang/jq):** JSON merging/querying for config system
