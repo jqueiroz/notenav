@@ -84,6 +84,7 @@ new = "done"
 blocked = "new"
 
 # --- Priority ---
+# enabled: set to false to disable priority entirely (see zettelkasten workflow)
 # values: valid priority levels; array order = sort order (first = highest)
 #   can be numeric ("1","2","3") or named ("critical","high","low")
 # labels: optional short display labels; omit to show "P{value}" (e.g. "P1")

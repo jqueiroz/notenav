@@ -323,11 +323,11 @@ notenav ships with five workflows. Use `extends` in `.nn/workflow.toml` or `defa
 
 | Workflow | Types | Statuses | Priority | Use case |
 |--------|----------|----------|----------|----------|
-| **zenith** (default) | task, idea, reference | active, blocked, new, done, removed | 1–4 | General-purpose task/idea tracking |
-| **cuboid** | idea, task, reference, ritual | active, blocked, new, done, removed | 1–4 | Personal wikis and mixed notebooks |
-| **ado** | feature, task, bug | active, new, resolved, closed, removed | 1–4 | Azure DevOps-style work items |
-| **gtd** | action, project, reference | next, waiting, inbox, someday, done, dropped | 1–3 | Getting Things Done workflow |
-| **zettelkasten** | fleeting, literature, permanent | review, draft, mature, archived | *(disabled)* | Slip-box knowledge management |
+| **[zenith](workflows/zenith.md)** (default) | task, idea, reference | active, blocked, new, done, removed | 1–4 | General-purpose task/idea tracking |
+| **[cuboid](workflows/cuboid.md)** | idea, task, reference, ritual | active, blocked, new, done, removed | 1–4 | Personal wikis and mixed notebooks |
+| **[ado](workflows/ado.md)** | feature, task, bug | active, new, resolved, closed, removed | 1–4 | Azure DevOps-style work items |
+| **[gtd](workflows/gtd.md)** | action, project, reference | next, waiting, inbox, someday, done, dropped | 1–3 | Getting Things Done workflow |
+| **[zettelkasten](workflows/zettelkasten.md)** | fleeting, literature, permanent | review, draft, mature, archived | *(disabled)* | Slip-box knowledge management |
 
 ## Creating a custom workflow
 

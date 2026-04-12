@@ -10,7 +10,8 @@ extends = "ado"
 # Lower order = earlier in the query preset bar.
 #
 # Workflow presets are included by default. Project queries with the same name
-# override the workflow preset. To clear all workflow presets, set inherit = false:
+# override the workflow preset. To clear all inherited presets, add inherit = false
+# as the first key under [queries]:
 #
 #   [queries]
 #   inherit = false

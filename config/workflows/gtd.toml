@@ -7,6 +7,12 @@ description = "Getting Things Done capture-and-process workflow"
 schema_version = 1
 
 # --- Note types ---
+# Each type represents a kind of note. Shown as icon + name in the TUI.
+# values: valid types; array order = display order in grouped view
+# icon: single character displayed in the list
+# color: named color (red, green, yellow, blue, magenta, cyan, dim, bold-red, etc.)
+#   Raw ANSI codes ("31", "31;1") also accepted.
+# default_color: fallback for types not explicitly listed
 
 [type]
 default_color = "cyan"
@@ -74,6 +80,7 @@ someday = "dropped"
 dropped = "someday"
 
 # --- Priority ---
+# enabled: set to false to disable priority entirely (see zettelkasten workflow)
 # 3 levels only (GTD favors context over priority, so keep it light)
 
 [priority]

@@ -7,6 +7,12 @@ description = "Feature/task/bug workflow inspired by Azure DevOps"
 schema_version = 1
 
 # --- Note types ---
+# Each type represents a kind of note. Shown as icon + name in the TUI.
+# values: valid types; array order = display order in grouped view
+# icon: single character displayed in the list
+# color: named color (red, green, yellow, blue, magenta, cyan, dim, bold-red, etc.)
+#   Raw ANSI codes ("31", "31;1") also accepted.
+# default_color: fallback for types not explicitly listed
 
 [type]
 default_color = "cyan"
@@ -67,6 +73,7 @@ active = "new"
 new = "closed"
 
 # --- Priority ---
+# enabled: set to false to disable priority entirely (see zettelkasten workflow)
 # 1 = critical, 4 = low
 
 [priority]

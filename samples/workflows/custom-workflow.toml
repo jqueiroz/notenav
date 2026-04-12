@@ -96,3 +96,16 @@ high = "critical"
 [priority.lifecycle.down]
 critical = "high"
 high = "low"
+
+# --- Query presets ---
+# Built-in filtered views. Users can run these by name (e.g. `nn open-bugs`).
+# order: controls position in the query preset bar (lower = earlier; default 100)
+# args: filter string using key=value pairs (type, status, priority, tag)
+
+[queries.open-bugs]
+order = 10
+args = "type=bug status=open"
+
+[queries.in-review]
+order = 20
+args = "status=review"
