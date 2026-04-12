@@ -16,7 +16,7 @@ Read all relevant files and cross-reference them against each other. Report ever
 For every TOML in `config/workflows/` and `samples/workflows/`:
 
 **Meta section:**
-- If `meta.schema` is present, it must be a positive integer (currently only `1` is valid)
+- If `meta.schema_version` is present, it must be a positive integer (currently only `1` is valid)
 
 **Type section:**
 - Every value in `type.values` has a corresponding `[type.<name>]` with `icon` and `color`

@@ -104,7 +104,7 @@ schema_version = 1
 |-----|------|-------------|
 | `name` | string | Display name |
 | `description` | string | Short description |
-| `schema_version` | integer | Schema version (default: `1`). notenav rejects workflows with a version it does not support. The legacy name `schema` is still accepted but deprecated. |
+| `schema_version` | integer | Schema version (default: `1`). notenav rejects workflows with a version it does not support. |
 
 ### `[type]`
 
@@ -586,7 +586,7 @@ auto_max_files = 0     # disable auto-refresh above this note count (0 = no limi
 |-----|------|---------|-------------|
 | `mode` | string | `"watch"` | Refresh strategy: `"watch"` (filesystem events via inotifywait/fswatch), `"poll"` (periodic check), or `"manual"` (only on `r` key) |
 | `poll_interval` | integer | `30` | Seconds between polls in poll mode |
-| `auto_max_files` | integer | `0` | Disable auto-refresh when the notebook has more notes than this; `0` means no limit. Manual refresh (`r` key) always works regardless of this setting. The legacy name `max_files` is still accepted but deprecated. |
+| `auto_max_files` | integer | `0` | Disable auto-refresh when the notebook has more notes than this; `0` means no limit. Manual refresh (`r` key) always works regardless of this setting. |
 
 **Mode details:**
 

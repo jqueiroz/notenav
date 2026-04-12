@@ -70,10 +70,10 @@ Two names coexist by design – each is used where it fits best:
 
 ### Config key naming
 
-- **Favor enums over booleans.** A boolean locks you into two states forever. An enum can grow. Use `show_archive = false` only if the setting is genuinely binary with no plausible third state; prefer `priority_plus = "demote"` over `priority_plus_demotes = true`. When in doubt, use a string enum.
+- **Favor enums over booleans.** A boolean locks you into two states forever. An enum can grow. Use a boolean like `wrap_preview = false` only if the setting is genuinely binary with no plausible third state; prefer `priority_plus = "demote"` over `priority_plus_demotes = true`, and `archive_visibility = "hide" | "show" | "only"` over `show_archive = false`. When in doubt, use a string enum. Note that *feature flags* (e.g. `priority.enabled`) that toggle a whole subsystem are the legitimate boolean case – future fine-grained control belongs in *separate* keys, not in an overloaded enum.
 - **Use `snake_case`** for all config keys. No camelCase, no kebab-case.
 - **Name keys for what they control, not how they're used.** `sort_by` (the field to sort on) is better than `sort_order` (ambiguous – ascending? the field?). `after_create` (what happens) is better than `auto_open` (vague).
-- **Use positive names.** `show_archive` rather than `hide_archive` or `no_archive`. Negated booleans (`no_*`, `disable_*`) are hard to reason about.
+- **Use positive names.** `wrap_preview` rather than `no_wrap` or `disable_preview_wrap`. Negated booleans (`no_*`, `disable_*`) are hard to reason about.
 - **Group related keys under TOML tables.** Visual preferences go under `[ui]`, default view settings under `[defaults]`. Don't add top-level keys unless they're truly global (like `default_workflow`).
 - **Keep the keyspace flat within a table.** Avoid deeply nested sub-tables for preferences. One level of nesting (`[ui]`, `[defaults]`) is typically enough for user-facing config.
 

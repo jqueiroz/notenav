@@ -124,7 +124,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `1`–`9` | Jump to query preset by number |
 | `c` then `s`/`p`/`t` | [**c**]hange status, priority, or type |
 | `m` then `m`/`a`/`d`/`D`/`f` | [**m**]ark: toggle, add selected, unmark selected, clear all, filter to marked |
-| `z` then `o`/`r`/`g`/`h`/`w` | Display: order-by, reverse sort, group-by, toggle archived, toggle wrap |
+| `z` then `o`/`r`/`g`/`h`/`w` | Display: order-by, reverse sort, group-by, archive visibility (hide/show/only), toggle wrap |
 | `/` | Fuzzy search (type to filter by title/metadata) |
 | `/?` | Content search (press `/` then `?` – live grep of note bodies) |
 | `?` | Toggle help overlay (keybinding reference) |

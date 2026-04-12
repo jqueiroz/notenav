@@ -181,11 +181,11 @@ nn doctor
 3. **Trusted sources:** lists URLs in the trusted-sources allow-list with cache status and fetch dates.
 
 4. **Workflow integrity:** validates the merged workflow definition:
-   - **Meta**: `schema` version is a supported positive integer, no unrecognized sub-keys
+   - **Meta**: `schema_version` is a supported positive integer, no unrecognized sub-keys
    - **Types**: all types have icon and color, no duplicates, `display_order` references valid types and covers all values, no unrecognized sub-keys
    - **Statuses**: all statuses have colors, `initial` exists in values, `filter_cycle` and `archive` reference valid values, lifecycle transitions reference valid statuses, `display_order` covers all values, description keys reference valid statuses, no unrecognized sub-keys
    - **Priority**: levels have colors, `filter_cycle` references valid values, lifecycle transitions valid, `unset_position` is `first` or `last`, no unrecognized sub-keys
-   - **Defaults**: `sort_by`, `sort_reverse`, `group_by`, `show_archive`, and `wrap_preview` have valid values
+   - **Defaults**: `sort_by`, `sort_reverse`, `group_by`, `type_visibility`, `archive_visibility`, `wrap_preview`, and `pin_mode` have valid values; `archive_visibility = "only"` requires the workflow to declare archive statuses
    - **UI**: `command_prompt` and `search_prompt` do not contain characters stripped at runtime; `exit_message`, `priority_plus`, `after_create`, `delete_method`, `delete_confirm`, `previewer`, and `previewer_flags` have valid values; configured previewer tools (bat/batcat, glow, mdcat, custom) are checked for availability
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
    - Color values are valid (named colors or ANSI codes) throughout

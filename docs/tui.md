@@ -71,7 +71,7 @@ Press `z` to enter display mode. The prompt changes to `z `. Then press one of:
 | `o` | Pick sort order (picker: created, modified, title, priority) |
 | `r` | Toggle sort direction (ascending / descending) |
 | `g` | Pick grouping (picker: none, type, status) |
-| `h` | Toggle visibility of archived statuses |
+| `h` | Pick archive visibility (picker: hide, show, only) |
 | `w` | Toggle preview wrap |
 | `z` or `esc` | Cancel, return to command mode |
 

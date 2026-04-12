@@ -18,7 +18,7 @@ For each config key, evaluate:
 
 - **Clarity:** does the name unambiguously describe what the setting controls? Could a new user guess what it does from the name alone?
 - **Consistency:** does it follow the same patterns as other keys? (e.g., `sort_by` / `group_by` are consistent; `sort_by` / `grouping` would not be)
-- **Positive framing:** is the name positive? (`show_archive` good, `hide_archive` / `no_archive` bad)
+- **Positive framing:** is the name positive? (`wrap_preview` good, `no_wrap` / `disable_preview_wrap` bad)
 - **snake_case:** all keys must be snake_case, no exceptions
 
 ### 2. Booleans vs enums
@@ -27,8 +27,8 @@ This is critical. For every boolean config key, ask:
 
 - Is this genuinely binary with no plausible third state, now or in the future?
 - Could this reasonably need a third option later? If so, it should be an enum today.
-- Example of a good boolean: `show_archive` (true/false is the natural domain)
-- Example where an enum is better: `priority_plus = "demote"` instead of `priority_plus_demotes = true`
+- Example of a good boolean: `wrap_preview` (true/false is the natural domain), `priority.enabled` (a feature flag toggling a whole subsystem)
+- Example where an enum is better: `priority_plus = "demote"` instead of `priority_plus_demotes = true`; `archive_visibility = "hide" | "show" | "only"` instead of `show_archive = true|false`
 
 Flag any boolean that might need to become an enum in the future. This is a backwards-compatibility hazard – changing a boolean to an enum is a breaking change.
 

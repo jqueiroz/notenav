@@ -924,6 +924,10 @@ nn_precompute_workflow() {
     *) echo "notenav: defaults.group_by '$NN_DEFAULT_GROUP' invalid (must be 'none', 'type', or 'status')" >&2; return 1 ;; esac
   case "$NN_DEFAULT_ARCHIVE" in hide|show|only) ;;
     *) echo "notenav: defaults.archive_visibility '$NN_DEFAULT_ARCHIVE' invalid (must be 'hide', 'show', or 'only')" >&2; return 1 ;; esac
+  if [[ "$NN_DEFAULT_ARCHIVE" == "only" && ${#NN_STATUS_ARCHIVE[@]} -eq 0 ]]; then
+    echo "notenav: defaults.archive_visibility = \"only\" but the workflow has no archive statuses (status.archive is empty)" >&2
+    return 1
+  fi
   case "$NN_DEFAULT_PIN_MODE" in auto|always) ;;
     *) echo "notenav: defaults.pin_mode '$NN_DEFAULT_PIN_MODE' invalid (must be 'auto' or 'always')" >&2; return 1 ;; esac
 
@@ -991,7 +995,7 @@ nn_precompute_workflow() {
       NN_TYPE_VIS_COND="($_known_cond) && length(\$6) > 0" ;;
     show_all)
       NN_TYPE_VIS_COND='length($6) > 0' ;;
-    *) nn_assert "unknown type.visibility '$NN_TYPE_VISIBILITY'" ;;
+    *) nn_assert "unknown defaults.type_visibility '$NN_TYPE_VISIBILITY'" ;;
   esac
 }
 
@@ -2228,6 +2232,11 @@ nn_doctor() {
         hide|show|only) ;;
         *) _warn "defaults.archive_visibility '$_def_archive' invalid (must be 'hide', 'show', or 'only')" ;;
       esac
+      # "only" requires at least one status in status.archive – otherwise
+      # the cond would be empty and the mode would silently show everything.
+      if [[ "$_def_archive" == "only" && ${#_arc_values[@]} -eq 0 ]]; then
+        _fail "defaults.archive_visibility = \"only\" but the workflow has no archive statuses (status.archive is empty)"
+      fi
     fi
     local _def_sort_rev
     _def_sort_rev=$(nn_cfg '.defaults.sort_reverse // empty')
@@ -4046,6 +4055,66 @@ printf '%s\n' "$selected" > "$dir/.f_group"
 ENDGROUPPICK
     chmod +x "$_nn_dir/grouppick.sh"
 
+    # Archive-visibility picker: single-select picker for archive view mode.
+    # Three options (hide / show / only) shown with descriptions; "only" is
+    # omitted when the workflow has no archive statuses.
+    cat > "$_nn_dir/archivepick.sh" << 'ENDARCHIVEPICK'
+#!/usr/bin/env bash
+dir="$1"
+cur=$(cat "$dir/.f_archive" 2>/dev/null)
+[ -z "$cur" ] && cur="hide"
+archive_label=$(cat "$dir/.schema_archive_label" 2>/dev/null)
+[ -z "$archive_label" ] && archive_label="archive statuses"
+# Build TSV: raw_value\tdisplay_label
+# Column 1 (raw) is what we write back; column 2 is the styled display.
+fmt_row() {
+  local raw="$1" desc="$2"
+  if [ -n "${NO_COLOR+x}" ]; then
+    printf '%s\t%-6s – %s' "$raw" "$raw" "$desc"
+  else
+    printf '%s\t\033[1m%-6s\033[0m \033[90m– %s\033[0m' "$raw" "$raw" "$desc"
+  fi
+}
+vals=""
+pos=1; n=1
+add_row() {
+  local raw="$1" desc="$2"
+  [ -n "$vals" ] && vals="$vals"$'\n'
+  vals="$vals$(fmt_row "$raw" "$desc")"
+  [ "$raw" = "$cur" ] && pos=$n
+  n=$((n + 1))
+}
+add_row "hide" "hide $archive_label (default)"
+add_row "show" "show $archive_label alongside everything else"
+if [ -s "$dir/.schema_archive" ]; then
+  add_row "only" "show only $archive_label – useful for review"
+fi
+_fzf_ansi=(--ansi)
+[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+if [ -n "${NO_COLOR+x}" ]; then
+  _hdr='Enter apply · Esc cancel'
+else
+  _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
+fi
+selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "archive: " \
+  --border --border-label " Archive visibility " \
+  --header "$_hdr" \
+  --delimiter $'\t' --with-nth 2 \
+  --bind "load:pos($pos)" \
+  --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
+[ -z "$selected" ] && exit 1
+# Extract raw value (column 1)
+selected=$(printf '%s' "$selected" | awk -F'\t' '{print $1}')
+case "$selected" in
+  hide) : > "$dir/.f_archive" ;;
+  show) printf 'show\n' > "$dir/.f_archive" ;;
+  only) printf 'only\n' > "$dir/.f_archive" ;;
+  *) echo "notenav: archivepick: unknown selection '$selected'" >&2; exit 2 ;;
+esac
+: > "$dir/.last_action"
+ENDARCHIVEPICK
+    chmod +x "$_nn_dir/archivepick.sh"
+
     # Prompt helper: outputs change-prompt(PROMPT) using the stored return-to prompt
     cat > "$_nn_dir/cprompt.sh" << 'ENDCPROMPT'
 #!/usr/bin/env bash
@@ -5558,15 +5627,6 @@ case "$action" in
     echo "$fwrap" > "$dir/.f_wrap" ;;
   clear-tags) : > "$dir/.f_tags" ;;
   clear-group) fgroup="" ;;
-  # archive: cycle hide → show → only → hide. When the workflow has no
-  # archive statuses ("only" would always be empty), skip the only state.
-  archive)
-    case "$farchive" in
-      "") farchive="show" ;;
-      show) [ -s "$dir/.schema_archive" ] && farchive="only" || farchive="" ;;
-      only) farchive="" ;;
-      *) nn_assert "filter: unknown farchive '$farchive'" ;;
-    esac ;;
   clear-pins) ;;  # pins already cleared above; just re-render
   restore-pins)  # one-shot undo of last clear-pins
     if [ -s "$dir/.pinned.bak" ]; then
@@ -5670,13 +5730,15 @@ vis_cond=$(cat "$dir/.schema_type_vis_cond")
 archive_cond=$(cat "$dir/.schema_archive_cond")
 archive_only_cond=$(cat "$dir/.schema_archive_only_cond")
 cond="$vis_cond"
-# Apply archive visibility:
-#  - hide ("")  : exclude archive statuses (unless explicitly filtering by status)
+# Apply archive visibility. An explicit status filter (fs) overrides
+# both hide and only modes – the user has typed `status=X` and wants
+# to see X regardless of where X falls in the archive partition.
+#  - hide ("")  : exclude archive statuses (unless fs is set)
 #  - show       : no extra condition
-#  - only       : restrict to archive statuses (still respects status filter intersection)
+#  - only       : restrict to archive statuses (unless fs is set)
 case "$farchive" in
   "")   [ -z "$fs" ] && cond="$cond$archive_cond" ;;
-  only) cond="$cond$archive_only_cond" ;;
+  only) [ -z "$fs" ] && cond="$cond$archive_only_cond" ;;
 esac
 _tags=""; [ -s "$dir/.f_tags" ] && _tags=$(cat "$dir/.f_tags")
 _field_cond=$(build_field_cond "$ft" "$fs" "$fp" "$_tags")
@@ -6563,7 +6625,7 @@ ENDDELETE
       --bind "#:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = f; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/tags.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; fi]" \
       --bind "]:transform[if test -f $_nn_dir/.nn-search || test -f $_nn_dir/.nn-csearch; then :; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir next; fi; fi]" \
       --bind "[:transform[if test -f $_nn_dir/.nn-search || test -f $_nn_dir/.nn-csearch; then :; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir prev; fi; fi]" \
-      --bind "h:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir archive; elif test -z \"\$m\"; then cur=\$(cat $_nn_dir/.schema_header_mode); if test \"\$cur\" = clean; then printf guided > $_nn_dir/.schema_header_mode; printf '+change-header-label( h: switch to clean mode )+'; $_nn_dir/filter.sh $_nn_dir refresh; else printf clean > $_nn_dir/.schema_header_mode; printf '+change-header-label( ?:help  h: switch to guided mode )+'; $_nn_dir/filter.sh $_nn_dir refresh; fi; fi]" \
+      --bind "h:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/archivepick.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; elif test -z \"\$m\"; then cur=\$(cat $_nn_dir/.schema_header_mode); if test \"\$cur\" = clean; then printf guided > $_nn_dir/.schema_header_mode; printf '+change-header-label( h: switch to clean mode )+'; $_nn_dir/filter.sh $_nn_dir refresh; else printf clean > $_nn_dir/.schema_header_mode; printf '+change-header-label( ?:help  h: switch to guided mode )+'; $_nn_dir/filter.sh $_nn_dir refresh; fi; fi]" \
       --bind "1:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq1; fi]" \
       --bind "2:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq2; fi]" \
       --bind "3:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir sq3; fi]" \
