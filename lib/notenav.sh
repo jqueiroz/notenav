@@ -3094,27 +3094,12 @@ EOF
       --*)
         echo "notenav: unknown flag: $1" >&2
         return 2 ;;
-      http://*)
-        echo "notenav: only https:// URLs are supported" >&2
-        return 2 ;;
       *)
         if [[ -n "$workflow_arg" ]]; then
           echo "notenav: unexpected argument: $1" >&2
           return 2
         fi
-        if [[ "$1" == https://* ]]; then
-          if [[ "$1" == "https://" ]]; then
-            echo "notenav: URL is missing a host" >&2
-            return 2
-          fi
-          if [[ "$1" == *'"'* || "$1" == *\\* || "$1" =~ [[:cntrl:]] ]]; then
-            echo "notenav: URL contains characters that cannot be embedded in TOML" >&2
-            return 2
-          fi
-        elif ! [[ "$1" =~ ^[a-zA-Z0-9._-]+$ ]]; then
-          echo "notenav: invalid workflow name: $1 (must be alphanumeric, dash, underscore, or dot)" >&2
-          return 2
-        fi
+        _nn_validate_workflow_ref "$1" "nn init" || return 2
         workflow_arg="$1"; shift ;;
     esac
   done
