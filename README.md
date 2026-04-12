@@ -152,8 +152,9 @@ Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi →
 
 All configuration is TOML. Project and user configuration are layered independently and almost entirely orthogonal – project defines the workflow, user defines personal preferences. The only intersection is colors: user color overrides merge on top of the workflow's palette.
 
-- **Project configuration** (`.nn/workflow.toml`): defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
+- **Project workflow** (`.nn/workflow.toml`): defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
 - **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`): personal preferences for visualization, editor, sorting, and grouping. Also defines a default/fallback workflow (used only when `nn` is invoked in directories lacking project configuration).
+- **Base preferences** (`config/base.toml`, ships with notenav): the default user preferences – same shape as your own user config. You can read it to see all the defaults; override them by adding values to your user config.
 
 The `.nn/` directory is found by walking up from your current directory (like `.git/`), so `nn` works from any subdirectory. Notes are discovered recursively: at the notebook root you see everything, from a subdirectory you see only that subtree. To exclude files or directories from the index, add a `.nnignore` file at the notebook root (see [docs/reference.md](docs/reference.md#nnignore)).
 

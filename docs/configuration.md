@@ -6,11 +6,10 @@
 
 All configuration is TOML. Project and user configuration are layered independently and almost entirely orthogonal – project defines the workflow, user defines personal preferences. The only intersection is colors: user color overrides merge on top of the workflow's palette.
 
-- **Project configuration** (`.nn/workflow.toml`): defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
+- **Project workflow** (`.nn/workflow.toml`): defines the project's workflow, typically extending a built-in one with project-specific query presets and overrides.
 - **User preferences** (`$XDG_CONFIG_HOME/notenav/config.toml`, defaulting to `~/.config/notenav/config.toml`): personal preferences for visualization, editor, sorting, and grouping. Also defines a fallback workflow, used in directories without project configuration.
+- **Base preferences** (`$NOTENAV_ROOT/config/base.toml`, ships with notenav): the default user preferences. Same shape as your user config – it's structurally just "the default user config" – so you can read it any time to see what the defaults are. You override values by adding them to your own config; you don't edit base.toml directly.
 - **Ignore file** (`.nnignore`, optional): excludes files and directories from the index. Placed at the notebook root, next to `.nn/`. See the [`.nnignore` reference](reference.md#nnignore) for pattern syntax.
-
-Both config scopes are layered on top of notenav's base defaults, so you only need to specify what you want to change.
 
 ## Config resolution
 
@@ -18,16 +17,18 @@ At startup, two things happen:
 
 1. **Workflow resolution:** if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"zenith"`.
 
-2. **Preference merge:** preferences are assembled by deep-merging these layers in order (later values win):
+2. **Config merge:** notenav has two config scopes that almost don't overlap.
 
-   | Layer | Source | Wins on |
-   |-------|--------|---------|
-   | 1. Base config | `$NOTENAV_ROOT/config/base.toml` | – (base) |
-   | 2. Workflow | Built-in or extended workflow definition | Base defaults |
-   | 3. User config | `$XDG_CONFIG_HOME/notenav/config.toml` | Preferences only |
-   | 4. Project queries | `[queries]` from `.nn/workflow.toml` | All queries |
+   | Scope | Files (in merge order) | Contains |
+   |-------|------------------------|----------|
+   | **User prefs** | `$NOTENAV_ROOT/config/base.toml` (defaults) → `$XDG_CONFIG_HOME/notenav/config.toml` (overrides) | `default_workflow`, `[defaults]`, `[ui]`, `[refresh]` |
+   | **Workflow schema** | built-in `config/workflows/<name>.toml` → `.nn/workflow.toml` (project) | `[meta]`, `[type]`, `[status]`, `[priority]`, `[queries]` |
 
-   User preferences can override cosmetic values (like colors) without replacing the workflow. Workflow-scoped keys – query presets and status descriptions – are ignored in user config. Project queries are applied last so they always win on name collisions.
+   `base.toml` is structurally just "the default user config" – it ships with notenav but has the same shape as your own user config. Both files are deep-merged, with the user's overrides winning on key collisions.
+
+   The two scopes overlap **only** on color sub-keys: a user can personalize a workflow's palette via `[type.<n>] color`, `[status.colors]`, or `[priority.colors]` without forking the workflow. No other cross-scope keys are allowed. Workflows cannot set user preferences (`[defaults]`, `[ui]`, `[refresh]`) – this is a security boundary against remote workflows that could otherwise set `ui.editor` to execute arbitrary code on next launch. User config cannot redefine workflow schema. Anything outside each scope's whitelist is silently dropped at load time.
+
+   Project queries (`[queries]` in `.nn/workflow.toml`) are applied as a final merge step so they always win on name collisions with workflow-shipped queries.
 
 The `.nn/` directory is found by walking up from the current directory.
 

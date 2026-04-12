@@ -1645,11 +1645,13 @@ nn_doctor() {
     local _known_defaults="" _known_ui="" _known_pf="" _known_refresh=""
     if [[ -n "$_base_cfg_json" ]]; then
       # Schema sections that user config can legitimately touch via the
-      # color carve-out ([type.<n>] color, [status.colors], [priority.colors],
-      # plus [meta] is allowed but silently dropped by the user whitelist).
+      # color carve-out ([type.<n>] color, [status.colors], [priority.colors]).
       # base.toml does not contain these sections, so they need to be added
       # to the known-list explicitly so doctor doesn't flag them as unknown.
-      local _schema_sections="type meta status priority"
+      # ([meta]/[queries]/extends are workflow-only and rightly NOT in this
+      # list – the user whitelist drops them, so doctor warns if a user
+      # accidentally puts them in their config.)
+      local _schema_sections="type status priority"
       _base_top=$(printf '%s' "$_base_cfg_json" | jq -r 'keys[]' 2>/dev/null | tr '\n' ' ')
       _known_keys_user="$_base_top$_schema_sections"
       # Must match the workflow whitelist in nn_load_config() (search "Workflow scope")
