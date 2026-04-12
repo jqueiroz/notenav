@@ -3057,6 +3057,10 @@ _nn_url_trust_add() {
   local ts_file="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/trusted-sources"
   mkdir -p "$(dirname "$ts_file")" || { echo "notenav: cannot create directory for trusted-sources" >&2; return 1; }
   _nn_url_is_trusted "$url" && return 0
+  # Ensure trailing newline so the append doesn't corrupt the last line
+  if [[ -s "$ts_file" ]] && [[ "$(tail -c1 "$ts_file")" != "" ]]; then
+    printf '\n' >> "$ts_file" || { echo "notenav: cannot write to $ts_file" >&2; return 1; }
+  fi
   echo "$url" >> "$ts_file" || { echo "notenav: cannot write to $ts_file" >&2; return 1; }
 }
 
@@ -3341,7 +3345,7 @@ _nn_fetch_remote() {
   local tmpfile errfile
   tmpfile=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; return 1; }
   errfile=$(mktemp) || { rm -f "$tmpfile"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; return 1; }
-  trap 'rm -f "$tmpfile" "$errfile" "${_cache_tmp:-}"' RETURN
+  trap 'rm -f "$tmpfile" "$errfile"; [[ -n "${_cache_tmp:-}" ]] && rm -f "$_cache_tmp"' RETURN
   if ! curl -fsSL --connect-timeout 10 --max-time 30 --max-filesize 1048576 "$url" -o "$tmpfile" 2>"$errfile"; then
     echo "notenav: failed to download $url" >&2
     if [[ -s "$errfile" ]]; then
