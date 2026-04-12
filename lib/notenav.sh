@@ -765,8 +765,8 @@ nn_precompute_workflow() {
   NN_TYPE_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.type.default_color // "36"')")
   _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
   NN_TYPE_VISIBILITY=$(nn_cfg '.defaults.type_visibility // "show_untyped"')
-  case "$NN_TYPE_VISIBILITY" in show_defined|show_untyped|show_all) ;;
-    *) echo "notenav: defaults.type_visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" >&2; return 1 ;; esac
+  case "$NN_TYPE_VISIBILITY" in show_defined|show_untyped) ;;
+    *) echo "notenav: defaults.type_visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined' or 'show_untyped')" >&2; return 1 ;; esac
   declare -gA NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS
   for _v in "${NN_TYPE_VALUES[@]}"; do
     _jv=$(_nn_jq_esc "$_v")
@@ -1002,12 +1002,10 @@ nn_precompute_workflow() {
   # Type visibility base condition
   # show_defined: non-empty type required
   # show_untyped: any note with a file path (untyped and unrecognized types shown dimmed)
-  # show_all:     same as show_untyped (both show all notes; the setting names differ
-  #               for semantic clarity in config)
   case "$NN_TYPE_VISIBILITY" in
     show_defined)
       NN_TYPE_VIS_COND='length($1) > 0' ;;
-    show_untyped|show_all)
+    show_untyped)
       NN_TYPE_VIS_COND='length($6) > 0' ;;
     *) nn_assert "unknown defaults.type_visibility '$NN_TYPE_VISIBILITY'" ;;
   esac
@@ -1881,8 +1879,8 @@ EOF
     _typ_vis=$(nn_cfg '.defaults.type_visibility // empty')
     if [[ -n "$_typ_vis" ]]; then
       case "$_typ_vis" in
-        show_defined|show_untyped|show_all) ;;
-        *) _warn "defaults.type_visibility '$_typ_vis' invalid (must be 'show_defined', 'show_untyped', or 'show_all')" ;;
+        show_defined|show_untyped) ;;
+        *) _warn "defaults.type_visibility '$_typ_vis' invalid (must be 'show_defined' or 'show_untyped')" ;;
       esac
     fi
 
