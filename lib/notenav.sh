@@ -3241,8 +3241,10 @@ _nn_init_user() {
       echo "notenav: add this line manually: default_workflow = \"$workflow_arg\"" >&2
       _dw_ok=false
     fi
-    echo "Created $target (default_workflow = $workflow_arg)"
-    if [[ "$_dw_ok" == "false" ]]; then
+    if [[ "$_dw_ok" == "true" ]]; then
+      echo "Created $target (default_workflow = $workflow_arg)"
+    else
+      echo "Created $target"
       return 0
     fi
   else
