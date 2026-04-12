@@ -2265,6 +2265,9 @@ EOF
         _fail "defaults.archive_visibility = \"only\" but the workflow has no archive statuses (status.archive is empty)"
       fi
     fi
+    # NOTE: `// empty` also suppresses explicit `false` (same jq // trap as
+    # the loader – see NN_PRIORITY_ENABLED), but that's harmless here because
+    # `false` is a valid value that would pass the check below anyway.
     local _def_sort_rev
     _def_sort_rev=$(nn_cfg '.defaults.sort_reverse // empty')
     if [[ -n "$_def_sort_rev" && "$_def_sort_rev" != "true" && "$_def_sort_rev" != "false" ]]; then
