@@ -141,17 +141,17 @@ nn_load_config() {
   # Require yq (must be yq-go, not yq-python) and jq
   if ! command -v yq >/dev/null 2>&1; then
     echo "notenav: yq-go is required for config loading" >&2
-    _nn_hint "" "" "" "" "" go-yq yq "https://github.com/mikefarah/yq#install"
+    _nn_hint "" "" "" "" "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
     return 1
   fi
   if ! printf 'x = 1\n' | yq -p=toml -o=json '.' >/dev/null 2>&1; then
     echo "notenav: yq appears to be yq-python, not yq-go" >&2
-    echo "  Install yq-go: https://github.com/mikefarah/yq#install" >&2
+    _nn_hint "" "" "" "" "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
     return 1
   fi
   if ! command -v jq >/dev/null 2>&1; then
     echo "notenav: jq is required for config loading" >&2
-    _nn_hint jq jq jq jq app-misc/jq jq jq "https://github.com/jqlang/jq"
+    _nn_hint jq jq jq jq app-misc/jq jq jq jq "https://github.com/jqlang/jq"
     return 1
   fi
 
@@ -446,13 +446,15 @@ _nn_resolve_color() {
 _nn_valid_color() { [[ -z "$1" || "$1" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 
-# Distro-aware install hint: _nn_hint apt dnf apk pacman emerge freebsd brew url
+# Distro-aware install hint: _nn_hint apt dnf apk pacman emerge freebsd brew nix url
 # Pass "" to skip a distro.
 _nn_hint() {
-  local _apt="$1" _dnf="$2" _apk="$3" _pacman="$4" _emerge="$5" _freebsd="$6" _brew="$7" _url="$8"
+  local _apt="$1" _dnf="$2" _apk="$3" _pacman="$4" _emerge="$5" _freebsd="$6" _brew="$7" _nix="$8" _url="$9"
   if [[ -n "$_apt" && -f /etc/debian_version ]]; then
     echo "  Install via: sudo apt install $_apt" >&2
   elif [[ -n "$_dnf" && -f /etc/fedora-release ]]; then
+    echo "  Install via: sudo dnf install $_dnf" >&2
+  elif [[ -n "$_dnf" && -f /etc/redhat-release ]]; then
     echo "  Install via: sudo dnf install $_dnf" >&2
   elif [[ -n "$_apk" && -f /etc/alpine-release ]]; then
     echo "  Install via: apk add $_apk" >&2
@@ -462,6 +464,8 @@ _nn_hint() {
     echo "  Install via: emerge $_emerge" >&2
   elif [[ -n "$_freebsd" ]] && command -v pkg >/dev/null 2>&1 && [[ "$(uname)" == "FreeBSD" ]]; then
     echo "  Install via: pkg install $_freebsd" >&2
+  elif [[ -n "$_nix" && -d /etc/nixos ]]; then
+    echo "  Install via: nix-env -iA nixpkgs.$_nix" >&2
   elif [[ -n "$_brew" ]] && command -v brew >/dev/null 2>&1; then
     echo "  Install via: brew install $_brew" >&2
   elif [[ -n "$_url" ]]; then
@@ -476,13 +480,13 @@ _nn_fzf_hint() {
     echo '  FZF_VER=$(curl -sI https://github.com/junegunn/fzf/releases/latest | grep -i ^location | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | head -n 1)' >&2
     echo '  curl -L "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin' >&2
   else
-    _nn_hint "" fzf fzf fzf app-shells/fzf fzf fzf "https://github.com/junegunn/fzf"
+    _nn_hint "" fzf fzf fzf app-shells/fzf fzf fzf fzf "https://github.com/junegunn/fzf"
   fi
 }
 
 # gawk install hint
 _nn_gawk_hint() {
-  _nn_hint gawk gawk gawk gawk sys-apps/gawk gawk gawk "https://www.gnu.org/software/gawk/"
+  _nn_hint gawk gawk gawk gawk sys-apps/gawk gawk gawk gawk "https://www.gnu.org/software/gawk/"
 }
 
 # Resolve a workflow name or URL to a file path.
@@ -1477,11 +1481,11 @@ EOF
       _has_yq=true
     else
       _fail "yq ${yq_ver:-installed} appears to be yq-python, not yq-go"
-      echo "        Install yq-go: https://github.com/mikefarah/yq#install"
+      _hint "" "" "" "" "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
     fi
   else
     _fail "yq-go not found"
-    _hint "" "" "" "" "" go-yq yq "https://github.com/mikefarah/yq#install"
+    _hint "" "" "" "" "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
   fi
 
   # jq
@@ -1493,7 +1497,7 @@ EOF
     _has_jq=true
   else
     _fail "jq not found"
-    _hint jq jq jq jq app-misc/jq jq jq "https://github.com/jqlang/jq"
+    _hint jq jq jq jq app-misc/jq jq jq jq "https://github.com/jqlang/jq"
   fi
 
   # awk (gawk required – notenav uses mktime() and strtonum())
@@ -1512,13 +1516,13 @@ EOF
       else
         _fail "awk: gawk required"
       fi
-      _hint gawk gawk gawk gawk sys-apps/gawk gawk gawk "https://www.gnu.org/software/gawk/"
+      _hint gawk gawk gawk gawk sys-apps/gawk gawk gawk gawk "https://www.gnu.org/software/gawk/"
     fi
   elif command -v gawk >/dev/null 2>&1; then
     _pass "gawk"
   else
     _fail "awk not found"
-    _hint gawk gawk gawk gawk sys-apps/gawk gawk gawk "https://www.gnu.org/software/gawk/"
+    _hint gawk gawk gawk gawk sys-apps/gawk gawk gawk gawk "https://www.gnu.org/software/gawk/"
   fi
 
   # sort, sed
@@ -3637,7 +3641,7 @@ EOF
     # Runtime dependency checks
     if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
       echo "notenav: bash 4+ required (found ${BASH_VERSION})" >&2
-      echo "notenav: on macOS, install via: brew install bash" >&2
+      _nn_hint bash bash bash bash app-shells/bash bash bash bash ""
       return 1
     fi
     if ! command -v fzf >/dev/null 2>&1; then
