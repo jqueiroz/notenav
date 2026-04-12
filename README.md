@@ -113,7 +113,8 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `enter` / `e` | Open note in your preferred editor |
 | `n` | Create [**n**]ew note |
 | `a` / `A` | Advance / reverse status |
-| `+` or `>` / `-` or `<` | Bump priority in the +/- direction (see `priority_plus` setting) |
+| `+` or `>` | Bump priority in the + direction (see `priority_plus` setting) |
+| `-` or `<` | Bump priority in the - direction |
 | `f` then `t`/`s`/`p`/`#` | [**f**]ilter by type, status, priority, or #tags (picker with "all" to clear) |
 | `0` | Clear all filters (return to "all" view; preserves display settings, pins, and marks) |
 | `R` | [**R**]eset everything: filters, pins, marks, and display settings |
