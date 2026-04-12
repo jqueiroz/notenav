@@ -22,6 +22,7 @@ check_dep() {
 
 # --- dependency check ---
 missing=""
+incompatible=""
 for dep in bash fzf gawk sort sed git yq jq; do
   if ! check_dep "$dep"; then
     # Accept awk as fallback for gawk, but warn if it's not GNU awk
@@ -52,6 +53,7 @@ if check_dep fzf; then
     if [ "$fzf_major" -eq 0 ] 2>/dev/null && [ "$fzf_minor" -lt 58 ] 2>/dev/null; then
       warn "fzf $fzf_version found but notenav requires fzf 0.58+."
       warn "Upgrade: https://github.com/junegunn/fzf#installation"
+      incompatible="$incompatible fzf($fzf_version)"
     fi
   fi
 fi
@@ -86,6 +88,7 @@ if check_dep bash; then
   if [ -n "$bash_major" ] && { [ "$bash_major" -lt 4 ] || { [ "$bash_major" -eq 4 ] && [ "$bash_minor" -lt 2 ]; }; } 2>/dev/null; then
     warn "bash $bash_version found but notenav requires bash 4.2+."
     warn "On macOS: brew install bash (or use the Nix install)."
+    incompatible="$incompatible bash($bash_version)"
   fi
 fi
 
@@ -96,6 +99,11 @@ if [ -n "$missing" ]; then
   esac
   warn "Missing dependencies:$missing"
   warn "notenav will be installed but may not work until these are available."
+  echo >&2
+fi
+if [ -n "$incompatible" ]; then
+  warn "Incompatible versions:$incompatible"
+  warn "notenav will be installed but will refuse to run until these are upgraded."
   echo >&2
 fi
 
@@ -136,8 +144,13 @@ esac
 
 echo
 if [ -n "$missing" ]; then
-  warn "Missing required dependencies:$missing"
+  warn "Missing dependencies:$missing"
   info "Run 'nn doctor' for install links."
+  echo
+fi
+if [ -n "$incompatible" ]; then
+  warn "Incompatible versions:$incompatible"
+  info "Run 'nn doctor' for upgrade instructions."
   echo
 fi
 info "Done. Run 'nn doctor' to verify your setup."
