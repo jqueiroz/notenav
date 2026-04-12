@@ -3233,7 +3233,7 @@ _nn_init_user() {
     local _tmp _dw_ok=true
     _tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; return 1; }
     # shellcheck disable=SC2015  # intentional: || cleanup handles both awk and mv failure
-    wf="$workflow_arg" awk \
+    wf="$workflow_arg" "$(_nn_resolve_gawk)" \
       '/^# default_workflow = / { print "default_workflow = \"" ENVIRON["wf"] "\""; next } { print }' \
       "$target" > "$_tmp" \
       && mv "$_tmp" "$target" \
@@ -3836,12 +3836,13 @@ ENDFNFIND
       local _pf_pe=1
       [[ "$NN_PRIORITY_ENABLED" == "false" ]] && _pf_pe=0
       local _pf_bad
-      _pf_bad=$("${_NN_GAWK:-awk}" -F'\t' \
-        -v ts="${NN_TYPE_VALUES[*]}" -v ss="${NN_STATUS_VALUES[*]}" -v ps="${NN_PRIORITY_VALUES[*]}" -v pe="$_pf_pe" '
+      _pf_bad=$(ts="${NN_TYPE_VALUES[*]}" ss="${NN_STATUS_VALUES[*]}" ps="${NN_PRIORITY_VALUES[*]}" pe="$_pf_pe" \
+        "${_NN_GAWK:-awk}" -F'\t' '
         BEGIN {
-          n = split(ts, a, " "); for (i=1;i<=n;i++) tk[a[i]]=1
-          n = split(ss, b, " "); for (i=1;i<=n;i++) sk[b[i]]=1
-          n = split(ps, c, " "); for (i=1;i<=n;i++) pk[c[i]]=1
+          n = split(ENVIRON["ts"], a, " "); for (i=1;i<=n;i++) tk[a[i]]=1
+          n = split(ENVIRON["ss"], b, " "); for (i=1;i<=n;i++) sk[b[i]]=1
+          n = split(ENVIRON["ps"], c, " "); for (i=1;i<=n;i++) pk[c[i]]=1
+          pe = ENVIRON["pe"] + 0
         }
         {
           if (($1 != "" && !($1 in tk)) \
@@ -3950,6 +3951,7 @@ ENDTAGS
     cat > "$_nn_dir/filterpick.sh" << 'ENDFILTPICK'
 #!/usr/bin/env bash
 dir="$1"; field="$2"
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 # Build display list with "all" at top
 case "$field" in
   type)
@@ -3969,7 +3971,7 @@ case "$field" in
     done < "$dir/.schema_types"
     cur_val=$(cat "$dir/.f_type" 2>/dev/null)
     if [ -n "$cur_val" ]; then
-      cur_pos=$(awk -F'\t' -v v="$cur_val" '$1==v{print NR+1;exit}' "$dir/.schema_types")
+      cur_pos=$(v="$cur_val" $nn_gawk -F'\t' '$1==ENVIRON["v"]{print NR+1;exit}' "$dir/.schema_types")
     else cur_pos=1; fi ;;
   status)
     all_line="all"
@@ -3988,7 +3990,7 @@ case "$field" in
     done < "$dir/.schema_status_descs"
     cur_val=$(cat "$dir/.f_status" 2>/dev/null)
     if [ -n "$cur_val" ]; then
-      cur_pos=$(awk -v v="$cur_val" '$0==v{print NR+1;exit}' "$dir/.schema_status_values")
+      cur_pos=$(v="$cur_val" $nn_gawk '$0==ENVIRON["v"]{print NR+1;exit}' "$dir/.schema_status_values")
     else cur_pos=1; fi ;;
   priority)
     [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 1
@@ -3999,7 +4001,7 @@ case "$field" in
       vals=$(printf '\tall')
     fi
     while IFS= read -r v || [ -n "$v" ]; do
-      lbl=$(awk -F'\t' -v k="$v" '$1==k{print $2;exit}' "$dir/.schema_priority_labels")
+      lbl=$(k="$v" $nn_gawk -F'\t' '$1==ENVIRON["k"]{print $2;exit}' "$dir/.schema_priority_labels")
       [ -z "$lbl" ] && lbl="P$v"
       vals="$vals"$'\n'"$v"$'\t'"$lbl"
     done < "$dir/.schema_priority_values"
@@ -4012,7 +4014,7 @@ case "$field" in
     if [ "$cur_val" = "none" ]; then
       cur_pos=$(( $(wc -l < "$dir/.schema_priority_values") + 2 ))
     elif [ -n "$cur_val" ]; then
-      cur_pos=$(awk -v v="$cur_val" '$0==v{print NR+1;exit}' "$dir/.schema_priority_values")
+      cur_pos=$(v="$cur_val" $nn_gawk '$0==ENVIRON["v"]{print NR+1;exit}' "$dir/.schema_priority_values")
     else cur_pos=1; fi ;;
   *) echo "notenav: filterpick: unknown field '$field'" >&2; exit 2 ;;
 esac
@@ -4536,9 +4538,9 @@ if [ $# -gt 0 ] && [ -f "$1" ]; then
     'ENVIRON["f"]=="type"&&$6==ENVIRON["p"]{print $1;exit} ENVIRON["f"]=="status"&&$6==ENVIRON["p"]{print $2;exit} ENVIRON["f"]=="priority"&&$6==ENVIRON["p"]{print $3;exit}' "$dir/.raw")
   if [ -n "$cur_val" ]; then
     case "$field" in
-      type)     cur_pos=$(awk -F'\t' -v v="$cur_val" '$1==v{print NR;exit}' "$dir/.schema_types") ;;
-      status)   cur_pos=$(awk -v v="$cur_val" '$0==v{print NR;exit}' "$dir/.schema_status_values") ;;
-      priority) cur_pos=$(awk -v v="$cur_val" '$0==v{print NR;exit}' "$dir/.schema_priority_values") ;;
+      type)     cur_pos=$(v="$cur_val" $nn_gawk -F'\t' '$1==ENVIRON["v"]{print NR;exit}' "$dir/.schema_types") ;;
+      status)   cur_pos=$(v="$cur_val" $nn_gawk '$0==ENVIRON["v"]{print NR;exit}' "$dir/.schema_status_values") ;;
+      priority) cur_pos=$(v="$cur_val" $nn_gawk '$0==ENVIRON["v"]{print NR;exit}' "$dir/.schema_priority_values") ;;
     esac
   fi
 fi
@@ -4955,13 +4957,14 @@ ENDBA
 dir="$1"
 tmpfile="$dir/.bulkedit.md"
 origfile="$dir/.bulkedit_orig.md"
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 datafile="$dir/.bulkedit_data"
 # Collect raw data (tab-separated: type, status, priority, tags, path, title)
 : > "$datafile"
 while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   [ -z "$fpath" ] && continue
   case "$fpath" in *.empty_placeholder) continue ;; esac
-  p="$fpath" awk -F'\t' '$6 == ENVIRON["p"] {
+  p="$fpath" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {
     t = $5; gsub(/\|/, "\\|", t); gsub(/[\n\r]/, " ", t)
     tags = $4; gsub(/\|/, "\\|", tags)
     printf "%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, tags, $6, t
@@ -5031,6 +5034,7 @@ ENDBE
 #!/usr/bin/env bash
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 cols=$(tput cols 2>/dev/null || printf '80')
 inner=$(( cols - 6 ))
 [ "$inner" -gt 80 ] && inner=80
@@ -5400,7 +5404,8 @@ if [ "$_nn_has_zk" = "true" ]; then
   # Ensure essential frontmatter fields are present
   _nn_has_fm=$(head -n 1 "$new_path" 2>/dev/null)
   if [ "$_nn_has_fm" = "---" ]; then
-    awk -v nn_type="$selected" -v nn_status="$_nn_initial_status" -v nn_created="$_nn_now" '
+    nn_type="$selected" nn_status="$_nn_initial_status" nn_created="$_nn_now" $nn_gawk '
+      BEGIN { nn_type=ENVIRON["nn_type"]; nn_status=ENVIRON["nn_status"]; nn_created=ENVIRON["nn_created"] }
       NR==1 && /^---/ { in_fm=1; print; next }
       in_fm && /^---/ {
         in_fm=0
@@ -5519,16 +5524,17 @@ ENDNN
 dir="$1"; file="$2"; direction="${3:-fwd}"
 case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
-cur=$(p="$file" awk -F'\t' '$6 == ENVIRON["p"] {print $2; exit}' "$dir/.raw")
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
+cur=$(p="$file" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $2; exit}' "$dir/.raw")
 if [ -z "$cur" ]; then
   # No status set – assign the workflow's initial status
   next=$(cat "$dir/.schema_status_initial" 2>/dev/null)
   [ -z "$next" ] && exit 0
 else
   if [ "$direction" = "rev" ]; then
-    next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_status_rev")
+    next=$(cur="$cur" $nn_gawk -F'\t' '$1 == ENVIRON["cur"] {print $2; exit}' "$dir/.schema_status_rev")
   else
-    next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_status_fwd")
+    next=$(cur="$cur" $nn_gawk -F'\t' '$1 == ENVIRON["cur"] {print $2; exit}' "$dir/.schema_status_fwd")
   fi
   [ -z "$next" ] && exit 0
 fi
@@ -5545,15 +5551,16 @@ dir="$1"; file="$2"; direction="$3"
 case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
-cur=$(p="$file" awk -F'\t' '$6 == ENVIRON["p"] {print $3; exit}' "$dir/.raw")
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
+cur=$(p="$file" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $3; exit}' "$dir/.raw")
 if [ -z "$cur" ]; then
   # No priority set – enter at lowest priority
   next=$(tail -1 "$dir/.schema_priority_values")
   [ -z "$next" ] && exit 0
 else
   case "$direction" in
-    up)   next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_up") ;;
-    down) next=$(awk -F'\t' -v cur="$cur" '$1 == cur {print $2; exit}' "$dir/.schema_priority_down") ;;
+    up)   next=$(cur="$cur" $nn_gawk -F'\t' '$1 == ENVIRON["cur"] {print $2; exit}' "$dir/.schema_priority_up") ;;
+    down) next=$(cur="$cur" $nn_gawk -F'\t' '$1 == ENVIRON["cur"] {print $2; exit}' "$dir/.schema_priority_down") ;;
     *) nn_assert "bumppri: unknown direction '$direction'" ;;
   esac
   [ -z "$next" ] && exit 0
@@ -5572,8 +5579,9 @@ if [ -z "$path" ] && [ -f "$dir/.reload_at_path" ]; then
   path=$(cat "$dir/.reload_at_path")
   rm -f "$dir/.reload_at_path"
 fi
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 n=""
-[ -n "$path" ] && n=$(p="$path" awk -F'\t' '$1==ENVIRON["p"]{print NR;exit}' "$dir/.current")
+[ -n "$path" ] && n=$(p="$path" $nn_gawk -F'\t' '$1==ENVIRON["p"]{print NR;exit}' "$dir/.current")
 border=$(cat "$dir/.border" 2>/dev/null || echo " nn ")
 border_action=$(cat "$dir/.border_action" 2>/dev/null)
 printf 'reload(cat %s/.current)+pos(%s)+transform-header(cat %s/.header)+change-list-label(%s)+change-input-label(%s)' "$dir" "${n:-1}" "$dir" "$border" "$border_action"
@@ -6484,6 +6492,7 @@ ENDEDIT
 #!/usr/bin/env bash
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir=$(dirname "$0")
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 
 # Read targets (one path per line)
 targets=()
@@ -6528,7 +6537,7 @@ if $multi; then
   printf "\n  ${_nn_bold}%b %d notes:${_nn_reset}\n" "$_method_desc" "${#targets[@]}" > /dev/tty
   _shown=0
   for f in "${targets[@]}"; do
-    _t=$(p="$f" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+    _t=$(p="$f" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
     [ -z "$_t" ] && _t=$(basename "$f" .md)
     _r=$(_resolve_rel "$f")
     printf "  ${_nn_red}•${_nn_reset} %s ${_nn_dim}%s${_nn_reset}\n" "$_t" "$_r" > /dev/tty
@@ -6549,7 +6558,7 @@ if $multi; then
 else
   # Single-delete: show one target
   target="${targets[0]}"
-  _title=$(p="$target" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+  _title=$(p="$target" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
   [ -z "$_title" ] && _title=$(basename "$target" .md)
   _rel=$(_resolve_rel "$target")
   printf "\n  ${_nn_bold}%b:${_nn_reset} %s\n" "$_method_desc" "$_title" > /dev/tty
@@ -6632,7 +6641,7 @@ if [ $_del_ok -gt 0 ]; then
       rm)    _la_msg="deleted · $_del_ok notes" ;;
     esac
   else
-    _title=$(p="${targets[0]}" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+    _title=$(p="${targets[0]}" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
     [ -z "$_title" ] && _title=$(basename "${targets[0]}" .md)
     _la_title="${_title//[()]/}"; [ ${#_la_title} -gt 40 ] && _la_title="${_la_title:0:37}..."
     case "${delete_method:-trash}" in
