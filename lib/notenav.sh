@@ -509,7 +509,15 @@ _nn_validate_workflow_ref() {
   if [[ "$name" == http://* ]]; then
     echo "notenav: only https:// URLs are supported in $context (got $name)" >&2
     return 1
-  elif [[ "$name" != https://* ]] && ! [[ "$name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  elif [[ "$name" == "https://" ]]; then
+    echo "notenav: URL is missing a host in $context" >&2
+    return 1
+  elif [[ "$name" == https://* ]]; then
+    if [[ "$name" == *'"'* || "$name" == *\\* || "$name" =~ [[:cntrl:]] ]]; then
+      echo "notenav: URL contains characters that cannot be embedded in TOML in $context" >&2
+      return 1
+    fi
+  elif ! [[ "$name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
     echo "notenav: invalid workflow name in $context: $name" >&2
     return 1
   fi
@@ -3044,9 +3052,12 @@ _nn_url_trust_add() {
 nn_init() {
   local notenav_root="$1"; shift
 
-  # Intercept --help/-h
-  if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    cat <<'EOF'
+  # Parse args
+  local user_mode=false workflow_arg=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --help|-h)
+        cat <<'EOF'
 Usage: nn init [workflow]        create project config (.nn/workflow.toml)
        nn init --user [workflow] create user config (~/.config/notenav/config.toml)
 
@@ -3057,13 +3068,7 @@ If omitted, defaults to zenith.
 Remote URLs are fetched, validated, and cached locally. On first use
 you will be prompted to trust the URL.
 EOF
-    return 0
-  fi
-
-  # Parse args
-  local user_mode=false workflow_arg=""
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
+        return 0 ;;
       --user) user_mode=true; shift ;;
       --*)
         echo "notenav: unknown flag: $1" >&2
@@ -3077,7 +3082,11 @@ EOF
           return 2
         fi
         if [[ "$1" == https://* ]]; then
-          if [[ "$1" == *'"'* || "$1" == *\\* ]]; then
+          if [[ "$1" == "https://" ]]; then
+            echo "notenav: URL is missing a host" >&2
+            return 2
+          fi
+          if [[ "$1" == *'"'* || "$1" == *\\* || "$1" =~ [[:cntrl:]] ]]; then
             echo "notenav: URL contains characters that cannot be embedded in TOML" >&2
             return 2
           fi
@@ -3128,6 +3137,8 @@ _nn_init_project() {
           echo "Refreshed cache for $workflow_name"
           return 0
         fi
+      else
+        echo "notenav: yq is required to detect whether this URL can be refreshed" >&2
       fi
     fi
     echo "notenav: project config already exists: $wf_file" >&2
@@ -3182,6 +3193,8 @@ _nn_init_user() {
           echo "Refreshed cache for $workflow_arg"
           return 0
         fi
+      else
+        echo "notenav: yq is required to detect whether this URL can be refreshed" >&2
       fi
     fi
     echo "notenav: user config already exists: $target" >&2
@@ -3211,9 +3224,8 @@ _nn_init_user() {
   # Uncomment and set default_workflow if a name/URL was given.
   # Uses awk to avoid sed delimiter injection from URLs or special characters.
   if [[ -n "$workflow_arg" ]]; then
-    local _tmp
+    local _tmp _dw_ok=true
     _tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; return 1; }
-    trap 'rm -f "$_tmp"' RETURN
     # shellcheck disable=SC2015  # intentional: || cleanup handles both awk and mv failure
     wf="$workflow_arg" awk \
       '/^# default_workflow = / { print "default_workflow = \"" ENVIRON["wf"] "\""; next } { print }' \
@@ -3222,15 +3234,22 @@ _nn_init_user() {
       || { rm -f "$_tmp"
            echo "notenav: created $target but failed to set default_workflow" >&2
            echo "notenav: edit it to set: default_workflow = \"$workflow_arg\"" >&2
-           return 0; }
+           _dw_ok=false; }
     # Verify the awk substitution actually matched (guards against sample format changes)
-    if ! grep -q '^default_workflow = ' "$target"; then
+    if [[ "$_dw_ok" == "true" ]] && ! grep -q '^default_workflow = ' "$target"; then
       echo "notenav: created $target but could not set default_workflow automatically" >&2
       echo "notenav: add this line manually: default_workflow = \"$workflow_arg\"" >&2
+      _dw_ok=false
     fi
+    echo "Created $target (default_workflow = $workflow_arg)"
+    if [[ "$_dw_ok" == "false" ]]; then
+      return 0
+    fi
+  else
+    echo "Created $target"
+    _nn_list_workflows "$notenav_root"
   fi
 
-  echo "Created $target"
   echo "Edit it to customize your preferences. Run 'nn' to launch the TUI, or 'nn doctor' to verify your setup."
 }
 
