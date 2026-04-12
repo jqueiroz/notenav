@@ -2739,14 +2739,14 @@ EOF
   fi
   [[ -n "$_ign_warn_tmp" ]] && rm -f "$_ign_warn_tmp"
 
-  # Backend status
+  # Backend status – run zk from _nn_root so it discovers the right .zk/
   if [[ "$_has_zk" == "true" ]]; then
     local _zk_count
-    _zk_count=$(zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
+    _zk_count=$(cd "$_nn_root" && zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
     if [[ "$_zk_count" -gt 0 ]] 2>/dev/null; then
       _pass "Backend: zk ${_dim}(indexed listing, link graph, full-text search)${_reset}"
       _pass "$_zk_count notes in zk index"
-    elif zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1; then
+    elif (cd "$_nn_root" && zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1); then
       _pass "Backend: zk ${_dim}(indexed listing, link graph, full-text search)${_reset}"
       _warn "0 notes in zk index (run 'zk index' to rebuild)"
     else
