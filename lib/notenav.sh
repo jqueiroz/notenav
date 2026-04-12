@@ -3305,7 +3305,7 @@ _nn_list_workflows() {
       [[ -f "$f" ]] || continue
       name="${f##*/}"; name="${name%.toml}"
       names+=("$name")
-      [[ -z "${name_to_file[$name]+x}" ]] && name_to_file[$name]="$f"
+      name_to_file[$name]="$f"
     done
   fi
   # Deduplicate (user workflows may shadow built-in names)
