@@ -3289,34 +3289,55 @@ _nn_workflow_summary() {
   [[ -n "$_summary" ]] && echo "  $_summary"
 }
 
-# Lists available workflows.
+# Lists available workflows with descriptions (best-effort via yq).
 _nn_list_workflows() {
   local notenav_root="$1"
-  local names=()
+  local -a names=()
+  local -A name_to_file=()
   local f name
   for f in "$notenav_root"/config/workflows/*.toml; do
     [[ -f "$f" ]] || continue
-    name="${f##*/}"
-    names+=("${name%.toml}")
+    name="${f##*/}"; name="${name%.toml}"
+    names+=("$name")
+    name_to_file[$name]="$f"
   done
   local user_wf_dir="${XDG_CONFIG_HOME:-$HOME/.config}/notenav/workflows"
   if [[ -d "$user_wf_dir" ]]; then
     for f in "$user_wf_dir"/*.toml; do
       [[ -f "$f" ]] || continue
-      name="${f##*/}"
-      names+=("${name%.toml}")
+      name="${f##*/}"; name="${name%.toml}"
+      names+=("$name")
+      [[ -z "${name_to_file[$name]+x}" ]] && name_to_file[$name]="$f"
     done
   fi
   # Deduplicate (user workflows may shadow built-in names)
   local -A _seen
-  local unique=()
+  local -a unique=()
   local n
   for n in "${names[@]}"; do
     [[ -n "${_seen[$n]+x}" ]] && continue
     _seen[$n]=1
     unique+=("$n")
   done
-  if [[ ${#unique[@]} -gt 0 ]]; then
+  [[ ${#unique[@]} -eq 0 ]] && return 0
+
+  # Try to show descriptions; fall back to a plain comma-separated list
+  if command -v yq >/dev/null 2>&1; then
+    local _max_len=0
+    for n in "${unique[@]}"; do
+      (( ${#n} > _max_len )) && _max_len=${#n}
+    done
+    echo "Available workflows:"
+    local desc
+    for n in "${unique[@]}"; do
+      desc=$(yq -p=toml '.meta.description // ""' "${name_to_file[$n]}" 2>/dev/null)
+      if [[ -n "$desc" ]]; then
+        printf '  %-*s – %s\n' "$_max_len" "$n" "$desc"
+      else
+        printf '  %s\n' "$n"
+      fi
+    done
+  else
     local list
     printf -v list '%s, ' "${unique[@]}"
     echo "Available workflows: ${list%, }"
