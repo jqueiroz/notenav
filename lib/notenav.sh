@@ -4498,7 +4498,7 @@ fi
 if [ "$count" -eq 0 ]; then
   printf '⚠ no files modified' > "$dir/.last_action"
 else
-  _la_title=$(p="${first_ok:-}" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+  _la_title=$(p="${first_ok:-}" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
   _la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
   if [ "$count" -gt 1 ]; then _la_title="$_la_title +$((count - 1)) more"; fi
   printf '%s → %s · %s' "$field" "$value" "$_la_title" > "$dir/.last_action"
@@ -4514,6 +4514,7 @@ ENDACTION
 #!/usr/bin/env bash
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"; field="$2"; shift 2
+nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 # Build context header from file paths
 ctx=""
 total=$#
@@ -4521,7 +4522,7 @@ shown=0
 for f in "$@"; do
   [ ! -f "$f" ] && continue
   if [ $shown -lt 2 ]; then
-    t=$(p="$f" awk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
+    t=$(p="$f" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
     [ -z "$t" ] && t=$(basename "$f" .md)
     [ $shown -eq 0 ] && ctx="$t" || ctx="$ctx, $t"
   fi
@@ -4531,7 +4532,7 @@ done
 # Determine current value from first selected file for pre-selection
 cur_pos=""
 if [ $# -gt 0 ] && [ -f "$1" ]; then
-  cur_val=$(p="$1" f="$field" awk -F'\t' \
+  cur_val=$(p="$1" f="$field" $nn_gawk -F'\t' \
     'ENVIRON["f"]=="type"&&$6==ENVIRON["p"]{print $1;exit} ENVIRON["f"]=="status"&&$6==ENVIRON["p"]{print $2;exit} ENVIRON["f"]=="priority"&&$6==ENVIRON["p"]{print $3;exit}' "$dir/.raw")
   if [ -n "$cur_val" ]; then
     case "$field" in
@@ -5856,10 +5857,10 @@ if [ -n "$ftitle" ]; then
   case "$ftitle" in
     '~'*)
       _tq="${ftitle#'~'}"
-      awk -F'\t' -v q="$_tq" 'BEGIN{q=tolower(q)} tolower($5)~q' "$_raw_input" > "$dir/.raw_title" 2>/dev/null
+      q="$_tq" $nn_gawk -F'\t' 'BEGIN{q=tolower(ENVIRON["q"])} tolower($5)~q' "$_raw_input" > "$dir/.raw_title" 2>/dev/null
       ;;
     *)
-      awk -F'\t' -v q="$ftitle" 'BEGIN{q=tolower(q)} index(tolower($5),q)' "$_raw_input" > "$dir/.raw_title"
+      q="$ftitle" $nn_gawk -F'\t' 'BEGIN{q=tolower(ENVIRON["q"])} index(tolower($5),q)' "$_raw_input" > "$dir/.raw_title"
       ;;
   esac
   _raw_input="$dir/.raw_title"
