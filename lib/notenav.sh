@@ -1665,7 +1665,7 @@ EOF
       # accidentally puts them in their config.)
       local _schema_sections="type status priority"
       _base_top=$(printf '%s' "$_base_cfg_json" | jq -r 'keys[]' 2>/dev/null | tr '\n' ' ')
-      _known_keys_user="$_base_top$_schema_sections"
+      _known_keys_user="$_base_top $_schema_sections"
       # Must match the workflow whitelist in nn_load_config() (search "Workflow scope")
       _known_keys_workflow="meta type status priority queries extends"
       _known_defaults=$(printf '%s' "$_base_cfg_json" | jq -r '.defaults | keys[]' 2>/dev/null | tr '\n' ' ')
@@ -1719,7 +1719,7 @@ EOF
         _fail "Config merge failed: ${_merge_first:-unknown error}"
         local _merge_rest
         _merge_rest=$(tail -n +2 "$_merge_tmpf")
-        [[ -n "$_merge_rest" ]] && echo "$_merge_rest" | while IFS= read -r _line; do echo "      $_line"; done
+        [[ -n "$_merge_rest" ]] && echo "$_merge_rest" | while IFS= read -r _line || [[ -n "$_line" ]]; do echo "      $_line"; done
       fi
       rm -f "$_merge_tmpf"
     else
@@ -2088,6 +2088,9 @@ EOF
     done < <(nn_cfg '.status // {} | keys[]' 2>/dev/null)
 
     # Priority checks
+    # Defaults to enabled when the [priority] section is missing entirely, so
+    # workflows that omit it get a clear "no values defined" failure rather
+    # than silently having no priority support.
     local _pri_enabled
     _pri_enabled=$(nn_cfg 'if (.priority // {}) | has("enabled") then .priority.enabled else true end')
     if [[ "$_pri_enabled" != "true" && "$_pri_enabled" != "false" ]]; then
