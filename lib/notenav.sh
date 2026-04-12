@@ -2755,17 +2755,27 @@ EOF
 
   # Backend status – run zk from _nn_root so it discovers the right .zk/
   if [[ "$_has_zk" == "true" ]]; then
-    local _zk_count
-    _zk_count=$(cd "$_nn_root" && zk list --format '{{absPath}}' --quiet 2>/dev/null | wc -l | tr -d ' ')
+    local _zk_count _zk_dr_err=""
+    _zk_dr_err=$(mktemp "${TMPDIR:-/tmp}/nn-zkdr.XXXXXX" 2>/dev/null) || _zk_dr_err=""
+    _zk_count=$(cd "$_nn_root" && zk list --format '{{absPath}}' --quiet 2>"${_zk_dr_err:-/dev/null}" | wc -l | tr -d ' ')
     if [[ "$_zk_count" -gt 0 ]] 2>/dev/null; then
       _pass "Backend: zk ${_dim}(indexed listing, link graph, full-text search)${_reset}"
       _pass "$_zk_count notes in zk index"
-    elif (cd "$_nn_root" && zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>&1); then
+    elif (cd "$_nn_root" && zk list --format '{{absPath}}' --quiet --limit 1 >/dev/null 2>"${_zk_dr_err:-/dev/null}"); then
       _pass "Backend: zk ${_dim}(indexed listing, link graph, full-text search)${_reset}"
       _warn "0 notes in zk index (run 'zk index' to rebuild)"
     else
-      _info "Backend: native ${_dim}(zk installed but no .zk/ notebook – run 'zk init' for faster indexing)${_reset}"
+      local _zk_dr_detail=""
+      if [[ -n "$_zk_dr_err" && -s "$_zk_dr_err" ]]; then
+        _zk_dr_detail=$(head -n 3 "$_zk_dr_err" | awk '{if(NR>1) printf "; "; printf "%s", $0}')
+      fi
+      if [[ -n "$_zk_dr_detail" ]]; then
+        _info "Backend: native ${_dim}(zk installed but probe failed: $_zk_dr_detail)${_reset}"
+      else
+        _info "Backend: native ${_dim}(zk installed but no .zk/ notebook – run 'zk init' for faster indexing)${_reset}"
+      fi
     fi
+    [[ -n "$_zk_dr_err" ]] && rm -f "$_zk_dr_err"
   else
     _info "Backend: native ${_dim}(install zk for faster indexing and link graph)${_reset}"
   fi
@@ -3756,12 +3766,22 @@ EOF
 
   # Detect backend: use zk when available and it can reach this directory
   # Workaround: zk list <root> returns only root-level notes; omit the path.
+  local _zk_fallback_msg=""
   if [[ "$_NN_HAS_ZK" == "true" ]]; then
     local _zk_probe=("$_scope_path")
     [[ -d "$_scope_path/.zk" ]] && _zk_probe=()
-    if ! zk list --format '{{absPath}}' --quiet --limit 1 "${_zk_probe[@]}" >/dev/null 2>&1; then
+    local _zk_probe_err
+    _zk_probe_err=$(mktemp "${TMPDIR:-/tmp}/nn-zkprobe.XXXXXX" 2>/dev/null) || _zk_probe_err=""
+    if ! zk list --format '{{absPath}}' --quiet --limit 1 "${_zk_probe[@]}" >/dev/null 2>"${_zk_probe_err:-/dev/null}"; then
       _NN_HAS_ZK=false
+      local _zk_probe_detail=""
+      if [[ -n "$_zk_probe_err" && -s "$_zk_probe_err" ]]; then
+        _zk_probe_detail=$(head -n 1 "$_zk_probe_err" | tr -d '\n')
+      fi
+      _zk_fallback_msg="zk probe failed${_zk_probe_detail:+ ($_zk_probe_detail)} – using native backend"
+      echo "notenav: $_zk_fallback_msg" >&2
     fi
+    [[ -n "$_zk_probe_err" ]] && rm -f "$_zk_probe_err"
   fi
   # ---- FACETED BROWSER (no args) ----
   if [[ $# -eq 0 ]]; then
@@ -4289,7 +4309,7 @@ if [ "$has_zk" = "true" ]; then
     && mv "$dir/.raw.tmp" "$dir/.raw"; then
     rm -f "$_zk_err"
   else
-    _zk_msg=$(head -n 1 "$_zk_err" 2>/dev/null)
+    _zk_msg=$(head -n 3 "$_zk_err" 2>/dev/null | awk '{if(NR>1) printf "; "; printf "%s", $0}')
     rm -f "$_zk_err" "$dir/.raw.tmp"
     printf 'zk error%s – press r to retry' "${_zk_msg:+ ($_zk_msg)}" > "$dir/.last_action"
   fi
@@ -6407,6 +6427,12 @@ ENDFILTER
     # Refreshed on resize via the resize binding below.
     printf '%s' "${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}" > "$_nn_dir/.term_cols"
     printf '%s' "${LINES:-$(tput lines 2>/dev/null || echo 24)}" > "$_nn_dir/.term_rows"
+
+    # Seed .last_action with zk fallback warning (if any) so it shows on first render.
+    # filter.sh refresh does not clear .last_action, so this survives.
+    if [[ -n "$_zk_fallback_msg" ]]; then
+      printf '%s' "$_zk_fallback_msg" > "$_nn_dir/.last_action"
+    fi
 
     # Generate initial results, stats, and header via filter.sh
     "$_nn_dir/filter.sh" "$_nn_dir" refresh > /dev/null
