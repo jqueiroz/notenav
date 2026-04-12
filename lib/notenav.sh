@@ -3140,7 +3140,9 @@ _nn_init_project() {
           return 0
         fi
       else
-        echo "notenav: yq is required to detect whether this URL can be refreshed" >&2
+        echo "notenav: project config already exists: $wf_file" >&2
+        echo "notenav: install yq to refresh the cache, or remove the file and re-run nn init" >&2
+        return 1
       fi
     fi
     echo "notenav: project config already exists: $wf_file" >&2
@@ -3199,7 +3201,9 @@ _nn_init_user() {
           return 0
         fi
       else
-        echo "notenav: yq is required to detect whether this URL can be refreshed" >&2
+        echo "notenav: user config already exists: $target" >&2
+        echo "notenav: install yq to refresh the cache, or remove the file and re-run nn init" >&2
+        return 1
       fi
     fi
     echo "notenav: user config already exists: $target" >&2
