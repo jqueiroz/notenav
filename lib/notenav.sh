@@ -2990,8 +2990,8 @@ EOF
         echo "          Set defaults.type_visibility = \"show_untyped\" or add type: to note frontmatter"
       fi
     fi
-    if [[ "$_note_count" -gt 2000 ]]; then
-      _info "Scanned first 2000 of $_note_count files"
+    if [[ "${_ign_after:-0}" -gt 2000 ]]; then
+      _info "Scanned first 2000 of ${_ign_after:-$_note_count} files"
     fi
     fi  # end gawk guard
   fi
