@@ -110,8 +110,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 
 | Key | Action |
 |-----|--------|
-| `enter` | Open note in your preferred editor |
-| `e` | [**e**]dit note |
+| `enter` / `e` | Open note in your preferred editor |
 | `n` | Create [**n**]ew note |
 | `a` / `A` | Advance / reverse status |
 | `+` or `>` / `-` or `<` | Bump priority in the +/- direction (see `priority_plus` setting) |
