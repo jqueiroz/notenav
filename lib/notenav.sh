@@ -4516,7 +4516,7 @@ for file in "$@"; do
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
     in_fm && skip_cont && /^[[:blank:]]+-/ { next }
     in_fm && skip_cont { skip_cont=0 }
-    in_fm && $0 ~ "^"field":( |$)" { print field ": " value; found=1; skip_cont=1; next }
+    in_fm && $0 ~ "^"field":( |$)" { print (value == "" ? field ":" : field ": " value); found=1; skip_cont=1; next }
     { print }
   ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
 done
