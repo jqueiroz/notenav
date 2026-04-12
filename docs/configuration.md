@@ -515,7 +515,7 @@ If no entry in the list is available, the preview falls back to `cat`. Use `nn d
 **Examples:**
 
 ```toml
-# Rendered markdown with bat fallback
+# Rendered markdown (glow) with bat fallback
 previewer = ["glow", "bat"]
 
 # Custom previewer with bat fallback
@@ -599,7 +599,15 @@ In all modes, pressing `r` in command mode triggers an immediate manual refresh.
 
 ### Overriding workflow colors
 
-You can override individual colors without writing a full custom workflow. In `.nn/workflow.toml`, use `extends` and override what you need:
+You can override individual colors without writing a full custom workflow. The simplest way is in your user config – these apply to all projects:
+
+```toml
+# ~/.config/notenav/config.toml
+[status.colors]
+active = "bold-green" # personal preference, applies to all projects
+```
+
+For project-specific overrides, use `extends` in `.nn/workflow.toml` and override what you need:
 
 ```toml
 # .nn/workflow.toml
@@ -613,12 +621,4 @@ active = "bold-green" # bold green for active
 
 [priority.colors]
 1 = "red"             # non-bold red for P1
-```
-
-User config can also override colors – these merge on top of the workflow values:
-
-```toml
-# ~/.config/notenav/config.toml
-[status.colors]
-active = "bold-green" # personal preference, applies to all projects
 ```
