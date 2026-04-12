@@ -580,14 +580,14 @@ Controls how the TUI detects external changes to notes (edits in another termina
 [refresh]
 mode = "watch"         # "watch" | "poll" | "manual"
 poll_interval = 30     # seconds between polls (poll mode only)
-auto_max_files = 0     # disable auto-refresh above this note count (0 = no limit)
+auto_refresh_note_limit = 0  # disable auto-refresh above this note count (0 = no limit)
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `mode` | string | `"watch"` | Refresh strategy: `"watch"` (filesystem events via inotifywait/fswatch), `"poll"` (periodic check), or `"manual"` (only on `r` key) |
 | `poll_interval` | integer | `30` | Seconds between polls in poll mode |
-| `auto_max_files` | integer | `0` | Disable auto-refresh when the notebook has more notes than this; `0` means no limit. Manual refresh (`r` key) always works regardless of this setting. |
+| `auto_refresh_note_limit` | integer | `0` | Disable auto-refresh when the notebook has more notes than this; `0` means no limit. Manual refresh (`r` key) always works regardless of this setting. |
 
 **Mode details:**
 

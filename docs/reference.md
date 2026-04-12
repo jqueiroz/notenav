@@ -187,7 +187,7 @@ nn doctor
    - **Priority**: levels have colors, `filter_cycle` references valid values, lifecycle transitions valid, `unset_position` is `first` or `last`, no unrecognized sub-keys
    - **Defaults**: `sort_by`, `sort_reverse`, `group_by`, `type_visibility`, `archive_visibility`, `wrap_preview`, and `pin_mode` have valid values; `archive_visibility = "only"` requires the workflow to declare archive statuses
    - **UI**: `initial_header_mode`, `editor` (PATH check), `command_prompt` and `search_prompt` (no characters stripped at runtime), `exit_message`, `priority_plus`, `after_create`, `delete_method`, `delete_confirm`, `previewer`, and `previewer_flags` have valid values; configured previewer tools (bat/batcat, glow, mdcat, custom) are checked for availability
-   - **Refresh**: `mode`, `poll_interval`, and `auto_max_files` have valid values; warns when `mode = "watch"` but no filesystem watcher is installed; no unrecognized sub-keys
+   - **Refresh**: `mode`, `poll_interval`, and `auto_refresh_note_limit` have valid values; warns when `mode = "watch"` but no filesystem watcher is installed; no unrecognized sub-keys
    - **Query presets**: filter args reference valid types/statuses/priorities, no unknown filter keys, `order` is numeric
    - Color values are valid (named colors or ANSI codes) throughout
 

@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **`defaults.show_archive` (boolean) renamed to `defaults.archive_visibility`** – now an enum: `"hide"` (default), `"show"`, or `"only"`. The new `"only"` value is the runtime-visible reason for the rename.
 - **`type.visibility` moved to `defaults.type_visibility`** – this setting was the only user preference living under the workflow-definition `[type]` table. It now lives under `[defaults]` alongside other view preferences.
-- **`refresh.max_files` renamed to `refresh.auto_max_files`** – clarifies that this is the auto-refresh threshold, not a hard cap on indexed files.
+- **`refresh.max_files` renamed to `refresh.auto_refresh_note_limit`** – clarifies that this is the auto-refresh threshold, not a hard cap on indexed files.
 - **`meta.schema` renamed to `meta.schema_version`** – more descriptive name for the workflow schema version.
 - **`defaults.group_by` uses `"none"` as the canonical "no grouping" value** – the built-in defaults use `"none"` instead of the empty string.
 - **`ui.header` renamed to `ui.initial_header_mode`** – sets the header mode on launch (`"clean"` or `"guided"`). Default is `"guided"`. Press `h` to toggle at runtime. The old `"full"`, `"auto"`, and `"compact"` modes have been replaced by `"clean"` and `"guided"`.

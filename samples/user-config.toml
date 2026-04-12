@@ -35,7 +35,7 @@
 # [refresh]
 # mode = "watch"              # "watch" | "poll" | "manual"
 # poll_interval = 30          # seconds between polls (poll mode only)
-# auto_max_files = 0          # disable auto-refresh above this note count (0 = no limit)
+# auto_refresh_note_limit = 0  # disable auto-refresh above this note count (0 = no limit)
 
 # Override workflow colors – these merge on top, so only specify what you
 # want to change.

@@ -918,7 +918,7 @@ nn_precompute_workflow() {
   # Refresh preferences
   NN_REFRESH_MODE=$(nn_cfg '.refresh.mode // "watch"')
   NN_REFRESH_POLL_INTERVAL=$(nn_cfg '.refresh.poll_interval // 30')
-  NN_REFRESH_MAX_FILES=$(nn_cfg '.refresh.auto_max_files // 0')
+  NN_REFRESH_MAX_FILES=$(nn_cfg '.refresh.auto_refresh_note_limit // 0')
 
   # Validate UI/refresh enum values (fail fast on invalid config)
   case "$NN_UI_HEADER" in clean|guided) ;;
@@ -2570,9 +2570,9 @@ EOF
       fi
     fi
     local _rf_max
-    _rf_max=$(nn_cfg '.refresh.auto_max_files // empty')
+    _rf_max=$(nn_cfg '.refresh.auto_refresh_note_limit // empty')
     if [[ -n "$_rf_max" ]] && ! [[ "$_rf_max" =~ ^[0-9]+$ ]]; then
-      _warn "refresh.auto_max_files '$_rf_max' is not a valid integer"
+      _warn "refresh.auto_refresh_note_limit '$_rf_max' is not a valid integer"
     fi
     # Check for unrecognized keys in [refresh]
     if [[ -n "$_known_refresh" ]]; then
@@ -2787,9 +2787,9 @@ EOF
   # Auto-refresh threshold check (needs NN_CFG_JSON + _note_count from above)
   if [[ -n "${NN_CFG_JSON:-}" && "$_note_count" -gt 0 ]] 2>/dev/null; then
     local _rf_max_files
-    _rf_max_files=$(nn_cfg '.refresh.auto_max_files // 0')
+    _rf_max_files=$(nn_cfg '.refresh.auto_refresh_note_limit // 0')
     if [[ "$_rf_max_files" -gt 0 && "$_note_count" -gt "$_rf_max_files" ]] 2>/dev/null; then
-      _info "Auto-refresh disabled ($_note_count notes > auto_max_files $_rf_max_files) ${_dim}– press r to refresh manually${_reset}"
+      _info "Auto-refresh disabled ($_note_count notes > auto_refresh_note_limit $_rf_max_files) ${_dim}– press r to refresh manually${_reset}"
     fi
   fi
 
