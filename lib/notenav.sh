@@ -3582,6 +3582,8 @@ Usage: nn                        interactive TUI
        nn init [workflow]        create project config (.nn/workflow.toml)
        nn init --user [workflow] create user config
        nn doctor                 check setup and diagnose problems
+       nn --version              show version
+       nn --help                 show usage
 
 Options:
   -h, --help           Show this help
