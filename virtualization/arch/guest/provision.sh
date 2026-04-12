@@ -20,19 +20,11 @@ sudo pacman -S --noconfirm \
   gawk \
   fzf \
   jq \
+  go-yq \
   git \
   ripgrep \
   bat \
   curl
-
-# yq-go is not in Arch's official repos; install from GitHub
-if ! command -v yq >/dev/null 2>&1; then
-  echo ""
-  echo "==> Installing yq-go..."
-  YQ_URL="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
-  sudo curl -fL -o /usr/local/bin/yq "$YQ_URL"
-  sudo chmod +x /usr/local/bin/yq
-fi
 
 echo ""
 echo "==> Adding notenav to PATH..."
