@@ -3736,6 +3736,7 @@ EOF
       NN_TYPE_ORDER_STR NN_STATUS_ORDER_STR NN_AWK_ICON_SETUP NN_ARCHIVE_COND NN_ARCHIVE_ONLY_COND NN_TYPE_VIS_COND \
       NN_CFG_JSON
     _NN_SEALED=1
+    unset _NN_QUERY_DEPTH _NN_QUERY_CHAIN
   fi
 
   shopt -s nullglob
@@ -5033,6 +5034,7 @@ done < <(awk '{a[NR]=$0} END{for(i=NR;i>0;i--)print a[i]}' "$dir/.current")
 if [ ! -s "$datafile" ]; then
   rm -f "$datafile"
   printf '\xe2\x9a\xa0 no notes selected' > "$dir/.last_action"
+  "$dir/filter.sh" "$dir" refresh > /dev/null
   exit 0
 fi
 # Write heading with instructions and valid values
@@ -6173,11 +6175,11 @@ fi
 archive_label=$(cat "$dir/.schema_archive_label")
 case "$farchive" in
   show)
-    zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[1mshowing %s\033[0m' "$archive_label") ;;
+    zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37marchive: \033[1mshowing %s\033[0m' "$archive_label") ;;
   only)
-    zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[1monly %s\033[0m' "$archive_label") ;;
+    zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37marchive: \033[1monly %s\033[0m' "$archive_label") ;;
   *)
-    zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37midden: \033[90mhiding %s\033[0m' "$archive_label") ;;
+    zarchive_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[h]\033[1;37marchive: \033[90mhiding %s\033[0m' "$archive_label") ;;
 esac
 if [ -n "$fwrap" ]; then
   zwrap_s_active=$(printf '       \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[w]\033[1;37mrap preview: \033[1mon\033[0m')
@@ -6333,7 +6335,7 @@ if [ "$_pri_enabled" != "false" ]; then
   _pri_help_hint=' \033[36m[+]\033[0m/\033[36m[-]\033[0m priority'
 fi
 help_filters_lbl=$(printf '\033[1;90m Filters:\033[0m \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[t]\033[0mype \033[36m[f]\033[0m\033[90m→\033[0m\033[36m[s]\033[0mtatus %s\033[36m[f]\033[0m\033[90m→\033[0m\033[36m[#]\033[0mtags  \033[36m[0]\033[0mclear preset  \033[36m[R]\033[0meset all  \033[90mtab/shift-tab/1-9/g presets\033[0m' "$_pri_help_chunk")
-help_display_lbl=$(printf '\033[1;90m Display:\033[0m \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[o]\033[0mrder \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[r]\033[0meverse \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[g]\033[0mroup \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[h]\033[0midden \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[w]\033[0mrap')
+help_display_lbl=$(printf '\033[1;90m Display:\033[0m \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[o]\033[0mrder \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[r]\033[0meverse \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[g]\033[0mroup \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[h]\033[0marchive \033[36m[z]\033[0m\033[90m→\033[0m\033[36m[w]\033[0mrap')
 help_actions_lbl=$(printf '\033[1;90m Actions:\033[0m \033[36m[a]\033[0mdvance/\033[36m[A]\033[0mreverse status%b \033[36m[c]\033[0mhange \033[36m[e]\033[0mdit \033[36m[n]\033[0mew \033[36m[b]\033[0mulk \033[36m[d]\033[0mel \033[36m[r]\033[0mefresh' "$_pri_help_hint")
 help_marks_lbl=$(printf '\033[1;90m Marks/pins:\033[0m \033[36m[m]\033[0m\033[90m→\033[0m\033[36m[m]\033[0mark/\033[36m[a]\033[0mll/\033[36m[d]\033[0mel/\033[36m[D]\033[0mclear/\033[36m[f]\033[0milter  \033[36m[x]\033[0mclear pins/\033[36m[X]\033[0mrestore  \033[36m[space]\033[0m multi-select')
 help_keys_lbl=$(printf '\033[1;90m Keys:\033[0m \033[36m[/]\033[0m search  \033[36m[/\033[0m then \033[36m?]\033[0m content search  \033[36m[h]\033[0m toggle header  \033[36m[enter]\033[0m open  \033[36m[?]\033[0m close help  \033[36m[q]\033[0muit')
