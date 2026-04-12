@@ -5592,7 +5592,10 @@ else
   else
     next=$(cur="$cur" $nn_gawk -F'\t' '$1 == ENVIRON["cur"] {print $2; exit}' "$dir/.schema_status_fwd")
   fi
-  [ -z "$next" ] && exit 0
+  if [ -z "$next" ]; then
+    printf '⚠ no transition for status "%s"' "$cur" > "$dir/.last_action"
+    exit 0
+  fi
 fi
 [ "$next" = "$cur" ] && exit 0
 "$dir/action.sh" "$dir" status "$next" "$file"
@@ -5619,7 +5622,10 @@ else
     down) next=$(cur="$cur" $nn_gawk -F'\t' '$1 == ENVIRON["cur"] {print $2; exit}' "$dir/.schema_priority_down") ;;
     *) nn_assert "bumppri: unknown direction '$direction'" ;;
   esac
-  [ -z "$next" ] && exit 0
+  if [ -z "$next" ]; then
+    printf '⚠ no transition for priority "%s"' "$cur" > "$dir/.last_action"
+    exit 0
+  fi
 fi
 "$dir/action.sh" "$dir" priority "$next" "$file"
 ENDBP
