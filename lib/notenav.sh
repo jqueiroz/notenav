@@ -141,12 +141,12 @@ nn_load_config() {
   # Require yq (must be yq-go, not yq-python) and jq
   if ! command -v yq >/dev/null 2>&1; then
     echo "notenav: yq-go is required for config loading" >&2
-    _nn_hint "" "" "" "" "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
+    _nn_hint "" "" yq go-yq "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
     return 1
   fi
   if ! printf 'x = 1\n' | yq -p=toml -o=json '.' >/dev/null 2>&1; then
     echo "notenav: yq appears to be yq-python, not yq-go" >&2
-    _nn_hint "" "" "" "" "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
+    _nn_hint "" "" yq go-yq "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
     return 1
   fi
   if ! command -v jq >/dev/null 2>&1; then
@@ -1477,11 +1477,11 @@ EOF
       _has_yq=true
     else
       _fail "yq ${yq_ver:-installed} appears to be yq-python, not yq-go"
-      _hint "" "" "" "" "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
+      _hint "" "" yq go-yq "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
     fi
   else
     _fail "yq-go not found"
-    _hint "" "" "" "" "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
+    _hint "" "" yq go-yq "" go-yq yq yq-go "https://github.com/mikefarah/yq#install"
   fi
 
   # jq
@@ -2296,14 +2296,14 @@ EOF
     fi
     # Check for unrecognized keys in [defaults]
     if [[ -n "$_known_defaults" ]]; then
-    local _dk
-    while IFS= read -r _dk; do
-      [[ -z "$_dk" ]] && continue
-      # shellcheck disable=SC2086  # intentional word-splitting of known-key list
-      if ! _in_array "$_dk" $_known_defaults; then
-        _warn "defaults: unrecognized key '$_dk'"
-      fi
-    done < <(nn_cfg '.defaults // {} | keys[]' 2>/dev/null)
+      local _dk
+      while IFS= read -r _dk; do
+        [[ -z "$_dk" ]] && continue
+        # shellcheck disable=SC2086  # intentional word-splitting of known-key list
+        if ! _in_array "$_dk" $_known_defaults; then
+          _warn "defaults: unrecognized key '$_dk'"
+        fi
+      done < <(nn_cfg '.defaults // {} | keys[]' 2>/dev/null)
     fi
 
     # UI validation
@@ -2514,14 +2514,14 @@ EOF
     fi
     # Check for unrecognized keys in [ui]
     if [[ -n "$_known_ui" ]]; then
-    local _uk
-    while IFS= read -r _uk; do
-      [[ -z "$_uk" ]] && continue
-      # shellcheck disable=SC2086  # intentional word-splitting of known-key list
-      if ! _in_array "$_uk" $_known_ui; then
-        _warn "ui: unrecognized key '$_uk'"
-      fi
-    done < <(nn_cfg '.ui // {} | keys[]' 2>/dev/null)
+      local _uk
+      while IFS= read -r _uk; do
+        [[ -z "$_uk" ]] && continue
+        # shellcheck disable=SC2086  # intentional word-splitting of known-key list
+        if ! _in_array "$_uk" $_known_ui; then
+          _warn "ui: unrecognized key '$_uk'"
+        fi
+      done < <(nn_cfg '.ui // {} | keys[]' 2>/dev/null)
     fi
 
     # Validate ui.previewer_flags sub-keys
@@ -2572,14 +2572,14 @@ EOF
     fi
     # Check for unrecognized keys in [refresh]
     if [[ -n "$_known_refresh" ]]; then
-    local _rfk
-    while IFS= read -r _rfk; do
-      [[ -z "$_rfk" ]] && continue
-      # shellcheck disable=SC2086  # intentional word-splitting of known-key list
-      if ! _in_array "$_rfk" $_known_refresh; then
-        _warn "refresh: unrecognized key '$_rfk'"
-      fi
-    done < <(nn_cfg '.refresh // {} | keys[]' 2>/dev/null)
+      local _rfk
+      while IFS= read -r _rfk; do
+        [[ -z "$_rfk" ]] && continue
+        # shellcheck disable=SC2086  # intentional word-splitting of known-key list
+        if ! _in_array "$_rfk" $_known_refresh; then
+          _warn "refresh: unrecognized key '$_rfk'"
+        fi
+      done < <(nn_cfg '.refresh // {} | keys[]' 2>/dev/null)
     fi
 
     # Query preset validation (warnings only)
