@@ -3176,6 +3176,9 @@ _nn_init_project() {
   } > "$wf_file" || { echo "notenav: failed to write $wf_file" >&2; return 1; }
 
   echo "Created $wf_file (extends $workflow_name)"
+  local _wf_resolved
+  _wf_resolved=$(_nn_resolve_workflow_file "$notenav_root" "$workflow_name")
+  _nn_workflow_summary "$_wf_resolved"
   echo "This file defines your notebook's workflow. Edit it to add query presets or override the base."
   echo "Run 'nn' to launch the TUI, or 'nn doctor' to verify your setup."
   if [[ -z "$workflow_arg" ]]; then
@@ -3249,6 +3252,9 @@ _nn_init_user() {
     fi
     if [[ "$_dw_ok" == "true" ]]; then
       echo "Created $target (default_workflow = $workflow_arg)"
+      local _wf_resolved
+      _wf_resolved=$(_nn_resolve_workflow_file "$notenav_root" "$workflow_arg")
+      _nn_workflow_summary "$_wf_resolved"
     else
       echo "Created $target"
       return 0
@@ -3259,6 +3265,28 @@ _nn_init_user() {
   fi
 
   echo "Edit it to customize your preferences. Run 'nn' to launch the TUI, or 'nn doctor' to verify your setup."
+}
+
+# Print a one-line summary of a workflow file (types, statuses, priority).
+# Best-effort: silently skips if yq is not available.
+_nn_workflow_summary() {
+  local wf_file="$1"
+  command -v yq >/dev/null 2>&1 || return 0
+  [[ -f "$wf_file" ]] || return 0
+  local _json
+  _json=$(yq -p=toml -o=json -I=0 '.' "$wf_file" 2>/dev/null) || return 0
+  local _summary
+  _summary=$(printf '%s' "$_json" | jq -r '
+    def join_arr: if . then join(", ") else empty end;
+    [
+      (.type.values // empty | join_arr | "types: " + .),
+      (.status.values // empty | join_arr | "statuses: " + .),
+      (if .priority.enabled == false then "priority: disabled"
+       elif .priority.values then "priority: " + (.priority.values | join_arr)
+       else empty end)
+    ] | join(" · ")
+  ' 2>/dev/null) || return 0
+  [[ -n "$_summary" ]] && echo "  $_summary"
 }
 
 # Lists available workflows.
