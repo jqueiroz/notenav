@@ -3006,20 +3006,23 @@ _nn_url_cache_path() {
   local url="$1"
   local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/notenav/workflows"
   local hash
-  hash=$(printf '%s' "$url" | _nn_sha256 | cut -c1-16)
+  hash=$(printf '%s' "$url" | _nn_sha256)
   printf '%s/%s.toml' "$cache_dir" "$hash"
 }
 
 # Portable sha256 – outputs hex digest on stdout.
 _nn_sha256() {
+  local h
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum | cut -d' ' -f1
+    h=$(sha256sum) || return 1
   elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 | cut -d' ' -f1
+    h=$(shasum -a 256) || return 1
   else
     echo "notenav: no sha256 tool found (need sha256sum or shasum)" >&2
     return 1
   fi
+  [[ -n "$h" ]] || return 1
+  printf '%s' "${h%% *}"
 }
 
 # Returns 0 if URL is in the trusted-sources allow-list.
@@ -3774,7 +3777,7 @@ EOF
       shopt -u nullglob; return 1
     fi
     chmod 700 "$_nn_dir"
-    trap '_p=$(cat "'"$_nn_dir"'/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "'"$_nn_dir"'"' EXIT
+    trap '_p=$(cat "'"$_nn_dir"'/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "'"$_nn_dir"'"' EXIT HUP INT TERM QUIT
     nn_write_workflow_files "$_nn_dir"
 
     # Write backend detection flag, gawk path, and notebook root for helper scripts
