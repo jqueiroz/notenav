@@ -4280,8 +4280,6 @@ else
 fi
 if [ -s "$dir/.csearch_paths" ]; then
   awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($1 in paths)' "$dir/.csearch_paths" "$dir/.current"
-else
-  cat "$dir/.current"
 fi
 ENDCSEARCH
     chmod +x "$_nn_dir/csearch.sh"
@@ -5913,8 +5911,12 @@ _raw_input="$dir/.raw.snap"
 _count_input="$dir/.raw.snap"
 # Pre-filter: body match narrows to matched paths, mark filter narrows to marked paths
 # Widen with pinned so ghost rows survive narrowing (marks are badges, not ghost rows)
-if [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; then
-  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw.snap" > "$dir/.raw_matched"
+if [ -n "$fmatch" ]; then
+  if [ -s "$dir/.f_match_paths" ]; then
+    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw.snap" > "$dir/.raw_matched"
+  else
+    : > "$dir/.raw_matched"
+  fi
   _raw_input="$dir/.raw_matched"
   _count_input="$dir/.raw_matched"
 fi
@@ -5938,7 +5940,7 @@ if [ -n "$fmarked" ] && [ -s "$dir/.marked.snap" ]; then
   _count_input="$dir/.raw_marked"
 fi
 # Widen _raw_input with pinned paths so ghost rows survive pre-filtering
-if [ -s "$dir/.pinned.snap" ] && { { [ -n "$fmatch" ] && [ -s "$dir/.f_match_paths" ]; } || [ -n "$ftitle" ] || { [ -n "$fmarked" ] && [ -s "$dir/.marked.snap" ]; }; }; then
+if [ -s "$dir/.pinned.snap" ] && { [ -n "$fmatch" ] || [ -n "$ftitle" ] || { [ -n "$fmarked" ] && [ -s "$dir/.marked.snap" ]; }; }; then
   cat "$_raw_input" > "$dir/.raw_prefiltered"
   awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.pinned.snap" "$dir/.raw.snap" >> "$dir/.raw_prefiltered"
   awk -F'\t' '!seen[$6]++' "$dir/.raw_prefiltered" > "$dir/.raw_widened"
