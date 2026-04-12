@@ -295,7 +295,7 @@ args = "type=task status=active"
 | Key | Type | Description |
 |-----|------|-------------|
 | `order` | number | Sort position in the query bar (default: `100`, lower = first) |
-| `args` | string | Filter arguments as key=value pairs |
+| `args` | string | Filter arguments as key=value pairs – valid filter keys: `type`, `status`, `priority`, `tag` (see [reference.md](reference.md#nn-keyvalue--ad-hoc-query) for details) |
 
 **Merge order** (later wins on name collisions):
 
