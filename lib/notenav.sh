@@ -5032,7 +5032,11 @@ while IFS=$'\t' read -r fpath _rest || [ -n "$fpath" ]; do
   }' "$dir/.raw" >> "$datafile"
 done < <(awk '{a[NR]=$0} END{for(i=NR;i>0;i--)print a[i]}' "$dir/.current")
 # Nothing to bulk-edit (e.g. empty view)
-[ ! -s "$datafile" ] && { rm -f "$datafile"; exit 0; }
+if [ ! -s "$datafile" ]; then
+  rm -f "$datafile"
+  printf '\xe2\x9a\xa0 no notes selected' > "$dir/.last_action"
+  exit 0
+fi
 # Write heading with instructions and valid values
 notecount=$(wc -l < "$datafile")
 label="notes"; [ "$notecount" -eq 1 ] && label="note"
@@ -5514,7 +5518,7 @@ else
     new_path="$PWD/${_slug}-${_nn_sfx}.md"
     while ! ln "$_nn_tmp" "$new_path" 2>/dev/null; do
       _nn_i=$((_nn_i + 1))
-      [ "$_nn_i" -gt 9 ] && { echo "notenav: could not create note file" >&2; rm -f "$_nn_tmp"; exit 1; }
+      [ "$_nn_i" -gt 9 ] && { echo "notenav: could not create note file in $PWD" >&2; rm -f "$_nn_tmp"; exit 1; }
       new_path="$PWD/${_slug}-${_nn_sfx}-${_nn_i}.md"
     done
   fi
@@ -6308,13 +6312,13 @@ elif [ "$_header_mode" = "clean" ]; then
   _mfilter_f=$(printf '\033[1;90m Filters:\033[0m \033[1;33m[f]\033[0m \033[1;37mthen \033[1;36m[t]\033[1;37mype \033[1;36m[s]\033[1;37mtatus %s%s\033[0m' "$_pri_filter_chunk" "$_mftag_hint")
   _mgroup_v="none"; [ -n "$fgroup" ] && _mgroup_v="$fgroup"
   case "$farchive" in
-    show) _marchive_v="on" ;;
+    show) _marchive_v="show" ;;
     only) _marchive_v="only" ;;
-    *)    _marchive_v="off" ;;
+    *)    _marchive_v="hide" ;;
   esac
   _mwrap_v="off"; [ -n "$fwrap" ] && _mwrap_v="on"
   _mrev_v="off"; [ -n "$fsort_rev" ] && _mrev_v="on"
-  _mdisplay_z=$(printf '\033[1;90m Display:\033[0m \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder:\033[1m%s\033[0m%s  \033[1;36m[r]\033[1;37mev:\033[1m%s\033[0m  \033[1;36m[g]\033[1;37mroup:\033[1m%s\033[0m  \033[1;36m[h]\033[1;37midden:\033[1m%s\033[0m  \033[1;36m[w]\033[1;37mrap:\033[1m%s\033[0m' "$sort_hint" "$_marrow" "$_mrev_v" "$_mgroup_v" "$_marchive_v" "$_mwrap_v")
+  _mdisplay_z=$(printf '\033[1;90m Display:\033[0m \033[1;33m[z]\033[0m \033[1;37mthen \033[1;36m[o]\033[1;37mrder:\033[1m%s\033[0m%s  \033[1;36m[r]\033[1;37mev:\033[1m%s\033[0m  \033[1;36m[g]\033[1;37mroup:\033[1m%s\033[0m  \033[1;36m[h]\033[1;37marchive:\033[1m%s\033[0m  \033[1;36m[w]\033[1;37mrap:\033[1m%s\033[0m' "$sort_hint" "$_marrow" "$_mrev_v" "$_mgroup_v" "$_marchive_v" "$_mwrap_v")
   printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mdisplay_lbl" "$mstats_lbl" > "$dir/.header"
   printf '%s\n%s\n%s\n%s\n%s' "$mqueries_lbl" "$mfilter_lbl" "$mdisplay_lbl" "$mstats_lbl" "$change_lbl_active" > "$dir/.header-c"
   printf '%s\n%s\n%s\n%s' "$mqueries_lbl" "$_mfilter_f" "$mdisplay_lbl" "$mstats_lbl" > "$dir/.header-f"
@@ -6836,7 +6840,7 @@ ENDDELETE
       --bind "r:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir sort-reverse; elif test -z \"\$m\"; then $_nn_dir/reload_raw.sh $_nn_dir 2>/dev/null; printf refreshed > $_nn_dir/.last_action; $_nn_dir/filter.sh $_nn_dir refresh; fi]" \
       --bind "w:transform[$_nn_dir/wrapkey.sh $_nn_dir]" \
       --multi \
-      --bind "b:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bulkedit.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)+deselect-all+refresh-preview'; fi]" \
+      --bind "b:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/bulkedit.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)+transform-input-label(cat $_nn_dir/.border_action)+deselect-all+refresh-preview'; fi]" \
       --bind "x:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir clear-pins; fi]" \
       --bind "X:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\" && test -s $_nn_dir/.pinned.bak; then $_nn_dir/filter.sh $_nn_dir restore-pins; fi]" \
       --bind "m:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-toggle {1}; elif test -z \"\$m\"; then rm -f $_nn_dir/.nn-help; echo m > $_nn_dir/.nn-mode; echo 'change-prompt(m )+transform-header(cat $_nn_dir/.header-m)'; fi]" \
@@ -6888,11 +6892,13 @@ ENDDELETE
   # ---- NAMED QUERY ----
   if [[ $# -ge 1 && "$1" != *=* && "$1" != -* && -n "${saved_queries[$1]+x}" ]]; then
     local _nn_qdepth=${_NN_QUERY_DEPTH:-0}
+    local _nn_qchain="${_NN_QUERY_CHAIN:-}"
     if (( _nn_qdepth >= 5 )); then
-      echo "notenav: query preset recursion too deep (circular reference?)" >&2
+      echo "notenav: query preset recursion too deep: ${_nn_qchain} → $1 (circular reference?)" >&2
       shopt -u nullglob; return 1
     fi
     _NN_QUERY_DEPTH=$(( _nn_qdepth + 1 ))
+    _NN_QUERY_CHAIN="${_nn_qchain:+${_nn_qchain} → }$1"
     local saved="$1"; shift
     local _saved_args="${saved_queries[$saved]}"
     local -a _saved_arr
