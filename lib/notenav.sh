@@ -1387,7 +1387,19 @@ _nn_ver_cmp() {
 }
 
 nn_doctor() {
-  local notenav_root="$1"
+  local notenav_root="$1"; shift
+
+  # Intercept --help/-h
+  if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    cat <<'EOF'
+Usage: nn doctor    check setup and diagnose problems
+
+Validates dependencies, config files, workflow integrity, notebook
+structure, and note frontmatter. Exits 0 if all checks pass.
+EOF
+    return 0
+  fi
+
   local fails=0 warns=0
 
   # Output helpers (respect $NO_COLOR)
@@ -3563,7 +3575,8 @@ EOF
 
   # nn doctor: diagnostic checks (dispatched before config loading)
   if [[ "$1" == "doctor" ]]; then
-    nn_doctor "$NOTENAV_ROOT"
+    shift
+    nn_doctor "$NOTENAV_ROOT" "$@"
     return $?
   fi
 
