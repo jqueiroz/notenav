@@ -185,6 +185,30 @@ nn_load_config() {
     user_json=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null) || user_json="{}"
   fi
 
+  # User-scope whitelist: applied to BOTH base.toml and user config.
+  # Base ships notenav's default user prefs; user config overrides them.
+  # Both files have the exact same shape – the only difference is who
+  # owns them. Workflows are a separate scope (filtered below) and
+  # cannot set preferences. The only cross-scope keys are color
+  # sub-keys, so a user can personalize a workflow's palette without
+  # forking it. Anything outside this whitelist is silently dropped.
+  local _user_prefs_shape='{
+    default_workflow,
+    defaults,
+    ui,
+    refresh,
+    type:     (.type // {} | to_entries | map(select(.value | type == "object")) | map({key, value: {color: .value.color}}) | map(select(.value.color != null)) | from_entries),
+    status:   {colors: .status.colors},
+    priority: {colors: .priority.colors}
+  } | del(.. | nulls)'
+  base_json=$(printf '%s' "$base_json" | jq "$_user_prefs_shape" 2>/dev/null) || base_json="{}"
+  user_json=$(printf '%s' "$user_json" | jq "$_user_prefs_shape" 2>/dev/null) || user_json="{}"
+  if [[ -z "$user_json" && -f "$user_cfg" ]]; then
+    echo "notenav: user config may be invalid – check ~/.config/notenav/config.toml" >&2
+    echo "notenav: run 'nn doctor' for details" >&2
+    user_json="{}"
+  fi
+
   # Step 2: Load project workflow (.nn/workflow.toml)
   # This single file replaces the old .nn/schema.toml + .nn/config.toml split.
   # It can extend a built-in workflow and/or define project queries.
@@ -312,33 +336,16 @@ nn_load_config() {
     workflow_json=$(printf '%s' "$workflow_json" | jq 'del(.queries)' 2>/dev/null)
   fi
 
-  # Whitelist: extract only workflow-owned keys from workflow config.
-  # Workflows define schema (types, statuses, priorities, queries, defaults)
-  # but must not override user preferences (ui, refresh, default_workflow).
-  # This is a security boundary: remote workflows could otherwise set
-  # ui.editor or ui.previewer_custom_command to execute arbitrary code.
+  # Workflow scope: schema definition only. Preferences ([defaults],
+  # [ui], [refresh], default_workflow) live in the user scope (base +
+  # user config) – workflows must not set them. This is also a security
+  # boundary against remote workflows: without it, a hostile remote
+  # could rewrite ui.editor or ui.previewer_custom_command to execute
+  # arbitrary code on the next launch.
   workflow_json=$(printf '%s' "$workflow_json" | jq '{
-    meta, type, status, priority, queries, defaults
+    meta, type, status, priority, queries
   } | del(.. | nulls)' 2>/dev/null)
   [[ -z "$workflow_json" ]] && workflow_json="{}"
-
-  # Whitelist: extract only user-owned keys from user config. Anything not
-  # listed here is silently dropped, so new workflow keys are safe by default.
-  user_json=$(printf '%s' "$user_json" | jq '{
-    default_workflow,
-    defaults,
-    ui,
-    refresh,
-    type: ((.type // {} | to_entries | map(select(.value | type == "object")) | map({key, value: {color: .value.color}}) | map(select(.value.color != null)) | from_entries) + {visibility: .type.visibility} | del(.visibility | nulls)),
-    status: {colors: .status.colors},
-    priority: {colors: .priority.colors}
-  } | del(.. | nulls)' 2>/dev/null)
-
-  if [[ -z "$user_json" && -f "$user_cfg" ]]; then
-    echo "notenav: user config may be invalid – check ~/.config/notenav/config.toml" >&2
-    echo "notenav: run 'nn doctor' for details" >&2
-    user_json="{}"
-  fi
 
   # Deep merge: base * workflow * user * project_queries
   # Later values win. Project queries applied last so they override user/workflow queries.
@@ -1642,8 +1649,8 @@ nn_doctor() {
       local _schema_sections="meta status priority"
       _base_top=$(printf '%s' "$_base_cfg_json" | jq -r 'keys[]' 2>/dev/null | tr '\n' ' ')
       _known_keys_user="$_base_top$_schema_sections"
-      # Must match the workflow whitelist in nn_load_config() (search "workflow-owned keys")
-      _known_keys_workflow="meta type status priority queries defaults extends"
+      # Must match the workflow whitelist in nn_load_config() (search "Workflow scope")
+      _known_keys_workflow="meta type status priority queries extends"
       _known_defaults=$(printf '%s' "$_base_cfg_json" | jq -r '.defaults | keys[]' 2>/dev/null | tr '\n' ' ')
       _known_ui=$(printf '%s' "$_base_cfg_json" | jq -r '.ui | keys[]' 2>/dev/null | tr '\n' ' ')
       _known_pf=$(printf '%s' "$_base_cfg_json" | jq -r '.ui.previewer_flags | keys[]' 2>/dev/null | tr '\n' ' ')

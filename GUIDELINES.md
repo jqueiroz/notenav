@@ -62,8 +62,18 @@ Two names coexist by design – each is used where it fits best:
 
 ## Config system
 
-- Project config (`.nn/workflow.toml`) and user config (`~/.config/notenav/config.toml`) are layered independently and almost entirely orthogonal – project defines the workflow, user defines personal preferences. The only intersection is colors: user color overrides merge on top of the workflow's palette.
-- New config keys must have a fallback default in the `nn_cfg` call (the `// "value"` pattern) and a corresponding entry in `config/base.toml` or the workflow file.
+There are exactly **two config scopes**, each with one or more files of identical shape:
+
+- **User scope** – view preferences. `config/base.toml` ships notenav's defaults; `~/.config/notenav/config.toml` is the user's overrides. Both files have the same shape: `default_workflow`, `[defaults]`, `[ui]`, `[refresh]`, plus color overrides under `[type.<n>]`, `[status.colors]`, and `[priority.colors]`. base.toml is "the default user config" – nothing more.
+- **Workflow scope** – schema. Built-in workflows in `config/workflows/*.toml` and project workflows in `.nn/workflow.toml` define `[meta]`, `[type]`, `[status]`, `[priority]`, and `[queries]`. Workflows can `extends` a built-in or remote URL.
+
+The two scopes overlap **only** on color sub-keys: a user can personalize a workflow's palette via `[status.colors]`, `[priority.colors]`, or `[type.<n>] color = ...` without forking the workflow. No other cross-scope keys are allowed – workflows cannot set `[defaults]`/`[ui]`/`[refresh]` (security boundary against remote workflows), and user config cannot redefine workflow schema.
+
+Both whitelists are enforced in `nn_load_config()` via `jq` projections; anything outside the whitelist is silently dropped.
+
+The merge order is `base * workflow * user * project_queries`. Later layers override earlier on key collisions; project queries are applied last so they win on name collisions. Loaded once at startup and sealed for the session.
+
+- New config keys must have a fallback default in the `nn_cfg` call (the `// "value"` pattern) and a corresponding entry in `config/base.toml` (user-scope key) or a workflow file (workflow-scope key).
 - Document new config keys in `docs/configuration.md`.
 - When adding or removing config properties, filter keys, or enum values, update the validation logic in `nn_doctor()` – it maintains hardcoded known-key lists and valid-value checks that must stay in sync.
 - Filter keys (currently `type`, `status`, `priority`, `tag`) are listed in five places that must stay in sync: `--help` text, ad-hoc query parser, query preset startup validation, query preset runtime (both `apply_sq` and the header stats builder), and `nn_doctor()` validation.
