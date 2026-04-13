@@ -119,10 +119,10 @@ else
   echo "Installing notenav..."
   mkdir -p "$(dirname "$NOTENAV_DIR")"
   _tmp_clone=$(mktemp -d "$(dirname "$NOTENAV_DIR")/notenav-install.XXXXXX")
-  trap 'rm -rf "$_tmp_clone"' EXIT INT TERM
+  trap 'rm -rf "$_tmp_clone"' EXIT HUP INT TERM QUIT
   git clone --branch stable https://github.com/jqueiroz/notenav.git "$_tmp_clone"
   mv "$_tmp_clone" "$NOTENAV_DIR"
-  trap - EXIT INT TERM
+  trap - EXIT HUP INT TERM QUIT
 fi
 
 # --- symlink ---

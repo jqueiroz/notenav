@@ -34,7 +34,7 @@ jobs:
           FZF_VER=v0.71.0
           curl -fL "https://github.com/junegunn/fzf/releases/download/${FZF_VER}/fzf-${FZF_VER#v}-linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
           # yq-go
-          sudo curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo curl -fL -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
       - name: Install dependencies (macOS)
@@ -106,7 +106,7 @@ jobs:
           prepare: |
             pkg_add bash gawk fzf jq git ripgrep bat curl
             # yq-go is not in OpenBSD ports; install from GitHub release
-            curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_openbsd_amd64 -o /usr/local/bin/yq
+            curl -fsL https://github.com/mikefarah/yq/releases/latest/download/yq_openbsd_amd64 -o /usr/local/bin/yq
             chmod +x /usr/local/bin/yq
           run: |
             mkdir -p /tmp/nn-test
