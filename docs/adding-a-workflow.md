@@ -76,6 +76,7 @@ Steps 1–5 above cover the main changes. The remaining files need minor updates
 | 7 | `docs/install.md` | Add row to built-in workflow file table |
 | 8 | `docs/faq.md` | Add row to built-in workflow file table |
 | 9 | `samples/user-config.toml` | Update workflow name list in comment |
+| 10 | `config/base.toml` | Update workflow name list in `default_workflow` comment |
 
 The workflow list itself is dynamically discovered from `config/workflows/*.toml` at runtime, so no code changes are needed beyond the help text.
 

@@ -34,7 +34,7 @@ description = "Atomic, fully developed idea"
 # All statuses participate in lifecycle (no tombstones).
 
 [status]
-values = ["review", "draft", "mature", "archived"]
+values = ["draft", "review", "mature", "archived"]
 initial = "draft"
 archive = ["archived"]
 filter_cycle = ["draft", "review", "mature", "archived"]

@@ -54,7 +54,9 @@ Each status maps to a GTD list:
 Press `a` to advance (clarify/complete), `A` to reverse (reopen/defer):
 
 ```
-  dropped ──▶ inbox ──▶ next ──▶ done
+      ┌──────────────────────────────────┐
+      ▼                                  │
+  dropped ──▶ inbox ──▶ next ──▶ done ───┘
                           ▲
                 waiting ──┤
                 someday ──┘
