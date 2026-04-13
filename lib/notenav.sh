@@ -1011,6 +1011,47 @@ nn_precompute_workflow() {
   esac
 }
 
+# Split a string into tokens respecting single/double quotes and backslash
+# escapes, without interpreting shell metacharacters.  Result in _nn_split_result.
+# (Also defined inside the preview script heredoc for use in that subprocess.)
+_nn_shellsplit() {
+  local s="$1" i=0 c tok=""
+  _nn_split_result=()
+  while (( i < ${#s} )); do
+    c="${s:i:1}"
+    case "$c" in
+      \') (( i++ ))
+          while (( i < ${#s} )) && [[ "${s:i:1}" != "'" ]]; do
+            tok+="${s:i:1}"; (( i++ ))
+          done
+          (( i++ )) ;;
+      \") (( i++ ))
+          while (( i < ${#s} )) && [[ "${s:i:1}" != '"' ]]; do
+            c2="${s:i:1}"
+            if [[ "$c2" = \\ ]] && (( i+1 < ${#s} )) && [[ "${s:i+1:1}" = [\"\\] ]]; then
+              tok+="${s:i+1:1}"; (( i += 2 ))
+            else
+              tok+="$c2"; (( i++ ))
+            fi
+          done
+          (( i++ )) ;;
+      \\) (( i++ ))
+          (( i < ${#s} )) && tok+="${s:i:1}"
+          (( i++ )) ;;
+      ' '|$'\t')
+          [[ -n "$tok" ]] && _nn_split_result+=("$tok")
+          tok=""; (( i++ )) ;;
+      *)  tok+="$c"; (( i++ )) ;;
+    esac
+  done
+  [[ -n "$tok" ]] && _nn_split_result+=("$tok")
+  # Expand leading ~ on the command name
+  case "${_nn_split_result[0]:-}" in
+    "~/"*) _nn_split_result[0]="$HOME/${_nn_split_result[0]:2}" ;;
+    "~")   _nn_split_result[0]="$HOME" ;;
+  esac
+}
+
 nn_write_workflow_files() {
   local dir="$1" _v
   nn_cfg '.meta.name // empty' > "$dir/.schema_workflow_name"
