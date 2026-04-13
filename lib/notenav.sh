@@ -4580,7 +4580,7 @@ for file in "$@"; do
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
     in_fm && skip_cont && /^[[:blank:]]+-/ { next }
     in_fm && skip_cont { skip_cont=0 }
-    in_fm && $0 ~ "^"field":( |$)" { print (value == "" ? field ":" : field ": " value); found=1; skip_cont=1; next }
+    in_fm && $0 ~ "^"field":( |$)" { if (value != "") print field ": " value; found=1; skip_cont=1; next }
     { print }
   ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
 done
@@ -4634,7 +4634,11 @@ else
   _la_title=$(p="${first_ok:-}" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
   _la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
   if [ "$count" -gt 1 ]; then _la_title="$_la_title +$((count - 1)) more"; fi
-  printf '%s → %s · %s' "$field" "$value" "$_la_title" > "$dir/.last_action"
+  if [ -z "$value" ]; then
+    printf '%s → cleared · %s' "$field" "$_la_title" > "$dir/.last_action"
+  else
+    printf '%s → %s · %s' "$field" "$value" "$_la_title" > "$dir/.last_action"
+  fi
 fi
 # Regenerate raw data and re-filter
 "$dir/reload_raw.sh" "$dir"
@@ -4673,6 +4677,8 @@ if [ $# -gt 0 ] && [ -f "$1" ]; then
       status)   cur_pos=$(v="$cur_val" $nn_gawk '$0==ENVIRON["v"]{print NR;exit}' "$dir/.schema_status_values") ;;
       priority) cur_pos=$(v="$cur_val" $nn_gawk '$0==ENVIRON["v"]{print NR;exit}' "$dir/.schema_priority_values") ;;
     esac
+  elif [ "$field" = "priority" ]; then
+    cur_pos=$(( $(wc -l < "$dir/.schema_priority_values") + 1 ))
   fi
 fi
 case "$field" in
@@ -4692,11 +4698,19 @@ case "$field" in
     done < "$dir/.schema_status_descs" ;;
   priority)
     [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 1
+    _use_tsv=1
     vals=""
     while IFS= read -r v || [ -n "$v" ]; do
+      lbl=$(k="$v" $nn_gawk -F'\t' '$1==ENVIRON["k"]{print $2;exit}' "$dir/.schema_priority_labels")
+      [ -z "$lbl" ] && lbl="P$v"
       [ -n "$vals" ] && vals="$vals"$'\n'
-      vals="$vals$v"
-    done < "$dir/.schema_priority_values" ;;
+      vals="$vals$v"$'\t'"$lbl"
+    done < "$dir/.schema_priority_values"
+    if [ -z "${NO_COLOR+x}" ]; then
+      vals="$vals"$'\n'$'\t'$(printf '\033[90m(clear)\033[0m')
+    else
+      vals="$vals"$'\n'$'\t'"(clear)"
+    fi ;;
   type)
     vals=""
     while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
@@ -4719,15 +4733,20 @@ pos_bind=()
 [ -n "$cur_pos" ] && pos_bind=(--bind "load:pos($cur_pos)")
 _fzf_ansi=(--ansi)
 [ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+_tsv_args=()
+[ -n "${_use_tsv:-}" ] && _tsv_args=(--delimiter $'\t' --with-nth 2)
 selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $field: " \
   --border --border-label " Set $field " \
   --header "$hdr" \
-  "${pos_bind[@]}" \
+  "${pos_bind[@]}" "${_tsv_args[@]}" \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
 [ -z "$selected" ] && exit 1
-# Strip description suffix (e.g. "active  – Currently being worked on" → "active")
-# then strip icon prefix (e.g. "◆ task" → "task"); use last word in case icon is empty
-selected=$(echo "$selected" | sed "s/$(printf '\033')\[[0-9;]*m//g" | sed 's/  – .*//' | awk '{print $NF}')
+# Extract raw value: TSV mode uses column 1; otherwise strip ANSI, description, and icon prefix
+if [ -n "${_use_tsv:-}" ]; then
+  selected=$(printf '%s' "$selected" | awk -F'\t' '{print $1}')
+else
+  selected=$(echo "$selected" | sed "s/$(printf '\033')\[[0-9;]*m//g" | sed 's/  – .*//' | awk '{print $NF}')
+fi
 printf '%s\n' "$field" > "$dir/.fp_field"
 printf '%s\n' "$selected" > "$dir/.fp_value"
 ENDFP
