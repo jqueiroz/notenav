@@ -118,7 +118,11 @@ elif [ -d "$NOTENAV_DIR" ]; then
 else
   echo "Installing notenav..."
   mkdir -p "$(dirname "$NOTENAV_DIR")"
-  git clone --branch stable https://github.com/jqueiroz/notenav.git "$NOTENAV_DIR"
+  _tmp_clone=$(mktemp -d "$(dirname "$NOTENAV_DIR")/notenav-install.XXXXXX")
+  trap 'rm -rf "$_tmp_clone"' EXIT INT TERM
+  git clone --branch stable https://github.com/jqueiroz/notenav.git "$_tmp_clone"
+  mv "$_tmp_clone" "$NOTENAV_DIR"
+  trap - EXIT INT TERM
 fi
 
 # --- symlink ---
