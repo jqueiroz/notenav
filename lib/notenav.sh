@@ -2919,6 +2919,7 @@ EOF
       {
         file = $0; type = ""; status = ""; priority = ""; in_fm = 0; had_fm = 0; fm_lines = 0
         while ((getline line < file) > 0) {
+          gsub(/\r/, "", line)
           if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; had_fm = 1; NR_FILE++; continue }
           NR_FILE++
           if (in_fm) {
@@ -3932,7 +3933,7 @@ EOF
       shopt -u nullglob; return 1
     fi
     local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX") || { echo "notenav: mktemp -d failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
-    if [[ "$_nn_dir" == *[[:space:]\"\'\$\`\\()\[\]]* ]]; then
+    if [[ "$_nn_dir" == *[[:space:]\"\'\$\`\\]* || "$_nn_dir" == *['()[]']* ]]; then
       rm -rf "$_nn_dir"
       echo "notenav: TMPDIR path contains characters unsafe for shell interpolation." >&2
       echo "notenav: set TMPDIR to a simple path (e.g. /tmp) and try again." >&2
@@ -5581,6 +5582,7 @@ if [ "$_nn_has_zk" = "true" ]; then
   # Ensure essential frontmatter fields are present
   _nn_has_fm=$(head -n 1 "$new_path" 2>/dev/null)
   if [ "$_nn_has_fm" = "---" ]; then
+    _nntmp=$(mktemp "$new_path.XXXXXX") || exit 1
     nn_type="$selected" nn_status="$_nn_initial_status" nn_created="$_nn_now" $nn_gawk '
       BEGIN { nn_type=ENVIRON["nn_type"]; nn_status=ENVIRON["nn_status"]; nn_created=ENVIRON["nn_created"] }
       NR==1 && /^---/ { in_fm=1; print; next }
@@ -5595,10 +5597,9 @@ if [ "$_nn_has_zk" = "true" ]; then
       in_fm && /^status:( |$)/  { found_status=1 }
       in_fm && /^created:( |$)/ { found_created=1 }
       { print }
-    _nntmp=$(mktemp "$new_path.XXXXXX")
     ' "$new_path" > "$_nntmp" && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
   else
-    _nntmp=$(mktemp "$new_path.XXXXXX")
+    _nntmp=$(mktemp "$new_path.XXXXXX") || exit 1
     {
       printf '%s\n' "---"
       printf 'type: %s\n' "$selected"
