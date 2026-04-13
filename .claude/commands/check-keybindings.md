@@ -22,7 +22,7 @@ For every `--bind` line that performs a command-mode action (executing a script,
 Skip these categories (exempt from mode guards):
 - Navigation: `j`, `k`, `ctrl-j`, `ctrl-k`, `J`, `K`, `q`, `space`, `tab`
 - Mode transitions: `f`, `z`, `esc`
-- Internal: `start`, `change`
+- Internal: `start`, `change`, `resize`
 - Bindings that delegate to a helper script with its own internal mode check (e.g., `w` → `wrapkey.sh`)
 
 ### 2. Keybinding table sync
