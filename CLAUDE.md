@@ -68,7 +68,7 @@ nn doctor                                     # check dependencies, config, note
 nn init                                       # create .nn/workflow.toml (zenith)
 nn init --user                                # create ~/.config/notenav/config.toml
 
-cd ~/Writing/obsidian-johnjq
+cd ~/my-notebook
 nn                                            # interactive TUI
 nn type=task                                  # ad-hoc query
 nn backlog                                    # query preset
