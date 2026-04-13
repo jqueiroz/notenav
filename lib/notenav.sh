@@ -182,7 +182,12 @@ nn_load_config() {
     base_json=$(yq -p=toml -o=json -I=0 '.' "$base_cfg" 2>/dev/null) || base_json="{}"
   fi
   if [[ -f "$user_cfg" ]]; then
-    user_json=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null) || user_json="{}"
+    user_json=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null) || {
+      echo "notenav: failed to parse $user_cfg" >&2
+      local _yq_err; _yq_err=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>&1 >/dev/null | head -2)
+      [[ -n "$_yq_err" ]] && printf '  %s\n' "$_yq_err" >&2
+      user_json="{}"
+    }
   fi
 
   # User-scope whitelist: applied to BOTH base.toml and user config.
@@ -216,7 +221,12 @@ nn_load_config() {
   local project_wf_file="${project_nn_dir:+$project_nn_dir/workflow.toml}"
   local _has_project_wf=false
   if [[ -n "$project_wf_file" && -f "$project_wf_file" ]]; then
-    project_wf_json=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>/dev/null) || project_wf_json="{}"
+    project_wf_json=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>/dev/null) || {
+      echo "notenav: failed to parse .nn/workflow.toml" >&2
+      local _yq_err; _yq_err=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>&1 >/dev/null | head -2)
+      [[ -n "$_yq_err" ]] && printf '  %s\n' "$_yq_err" >&2
+      project_wf_json="{}"
+    }
     [[ "$project_wf_json" != "{}" ]] && _has_project_wf=true
   fi
 
@@ -255,6 +265,8 @@ nn_load_config() {
     workflow_json=$(yq -p=toml -o=json -I=0 '.' "$workflow_file" 2>/dev/null)
     if [[ -z "$workflow_json" || "$workflow_json" == "null" ]]; then
       echo "notenav: failed to parse workflow $workflow_file (requires yq-go, not yq-python)" >&2
+      local _yq_err; _yq_err=$(yq -p=toml -o=json -I=0 '.' "$workflow_file" 2>&1 >/dev/null | head -2)
+      [[ -n "$_yq_err" ]] && printf '  %s\n' "$_yq_err" >&2
       return 1
     fi
 
@@ -278,6 +290,8 @@ nn_load_config() {
       _base_json=$(yq -p=toml -o=json -I=0 '.' "$_base_file" 2>/dev/null)
       if [[ -z "$_base_json" || "$_base_json" == "null" ]]; then
         echo "notenav: failed to parse base workflow $_base_file" >&2
+        local _yq_err; _yq_err=$(yq -p=toml -o=json -I=0 '.' "$_base_file" 2>&1 >/dev/null | head -2)
+        [[ -n "$_yq_err" ]] && printf '  %s\n' "$_yq_err" >&2
         return 1
       fi
       workflow_json=$(printf '%s\n%s' "$_base_json" "$workflow_json" \
@@ -1639,10 +1653,12 @@ EOF
 
     # User config
     if [[ -f "$user_cfg" ]]; then
-      if yq -p=toml -o=json '.' "$user_cfg" >/dev/null 2>&1; then
+      local _yq_err
+      if _yq_err=$(yq -p=toml -o=json '.' "$user_cfg" 2>&1 >/dev/null); then
         _pass "User config: $user_cfg"
       else
         _fail "User config: $user_cfg (parse error)"
+        [[ -n "$_yq_err" ]] && printf '        %s\n' "$(echo "$_yq_err" | head -2)"
       fi
     else
       _pass "User config: not present ${_dim}(using defaults)${_reset}"
@@ -1651,7 +1667,7 @@ EOF
     # Project config
     local _extends_name=""
     if [[ -n "$project_wf_file" && -f "$project_wf_file" ]]; then
-      local _proj_json
+      local _proj_json _yq_err
       if _proj_json=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>/dev/null); then
         _extends_name=$(printf '%s' "$_proj_json" | jq -r '.extends // empty' 2>/dev/null)
         if [[ -n "$_extends_name" ]]; then
@@ -1661,6 +1677,8 @@ EOF
         fi
       else
         _fail "Project config: .nn/workflow.toml (parse error)"
+        _yq_err=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>&1 >/dev/null | head -2)
+        [[ -n "$_yq_err" ]] && printf '        %s\n' "$_yq_err"
       fi
     else
       # Resolve effective default workflow: user config → base config → "zenith"
@@ -6610,6 +6628,8 @@ ENDWK
     chmod +x "$_nn_dir/wrapkey.sh"
 
     # Editor helper: isolates editor command from fzf binding syntax
+    # After the editor exits, re-indexes if no auto-refresh watcher is active
+    # (.refresh_mode is only written when watch/poll is active).
     cat > "$_nn_dir/edit.sh" << 'ENDEDIT'
 #!/usr/bin/env bash
 dir=$(dirname "$0")
@@ -6618,6 +6638,10 @@ mapfile -t nn_editor_cmd < <(cat "$dir/.schema_editor" 2>/dev/null)
 target=$(cat "$dir/.edit_target" 2>/dev/null)
 case "$target" in *.empty_placeholder) exit 0 ;; esac
 [ -f "$target" ] && "${nn_editor_cmd[@]}" "$target"
+# Re-index when no watcher is running (manual refresh mode)
+if ! [ -f "$dir/.refresh_mode" ]; then
+  "$dir/reload_raw.sh" "$dir" 2>/dev/null
+fi
 ENDEDIT
     chmod +x "$_nn_dir/edit.sh"
 
@@ -6883,7 +6907,7 @@ ENDDELETE
       --bind "<:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/bumppri.sh $_nn_dir {1} $_nn_minus_dir; $_nn_dir/reload_at.sh $_nn_dir {1}; printf +refresh-preview; fi]" \
       --bind "n:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then echo 'execute($_nn_dir/newnote.sh $_nn_dir)+transform($_nn_dir/reload_at.sh $_nn_dir)'; fi]" \
       --bind "c:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = c; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; elif test -z \"\$m\"; then rm -f $_nn_dir/.nn-help; echo c > $_nn_dir/.nn-mode; echo 'change-prompt(c )+transform-header(cat $_nn_dir/.header-c)'; fi]" \
-      --bind "e:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)+refresh-preview'; fi]" \
+      --bind "e:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh)+refresh-preview'; fi]" \
       --bind "f:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = m; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; printf '+'; $_nn_dir/filter.sh $_nn_dir mark-filter; elif test \"\$m\" = f; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; elif test -z \"\$m\"; then rm -f $_nn_dir/.nn-help; echo f > $_nn_dir/.nn-mode; echo 'change-prompt(f )+transform-header(cat $_nn_dir/.header-f)'; fi]" \
       --bind "z:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; elif test -z \"\$m\"; then rm -f $_nn_dir/.nn-help; echo z > $_nn_dir/.nn-mode; echo 'change-prompt(z )+transform-header(cat $_nn_dir/.header-z)'; fi]" \
       --bind "o:transform[m=\$(cat $_nn_dir/.nn-mode); if test \"\$m\" = z; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+execute($_nn_dir/sortpick.sh $_nn_dir)+transform($_nn_dir/filter.sh $_nn_dir refresh)'; fi]" \
@@ -6911,7 +6935,7 @@ ENDDELETE
       --bind "shift-tab:transform[m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then $_nn_dir/filter.sh $_nn_dir prev; fi]" \
       --bind "esc:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; _eq=\$(cat $_nn_dir/.csearch_q 2>/dev/null); if test -n \"\$_eq\"; then : > $_nn_dir/.f_title; $_nn_dir/csearch_persist.sh $_nn_dir; else cp $_nn_dir/.f_title.bak $_nn_dir/.f_title 2>/dev/null; cp $_nn_dir/.f_match.bak $_nn_dir/.f_match 2>/dev/null; cp $_nn_dir/.f_match_paths.bak $_nn_dir/.f_match_paths 2>/dev/null; fi; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir refresh; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; _eq={q}; if test -n \"\$_eq\"; then printf '%s' \"\$_eq\" > $_nn_dir/.f_title; : > $_nn_dir/.f_match; : > $_nn_dir/.f_match_paths; else cp $_nn_dir/.f_title.bak $_nn_dir/.f_title 2>/dev/null; cp $_nn_dir/.f_match.bak $_nn_dir/.f_match 2>/dev/null; cp $_nn_dir/.f_match_paths.bak $_nn_dir/.f_match_paths 2>/dev/null; fi; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir refresh; elif test -f $_nn_dir/.nn-help; then rm $_nn_dir/.nn-help; echo 'transform-header(cat $_nn_dir/.header)'; else m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; else printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; echo 'clear-query+change-prompt($NN_UI_COMMAND_PROMPT)'; fi; fi]" \
       --bind 'J:preview-page-down,K:preview-page-up' \
-      --bind "enter:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+reload(cat $_nn_dir/.current)+execute($_nn_dir/edit.sh)+refresh-preview'; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+execute($_nn_dir/edit.sh)+refresh-preview'; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)+refresh-preview'; fi; fi]"
+      --bind "enter:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+reload(cat $_nn_dir/.current)+execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh)+refresh-preview'; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh)+refresh-preview'; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh)+refresh-preview'; fi; fi]"
     _p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null
     trap - EXIT
     rm -rf "$_nn_dir"
