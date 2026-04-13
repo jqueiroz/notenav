@@ -87,7 +87,7 @@ Two locations, serving different purposes:
 | Project workflow | `.nn/workflow.toml` | Workflow definition and project-specific query presets. Lives in the project root, alongside `.git/`. Shared with collaborators via version control. |
 | User preferences | `~/.config/notenav/config.toml` (or `$XDG_CONFIG_HOME/notenav/config.toml` if set) | Personal preferences (editor, colors, sorting, default workflow). Applies to all projects. Not shared. |
 
-These are orthogonal – project config defines *what the workflow looks like*, user config defines *how you prefer to use it*.
+These are nearly orthogonal – project config defines *what the workflow looks like*, user config defines *how you prefer to use it*. The only overlap is colors: user overrides, if present, for `[type.<n>] color`, `[status.colors]`, or `[priority.colors]` win over the workflow's palette.
 
 Use `nn init` to scaffold these files:
 
