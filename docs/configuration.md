@@ -26,7 +26,7 @@ At startup, two things happen:
 
    `base.toml` is structurally just "the default user config" – it ships with notenav but has the same shape as your own user config. Both files are deep-merged, with the user's overrides winning on key collisions. In the deep merge, user preferences are applied after the workflow, so user overrides (e.g. colors) win on collision.
 
-   The two scopes overlap **only** on color sub-keys: a user can personalize a workflow's palette via `[type.<n>] color`, `[status.colors]`, or `[priority.colors]` without forking the workflow. No other cross-scope keys are allowed. Workflows cannot set user preferences (`[defaults]`, `[ui]`, `[refresh]`) – this is a security boundary against remote workflows that could otherwise set `ui.editor` to execute arbitrary code on next launch. User config cannot redefine workflow schema. Anything outside each scope's whitelist is silently dropped at load time.
+   The two scopes overlap **only** on color sub-keys: a user can personalize a workflow's palette via `[type.<n>] color`, `[status.colors]`, or `[priority.colors]` without forking the workflow. No other cross-scope keys are allowed. Workflows cannot set user preferences (`[defaults]`, `[ui]`, `[refresh]`) – this is a security boundary against remote workflows that could otherwise set `ui.editor` or `ui.previewer_custom_command` to execute arbitrary code on next launch. User config cannot redefine workflow schema. Anything outside each scope's whitelist is silently dropped at load time. Run `nn doctor` after editing config files to catch misplaced keys.
 
    Project queries (`[queries]` in `.nn/workflow.toml`) are applied as a final merge step so they always win on name collisions with workflow-shipped queries.
 
