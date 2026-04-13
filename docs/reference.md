@@ -7,8 +7,8 @@
 ```
 nn                                  interactive TUI (faceted browser)
 nn <query-name>                     run a query preset
-nn key=value ...                    ad-hoc filter (plain output)
-nn key=value ... -i                 ad-hoc filter (interactive)
+nn key=value ...                    ad-hoc query (plain output)
+nn key=value ... -i                 ad-hoc query (interactive)
 nn init [--user] [workflow]         create project or user config
 nn doctor                           check setup and diagnose problems
 nn --version                        show version

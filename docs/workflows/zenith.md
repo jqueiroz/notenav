@@ -78,7 +78,7 @@ Four levels, P1 (highest) to P4 (lowest). Notes without a priority sort last.
 | P3 | Medium | yellow |
 | P4 | Low | yellow |
 
-Press `+` to increase priority, `-` to decrease. Pressing `+` or `-` on an unprioritized note sets it to P4 (the lowest level).
+Press `+`/`-` to bump priority (direction depends on the [`priority_plus`](../configuration.md#priority-key-direction) setting). Pressing `+` or `-` on an unprioritized note sets it to P4 (the lowest level).
 
 ## Example Frontmatter
 

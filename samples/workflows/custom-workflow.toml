@@ -35,7 +35,7 @@ description = "Documentation"
 # Status values and their lifecycle transitions.
 # values: all valid statuses; array order = display order in grouped view
 # archive: statuses hidden by default
-# filter_cycle: subset for ]/[ preset cycling ("all" is auto-prepended); fs picker shows all
+# filter_cycle: subset shown in stats bar per-type breakdown ("all" is auto-prepended); fs picker shows all
 
 [status]
 values = ["in-progress", "review", "open", "done"]

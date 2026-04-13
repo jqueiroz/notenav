@@ -36,7 +36,7 @@ description = "Living documentation; continually updated as understanding grows"
 # --- Statuses ---
 # values: all valid statuses; array order = display order in grouped view
 # archive: statuses hidden by default; press 'zh' for the archive visibility picker
-# filter_cycle: subset for ]/[ preset cycling ("all" is auto-prepended); fs picker shows all
+# filter_cycle: subset shown in stats bar per-type breakdown ("all" is auto-prepended); fs picker shows all
 # default_color: fallback for statuses not explicitly listed in [status.colors]
 #
 # "removed" is in values but omitted from filter_cycle and lifecycle.
@@ -82,7 +82,7 @@ blocked = "new"
 # values: valid priority levels; array order = sort order (first = highest)
 #   can be numeric ("1","2","3") or named ("critical","high","low")
 # labels: optional short display labels; omit to show "P{value}" (e.g. "P1")
-# filter_cycle: subset for ]/[ preset cycling ("all" is auto-prepended); fp picker shows all
+# filter_cycle: subset shown in stats bar breakdown ("all" is auto-prepended); fp picker shows all
 # unset_position: where unprioritized notes sort ("first" or "last")
 
 [priority]
