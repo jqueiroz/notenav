@@ -180,7 +180,7 @@ blocked = "new"
 | `initial` | string | Status assigned to newly created notes and when pressing `a` on a note that has no status |
 | `display_order` | array | *(optional)* Override display order (group headers); defaults to `values` order |
 | `archive` | array | Statuses hidden by default; press `zh` for the archive visibility picker (hide / show / only) |
-| `filter_cycle` | array | Statuses shown in the stats bar breakdown and offered as choices in the `fs` filter picker (`"all"` is auto-prepended) |
+| `filter_cycle` | array | Statuses shown in the stats bar per-type breakdown (`"all"` is auto-prepended); the `fs` picker shows all statuses regardless |
 | `default_color` | string | Fallback color for statuses not in `[status.colors]` |
 | `[status.colors]` | table | Color name or ANSI code per status |
 | `[status.descriptions]` | table | *(optional)* Human-readable description per status; shown in `nn doctor` |
@@ -225,7 +225,7 @@ default_color = "yellow"
 |-----|------|-------------|
 | `enabled` | boolean | Set to `false` to disable priority entirely (default: `true`) |
 | `values` | array | Valid priority levels; array order = sort order (first = highest) |
-| `filter_cycle` | array | Priorities shown in the stats bar breakdown and offered as choices in the `fp` filter picker (`"all"` is auto-prepended, `"none"` is auto-appended) |
+| `filter_cycle` | array | Priority subset for the stats bar breakdown (`"all"` is auto-prepended, `"none"` is auto-appended); the `fp` picker shows all priorities regardless |
 | `unset_position` | string | Where unprioritized notes sort: `"first"` or `"last"` |
 | `default_color` | string | Fallback color for priorities not in `[priority.colors]` |
 | `[priority.colors]` | table | Color name or ANSI code per priority level |
