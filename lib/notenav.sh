@@ -3504,6 +3504,7 @@ case "$file" in *.empty_placeholder) _nn_show_centered "$file"; exit 0 ;; esac
 
 # Split a string into tokens respecting single/double quotes and backslash
 # escapes, without interpreting shell metacharacters.  Result in _nn_split_result.
+# (Also defined at top level for use by the main shell.)
 _nn_shellsplit() {
   local s="$1" i=0 c tok=""
   _nn_split_result=()
