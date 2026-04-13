@@ -15,7 +15,7 @@ All configuration is TOML. Project and user configuration are layered independen
 
 At startup, two things happen:
 
-1. **Workflow resolution:** if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"zenith"`.
+1. **Workflow resolution:** if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"zenith"`. When `.nn/workflow.toml` exists, `default_workflow` is ignored entirely — the project workflow always takes precedence.
 
 2. **Config merge:** notenav has two config scopes that almost don't overlap.
 
