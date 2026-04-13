@@ -876,6 +876,10 @@ nn_precompute_workflow() {
   [[ ${#NN_STATUS_DISPLAY_ORDER[@]} -eq 0 ]] && NN_STATUS_DISPLAY_ORDER=("${NN_STATUS_VALUES[@]}")
 
   # Defaults
+  # NOTE: the `// "value"` fallbacks below must match config/base.toml defaults.
+  # They are redundant (base.toml is always the base layer) but guard against
+  # partial load failures. Keep both in sync when changing a default.
+  #
   # NOTE: boolean defaults must use `has(...)` rather than `// false` because
   # jq's `//` filters out `false` from the LHS and would silently substitute
   # the default. Works today only because base.toml happens to default these

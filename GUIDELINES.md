@@ -73,7 +73,7 @@ Both whitelists are enforced in `nn_load_config()` via `jq` projections; anythin
 
 The merge order is `base * workflow * user * project_queries`. Later layers override earlier on key collisions; project queries are applied last so they win on name collisions. Loaded once at startup and sealed for the session.
 
-- New config keys must have a fallback default in the `nn_cfg` call (the `// "value"` pattern) and a corresponding entry in `config/base.toml` (user-scope key) or a workflow file (workflow-scope key).
+- New config keys must have a fallback default in the `nn_cfg` call (the `// "value"` pattern) and a corresponding entry in `config/base.toml` (user-scope key) or a workflow file (workflow-scope key). The `//` fallback value must match the default in `base.toml` – these are redundant (base.toml is always loaded as the base layer) but serve as a safety net, so they must stay in sync.
 - Document new config keys in `docs/configuration.md` and add a commented-out entry in `samples/user-config.toml`.
 - When adding or removing config properties, filter keys, or enum values, update the validation logic in `nn_doctor()` – it maintains hardcoded known-key lists and valid-value checks that must stay in sync.
 - Filter keys (currently `type`, `status`, `priority`, `tag`) are listed in five places that must stay in sync: `--help` text, ad-hoc query parser, query preset startup validation, query preset runtime (both `apply_sq` and the header stats builder), and `nn_doctor()` validation.
