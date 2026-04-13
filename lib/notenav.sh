@@ -4553,7 +4553,7 @@ if [ -n "$value" ]; then
     priority) grep -qxF "$value" "$dir/.schema_priority_values" || { echo "notenav: refusing to write invalid priority: $value" >&2; exit 1; } ;;
   esac
 fi
-count=0; first_ok=""; ok_files=()
+count=0; first_ok=""; ok_files=(); _no_fm_clear=0
 for file in "$@"; do
   case "$file" in *.empty_placeholder) continue ;; esac
   [ ! -f "$file" ] && continue
@@ -4561,7 +4561,7 @@ for file in "$@"; do
   first_line=$(head -n 1 "$file")
   if [ "$first_line" != "---" ]; then
     # No frontmatter – clearing a field is a no-op; otherwise create one
-    [ -z "$value" ] && continue
+    [ -z "$value" ] && { _no_fm_clear=$((_no_fm_clear + 1)); continue; }
     _ftmp=$(mktemp "$file.XXXXXX") || continue
     {
       printf '%s\n' "---"
@@ -4625,7 +4625,11 @@ if $_need_pin && [ ${#ok_files[@]} -gt 0 ]; then
   rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
 fi
 if [ "$count" -eq 0 ]; then
-  printf '⚠ no files modified' > "$dir/.last_action"
+  if [ "$_no_fm_clear" -gt 0 ]; then
+    printf '⚠ nothing to clear (no frontmatter)' > "$dir/.last_action"
+  else
+    printf '⚠ no files modified' > "$dir/.last_action"
+  fi
 else
   _la_title=$(p="${first_ok:-}" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
   _la_title="${_la_title//[()]/}"; [ ${#_la_title} -gt 30 ] && _la_title="${_la_title:0:27}..."
