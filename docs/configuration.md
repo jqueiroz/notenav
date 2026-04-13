@@ -413,7 +413,6 @@ group_by = "none"               # none | type | status
 type_visibility = "all"          # typed_only | all
 archive_visibility = "hide"     # hide | show | only – which archive statuses appear
 wrap_preview = false            # true to wrap the preview pane by default
-pin_mode = "auto"               # auto | always
 ```
 
 | Key | Type | Default | Description |
@@ -424,7 +423,6 @@ pin_mode = "auto"               # auto | always
 | `type_visibility` | string | `"all"` | Which notes appear based on their type field: `"typed_only"` (hide untyped) or `"all"` (show all) |
 | `archive_visibility` | string | `"hide"` | Whether archive statuses appear (see below) |
 | `wrap_preview` | boolean | `false` | Whether the preview pane wraps long lines on launch |
-| `pin_mode` | string | `"auto"` | When to create ghost-row pins after actions: `"auto"` pins only when the item would leave the current view; `"always"` pins every modified item |
 
 **`defaults.archive_visibility`** controls how archive statuses (declared per-workflow in `[status] archive = [...]`) participate in the default view:
 
@@ -462,6 +460,7 @@ previewer = ["bat", "glow", "mdcat"]  # fallback list; tries each in order
 previewer_custom_command = "" # command when previewer includes "custom"
 delete_method = "trash"    # "trash" (trash-put / gio trash) or "rm"
 delete_confirm = "always"  # "always" or "never"
+pin_mode = "auto"          # "auto" (only when item would leave view) or "always"
 
 [ui.previewer_flags]
 bat = []       # extra flags appended to bat
@@ -483,6 +482,7 @@ mdcat = []     # extra flags appended to mdcat
 | `previewer_flags` | table | `bat = [], glow = [], mdcat = []` | Extra CLI flags appended to built-in previewer commands; each value is a string or array (see below) |
 | `delete_method` | string | `"trash"` | How to delete notes: `"trash"` uses `trash-put` or `gio trash` (recoverable), `"rm"` permanently deletes |
 | `delete_confirm` | string | `"always"` | Whether to confirm before single-note delete: `"always"` shows a `[y/N]` prompt, `"never"` deletes immediately. Multi-select delete always requires `YES` regardless of this setting |
+| `pin_mode` | string | `"auto"` | When to create ghost-row pins after actions: `"auto"` pins only when the item would leave the current view; `"always"` pins every modified item |
 
 #### Priority key direction
 

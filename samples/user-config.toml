@@ -11,7 +11,6 @@
 # type_visibility = "all"          # typed_only | all
 # archive_visibility = "hide"   # hide | show | only – which archive statuses appear
 # wrap_preview = false          # true to wrap the preview pane by default
-# pin_mode = "auto"             # auto (only when item would leave view) | always
 
 # [ui]
 # initial_header_mode = "guided"  # "clean" | "guided" – toggle at runtime with h
@@ -26,6 +25,7 @@
 # previewer_custom_command = ""  # command when previewer includes "custom" (file as $1)
 # delete_method = "trash"        # "trash" (trash-put / gio trash) or "rm" (permanent)
 # delete_confirm = "always"      # "always" (ask before deleting) or "never"
+# pin_mode = "auto"             # "auto" (only when item would leave view) or "always"
 
 # [ui.previewer_flags]
 # bat = ["--theme=Nord"]           # extra flags appended to bat

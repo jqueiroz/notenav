@@ -12,9 +12,9 @@ group_by = "none"          # "none" | "type" | "status"
 type_visibility = "all"           # "typed_only" | "all"
 archive_visibility = "hide"  # "hide" | "show" | "only" – which archive statuses appear
 wrap_preview = false       # true to wrap the preview pane by default
-pin_mode = "auto"          # "auto" (only when item would leave view) | "always"
 
 [ui]
+pin_mode = "auto"          # "auto" (only when item would leave view) | "always"
 initial_header_mode = "guided"  # "clean" | "guided" – toggle at runtime with h
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = " "     # prompt in normal (command) mode (blank to minimize input area)

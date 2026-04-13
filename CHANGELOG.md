@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **`defaults.show_archive` (boolean) renamed to `defaults.archive_visibility`** – now an enum: `"hide"` (default), `"show"`, or `"only"`. The new `"only"` value is the runtime-visible reason for the rename.
 - **`type.visibility` moved to `defaults.type_visibility`** – this setting was the only user preference living under the workflow-definition `[type]` table. It now lives under `[defaults]` alongside other view preferences. Values renamed from `"show_defined"`/`"show_untyped"` to `"typed_only"`/`"all"` for clarity.
+- **`defaults.pin_mode` moved to `ui.pin_mode`** – this setting controls action-time behavior (ghost-row pinning), not initial view state; `[ui]` is the correct home alongside `after_create`, `delete_method`, and `delete_confirm`.
 - **`refresh.max_files` renamed to `refresh.auto_refresh_note_limit`** – clarifies that this is the auto-refresh threshold, not a hard cap on indexed files.
 - **`meta.schema` renamed to `meta.schema_version`** – more descriptive name for the workflow schema version.
 - **`defaults.group_by` uses `"none"` as the canonical "no grouping" value** – the built-in defaults use `"none"` instead of the empty string.

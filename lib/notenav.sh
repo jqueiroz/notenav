@@ -892,7 +892,6 @@ nn_precompute_workflow() {
   [[ "$NN_DEFAULT_GROUP" == "none" ]] && NN_DEFAULT_GROUP=""
   NN_DEFAULT_ARCHIVE=$(nn_cfg '.defaults.archive_visibility // "hide"')
   NN_DEFAULT_WRAP=$(nn_cfg 'if (.defaults // {}) | has("wrap_preview") then .defaults.wrap_preview else false end')
-  NN_DEFAULT_PIN_MODE=$(nn_cfg '.defaults.pin_mode // "auto"')
 
   # UI preferences
   NN_UI_HEADER=$(nn_cfg '.ui.initial_header_mode // "guided"')
@@ -911,6 +910,7 @@ nn_precompute_workflow() {
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
   NN_UI_DELETE_METHOD=$(nn_cfg '.ui.delete_method // "trash"')
   NN_UI_DELETE_CONFIRM=$(nn_cfg '.ui.delete_confirm // "always"')
+  NN_DEFAULT_PIN_MODE=$(nn_cfg '.ui.pin_mode // "auto"')
   NN_UI_PREVIEWER=$(nn_cfg '.ui.previewer // ["bat","glow","mdcat"] | if type == "array" then join(" ") else . end')
   NN_UI_PREVIEWER_CUSTOM=$(nn_cfg '.ui.previewer_custom_command // ""')
   # Previewer flags: accept both string ("--flag val") and array ["--flag", "val with spaces"].
@@ -953,7 +953,7 @@ nn_precompute_workflow() {
     return 1
   fi
   case "$NN_DEFAULT_PIN_MODE" in auto|always) ;;
-    *) echo "notenav: defaults.pin_mode '$NN_DEFAULT_PIN_MODE' invalid (must be 'auto' or 'always')" >&2; return 1 ;; esac
+    *) echo "notenav: ui.pin_mode '$NN_DEFAULT_PIN_MODE' invalid (must be 'auto' or 'always')" >&2; return 1 ;; esac
 
   # ZK format (hardcoded – the entire pipeline assumes this exact column layout)
   NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{join tags " "}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
@@ -2331,14 +2331,6 @@ EOF
     if [[ -n "$_def_wrap" && "$_def_wrap" != "true" && "$_def_wrap" != "false" ]]; then
       _warn "defaults.wrap_preview '$_def_wrap' invalid (must be true or false)"
     fi
-    local _def_pin
-    _def_pin=$(nn_cfg '.defaults.pin_mode // empty')
-    if [[ -n "$_def_pin" ]]; then
-      case "$_def_pin" in
-        auto|always) ;;
-        *) _warn "defaults.pin_mode '$_def_pin' invalid (must be 'auto' or 'always')" ;;
-      esac
-    fi
     # Check for unrecognized keys in [defaults]
     if [[ -n "$_known_defaults" ]]; then
       local _dk
@@ -2414,6 +2406,14 @@ EOF
       case "$_ui_dc" in
         always|never) ;;
         *) _warn "ui.delete_confirm '$_ui_dc' invalid (must be 'always' or 'never')" ;;
+      esac
+    fi
+    local _ui_pin
+    _ui_pin=$(nn_cfg '.ui.pin_mode // empty')
+    if [[ -n "$_ui_pin" ]]; then
+      case "$_ui_pin" in
+        auto|always) ;;
+        *) _warn "ui.pin_mode '$_ui_pin' invalid (must be 'auto' or 'always')" ;;
       esac
     fi
     # Validate ui.previewer (string or array of strings)
