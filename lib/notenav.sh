@@ -185,7 +185,7 @@ nn_load_config() {
     user_json=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null) || {
       echo "notenav: failed to parse $user_cfg" >&2
       local _yq_err; _yq_err=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>&1 >/dev/null | head -2)
-      [[ -n "$_yq_err" ]] && printf '  %s\n' "$_yq_err" >&2
+      [[ -n "$_yq_err" ]] && echo "$_yq_err" | sed 's/^/  /' >&2
       user_json="{}"
     }
   fi
@@ -224,7 +224,7 @@ nn_load_config() {
     project_wf_json=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>/dev/null) || {
       echo "notenav: failed to parse .nn/workflow.toml" >&2
       local _yq_err; _yq_err=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>&1 >/dev/null | head -2)
-      [[ -n "$_yq_err" ]] && printf '  %s\n' "$_yq_err" >&2
+      [[ -n "$_yq_err" ]] && echo "$_yq_err" | sed 's/^/  /' >&2
       project_wf_json="{}"
     }
     [[ "$project_wf_json" != "{}" ]] && _has_project_wf=true
@@ -266,7 +266,7 @@ nn_load_config() {
     if [[ -z "$workflow_json" || "$workflow_json" == "null" ]]; then
       echo "notenav: failed to parse workflow $workflow_file (requires yq-go, not yq-python)" >&2
       local _yq_err; _yq_err=$(yq -p=toml -o=json -I=0 '.' "$workflow_file" 2>&1 >/dev/null | head -2)
-      [[ -n "$_yq_err" ]] && printf '  %s\n' "$_yq_err" >&2
+      [[ -n "$_yq_err" ]] && echo "$_yq_err" | sed 's/^/  /' >&2
       return 1
     fi
 
@@ -291,7 +291,7 @@ nn_load_config() {
       if [[ -z "$_base_json" || "$_base_json" == "null" ]]; then
         echo "notenav: failed to parse base workflow $_base_file" >&2
         local _yq_err; _yq_err=$(yq -p=toml -o=json -I=0 '.' "$_base_file" 2>&1 >/dev/null | head -2)
-        [[ -n "$_yq_err" ]] && printf '  %s\n' "$_yq_err" >&2
+        [[ -n "$_yq_err" ]] && echo "$_yq_err" | sed 's/^/  /' >&2
         return 1
       fi
       workflow_json=$(printf '%s\n%s' "$_base_json" "$workflow_json" \
@@ -1658,7 +1658,7 @@ EOF
         _pass "User config: $user_cfg"
       else
         _fail "User config: $user_cfg (parse error)"
-        [[ -n "$_yq_err" ]] && printf '        %s\n' "$(echo "$_yq_err" | head -2)"
+        [[ -n "$_yq_err" ]] && echo "$_yq_err" | head -2 | sed 's/^/        /'
       fi
     else
       _pass "User config: not present ${_dim}(using defaults)${_reset}"
@@ -1678,7 +1678,7 @@ EOF
       else
         _fail "Project config: .nn/workflow.toml (parse error)"
         _yq_err=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>&1 >/dev/null | head -2)
-        [[ -n "$_yq_err" ]] && printf '        %s\n' "$_yq_err"
+        [[ -n "$_yq_err" ]] && echo "$_yq_err" | sed 's/^/        /'
       fi
     else
       # Resolve effective default workflow: user config → base config → "zenith"
