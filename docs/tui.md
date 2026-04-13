@@ -33,7 +33,7 @@ The faceted browser uses a modal system with eight modes: **command** (default),
 | `X` | Restore pins from last clear (one-shot undo) |
 | `j` / `k` | Move down / up |
 | `ctrl-j` / `ctrl-k` | Page down / up |
-| `J` / `K` | Scroll preview down / up |
+| `J` / `K` | Page preview down / up |
 | `/` | Enter search mode – fuzzy-filter the list by typing |
 | `?` | Toggle help overlay – keybinding reference |
 | `esc` | Exit search / prefix / help mode, or clear query |
@@ -205,7 +205,7 @@ A simplified set of keybindings for `nn key=value ... -i`:
 | `tab` / `:` | Keep search filter active and return to browsing |
 | `j` / `k` | Move down / up |
 | `ctrl-j` / `ctrl-k` | Page down / up |
-| `J` / `K` | Scroll preview down / up |
+| `J` / `K` | Page preview down / up |
 | `H` | Toggle preview wrap |
 | `esc` | Exit search mode or clear query |
 | `q` | Quit |

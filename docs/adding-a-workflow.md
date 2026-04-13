@@ -17,7 +17,7 @@ Add `config/workflows/<name>.toml`. Use an existing workflow as a template (e.g.
 ### Validation rules
 
 - Every entry in `type.values` needs a matching `[type.<name>]` section.
-- Every entry in `status.values` needs a color in `[status.colors]` and a description in `[status.descriptions]`.
+- Every entry in `status.values` needs a color in `[status.colors]` and should have a description in `[status.descriptions]` (recommended for built-in workflows; optional for custom workflows).
 - Lifecycle transitions must only reference values that exist in `status.values` or `priority.values`.
 - Query preset `args` must only reference valid types, statuses, and priorities from the same workflow.
 - Tombstone statuses (e.g. `removed`) can be omitted from `filter_cycle` and lifecycle transitions.
@@ -62,6 +62,8 @@ Also update the count at the top of that section.
 In `lib/notenav.sh`, find the `nn init` help text (search for `built-in name`) and add the new workflow name to the parenthetical list. `zenith` comes first (as the default); the rest are ordered by relatedness, not alphabetically.
 
 ## Summary checklist
+
+Steps 1–5 above cover the main changes. The remaining files need minor updates (workflow name lists and table rows):
 
 | # | File | What to update |
 |---|------|----------------|
