@@ -14,7 +14,7 @@ nn
 
 ## How does `nn` find my project configuration?
 
-The `.nn/` directory is found by walking up from your current working directory toward the filesystem root – the same way git finds `.git/`. The first `.nn/` directory found wins. If the `.nn/` directory exists but contains no `workflow.toml`, notenav reports an error – run `nn init` to create one, or remove the empty `.nn/` directory.
+The `.nn/` directory is found by walking up from your current working directory toward the filesystem root – the same way git finds `.git/`. The first `.nn/` directory found wins. If the `.nn/` directory exists but contains no `workflow.toml`, notenav reports an error – run `nn init` to create one, or remove the `.nn/` directory.
 
 This means you can run `nn` from any subdirectory of your project and it will use the same `.nn/workflow.toml`.
 
