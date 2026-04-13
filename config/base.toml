@@ -14,7 +14,6 @@ archive_visibility = "hide"  # "hide" | "show" | "only" – which archive status
 wrap_preview = false       # true to wrap the preview pane by default
 
 [ui]
-pin_mode = "auto"          # "auto" (only when item would leave view) | "always"
 initial_header_mode = "guided"  # "clean" | "guided" – toggle at runtime with h
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = " "     # prompt in normal (command) mode (blank to minimize input area)
@@ -26,6 +25,7 @@ previewer = ["bat", "glow", "mdcat"] # fallback list: tries each in order, uses 
 previewer_custom_command = "" # command when previewer includes "custom" (file path passed as $1)
 delete_method = "trash"    # "trash" (trash-put / gio trash) or "rm" (permanent delete)
 delete_confirm = "always"  # "always" or "never"
+pin_mode = "auto"          # "auto" (only when item would leave view) | "always"
 
 [ui.previewer_flags]
 bat = []       # extra flags appended to bat (notenav always passes -p --color always)

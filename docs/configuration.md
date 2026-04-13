@@ -15,7 +15,7 @@ All configuration is TOML. Project and user configuration are layered independen
 
 At startup, two things happen:
 
-1. **Workflow resolution:** if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"zenith"`. When `.nn/workflow.toml` exists, `default_workflow` is ignored entirely — the project workflow always takes precedence.
+1. **Workflow resolution:** if `.nn/workflow.toml` exists, it defines the project's workflow. It can be a full custom definition, or it can extend a built-in using the `extends` key. If no `.nn/workflow.toml` exists, the user config's `default_workflow` is used, falling back to `"zenith"`. When `.nn/workflow.toml` exists, `default_workflow` is ignored entirely – the project workflow always takes precedence.
 
 2. **Config merge:** notenav has two config scopes that almost don't overlap.
 
@@ -325,7 +325,7 @@ notenav ships with five workflows. Use `extends` in `.nn/workflow.toml` or `defa
 |--------|----------|----------|----------|----------|
 | **[zenith](workflows/zenith.md)** (default) | task, idea, reference | active, blocked, new, done, removed | 1–4 | General-purpose task/idea tracking |
 | **[cuboid](workflows/cuboid.md)** | idea, task, reference, ritual | active, blocked, new, done, removed | 1–4 | Personal wikis and mixed notebooks |
-| **[ado](workflows/ado.md)** | feature, task, bug | active, new, resolved, closed, removed | 1–4 | Azure DevOps-style work items |
+| **[ado](workflows/ado.md)** | feature, task, bug | new, active, resolved, closed, removed | 1–4 | Azure DevOps-style work items |
 | **[gtd](workflows/gtd.md)** | action, project, reference | next, waiting, inbox, someday, done, dropped | 1–3 | Getting Things Done workflow |
 | **[zettelkasten](workflows/zettelkasten.md)** | fleeting, literature, permanent | review, draft, mature, archived | *(disabled)* | Slip-box knowledge management |
 
@@ -453,7 +453,7 @@ initial_header_mode = "guided"  # "clean" | "guided" – toggle at runtime with 
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 command_prompt = " "     # prompt in normal (command) mode (blank to minimize input area)
 search_prompt = "/ "     # prompt in search mode (/ key and ad-hoc -i)
-exit_message = "none"    # "none" or "fortune"
+exit_message = "none"    # "none" or "fortune" (show a fun quote on exit)
 priority_plus = "demote" # what the + key does to priority
 after_create = "edit"    # "edit" or "none"
 previewer = ["bat", "glow", "mdcat"]  # fallback list; tries each in order

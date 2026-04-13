@@ -59,7 +59,7 @@ Press `f` to enter filter mode. The prompt changes to `f `. Then press one of:
 | `t` | Filter by type (picker with all types; select "all" to clear) |
 | `s` | Filter by status (picker with all statuses; select "all" to clear) |
 | `p` | Filter by priority (picker with all priorities + unset; select "all" to clear) |
-| `#` | Filter by tags (multi-select picker; OR logic – matches notes with *any* selected tag) |
+| `#` | Filter by tags (multi-select picker; OR logic – matches notes with *any* selected tag; deselect all to clear) |
 | `f` or `esc` | Cancel, return to command mode |
 
 ### Display mode (prefix `z`)
@@ -87,6 +87,8 @@ Press `m` to enter mark mode. The prompt changes to `m `. Then press one of:
 | `D` | Clear all marks |
 | `f` | Toggle filter to show only marked items |
 | `esc` | Cancel, return to command mode |
+
+All mark actions return to command mode automatically.
 
 Marks are intentional, user-placed bookmarks – distinct from pins, which are automatic. Marked items display a magenta `marked` badge. Marks persist for the session; full reset (`R`) clears them. A mark count appears in the border label when marks are present (e.g., `15/42 · 2 marked`). Unlike pins, marks are purely visual badges – they do not create ghost rows. Facet filters apply normally to marked items. Use `mf` to narrow the view to only your bookmarks.
 

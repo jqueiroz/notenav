@@ -115,7 +115,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `a` / `A` | Advance / reverse status |
 | `+` or `>` | Bump priority in the + direction (see `priority_plus` setting) |
 | `-` or `<` | Bump priority in the - direction |
-| `f` then `t`/`s`/`p`/`#` | [**f**]ilter by type, status, priority, or #tags (picker with "all" to clear) |
+| `f` then `t`/`s`/`p`/`#` | [**f**]ilter by type, status, priority, or #tags (picker; select "all" or deselect all to clear) |
 | `0` | Clear all filters (return to "all" view; preserves display settings, pins, and marks) |
 | `R` | [**R**]eset everything: filters, pins, marks, and display settings |
 | `tab` / `shift-tab` | Next / previous query preset |
@@ -125,7 +125,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `c` then `s`/`p`/`t` | [**c**]hange status, priority, or type |
 | `m` then `m`/`a`/`d`/`D`/`f` | [**m**]ark: toggle, add selected, unmark selected, clear all, filter to marked |
 | `z` then `o`/`r`/`g`/`h`/`w` | Display: [**o**]rder-by, [**r**]everse sort, [**g**]roup-by, arc[**h**]ive visibility (hide/show/only), toggle [**w**]rap |
-| `/` | Fuzzy search (type to filter by title/metadata) |
+| `/` | Fuzzy search (type to filter by title) |
 | `/?` | Content search (press `/` then `?` – live grep of note bodies) |
 | `?` | Toggle help overlay (keybinding reference) |
 | `h` | Toggle header mode (clean ↔ guided) |

@@ -38,7 +38,7 @@ description = "Defect to fix"
 # "removed" is in values but omitted from filter_cycle and lifecycle.
 
 [status]
-values = ["active", "new", "resolved", "closed", "removed"]
+values = ["new", "active", "resolved", "closed", "removed"]
 initial = "new"
 archive = ["closed", "removed"]
 filter_cycle = ["new", "active", "resolved", "closed"]

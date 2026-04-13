@@ -6983,6 +6983,7 @@ ENDDELETE
       --bind "esc:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; _eq=\$(cat $_nn_dir/.csearch_q 2>/dev/null); if test -n \"\$_eq\"; then : > $_nn_dir/.f_title; $_nn_dir/csearch_persist.sh $_nn_dir; else cp $_nn_dir/.f_title.bak $_nn_dir/.f_title 2>/dev/null; cp $_nn_dir/.f_match.bak $_nn_dir/.f_match 2>/dev/null; cp $_nn_dir/.f_match_paths.bak $_nn_dir/.f_match_paths 2>/dev/null; fi; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir refresh; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; _eq={q}; if test -n \"\$_eq\"; then printf '%s' \"\$_eq\" > $_nn_dir/.f_title; : > $_nn_dir/.f_match; : > $_nn_dir/.f_match_paths; else cp $_nn_dir/.f_title.bak $_nn_dir/.f_title 2>/dev/null; cp $_nn_dir/.f_match.bak $_nn_dir/.f_match 2>/dev/null; cp $_nn_dir/.f_match_paths.bak $_nn_dir/.f_match_paths 2>/dev/null; fi; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+'; $_nn_dir/filter.sh $_nn_dir refresh; elif test -f $_nn_dir/.nn-help; then rm $_nn_dir/.nn-help; echo 'transform-header(cat $_nn_dir/.header)'; else m=\$(cat $_nn_dir/.nn-mode); if test -n \"\$m\"; then : > $_nn_dir/.nn-mode; $_nn_dir/cprompt.sh $_nn_dir; echo '+transform-header(cat $_nn_dir/.header)'; else printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; echo 'clear-query+change-prompt($NN_UI_COMMAND_PROMPT)'; fi; fi]" \
       --bind 'J:preview-page-down,K:preview-page-up' \
       --bind "enter:transform[if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+reload(cat $_nn_dir/.current)+execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh)+refresh-preview'; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh)+refresh-preview'; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh)+refresh-preview'; fi; fi]"
+    local _fzf_rc=$?
     _p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null
     trap - EXIT
     rm -rf "$_nn_dir"
@@ -7007,7 +7008,7 @@ ENDDELETE
       none) ;;
       *) nn_assert "unknown exit_message '$NN_UI_EXIT_MESSAGE'" ;;
     esac
-    return
+    return "$_fzf_rc"
   fi
 
   # ---- NAMED QUERY ----
