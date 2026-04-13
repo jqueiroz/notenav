@@ -4995,15 +4995,15 @@ _would_drop() {
       else return 1; fi ;;
     tags)
       [ ! -s "$dir/.f_tags" ] && return 1
-      # Check if any filtered tag is missing from the new (space-separated) value.
-      # Pad both sides with spaces to respect tag boundaries (so filter "bar" doesn't match "foobar").
+      # Tag filter uses OR: note is visible if it has ANY filtered tag.
+      # So it would only drop if NONE of the filtered tags are present.
       local _hay=" $v " _ft _pad
       while IFS= read -r _ft || [ -n "$_ft" ]; do
         [ -z "$_ft" ] && continue
         _pad=" $_ft "
-        [[ "$_hay" != *"$_pad"* ]] && return 0
+        [[ "$_hay" == *"$_pad"* ]] && return 1
       done < "$dir/.f_tags"
-      return 1 ;;
+      return 0 ;;
     *) return 1 ;;
   esac
 }
