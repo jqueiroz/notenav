@@ -834,6 +834,14 @@ nn_precompute_workflow() {
     _rev=$(nn_cfg ".status.lifecycle.reverse.\"$_jv\" // empty")
     [[ -n "$_rev" ]] && NN_STATUS_REV[$_v]=$_rev
   done
+  for _v in "${!NN_STATUS_FWD[@]}"; do
+    _nn_in_array "${NN_STATUS_FWD[$_v]}" "${NN_STATUS_VALUES[@]}" || {
+      echo "notenav: status.lifecycle.forward.$_v target '${NN_STATUS_FWD[$_v]}' not in status.values" >&2; return 1; }
+  done
+  for _v in "${!NN_STATUS_REV[@]}"; do
+    _nn_in_array "${NN_STATUS_REV[$_v]}" "${NN_STATUS_VALUES[@]}" || {
+      echo "notenav: status.lifecycle.reverse.$_v target '${NN_STATUS_REV[$_v]}' not in status.values" >&2; return 1; }
+  done
 
   # Priority
   # NOTE: do NOT use `.priority.enabled // true` – jq's `//` filters out both
@@ -876,6 +884,14 @@ nn_precompute_workflow() {
       _down=$(nn_cfg ".priority.lifecycle.down.\"$_jv\" // empty")
       [[ -n "$_down" ]] && NN_PRIORITY_DOWN[$_v]=$_down
     done
+    for _v in "${!NN_PRIORITY_UP[@]}"; do
+      _nn_in_array "${NN_PRIORITY_UP[$_v]}" "${NN_PRIORITY_VALUES[@]}" || {
+        echo "notenav: priority.lifecycle.up.$_v target '${NN_PRIORITY_UP[$_v]}' not in priority.values" >&2; return 1; }
+    done
+    for _v in "${!NN_PRIORITY_DOWN[@]}"; do
+      _nn_in_array "${NN_PRIORITY_DOWN[$_v]}" "${NN_PRIORITY_VALUES[@]}" || {
+        echo "notenav: priority.lifecycle.down.$_v target '${NN_PRIORITY_DOWN[$_v]}' not in priority.values" >&2; return 1; }
+    done
   else
     NN_PRIORITY_VALUES=()
     NN_PRIORITY_FILTER_CYCLE=()
@@ -913,9 +929,11 @@ nn_precompute_workflow() {
   NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // " "')
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
   # Sanitize prompts: strip chars that break fzf action syntax in change-prompt()
+  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//(/}"
   NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//)/}"
   NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//]/}"
   NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//\'/}"
+  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//(/}"
   NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//)/}"
   NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//]/}"
   NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//\'/}"
@@ -1342,6 +1360,7 @@ _NN_NATIVE_PARSER_AWK=$(cat << 'ENDAWK'
   type = ""; status = ""; priority = ""; tags = ""; title = ""; created = ""
   in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
   while ((getline line < file) > 0) {
+    gsub(/\r/, "", line)
     if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; NR_FILE++; continue }
     NR_FILE++
     if (in_fm) {
@@ -1749,7 +1768,7 @@ EOF
     if [[ -z "$_known_keys_user" ]]; then
       _warn "Could not read base.toml – skipping config key validation"
     fi
-    local _cfg_file _cfg_known
+    local _cfg_file _cfg_known _key
     for _cfg_file in "$user_cfg" "$project_wf_file"; do
       [[ -z "$_cfg_file" || ! -f "$_cfg_file" ]] && continue
       if [[ "$_cfg_file" == "$user_cfg" ]]; then
@@ -2375,13 +2394,14 @@ EOF
     if [[ -n "$_ui_editor" ]] && ! command -v "${_ui_editor%% *}" >/dev/null 2>&1; then
       _warn "ui.editor '${_ui_editor%% *}' not found on PATH"
     fi
-    local _ui_cp _ui_sp
+    local _ui_cp _ui_sp _pvar
     _ui_cp=$(nn_cfg '.ui.command_prompt // empty')
     _ui_sp=$(nn_cfg '.ui.search_prompt // empty')
     for _pvar in _ui_cp _ui_sp; do
       local _pname; [[ "$_pvar" == "_ui_cp" ]] && _pname="ui.command_prompt" || _pname="ui.search_prompt"
       local _pval="${!_pvar}"
       [[ -z "$_pval" ]] && continue
+      [[ "$_pval" == *"("* ]] && _warn "$_pname contains '(' which will be stripped (breaks fzf prompt syntax)"
       [[ "$_pval" == *")"* ]] && _warn "$_pname contains ')' which will be stripped (breaks fzf prompt syntax)"
       [[ "$_pval" == *"]"* ]] && _warn "$_pname contains ']' which will be stripped (breaks fzf prompt syntax)"
       [[ "$_pval" == *"'"* ]] && _warn "$_pname contains \"'\" which will be stripped (breaks fzf prompt syntax)"
@@ -3912,7 +3932,7 @@ EOF
       shopt -u nullglob; return 1
     fi
     local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX") || { echo "notenav: mktemp -d failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
-    if [[ "$_nn_dir" == *[[:space:]\"\'\$\`\\]* ]]; then
+    if [[ "$_nn_dir" == *[[:space:]\"\'\$\`\\()\[\]]* ]]; then
       rm -rf "$_nn_dir"
       echo "notenav: TMPDIR path contains characters unsafe for shell interpolation." >&2
       echo "notenav: set TMPDIR to a simple path (e.g. /tmp) and try again." >&2
@@ -4545,6 +4565,7 @@ ENDWATCHER
 # Usage: action.sh <dir> <field> <value> <file1> [file2 ...]
 dir="$1"; field="$2"; value="$3"; shift 3
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
+case "$field" in type|status|priority) ;; *) echo "notenav: action.sh: unknown field '$field'" >&2; exit 1 ;; esac
 # Validate value against workflow schema before writing
 if [ -n "$value" ]; then
   case "$field" in
@@ -5574,8 +5595,10 @@ if [ "$_nn_has_zk" = "true" ]; then
       in_fm && /^status:( |$)/  { found_status=1 }
       in_fm && /^created:( |$)/ { found_created=1 }
       { print }
-    ' "$new_path" > "$new_path.tmp" && mv "$new_path.tmp" "$new_path"
+    _nntmp=$(mktemp "$new_path.XXXXXX")
+    ' "$new_path" > "$_nntmp" && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
   else
+    _nntmp=$(mktemp "$new_path.XXXXXX")
     {
       printf '%s\n' "---"
       printf 'type: %s\n' "$selected"
@@ -5583,7 +5606,7 @@ if [ "$_nn_has_zk" = "true" ]; then
       printf 'created: %s\n' "$_nn_now"
       printf '%s\n' "---"
       cat "$new_path"
-    } > "$new_path.tmp" && mv "$new_path.tmp" "$new_path"
+    } > "$_nntmp" && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
   fi
 else
   # Native note creation (no zk)
@@ -6242,7 +6265,7 @@ fi
 filters_lbl_f=$(printf '%s\n%s%s' "$filters_top" "$ftags_s_active" "$fmatch_s")
 # Display section: per-line [z] options with current value
 default_sort=$(head -n 1 "$dir/.schema_defaults")
-sort_hint="$fsort"; [ "$fsort" = "$default_sort" ] && sort_hint="$fsort (default order)"
+sort_hint="$fsort"; [ -n "$fsort" ] && [ "$fsort" = "$default_sort" ] && sort_hint="$fsort (default order)"
 # Field-aware sort direction description
 case "$fsort" in
   modified|created) if [ -n "$fsort_rev" ]; then sort_dir="oldest first"; else sort_dir="newest first"; fi ;;
