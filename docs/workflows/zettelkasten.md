@@ -1,5 +1,7 @@
 # Zettelkasten Workflow
 
+[Back to README](../../README.md)
+
 Based on Niklas Luhmann's [Zettelkasten](https://en.wikipedia.org/wiki/Zettelkasten) (slip-box) method for knowledge management.
 
 **Workflow file:** [`config/workflows/zettelkasten.toml`](../../config/workflows/zettelkasten.toml)
@@ -28,7 +30,7 @@ In this workflow:
 
 | Icon | Type | Description |
 |------|------|-------------|
-| ◇ | fleeting | Quick capture – a thought, observation, or reminder to process later |
+| ◇ | fleeting | Quick capture – to be processed soon |
 | ▪ | literature | Notes from a source – a book, article, talk, or conversation |
 | ◆ | permanent | Atomic, fully developed idea – written in your own words |
 

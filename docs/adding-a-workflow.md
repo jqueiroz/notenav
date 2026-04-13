@@ -1,5 +1,7 @@
 # Adding a Built-in Workflow
 
+[Back to README](../README.md)
+
 Step-by-step guide for adding a new built-in workflow to notenav.
 
 ## 1. Create the workflow TOML

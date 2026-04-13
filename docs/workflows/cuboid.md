@@ -1,5 +1,7 @@
 # Cuboid Workflow
 
+[Back to README](../../README.md)
+
 A 4×5×4 workflow – four note types, five statuses, four priority levels. Designed for personal wikis and mixed-purpose notebooks where you need one extra note type beyond the Zenith basics: the **ritual**.
 
 **Workflow file:** [`config/workflows/cuboid.toml`](../../config/workflows/cuboid.toml)
@@ -85,7 +87,7 @@ Four levels, P1 (highest) to P4 (lowest). Notes without a priority sort last.
 | P3 | Medium | yellow |
 | P4 | Low | yellow |
 
-Press `+` to increase priority, `-` to decrease. Pressing `+` on an unprioritized note sets it to P4.
+Press `+` to increase priority, `-` to decrease. Pressing `+` or `-` on an unprioritized note sets it to P4 (the lowest level).
 
 ## Example Frontmatter
 

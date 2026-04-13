@@ -1,5 +1,7 @@
 # ADO Workflow
 
+[Back to README](../../README.md)
+
 Inspired by [Azure DevOps](https://azure.microsoft.com/en-us/products/devops/) work item types and state transitions.
 
 **Workflow file:** [`config/workflows/ado.toml`](../../config/workflows/ado.toml)
@@ -59,7 +61,7 @@ Press `a` to advance, `A` to reverse:
 - **Forward (a):** new → active → resolved → closed → new (loop).
 - **Reverse (A):** closed → resolved → active → new → closed (loop).
 
-This is a fully connected cycle – you can reopen closed items by advancing past closed back to new, or reverse step by step.
+This is a fully connected cycle – you can reopen closed items by pressing `a` on a closed item (which cycles back to new), or reverse step by step.
 
 ## Priority
 

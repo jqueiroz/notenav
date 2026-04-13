@@ -1,5 +1,7 @@
 # Zenith Workflow
 
+[Back to README](../../README.md)
+
 The default notenav workflow. A simple workflow built around three note types, five statuses, and four priority levels – enough structure to manage a project without getting in the way.
 
 **Workflow file:** [`config/workflows/zenith.toml`](../../config/workflows/zenith.toml)
@@ -76,7 +78,7 @@ Four levels, P1 (highest) to P4 (lowest). Notes without a priority sort last.
 | P3 | Medium | yellow |
 | P4 | Low | yellow |
 
-Press `+` to increase priority, `-` to decrease. Pressing `+` on an unprioritized note sets it to P4.
+Press `+` to increase priority, `-` to decrease. Pressing `+` or `-` on an unprioritized note sets it to P4 (the lowest level).
 
 ## Example Frontmatter
 

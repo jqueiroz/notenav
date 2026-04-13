@@ -8,7 +8,8 @@
 - **[fzf](https://github.com/junegunn/fzf)** 0.58+: TUI framework
 - **[yq](https://github.com/mikefarah/yq)** (yq-go): TOML→JSON conversion for config/workflow loading. **Must be [Mike Farah's yq](https://github.com/mikefarah/yq)** (written in Go), not the [Python yq wrapper](https://github.com/kislyuk/yq) – they are different tools that share the same name. Install via `brew install yq`, `go install github.com/mikefarah/yq/v4@latest`, or your package manager. Verify with `yq --version` (should show `v4.x.x`)
 - **[jq](https://github.com/jqlang/jq):** JSON merging/querying for config system
-- **awk**, **sort**, **sed**, **tput:** standard unix tools (gawk required – notenav uses `mktime()` and `strtonum()`). On FreeBSD, install via `pkg install gawk`
+- **awk**, **sort**, **sed:** standard unix tools (gawk required – notenav uses `mktime()` and `strtonum()`). On FreeBSD, install via `pkg install gawk`
+- **git:** required for the curl and manual install methods (not needed at runtime)
 
 ## Optional dependencies
 
@@ -18,8 +19,9 @@ Not required, but progressively enhance the experience when installed.
 - **[ripgrep](https://github.com/BurntSushi/ripgrep)** (`rg`): faster content search (`/?` keys) when zk is not installed or configured. Without rg, notenav falls back to `grep`. Recommended for large notebooks
 - **[bat](https://github.com/sharkdp/bat):** syntax-highlighted preview (default; called `batcat` on Debian/Ubuntu). Alternatives: [glow](https://github.com/charmbracelet/glow), [mdcat](https://codeberg.org/flausch/mdcat) – see [previewer configuration](configuration.md#previewer)
 - **curl:** required for [remote workflows](configuration.md#remote-workflows) (`nn init https://...`). Pre-installed on most systems
+- **tput:** provides terminal dimension detection (falls back to defaults if absent)
 - **inotifywait** (Linux) or **fswatch** (macOS/FreeBSD): enables real-time auto-refresh when notes change on disk (`refresh.mode = "watch"`). Without either, auto-refresh silently falls back to manual (`r` key). Install via `inotify-tools` (apt/dnf), `fswatch` (Homebrew), or `pkg install fswatch` (FreeBSD)
-- **[trash-cli](https://github.com/andreafrancia/trash-cli)** (`trash-put`): recoverable deletion via the freedesktop.org Trash spec (`d` key with `delete_method = "trash"`). Without it, notenav tries `gio trash`, then falls back to `rm` with a warning. Install via `pip install trash-cli`, `apt install trash-cli`, or `pacman -S trash-cli`
+- **[trash-cli](https://github.com/andreafrancia/trash-cli)** (`trash-put`): recoverable deletion via the freedesktop.org Trash spec (`d` key with `ui.delete_method = "trash"`). Without it, notenav tries `gio trash`, then falls back to `rm` with a warning. Install via `pip install trash-cli`, `apt install trash-cli`, or `pacman -S trash-cli`
 
 ## Install
 
@@ -69,7 +71,7 @@ nix run github:jqueiroz/notenav/stable
 curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/stable/curl/install.sh | sh
 ```
 
-This clones to `~/.local/share/notenav` and symlinks `nn` into `~/.local/bin`. Run it again to update (essentially `git pull --ff-only`). Set `NOTENAV_DIR` or `NOTENAV_BIN` to customize paths.
+This clones to `~/.local/share/notenav` (or `$XDG_DATA_HOME/notenav` if set) and symlinks `nn` into `~/.local/bin`. Run it again to update (essentially `git pull --ff-only origin stable`). Set `NOTENAV_DIR` or `NOTENAV_BIN` to customize paths.
 
 ### Option 3: Manual installation
 
@@ -116,6 +118,7 @@ Or start from the built-in workflows and annotated samples:
 | [config/workflows/gtd.toml](../config/workflows/gtd.toml) | Built-in GTD workflow |
 | [config/workflows/zettelkasten.toml](../config/workflows/zettelkasten.toml) | Built-in Zettelkasten workflow |
 | [samples/workflows/project-workflow.toml](../samples/workflows/project-workflow.toml) | Annotated project config template |
+| [samples/workflows/custom-workflow.toml](../samples/workflows/custom-workflow.toml) | Standalone custom workflow example (no extends) |
 | [samples/user-config.toml](../samples/user-config.toml) | Annotated user preferences template |
 
 See [docs/configuration.md](configuration.md) for the full reference.

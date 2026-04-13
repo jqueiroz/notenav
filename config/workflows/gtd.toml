@@ -36,7 +36,7 @@ description = "Non-actionable reference material"
 # --- Statuses ---
 # Maps to GTD lists: inbox (unclarified), next (do now), waiting (delegated),
 # someday (parked), done, dropped.
-# "dropped" is omitted from filter_cycle but participates in lifecycle.
+# "dropped" is in values but omitted from filter_cycle; it participates in lifecycle.
 
 [status]
 values = ["next", "waiting", "inbox", "someday", "done", "dropped"]
@@ -61,7 +61,8 @@ someday = "Parked for later consideration"
 done = "Completed"
 dropped = "Intentionally removed"
 
-# 'a' advances forward (clarify/complete), 'A' reverses (reopen/defer)
+# Lifecycle transitions define what happens when you press 'a' (forward) or 'A' (reverse)
+# on a note. Each key maps to the next status in that direction.
 
 [status.lifecycle.forward]
 inbox = "next"
@@ -81,7 +82,11 @@ dropped = "someday"
 
 # --- Priority ---
 # enabled: set to false to disable priority entirely (see zettelkasten workflow)
-# 3 levels only (GTD favors context over priority, so keep it light)
+# values: valid priority levels; array order = sort order (first = highest)
+#   can be numeric ("1","2","3") or named ("critical","high","low")
+# labels: optional short display labels; omit to show "P{value}" (e.g. "P1")
+# filter_cycle: subset for ]/[ preset cycling ("all" is auto-prepended); fp picker shows all
+# unset_position: where unprioritized notes sort ("first" or "last")
 
 [priority]
 values = ["1", "2", "3"]
@@ -93,6 +98,9 @@ default_color = "yellow"
 1 = "bold-red"
 2 = "yellow"
 3 = "dim"
+
+# Lifecycle for priority up (raise urgency) and down (lower urgency).
+# Which key (+/-) maps to which direction depends on ui.priority_plus.
 
 [priority.lifecycle.up]
 3 = "2"

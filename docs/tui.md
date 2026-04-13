@@ -4,7 +4,7 @@
 
 ## Keybindings
 
-The faceted browser uses a modal system with eight modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), **display** (prefix `z`), **mark** (prefix `m`), **help** (`?`), **search** (`/`), and **content search** (`/?`). Press `esc` to return to command mode from any other mode. Navigation keys (`j`/`k`, `ctrl-j`/`ctrl-k`, `space`) also exit the current prefix mode and perform their normal action.
+The faceted browser uses a modal system with eight modes: **command** (default), **change** (prefix `c`), **filter** (prefix `f`), **display** (prefix `z`), **mark** (prefix `m`), **help** (`?`), **search** (`/`), and **content search** (`/?`). Press `esc` to return to command mode from any other mode. Navigation keys (`j`/`k`, `ctrl-j`/`ctrl-k`, `space`, `?`) also exit the current prefix mode and perform their normal action.
 
 ### Command mode
 
@@ -18,7 +18,7 @@ The faceted browser uses a modal system with eight modes: **command** (default),
 | `+` / `>` | Bump priority in the `+` direction (see `priority_plus` setting) |
 | `-` / `<` | Bump priority in the `-` direction |
 | `tab` / `shift-tab` | Next / previous query preset |
-| `[` and `]` | Next / previous query preset (same as above) |
+| `]` / `[` | Next / previous query preset (same as above) |
 | `g` | Go-to query preset (opens picker) |
 | `0` | Clear all filters and return to the "all" view (preserves display settings, pins, and marks) |
 | `R` | Full reset: clear all filters, pins, marks, and display settings to defaults |
@@ -36,7 +36,7 @@ The faceted browser uses a modal system with eight modes: **command** (default),
 | `J` / `K` | Scroll preview down / up |
 | `/` | Enter search mode – fuzzy-filter the list by typing |
 | `?` | Toggle help overlay – keybinding reference |
-| `esc` | Exit search / prefix mode, or clear query |
+| `esc` | Exit search / prefix / help mode, or clear query |
 | `q` | Quit |
 
 ### Change mode (prefix `c`)
@@ -206,7 +206,7 @@ A simplified set of keybindings for `nn key=value ... -i`:
 | `j` / `k` | Move down / up |
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `J` / `K` | Scroll preview down / up |
-| `H` | Toggle title wrapping |
+| `H` | Toggle preview wrap |
 | `esc` | Exit search mode or clear query |
 | `q` | Quit |
 

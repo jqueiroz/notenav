@@ -18,11 +18,11 @@
 # editor = ""                   # empty = $EDITOR, then nvim/vim/vi/nano/emacs
 # command_prompt = " "          # prompt in normal (command) mode (blank to minimize input area)
 # search_prompt = "/ "          # prompt in search mode (/ key and ad-hoc -i)
-# exit_message = "none"         # "none" or "fortune" (fun quote on exit)
+# exit_message = "none"         # "none" or "fortune" (show a fun quote on exit)
 # priority_plus = "demote"      # "demote": + lowers urgency (P1→P2)
 #                               # "promote": + raises urgency (P2→P1)
 # after_create = "edit"         # "edit" (open in editor) or "none" (just create)
-# previewer = ["bat", "glow", "mdcat"]  # default fallback list; other options: plain, custom
+# previewer = ["bat", "glow", "mdcat"]  # tries each in order; other options: plain, custom
 # previewer_custom_command = ""  # command when previewer includes "custom" (file as $1)
 # delete_method = "trash"        # "trash" (trash-put / gio trash) or "rm" (permanent)
 # delete_confirm = "always"      # "always" (ask before deleting) or "never"

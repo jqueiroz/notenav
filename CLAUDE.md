@@ -26,8 +26,12 @@ samples/
   workflows/            # Example .nn/workflow.toml files
 .claude/
   commands/           # Claude Code slash commands (best-practices, review-config, etc.)
+  rules/              # Claude Code project rules (easter-egg, git-history)
+.github/
+  workflows/          # CI workflows (shellcheck, smoke-test)
 CHANGELOG.md        # Release notes (Keep a Changelog format)
 VERSION             # Single source of truth for version string
+virtualization/     # Provisioning scripts for testing on Alpine, Arch, Fedora, FreeBSD, etc.
 flake.nix           # Nix package definition
 CLAUDE.md           # This file
 GUIDELINES.md       # Development guidelines

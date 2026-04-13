@@ -14,7 +14,7 @@ nn
 
 ## How does `nn` find my project configuration?
 
-The `.nn/` directory is found by walking up from your current working directory toward the filesystem root – the same way git finds `.git/`. The first `.nn/` directory found wins.
+The `.nn/` directory is found by walking up from your current working directory toward the filesystem root – the same way git finds `.git/`. The first `.nn/` directory found wins. If the `.nn/` directory exists but contains no `workflow.toml`, notenav reports an error – run `nn init` to create one, or remove the empty `.nn/` directory.
 
 This means you can run `nn` from any subdirectory of your project and it will use the same `.nn/workflow.toml`.
 
@@ -85,7 +85,7 @@ Two locations, serving different purposes:
 | File | Path | Purpose |
 |------|------|---------|
 | Project workflow | `.nn/workflow.toml` | Workflow definition and project-specific query presets. Lives in the project root, alongside `.git/`. Shared with collaborators via version control. |
-| User preferences | `~/.config/notenav/config.toml` | Personal preferences (editor, colors, sorting, default workflow). Applies to all projects. Not shared. |
+| User preferences | `~/.config/notenav/config.toml` (or `$XDG_CONFIG_HOME/notenav/config.toml` if set) | Personal preferences (editor, colors, sorting, default workflow). Applies to all projects. Not shared. |
 
 These are orthogonal – project config defines *what the workflow looks like*, user config defines *how you prefer to use it*.
 
@@ -106,6 +106,7 @@ Or start from the built-in workflows and annotated samples:
 | [config/workflows/gtd.toml](../config/workflows/gtd.toml) | Built-in GTD workflow |
 | [config/workflows/zettelkasten.toml](../config/workflows/zettelkasten.toml) | Built-in Zettelkasten workflow |
 | [samples/workflows/project-workflow.toml](../samples/workflows/project-workflow.toml) | Annotated project config template |
+| [samples/workflows/custom-workflow.toml](../samples/workflows/custom-workflow.toml) | Standalone custom workflow example (no extends) |
 | [samples/user-config.toml](../samples/user-config.toml) | Annotated user preferences template |
 
 ## Why is the project directory called `.nn/` but the user config is under `notenav/`?
@@ -163,7 +164,7 @@ Run `nn doctor` – it checks all dependencies (versions, variants), validates y
 nn doctor
 ```
 
-If something is wrong, the output tells you exactly what failed and why. Info markers (`[-]`) note optional dependencies that aren't installed; warnings (`[!]`) are non-fatal; failures (`[✗]`) indicate problems that will prevent `nn` from working correctly.
+If something is wrong, the output tells you exactly what failed and why. Passes (`[✓]`) confirm a check succeeded. Info markers (`[-]`) note optional dependencies that aren't installed; warnings (`[!]`) are non-fatal; failures (`[✗]`) indicate problems that will prevent `nn` from working correctly.
 
 ## Why does a note show a yellow "pinned" badge?
 

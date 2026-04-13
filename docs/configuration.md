@@ -24,7 +24,7 @@ At startup, two things happen:
    | **User prefs** | `$NOTENAV_ROOT/config/base.toml` (defaults) → `$XDG_CONFIG_HOME/notenav/config.toml` (overrides) | `default_workflow`, `[defaults]`, `[ui]`, `[refresh]` |
    | **Workflow schema** | built-in `config/workflows/<name>.toml` → `.nn/workflow.toml` (project) | `[meta]`, `[type]`, `[status]`, `[priority]`, `[queries]` |
 
-   `base.toml` is structurally just "the default user config" – it ships with notenav but has the same shape as your own user config. Both files are deep-merged, with the user's overrides winning on key collisions.
+   `base.toml` is structurally just "the default user config" – it ships with notenav but has the same shape as your own user config. Both files are deep-merged, with the user's overrides winning on key collisions. In the deep merge, user preferences are applied after the workflow, so user overrides (e.g. colors) win on collision.
 
    The two scopes overlap **only** on color sub-keys: a user can personalize a workflow's palette via `[type.<n>] color`, `[status.colors]`, or `[priority.colors]` without forking the workflow. No other cross-scope keys are allowed. Workflows cannot set user preferences (`[defaults]`, `[ui]`, `[refresh]`) – this is a security boundary against remote workflows that could otherwise set `ui.editor` to execute arbitrary code on next launch. User config cannot redefine workflow schema. Anything outside each scope's whitelist is silently dropped at load time.
 
@@ -180,7 +180,7 @@ blocked = "new"
 | `initial` | string | Status assigned to newly created notes and when pressing `a` on a note that has no status |
 | `display_order` | array | *(optional)* Override display order (group headers); defaults to `values` order |
 | `archive` | array | Statuses hidden by default; press `zh` for the archive visibility picker (hide / show / only) |
-| `filter_cycle` | array | Statuses available when cycling via `]`/`[` presets (`"all"` is auto-prepended); the `fs` picker shows all statuses regardless |
+| `filter_cycle` | array | Statuses shown in the stats bar breakdown and offered as choices in the `fs` filter picker (`"all"` is auto-prepended) |
 | `default_color` | string | Fallback color for statuses not in `[status.colors]` |
 | `[status.colors]` | table | Color name or ANSI code per status |
 | `[status.descriptions]` | table | *(optional)* Human-readable description per status; shown in `nn doctor` |
@@ -225,7 +225,7 @@ default_color = "yellow"
 |-----|------|-------------|
 | `enabled` | boolean | Set to `false` to disable priority entirely (default: `true`) |
 | `values` | array | Valid priority levels; array order = sort order (first = highest) |
-| `filter_cycle` | array | Priorities available when cycling via `]`/`[` presets (`"all"` is auto-prepended, `"none"` is auto-appended); the `fp` picker shows all priorities regardless |
+| `filter_cycle` | array | Priorities shown in the stats bar breakdown and offered as choices in the `fp` filter picker (`"all"` is auto-prepended, `"none"` is auto-appended) |
 | `unset_position` | string | Where unprioritized notes sort: `"first"` or `"last"` |
 | `default_color` | string | Fallback color for priorities not in `[priority.colors]` |
 | `[priority.colors]` | table | Color name or ANSI code per priority level |
@@ -284,7 +284,7 @@ args = "type=task tag=backend tag=api"    # tasks tagged backend OR api
 
 ### `[queries]`
 
-Query presets are saved filtered views that appear in the TUI query bar. Each workflow ships with built-in presets, and you can add your own in user or project config.
+Query presets are saved filtered views that appear in the TUI query bar. Each workflow ships with built-in presets, and you can add your own in your project's `.nn/workflow.toml`.
 
 ```toml
 [queries.my-view]
@@ -295,7 +295,7 @@ args = "type=task status=active"
 | Key | Type | Description |
 |-----|------|-------------|
 | `order` | number | Sort position in the query bar (default: `100`, lower = first) |
-| `args` | string | Filter arguments as key=value pairs – valid filter keys: `type`, `status`, `priority`, `tag` (see [reference.md](reference.md#nn-keyvalue--ad-hoc-query) for details) |
+| `args` | string | Filter arguments as key=value pairs – valid filter keys: `type`, `status`, `priority`, `tag` (see [reference.md](reference.md#nn-keyvalue---ad-hoc-query) for details) |
 
 **Merge order** (later wins on name collisions):
 
@@ -395,8 +395,10 @@ User config key that defines the fallback workflow for directories without a `.n
 
 ```toml
 # ~/.config/notenav/config.toml
-default_workflow = "zenith"    # built-in name (default)
-default_workflow = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"  # remote URL
+# Built-in name (default):
+default_workflow = "zenith"
+# Or a remote URL:
+# default_workflow = "https://gist.githubusercontent.com/user/abc123/raw/workflow.toml"
 ```
 
 ### `[defaults]`
@@ -478,7 +480,7 @@ mdcat = []     # extra flags appended to mdcat
 | `after_create` | string | `"edit"` | What to do after creating a note: `"edit"` (open in editor) or `"none"` |
 | `previewer` | string or array | `["bat", "glow", "mdcat"]` | Previewer fallback list – tries each in order, uses first one found (see below) |
 | `previewer_custom_command` | string | `""` | Command to run for the `"custom"` previewer entry (file path passed as `$1`) |
-| `previewer_flags` | table | `{}` | Extra CLI flags appended to built-in previewer commands; each value is a string or array (see below) |
+| `previewer_flags` | table | `bat = [], glow = [], mdcat = []` | Extra CLI flags appended to built-in previewer commands; each value is a string or array (see below) |
 | `delete_method` | string | `"trash"` | How to delete notes: `"trash"` uses `trash-put` or `gio trash` (recoverable), `"rm"` permanently deletes |
 | `delete_confirm` | string | `"always"` | Whether to confirm before single-note delete: `"always"` shows a `[y/N]` prompt, `"never"` deletes immediately. Multi-select delete always requires `YES` regardless of this setting |
 
@@ -535,7 +537,7 @@ glow = ["-s", "dark"]                   # appended after: glow -w $cols
 mdcat = ["--local"]                     # appended after: mdcat --columns $cols
 ```
 
-Plain strings still work for backward compatibility – they are split on spaces:
+Plain strings are also accepted – they are split on spaces:
 
 ```toml
 bat = "--theme=Nord"              # equivalent to ["--theme=Nord"]

@@ -1,5 +1,7 @@
 # Releasing
 
+[Back to README](../README.md)
+
 ## Version source of truth
 
 The `VERSION` file at the repo root is the single source of truth for the version string. It is read at runtime by `lib/notenav.sh` and at build time by `flake.nix`. No other file should hardcode the version.
@@ -17,7 +19,7 @@ The `VERSION` file at the repo root is the single source of truth for the versio
 
 ## Release notes
 
-Each release gets a section in `CHANGELOG.md` at the repo root. The notes are written as part of the release commit.
+Each release gets a section in [`CHANGELOG.md`](../CHANGELOG.md) at the repo root. The notes are written as part of the release commit.
 
 ### Generating notes
 
@@ -31,13 +33,15 @@ Each release gets a section in `CHANGELOG.md` at the repo root. The notes are wr
 2. Group commits under `###` sub-headings (omit any with no entries):
 
    - `### Added`
-   - `### Fixed`
    - `### Changed`
+   - `### Deprecated`
    - `### Removed`
+   - `### Fixed`
+   - `### Security`
 
 3. Write each entry as a concise, user-facing bullet. Merge closely related commits into a single bullet. Drop commits that are invisible to users (typo fixes in comments, internal refactors with no behavior change, CI tweaks).
 
-4. Add the new section at the top of `CHANGELOG.md` under a `## [X.Y.Z] – YYYY-MM-DD` heading.
+4. Move the contents of the `## [Unreleased]` section under a new `## [X.Y.Z] – YYYY-MM-DD` heading, then add a fresh empty `## [Unreleased]` section above it.
 
 ## Release checklist
 

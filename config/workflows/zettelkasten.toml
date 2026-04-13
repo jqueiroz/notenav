@@ -52,7 +52,8 @@ review = "Being refined and linked"
 mature = "Fully developed, well-connected idea"
 archived = "No longer actively maintained"
 
-# 'a' advances maturity, 'A' reverses it
+# Lifecycle transitions define what happens when you press 'a' (forward) or 'A' (reverse)
+# on a note. Each key maps to the next status in that direction.
 
 [status.lifecycle.forward]
 draft = "review"

@@ -1,5 +1,7 @@
 # GTD Workflow
 
+[Back to README](../../README.md)
+
 Based on David Allen's [Getting Things Done](https://gettingthingsdone.com/) methodology.
 
 **Workflow file:** [`config/workflows/gtd.toml`](../../config/workflows/gtd.toml)

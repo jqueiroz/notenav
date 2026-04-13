@@ -35,7 +35,7 @@ description = "Defect to fix"
 
 # --- Statuses ---
 # Follows the ADO new → active → resolved → closed progression.
-# "removed" is a tombstone, omitted from filter_cycle and lifecycle.
+# "removed" is in values but omitted from filter_cycle and lifecycle.
 
 [status]
 values = ["active", "new", "resolved", "closed", "removed"]
@@ -58,7 +58,8 @@ resolved = "Fix or feature complete, pending verification"
 closed = "Verified and closed"
 removed = "Discarded or no longer relevant"
 
-# 'a' advances forward, 'A' reverses
+# Lifecycle transitions define what happens when you press 'a' (forward) or 'A' (reverse)
+# on a note. Each key maps to the next status in that direction.
 
 [status.lifecycle.forward]
 new = "active"
@@ -74,7 +75,11 @@ new = "closed"
 
 # --- Priority ---
 # enabled: set to false to disable priority entirely (see zettelkasten workflow)
-# 1 = critical, 4 = low
+# values: valid priority levels; array order = sort order (first = highest)
+#   can be numeric ("1","2","3") or named ("critical","high","low")
+# labels: optional short display labels; omit to show "P{value}" (e.g. "P1")
+# filter_cycle: subset for ]/[ preset cycling ("all" is auto-prepended); fp picker shows all
+# unset_position: where unprioritized notes sort ("first" or "last")
 
 [priority]
 values = ["1", "2", "3", "4"]
@@ -87,6 +92,9 @@ default_color = "yellow"
 2 = "yellow"           # high
 3 = "yellow"           # medium
 4 = "dim"              # low
+
+# Lifecycle for priority up (raise urgency) and down (lower urgency).
+# Which key (+/-) maps to which direction depends on ui.priority_plus.
 
 [priority.lifecycle.up]
 4 = "3"

@@ -20,7 +20,7 @@ extends = "ado"
 args = "tag=backlog"
 
 [queries.active-bugs]
-order = 5
+order = 5                          # override order to appear before ado's default (order 10)
 args = "type=bug status=active"
 
 [queries.my-features]

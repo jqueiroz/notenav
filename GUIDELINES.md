@@ -22,7 +22,7 @@ Rules and conventions for contributing to notenav.
 
 - **Never use `sed -i`:** GNU sed requires `sed -i 's/…'`, BSD/macOS/FreeBSD sed requires `sed -i '' 's/…'`. Instead, write to a temp file and `mv`: `sed 's/…' "$file" > "$tmp" && mv "$tmp" "$file"`.
 - **`while read` and missing trailing newlines:** `while IFS= read -r line` silently skips the last line if the file has no trailing newline. Use `while IFS= read -r line || [[ -n "$line" ]]` when reading files that users may hand-edit.
-- **`date -r` vs `stat -c`:** macOS/FreeBSD have `date -r <file>` but no `stat -c`. GNU/Linux has `stat -c '%y'` but `date -r` expects a timestamp, not a file. Use a fallback chain: `date -r "$file" '+%F' 2>/dev/null || stat -c '%y' "$file" 2>/dev/null | cut -d' ' -f1`.
+- **File timestamps (`find -printf` / `stat -c` / `stat -f`):** GNU `find -printf` is fastest but unavailable on BSD/macOS. Use a capability-probe fallback chain: try `find -printf` first, then `stat -c` (GNU/BusyBox on Linux/Alpine), then `stat -f` (BSD/macOS). For one-off timestamp reads, try `stat -c '%y' "$file" 2>/dev/null` with a `stat -f '%Sm' -t '%Y-%m-%d' "$file" 2>/dev/null` fallback.
 - **`awk` version flags:** BSD awk (FreeBSD) reads from stdin when given unrecognised flags like `--version` or `-W version`. Always redirect stdin from `/dev/null` when probing awk: `awk --version < /dev/null 2>/dev/null`.
 
 ## Keybindings
@@ -74,7 +74,7 @@ Both whitelists are enforced in `nn_load_config()` via `jq` projections; anythin
 The merge order is `base * workflow * user * project_queries`. Later layers override earlier on key collisions; project queries are applied last so they win on name collisions. Loaded once at startup and sealed for the session.
 
 - New config keys must have a fallback default in the `nn_cfg` call (the `// "value"` pattern) and a corresponding entry in `config/base.toml` (user-scope key) or a workflow file (workflow-scope key).
-- Document new config keys in `docs/configuration.md`.
+- Document new config keys in `docs/configuration.md` and add a commented-out entry in `samples/user-config.toml`.
 - When adding or removing config properties, filter keys, or enum values, update the validation logic in `nn_doctor()` – it maintains hardcoded known-key lists and valid-value checks that must stay in sync.
 - Filter keys (currently `type`, `status`, `priority`, `tag`) are listed in five places that must stay in sync: `--help` text, ad-hoc query parser, query preset startup validation, query preset runtime (both `apply_sq` and the header stats builder), and `nn_doctor()` validation.
 
@@ -104,7 +104,7 @@ The merge order is `base * workflow * user * project_queries`. Later layers over
 
 ## Audit commands
 
-Slash commands in `.claude/commands/` for validating and reviewing the codebase. Convention: `check-*` = mechanical pass/fail validation, `review-*` = subjective quality judgment.
+Slash commands in `.claude/commands/` for validating and reviewing the codebase. Convention: `check-*` = mechanical pass/fail validation, `review-*` = subjective quality judgment, `audit-*` = broad code-quality sweep.
 
 **Keep this table in sync when adding, renaming, or removing commands.**
 

@@ -63,7 +63,7 @@ This command uses Nix's imperative interface (`nix profile`). If you prefer a fu
 curl -fsSL https://raw.githubusercontent.com/jqueiroz/notenav/stable/curl/install.sh | sh
 ```
 
-Requires bash 4.2+, [fzf](https://github.com/junegunn/fzf) 0.58+, [yq](https://github.com/mikefarah/yq)[^3], and [jq](https://github.com/jqlang/jq) to be installed and available on the PATH. See [docs/install.md](docs/install.md) for more details.
+Requires bash 4.2+, [fzf](https://github.com/junegunn/fzf) 0.58+, [yq](https://github.com/mikefarah/yq)[^3], [jq](https://github.com/jqlang/jq), and gawk to be installed and available on the PATH. See [docs/install.md](docs/install.md) for more details.
 
 **Option 3: Manual installation**
 
@@ -119,7 +119,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `0` | Clear all filters (return to "all" view; preserves display settings, pins, and marks) |
 | `R` | [**R**]eset everything: filters, pins, marks, and display settings |
 | `tab` / `shift-tab` | Next / previous query preset |
-| `[` and `]` | Next / previous query preset (same as above) |
+| `]` / `[` | Next / previous query preset (same as above) |
 | `g` | [**g**]o-to query preset |
 | `1`–`9` | Jump to query preset by number |
 | `c` then `s`/`p`/`t` | [**c**]hange status, priority, or type |
@@ -130,7 +130,7 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `?` | Toggle help overlay (keybinding reference) |
 | `h` | Toggle header mode (clean ↔ guided) |
 | `w` | Toggle preview wrap |
-| `esc` | Exit search / prefix mode, or clear query |
+| `esc` | Exit search / prefix mode / help overlay, or clear query |
 | `space` | Toggle multi-select |
 | `r` | [**r**]efresh note list |
 | `b` | [**b**]ulk edit (via your preferred editor) |
@@ -138,13 +138,13 @@ If Zenith doesn't fit your requirements, explore our other built-in workflows or
 | `x` | Clear all pinned ghost rows |
 | `X` | Restore pins from last clear (one-shot undo) |
 | `j` / `k` | Move down / up |
-| `J` / `K` | Scroll preview down / up |
+| `J` / `K` | Page preview down / up |
 | `ctrl-j` / `ctrl-k` | Page down / up |
 | `q` | Quit |
 
 A few keys are mode-aware: pressing `h` in command mode toggles the header, but in display mode (after `z`) it opens an archive visibility picker (hide / show / only); `w` toggles preview wrap from either mode. To exit any prefix mode, press the same key again or `esc`. These keybindings apply to all workflows, including custom ones. Press `?` for a keybinding reference at any time. See [docs/tui.md](docs/tui.md) for the full reference, including the interactive ad-hoc mode (`-i` flag).
 
-When an action like `a` (advance status) or `+` (bump priority) causes a note to no longer match your active filters, the note stays visible in its natural sort position as a **ghost row** with a yellow `pinned` badge. This means you never lose sight of what you just changed and the cursor never jumps. Pins accumulate across multiple actions and survive filter changes. Press `x` to clear all pins, or `R` to reset everything (i.e. filters, pins, sort, grouping, and display settings).
+When an action like `a` (advance status) or `+` (bump priority) causes a note to no longer match your active filters, the note stays visible in its natural sort position as a **ghost row** with a yellow `pinned` badge. This means you never lose sight of what you just changed and the cursor never jumps. Pins accumulate across multiple actions and survive filter changes. Press `x` to clear all pins, or `R` to reset everything (i.e. filters, pins, marks, and display settings).
 
 Editor defaults to `$EDITOR`, with reasonable fallbacks: nvim → vim → vi → nano → emacs[^4].
 
@@ -174,7 +174,7 @@ See [docs/configuration.md](docs/configuration.md) for the full config and workf
 
 ### `nn init`
 
-Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name: one of the built-in workflows (`zenith`, `cuboid`, `ado`, `gtd`, `zettelkasten`) or an HTTPS URL for a remote workflow. Defaults to `zenith` when no workflow is specified.
+Scaffolds a project workflow file at `.nn/workflow.toml`. Accepts an optional workflow name: one of the built-in workflows (`zenith`, `cuboid`, `ado`, `gtd`, `zettelkasten`), a user-defined workflow name, or an HTTPS URL for a remote workflow. Defaults to `zenith` when no workflow is specified.
 
 ```bash
 nn init                 # .nn/workflow.toml extending zenith
