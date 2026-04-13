@@ -8,7 +8,7 @@
 # sort_by = "created"           # created | modified | title | priority
 # sort_reverse = false          # true to reverse the default sort direction
 # group_by = "none"             # none | type | status
-# type_visibility = "show_untyped"  # show_defined | show_untyped
+# type_visibility = "all"          # typed_only | all
 # archive_visibility = "hide"   # hide | show | only – which archive statuses appear
 # wrap_preview = false          # true to wrap the preview pane by default
 # pin_mode = "auto"             # auto (only when item would leave view) | always

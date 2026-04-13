@@ -131,7 +131,7 @@ description = "Concrete, actionable unit of work"
 | `[type.<name>].color` | string | Color name or ANSI code (e.g. `"cyan"`, `"bold-red"`, `"31;1"`) |
 | `[type.<name>].description` | string | What this type represents |
 
-Which notes appear based on their type field is controlled by [`defaults.type_visibility`](#defaults) – it's a user preference, not a workflow definition, so it lives under `[defaults]`.
+Which notes appear based on their type field is controlled by [`defaults.type_visibility`](#defaults) – it's a user preference, not a workflow definition, so it lives under `[defaults]`. Set to `"typed_only"` to hide notes without a type field, or `"all"` (default) to show everything.
 
 **Named colors:** `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `dim`. Prefix with `bold-` for bold (e.g. `"bold-red"`) or `bright-` for the bright variant (e.g. `"bright-cyan"`). Raw ANSI codes (`"31"`, `"31;1"`) are also accepted. Named colors map to ANSI palette slots – actual appearance depends on your terminal theme.
 
@@ -410,7 +410,7 @@ Default view settings.
 sort_by = "created"             # created | modified | title | priority
 sort_reverse = false            # true to reverse the default sort direction
 group_by = "none"               # none | type | status
-type_visibility = "show_untyped" # show_defined | show_untyped
+type_visibility = "all"          # typed_only | all
 archive_visibility = "hide"     # hide | show | only – which archive statuses appear
 wrap_preview = false            # true to wrap the preview pane by default
 pin_mode = "auto"               # auto | always
@@ -421,7 +421,7 @@ pin_mode = "auto"               # auto | always
 | `sort_by` | string | `"created"` | Sort order for notes (`"priority"` only meaningful when the active workflow has `priority.enabled = true`) |
 | `sort_reverse` | boolean | `false` | Whether to reverse the default sort direction |
 | `group_by` | string | `"none"` | Grouping in the list; `"none"` for no grouping |
-| `type_visibility` | string | `"show_untyped"` | Which notes appear based on their type field: `"show_defined"` (hide untyped) or `"show_untyped"` (show all) |
+| `type_visibility` | string | `"all"` | Which notes appear based on their type field: `"typed_only"` (hide untyped) or `"all"` (show all) |
 | `archive_visibility` | string | `"hide"` | Whether archive statuses appear (see below) |
 | `wrap_preview` | boolean | `false` | Whether the preview pane wraps long lines on launch |
 | `pin_mode` | string | `"auto"` | When to create ghost-row pins after actions: `"auto"` pins only when the item would leave the current view; `"always"` pins every modified item |
@@ -440,8 +440,8 @@ In the TUI, press `z` then `h` to open a picker that lets you switch between the
 
 | Value | Behavior |
 |-------|----------|
-| `show_defined` | Only notes that have a type field in their frontmatter. Notes without a type are hidden; notes with an unknown type value still appear. |
-| `show_untyped` | *(default)* Shows all notes. Notes without a type appear with a dim `·` icon; notes with an unrecognized type value appear with a dim `?` icon. |
+| `typed_only` | Only notes that have a type field in their frontmatter. Notes without a type are hidden; notes with an unknown type value still appear. |
+| `all` | *(default)* Shows all notes. Notes without a type appear with a dim `·` icon; notes with an unrecognized type value appear with a dim `?` icon. |
 
 When filtering by a specific type (`ft` key or `type=task`), only notes matching that type are shown regardless of this setting.
 

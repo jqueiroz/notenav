@@ -546,7 +546,7 @@ _nn_gen_awk_bodies() {
     fi
   done
   # Dim fallback for untyped/unknown notes (overrides the first-type default above)
-  if [[ "$NN_TYPE_VISIBILITY" != "show_defined" ]]; then
+  if [[ "$NN_TYPE_VISIBILITY" != "typed_only" ]]; then
     # Build a condition that matches notes outside the known type set
     local _known_cond=""
     for _v in "${NN_TYPE_VALUES[@]}"; do
@@ -764,9 +764,9 @@ nn_precompute_workflow() {
   fi
   NN_TYPE_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.type.default_color // "36"')")
   _nn_valid_color "$NN_TYPE_DEFAULT_COLOR" || { echo "notenav: type.default_color '$NN_TYPE_DEFAULT_COLOR' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
-  NN_TYPE_VISIBILITY=$(nn_cfg '.defaults.type_visibility // "show_untyped"')
-  case "$NN_TYPE_VISIBILITY" in show_defined|show_untyped) ;;
-    *) echo "notenav: defaults.type_visibility '$NN_TYPE_VISIBILITY' invalid (must be 'show_defined' or 'show_untyped')" >&2; return 1 ;; esac
+  NN_TYPE_VISIBILITY=$(nn_cfg '.defaults.type_visibility // "all"')
+  case "$NN_TYPE_VISIBILITY" in typed_only|all) ;;
+    *) echo "notenav: defaults.type_visibility '$NN_TYPE_VISIBILITY' invalid (must be 'typed_only' or 'all')" >&2; return 1 ;; esac
   declare -gA NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS
   for _v in "${NN_TYPE_VALUES[@]}"; do
     _jv=$(_nn_jq_esc "$_v")
@@ -1004,12 +1004,12 @@ nn_precompute_workflow() {
   fi
 
   # Type visibility base condition
-  # show_defined: non-empty type required
-  # show_untyped: any note with a file path (untyped and unrecognized types shown dimmed)
+  # typed_only: non-empty type required
+  # all: any note with a file path (untyped and unrecognized types shown dimmed)
   case "$NN_TYPE_VISIBILITY" in
-    show_defined)
+    typed_only)
       NN_TYPE_VIS_COND='length($1) > 0' ;;
-    show_untyped)
+    all)
       NN_TYPE_VIS_COND='length($6) > 0' ;;
     *) nn_assert "unknown defaults.type_visibility '$NN_TYPE_VISIBILITY'" ;;
   esac
@@ -1924,8 +1924,8 @@ EOF
     _typ_vis=$(nn_cfg '.defaults.type_visibility // empty')
     if [[ -n "$_typ_vis" ]]; then
       case "$_typ_vis" in
-        show_defined|show_untyped) ;;
-        *) _warn "defaults.type_visibility '$_typ_vis' invalid (must be 'show_defined' or 'show_untyped')" ;;
+        typed_only|all) ;;
+        *) _warn "defaults.type_visibility '$_typ_vis' invalid (must be 'typed_only' or 'all')" ;;
       esac
     fi
 
@@ -3019,18 +3019,18 @@ EOF
       }
       _info "$_fm_info_parts ${_dim}(may be intentional)${_reset}"
     fi
-    # Warn if show_defined would hide every note (notes with no type AND
+    # Warn if typed_only would hide every note (notes with no type AND
     # notes with no frontmatter are both effectively untyped).
     # NB: doctor calls nn_load_config but not nn_precompute_workflow, so the
     # NN_TYPE_VISIBILITY env var is not populated here – read from config.
     local _fm_visibility
-    _fm_visibility=$(nn_cfg '.defaults.type_visibility // "show_untyped"')
-    if [[ "$_fm_visibility" == "show_defined" && $(( _fm_no_type + _fm_no_frontmatter )) -gt 0 ]]; then
+    _fm_visibility=$(nn_cfg '.defaults.type_visibility // "all"')
+    if [[ "$_fm_visibility" == "typed_only" && $(( _fm_no_type + _fm_no_frontmatter )) -gt 0 ]]; then
       local _fm_total_scanned
       _fm_total_scanned=$(printf '%s\n' "$_fm_scan" | grep -c '[^[:space:]]' 2>/dev/null || echo 0)
       if [[ $(( _fm_no_type + _fm_no_frontmatter )) -ge $_fm_total_scanned ]]; then
-        _warn "All notes have empty type – they will be hidden (defaults.type_visibility = \"show_defined\")"
-        echo "          Set defaults.type_visibility = \"show_untyped\" or add type: to note frontmatter"
+        _warn "All notes have empty type – they will be hidden (defaults.type_visibility = \"typed_only\")"
+        echo "          Set defaults.type_visibility = \"all\" or add type: to note frontmatter"
       fi
     fi
     if [[ "${_ign_after:-0}" -gt 2000 ]]; then
