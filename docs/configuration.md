@@ -403,7 +403,7 @@ default_workflow = "zenith"
 
 ### `[defaults]`
 
-Default view settings.
+Initial view settings. These control what you see on launch; most can be toggled at runtime via TUI keybindings.
 
 ```toml
 [defaults]
