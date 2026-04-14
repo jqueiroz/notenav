@@ -3682,7 +3682,7 @@ notenav_main() {
   if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     cat <<'EOF'
 Usage: nn                        interactive TUI
-       nn <query-name>           run a saved query preset
+       nn <query-name>           run a query preset by name
        nn key=value ...          ad-hoc query (plain output)
        nn key=value ... -i       ad-hoc query (interactive)
        nn init [workflow]        create project config (.nn/workflow.toml)
