@@ -5705,7 +5705,7 @@ dir="$1"; file="$2"; direction="${3:-fwd}"
 case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-cur=$($nn_gawk '/^---/{if(++n==2)exit;next} n==1&&/^status:/{sub(/^status:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
+cur=$($nn_gawk 'FNR==1&&!/^---[[:space:]]*$/{exit} /^---[[:space:]]*$/{if(++n==2)exit;next} n==1&&/^status:/{gsub(/\r/,"");sub(/^status:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
 if [ -z "$cur" ]; then
   # No status set – assign the workflow's initial status
   next=$(cat "$dir/.schema_status_initial" 2>/dev/null)
@@ -5735,7 +5735,7 @@ case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-cur=$($nn_gawk '/^---/{if(++n==2)exit;next} n==1&&/^priority:/{sub(/^priority:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
+cur=$($nn_gawk 'FNR==1&&!/^---[[:space:]]*$/{exit} /^---[[:space:]]*$/{if(++n==2)exit;next} n==1&&/^priority:/{gsub(/\r/,"");sub(/^priority:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
 if [ -z "$cur" ]; then
   # No priority set – enter at lowest priority
   next=$(tail -1 "$dir/.schema_priority_values")
