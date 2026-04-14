@@ -3921,8 +3921,7 @@ EOF
       if [[ -n "$_zk_probe_err" && -s "$_zk_probe_err" ]]; then
         _zk_probe_detail=$(head -n 1 "$_zk_probe_err" | tr -d '\n')
       fi
-      _zk_fallback_msg="zk probe failed${_zk_probe_detail:+ ($_zk_probe_detail)} – using native backend"
-      echo "notenav: $_zk_fallback_msg" >&2
+      _zk_fallback_msg="zk not available here – using native backend"
     fi
     [[ -n "$_zk_probe_err" ]] && rm -f "$_zk_probe_err"
   fi
