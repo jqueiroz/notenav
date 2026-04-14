@@ -4444,7 +4444,7 @@ if [ "$has_zk" = "true" ]; then
   # Workaround: zk list <root> returns only root-level notes; omit the path.
   _zk_scope=("$scope_path")
   [ -d "$scope_path/.zk" ] && _zk_scope=()
-  zk index --quiet 2>/dev/null
+  zk index --quiet >/dev/null 2>&1
   _zk_err=$(mktemp) || { printf 'mktemp failed (TMPDIR=%s) – press r to retry' "${TMPDIR:-/tmp}" > "$dir/.last_action"; exit 0; }
   if zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>"$_zk_err" > "$dir/.raw.tmp" \
     && _nn_apply_ignore "$dir" \
@@ -5705,7 +5705,7 @@ dir="$1"; file="$2"; direction="${3:-fwd}"
 case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-cur=$(p="$file" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $2; exit}' "$dir/.raw")
+cur=$($nn_gawk '/^---/{if(++n==2)exit;next} n==1&&/^status:/{sub(/^status:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
 if [ -z "$cur" ]; then
   # No status set – assign the workflow's initial status
   next=$(cat "$dir/.schema_status_initial" 2>/dev/null)
@@ -5735,7 +5735,7 @@ case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-cur=$(p="$file" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $3; exit}' "$dir/.raw")
+cur=$($nn_gawk '/^---/{if(++n==2)exit;next} n==1&&/^priority:/{sub(/^priority:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
 if [ -z "$cur" ]; then
   # No priority set – enter at lowest priority
   next=$(tail -1 "$dir/.schema_priority_values")
