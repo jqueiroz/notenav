@@ -3933,7 +3933,7 @@ EOF
       shopt -u nullglob; return 1
     fi
     local _nn_dir; _nn_dir=$(mktemp -d "${TMPDIR:-/tmp}/nn.XXXXXX") || { echo "notenav: mktemp -d failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
-    if [[ "$_nn_dir" == *[[:space:]\"\'\$\`\\]* || "$_nn_dir" == *[]'()[]* ]]; then
+    if [[ "$_nn_dir" == *[[:space:]\"\'\$\`\\]* || "$_nn_dir" == *\[* || "$_nn_dir" == *\]* || "$_nn_dir" == *\(* || "$_nn_dir" == *\)* ]]; then
       rm -rf "$_nn_dir"
       echo "notenav: TMPDIR path contains characters unsafe for shell interpolation." >&2
       echo "notenav: set TMPDIR to a simple path (e.g. /tmp) and try again." >&2
