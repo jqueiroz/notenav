@@ -156,6 +156,10 @@ See [Configuration – Tags](configuration.md#tags) and [TUI Reference – Tags]
 
 Yes. notenav works with any markdown files that use YAML frontmatter. It reads `type`, `status`, `priority`, and `tags` fields from the frontmatter – the rest of the file is untouched. notenav and Obsidian (or any other tool) can coexist on the same vault without conflicts.
 
+## I changed my config but the TUI looks the same?
+
+Config changes take effect on the next `nn` launch. Most display settings (sort order, grouping, archive visibility, preview wrap) can also be changed at runtime via the `z` prefix – press `z` then the sub-key shown in the header.
+
 ## How do I troubleshoot setup problems?
 
 Run `nn doctor` – it checks all dependencies (versions, variants), validates your config files, verifies workflow integrity (types, statuses, lifecycles), and confirms your notebook is reachable.
