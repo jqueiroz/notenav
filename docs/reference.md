@@ -270,9 +270,10 @@ file. Standard metadata directories (`.git`, `.zk`, `.obsidian`,
 
 Notes:
 
-- `#` begins a comment – everything from `#` to end of line is ignored.
-  Inline comments are supported: `templates/  # skip these` works.
-  Literal `#` in filenames is not supported.
+- Lines beginning with `#` (after optional whitespace) are comments.
+  Inline comments are not supported (following `.gitignore` convention).
+  `templates/  # skip these` would try to match the literal string
+  `templates/  # skip these` – put comments on their own line instead.
 - Blank lines and whitespace-only lines are ignored.
 - Glob patterns are matched against the **basename** only.
   Patterns like `foo/*.md` (glob + path) are not supported – use a

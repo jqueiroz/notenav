@@ -1252,10 +1252,9 @@ _nn_load_nnignore() {
   if [[ -f "$root/.nnignore" ]]; then
     local line
     while IFS= read -r line || [[ -n "$line" ]]; do
-      line="${line%%#*}"                          # strip inline comments
       line="${line#"${line%%[![:space:]]*}"}"      # trim leading whitespace
       line="${line%"${line##*[![:space:]]}"}"      # trim trailing whitespace
-      [[ -z "$line" ]] && continue
+      [[ -z "$line" || "$line" == \#* ]] && continue
       if [[ "$line" == */ ]]; then
         local _dname="${line%/}"
         if [[ "$_dname" == */* ]]; then
