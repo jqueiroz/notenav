@@ -63,7 +63,7 @@
               description = "TUI faceted browser for markdown notebooks";
               homepage = "https://github.com/jqueiroz/notenav";
               license = licenses.mit;
-              platforms = platforms.linux ++ platforms.darwin ++ platforms.freebsd ++ platforms.openbsd;
+              platforms = platforms.linux ++ platforms.darwin;
               mainProgram = "nn";
             };
           };

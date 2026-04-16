@@ -709,7 +709,7 @@ _nn_gen_awk_bodies() {
     first = 0
     tc = (t in clr) ? clr[t] : "\033[36m"
     ic = (t in icon) ? icon[t] : "*"
-    tl = t; if (types[t] != 1) tl = t "s"
+    tl = t; if (types[t] != 1) { if (match(t, /(s|x|z|ch|sh)$/)) tl = t "es"; else if (match(t, /[^aeiou]y$/)) tl = substr(t, 1, length(t)-1) "ies"; else tl = t "s" }
     printf "%s%s %d %s\033[0m", tc, ic, types[t], tl
     printf " ("
     sn = split("'"$_status_fc_str"'", statuses, "\\036")
@@ -1368,7 +1368,7 @@ _NN_NATIVE_PARSER_AWK=$(cat << 'ENDAWK'
       fm_lines++
       if (fm_lines > 200) { in_fm = 0; continue }
       if (collecting_tags && match(line, /^[ \t]+-[ \t]+(.+)$/, lm)) {
-        t = lm[1]; gsub(/^["']|["']$/, "", t)
+        t = lm[1]; gsub(/^["']|["']$/, "", t); gsub(/[ \t]+$/, "", t)
         if (tags != "") tags = tags " "
         tags = tags t
         continue
@@ -3100,7 +3100,7 @@ _nn_url_cache_path() {
   local url="$1"
   local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/notenav/workflows"
   local hash
-  hash=$(printf '%s' "$url" | _nn_sha256)
+  hash=$(printf '%s' "$url" | _nn_sha256) || return 1
   printf '%s/%s.toml' "$cache_dir" "$hash"
 }
 
@@ -3111,8 +3111,10 @@ _nn_sha256() {
     h=$(sha256sum) || return 1
   elif command -v shasum >/dev/null 2>&1; then
     h=$(shasum -a 256) || return 1
+  elif command -v sha256 >/dev/null 2>&1; then
+    h=$(sha256 -q) || return 1
   else
-    echo "notenav: no sha256 tool found (need sha256sum or shasum)" >&2
+    echo "notenav: no sha256 tool found (need sha256sum, shasum, or sha256)" >&2
     return 1
   fi
   [[ -n "$h" ]] || return 1
@@ -4877,19 +4879,19 @@ set_type="$set_type" set_status="$set_status" \
   in_fm && skip_cont && /^[ \t]+-/ { next }
   in_fm && skip_cont { skip_cont=0 }
   in_fm && /^type:/ {
-    if (has_type) { if (set_type != "") print "type: " set_type; found_type=1; skip_cont=1; next }
+    if (has_type) { if (!found_type && set_type != "") print "type: " set_type; found_type=1; skip_cont=1; next }
     else { found_type=1 }
   }
   in_fm && /^status:/ {
-    if (has_status) { if (set_status != "") print "status: " set_status; found_status=1; skip_cont=1; next }
+    if (has_status) { if (!found_status && set_status != "") print "status: " set_status; found_status=1; skip_cont=1; next }
     else { found_status=1 }
   }
   in_fm && /^priority:/ {
-    if (has_priority) { if (set_priority != "") print "priority: " set_priority; found_priority=1; skip_cont=1; next }
+    if (has_priority) { if (!found_priority && set_priority != "") print "priority: " set_priority; found_priority=1; skip_cont=1; next }
     else { found_priority=1 }
   }
   in_fm && /^tags:/ {
-    if (has_tags) { if (set_tags != "") printf "tags:\n%s\n", set_tags; found_tags=1; skip_cont=1; next }
+    if (has_tags) { if (!found_tags && set_tags != "") printf "tags:\n%s\n", set_tags; found_tags=1; skip_cont=1; next }
     else { found_tags=1 }
   }
   { print }
@@ -5542,7 +5544,7 @@ else
 
   # Show cursor
   printf '\033[?25h' > /dev/tty
-  trap - EXIT
+  trap - EXIT INT TERM
 
   # Move past box bottom
   printf '\033[%dB' "$((type_count + 7))" > /dev/tty
@@ -5821,7 +5823,7 @@ apply_sq() {
   for a in "${_sq_arr[@]}"; do
     case "$a" in
       type=*) ft="${a#*=}";; status=*) fs="${a#*=}";;
-      priority=*) fp="${a#*=}";; tag=*) echo "${a#*=}" >> "$dir/.f_tags";;
+      priority=*) fp="${a#*=}";; tag=*) printf '%s\n' "${a#*=}" >> "$dir/.f_tags";;
       *) nn_assert "apply_sq: unknown arg '${a%%=*}'" ;;
     esac
   done
@@ -7142,7 +7144,7 @@ ENDDELETE
       shopt -u nullglob; return 1
     fi
     local nn_tmp; nn_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
-    if [[ "$nn_tmp" == *[[:space:]\"\'\$\`\\]* ]]; then
+    if [[ "$nn_tmp" == *[[:space:]\"\'\$\`\\]* || "$nn_tmp" == *\[* || "$nn_tmp" == *\]* || "$nn_tmp" == *\(* || "$nn_tmp" == *\)* ]]; then
       rm -f "$nn_tmp"
       echo "notenav: TMPDIR path contains characters unsafe for shell interpolation." >&2
       echo "notenav: set TMPDIR to a simple path (e.g. /tmp) and try again." >&2
