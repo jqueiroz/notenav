@@ -34,7 +34,7 @@ The `.nn/` directory is found by walking up from the current directory.
 
 Config is loaded once at launch and sealed for the session. Changes to `config.toml` or `workflow.toml` take effect the next time you start `nn`.
 
-The quickest way to get started is `nn init`:
+notenav works out of the box, without any config files. If your directory lacks `.nn/workflow.toml`, notenav uses the `default_workflow` setting from your user config (`~/.config/notenav/config.toml`), which itself defaults to Zenith. When you're ready to customize, `nn init` scaffolds the config files:
 
 ```bash
 nn init                    # create .nn/workflow.toml (extends zenith)

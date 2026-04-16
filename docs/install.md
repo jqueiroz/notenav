@@ -99,7 +99,7 @@ cd notenav-demo
 nn
 ```
 
-notenav works out of the box with the default [Zenith](workflows/zenith.md) workflow. To customize, use `nn init` to scaffold config files:
+notenav works out of the box, without any config files. If your directory lacks `.nn/workflow.toml`, notenav uses the `default_workflow` setting from your user config (`~/.config/notenav/config.toml`), which itself defaults to [Zenith](workflows/zenith.md). When you're ready to customize, `nn init` scaffolds config files for you:
 
 ```bash
 nn init                    # create .nn/workflow.toml (extends zenith)

@@ -2,7 +2,7 @@
 
 Your notes deserve a proper interface. Not a browser tab, not an Electron app – a fast, keyboard-driven TUI that feels like editing code[^1]. Finally, task and note management that's seamless and, dare we say, _fun_!
 
-Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions; select a note and edit it in your favorite editor – all without leaving the terminal. Friendly learning curve: press `?` for a keybinding reference at any time.
+Filter by type, status, priority, and tags; search by filename or body contents; save and recall queries; perform inline actions; select a note and edit it in your favorite editor – all without leaving the terminal. Friendly learning curve: under the default settings, all keybindings are displayed on-screen.
 
 Workflows are fully customizable: define your own note types, statuses, priorities, colors, and lifecycle transitions via TOML config. Ships with five built-in workflows for common patterns.
 
@@ -76,7 +76,9 @@ Same dependencies as the one-liner. See [docs/install.md](docs/install.md) for d
 
 ## Getting started: the Zenith workflow
 
-Out of the box, `nn` uses **Zenith** – a simple workflow built around three note types, five statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
+`nn` works out of the box — just run it in any directory containing markdown files. No `nn init` required; if your directory lacks `.nn/workflow.toml`, notenav uses the `default_workflow` setting from your user config (`~/.config/notenav/config.toml`), which itself defaults to Zenith.
+
+Zenith is a simple workflow built around three note types, five statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
 
 **Note types:** every note is one of:
 - **task:** concrete, actionable unit of work
