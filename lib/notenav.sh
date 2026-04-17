@@ -209,7 +209,7 @@ nn_load_config() {
   base_json=$(printf '%s' "$base_json" | jq "$_user_prefs_shape" 2>/dev/null) || base_json="{}"
   user_json=$(printf '%s' "$user_json" | jq "$_user_prefs_shape" 2>/dev/null) || user_json="{}"
   if [[ -z "$user_json" && -f "$user_cfg" ]]; then
-    echo "notenav: user config may be invalid – check ~/.config/notenav/config.toml" >&2
+    echo "notenav: user config may be invalid – check ${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml" >&2
     echo "notenav: run 'nn doctor' for details" >&2
     user_json="{}"
   fi
@@ -3161,7 +3161,7 @@ nn_init() {
       --help|-h)
         cat <<'EOF'
 Usage: nn init [workflow]        create project config (.nn/workflow.toml)
-       nn init --user [workflow] create user config (~/.config/notenav/config.toml)
+       nn init --user [workflow] create user config (~/.config/notenav/config.toml, or $XDG_CONFIG_HOME/notenav/ if set)
 
 Workflow can be a built-in name (zenith, cuboid, ado, gtd, zettelkasten),
 a user-defined workflow, or an https:// URL.
@@ -3712,7 +3712,7 @@ Examples:
 
 Config:
   Project:  .nn/workflow.toml
-  User:     ~/.config/notenav/config.toml
+  User:     ~/.config/notenav/config.toml  (or $XDG_CONFIG_HOME/notenav/ if set)
   Ignore:   .nnignore (optional, at notebook root)
 EOF
     return 0
