@@ -7297,6 +7297,9 @@ ENDDELETE
       if [[ -t 2 ]] && ! $long_output && ! $null_output; then
         echo "notenav: (try -i for an interactive picker)" >&2
       fi
+      unset -f _nn_adhoc_sort
+      shopt -u nullglob
+      return 1
     fi
   fi
   unset -f _nn_adhoc_sort
