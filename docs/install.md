@@ -32,7 +32,7 @@ Not required, but progressively enhance the experience when installed.
 **`nix profile` (imperative):**
 
 ```bash
-nix profile install github:jqueiroz/notenav/stable
+nix profile add github:jqueiroz/notenav/stable
 ```
 
 **NixOS (`configuration.nix`):**

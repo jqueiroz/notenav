@@ -52,7 +52,7 @@ The Nix install path handles all of this automatically.
 Nix installs packages in isolated, immutable environments, avoiding conflicts with system dependencies and ensuring reproducibility. If you don't have Nix yet, install it with the [official installer](https://nixos.org/download/) or [Determinate Systems installer](https://determinate.systems/nix-installer/) (which enables [flakes](https://wiki.nixos.org/wiki/Flakes) by default). Then, install `nn` by running:
 
 ```bash
-nix profile install github:jqueiroz/notenav/stable
+nix profile add github:jqueiroz/notenav/stable
 ```
 
 This command uses Nix's imperative interface (`nix profile`). If you prefer a fully declarative setup, see the NixOS or Home Manager instructions in [docs/install.md](docs/install.md).
