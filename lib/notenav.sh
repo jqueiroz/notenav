@@ -1381,6 +1381,7 @@ _NN_NATIVE_PARSER_AWK=$(cat << 'ENDAWK'
       collecting_tags = 0
       if (match(line, /^([A-Za-z_]+):[ \t]*(.*)$/, m)) {
         key = m[1]; val = m[2]
+        if (val !~ /^["']/) sub(/[ \t]+#([ \t].*)?$/, "", val)
         gsub(/^["']|["']$/, "", val)
         gsub(/[ \t]+$/, "", val)
         if (key == "type") type = val
