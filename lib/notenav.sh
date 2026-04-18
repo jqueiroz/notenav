@@ -4764,8 +4764,7 @@ selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $
   --border --border-label " Set $field " \
   --header "$hdr" \
   "${pos_bind[@]}" "${_tsv_args[@]}" \
-  --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
-[ -z "$selected" ] && exit 1
+  --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up') || exit 1
 # Extract raw value from TSV column 1 (all field pickers use TSV mode)
 selected=$(printf '%s' "$selected" | awk -F'\t' '{print $1}')
 printf '%s\n' "$field" > "$dir/.fp_field"
@@ -7128,7 +7127,12 @@ ENDDELETE
     case "$NN_DEFAULT_SORT" in
       priority)
         if [[ "$NN_PRIORITY_ENABLED" == "false" ]]; then cat; return; fi
-        local _ph; case "$NN_PRIORITY_UNSET_POS" in first) _ph=-999999 ;; last) _ph=999999 ;; *) nn_assert "_nn_adhoc_sort: unknown unset_position '$NN_PRIORITY_UNSET_POS'" ;; esac
+        local _ph
+        if [[ -n "$_rev" ]]; then
+          case "$NN_PRIORITY_UNSET_POS" in first) _ph=999999 ;; last) _ph=-999999 ;; *) nn_assert "_nn_adhoc_sort: unknown unset_position '$NN_PRIORITY_UNSET_POS'" ;; esac
+        else
+          case "$NN_PRIORITY_UNSET_POS" in first) _ph=-999999 ;; last) _ph=999999 ;; *) nn_assert "_nn_adhoc_sort: unknown unset_position '$NN_PRIORITY_UNSET_POS'" ;; esac
+        fi
         local _pdir=n; [[ -n "$_rev" ]] && _pdir=nr
         awk -F'\t' -v p="$_ph" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' \
           | sort -t'	' "-k3,3${_pdir}" -s \
