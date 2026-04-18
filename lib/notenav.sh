@@ -4470,10 +4470,15 @@ else
   search_dir="$scope_path"
   # Source shared find function and AWK parser (written at startup)
   source "$dir/.fn_find_md"
-  _nn_find_md_with_mtime "$search_dir" \
+  if _nn_find_md_with_mtime "$search_dir" \
     | "$nn_gawk" -F'\t' -f "$dir/.awk_native_parser" > "$dir/.raw.tmp" \
     && _nn_apply_ignore "$dir" \
-    && mv "$dir/.raw.tmp" "$dir/.raw"
+    && mv "$dir/.raw.tmp" "$dir/.raw"; then
+    :
+  else
+    rm -f "$dir/.raw.tmp"
+    printf 'scan error – press r to retry' > "$dir/.last_action"
+  fi
 fi
 
 # Prune satellite files: remove paths that no longer exist in .raw
@@ -4481,7 +4486,7 @@ if [ -s "$dir/.raw" ]; then
   for _sat in "$dir/.pinned" "$dir/.marked" "$dir/.f_match_paths"; do
     [ -s "$_sat" ] || continue
     awk -F'\t' 'NR==FNR{paths[$6]=1;next} ($0 in paths)' "$dir/.raw" "$_sat" > "$_sat.tmp" \
-      && mv "$_sat.tmp" "$_sat"
+      && mv "$_sat.tmp" "$_sat" || rm -f "$_sat.tmp"
   done
 fi
 ENDRELOAD
