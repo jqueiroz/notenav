@@ -85,3 +85,11 @@ Each release gets a section in [`CHANGELOG.md`](../CHANGELOG.md) at the repo roo
    ```
    git push origin main stable v0.2.0
    ```
+
+8. **Create a GitHub Release**:
+
+   ```
+   gh release create v0.2.0 --title "v0.2.0" --notes-file - <<< "$(sed -n '/^## \[0\.2\.0\]/,/^## \[/{/^## \[0\.2\.0\]/d;/^## \[/d;p}' CHANGELOG.md)"
+   ```
+
+   This extracts the release section from `CHANGELOG.md` and uses it as the release body. For a release without changelog entries, use `--notes "Initial release."` or similar.
