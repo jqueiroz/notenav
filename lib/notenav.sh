@@ -4615,8 +4615,8 @@ for file in "$@"; do
   _ftmp=$(mktemp "$file.XXXXXX") || continue
   field="$field" value="$value" "$nn_gawk" '
     BEGIN { field=ENVIRON["field"]; value=ENVIRON["value"] }
-    NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
-    in_fm && /^---/ { in_fm=0; if (!found && value != "") print field ": " value; print; skip_cont=0; next }
+    NR==1 && /^---[[:space:]]*$/ { in_fm=1; fm_lines=0; print; next }
+    in_fm && /^---[[:space:]]*$/ { in_fm=0; if (!found && value != "") print field ": " value; print; skip_cont=0; next }
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
     in_fm && skip_cont && /^[[:blank:]]/ { next }
     in_fm && skip_cont { skip_cont=0 }
@@ -4880,8 +4880,8 @@ set_type="$set_type" set_status="$set_status" \
     "$nn_gawk" -v has_type="$has_type" -v has_status="$has_status" \
     -v has_priority="$has_priority" -v has_tags="$has_tags" '
   BEGIN { set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"] }
-  NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
-  in_fm && /^---/ {
+  NR==1 && /^---[[:space:]]*$/ { in_fm=1; fm_lines=0; print; next }
+  in_fm && /^---[[:space:]]*$/ {
     in_fm=0; skip_cont=0
     if (has_type && !found_type && set_type != "") print "type: " set_type
     if (has_status && !found_status && set_status != "") print "status: " set_status
@@ -5600,8 +5600,8 @@ if [ "$_nn_has_zk" = "true" ]; then
     _nntmp=$(mktemp "$new_path.XXXXXX") || exit 1
     nn_type="$selected" nn_status="$_nn_initial_status" nn_created="$_nn_now" $nn_gawk '
       BEGIN { nn_type=ENVIRON["nn_type"]; nn_status=ENVIRON["nn_status"]; nn_created=ENVIRON["nn_created"] }
-      NR==1 && /^---/ { in_fm=1; print; next }
-      in_fm && /^---/ {
+      NR==1 && /^---[[:space:]]*$/ { in_fm=1; print; next }
+      in_fm && /^---[[:space:]]*$/ {
         in_fm=0
         if (!found_type)    print "type: " nn_type
         if (!found_status && nn_status != "")  print "status: " nn_status
