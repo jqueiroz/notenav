@@ -1837,6 +1837,8 @@ EOF
     echo "Trusted sources:"
     local _ts_url
     while IFS= read -r _ts_url || [[ -n "$_ts_url" ]]; do
+      _ts_url="${_ts_url#"${_ts_url%%[![:space:]]*}"}"
+      _ts_url="${_ts_url%"${_ts_url##*[![:space:]]}"}"
       [[ -z "$_ts_url" || "$_ts_url" == \#* ]] && continue
       local _cache_path
       _cache_path=$(_nn_url_cache_path "$_ts_url")
@@ -4191,8 +4193,10 @@ if [ -n "${_use_tsv:-}" ]; then
   # Tab-delimited: raw_value\tdisplay_label
   selected=$(printf '%s' "$selected" | awk -F'\t' '{print $1}')
 else
-  # Strip ANSI, description suffix, icon prefix to get raw value
-  selected=$(printf '%s' "$selected" | sed "s/$(printf '\033')\[[0-9;]*m//g" | sed 's/  – .*//' | awk '{print $NF}')
+  # Strip ANSI and description suffix to get raw value
+  selected=$(printf '%s' "$selected" | sed "s/$(printf '\033')\[[0-9;]*m//g" | sed 's/  – .*//')
+  # Type entries have an icon prefix; strip it to get the raw value
+  [ "$field" = "type" ] && selected=$(printf '%s' "$selected" | awk 'NF>1{$1="";sub(/^ /,"")} {print}')
 fi
 case "$field" in
   type)     f=".f_type" ;;
@@ -4238,7 +4242,8 @@ selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "sort 
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
 [ -z "$selected" ] && exit 1
 printf '%s\n' "$selected" > "$dir/.f_sort"
-echo "" > "$dir/.f_sort_rev"
+{ read -r _; read -r _; read -r _; read -r _sr; } < "$dir/.schema_defaults"
+[ "$_sr" = "true" ] && echo "rev" > "$dir/.f_sort_rev" || echo "" > "$dir/.f_sort_rev"
 : > "$dir/.last_action"
 ENDSORTPICK
     chmod +x "$_nn_dir/sortpick.sh"
@@ -4489,7 +4494,8 @@ mode=$(cat "$dir/.refresh_mode" 2>/dev/null)
 [[ -z "$mode" || "$mode" = "manual" ]] && exit 0
 
 post_reload() {
-  local action="transform($dir/reload_raw.sh $dir 2>/dev/null; $dir/filter.sh $dir refresh)"
+  local _qdir; printf -v _qdir '%q' "$dir"
+  local action="transform(${_qdir}/reload_raw.sh ${_qdir} 2>/dev/null; ${_qdir}/filter.sh ${_qdir} refresh)"
   if command -v curl >/dev/null 2>&1; then
     curl -s --connect-timeout 2 --max-time 5 -X POST -d "$action" "http://127.0.0.1:$FZF_PORT" >/dev/null 2>&1
   else
@@ -4603,7 +4609,7 @@ for file in "$@"; do
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
     in_fm && skip_cont && /^[[:blank:]]/ { next }
     in_fm && skip_cont { skip_cont=0 }
-    in_fm && $0 ~ "^"field":( |$)" { if (value != "") print field ": " value; found=1; skip_cont=1; next }
+    in_fm && $0 ~ "^"field":" { if (value != "") print field ": " value; found=1; skip_cont=1; next }
     { print }
   ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
 done
@@ -4873,7 +4879,7 @@ set_type="$set_type" set_status="$set_status" \
     print; next
   }
   in_fm && ++fm_lines > 200 { in_fm=0; print; next }
-  in_fm && skip_cont && /^[ \t]/ { next }
+  in_fm && skip_cont && /^[[:blank:]]/ { next }
   in_fm && skip_cont { skip_cont=0 }
   in_fm && /^type:/ {
     if (has_type) { if (!found_type && set_type != "") print "type: " set_type; found_type=1; skip_cont=1; next }
@@ -6068,8 +6074,12 @@ if [ -n "$ftitle" ]; then
   _raw_input="$dir/.raw_title"
   _count_input="$dir/.raw_title"
 fi
-if [ -n "$fmarked" ] && [ -s "$dir/.marked.snap" ]; then
-  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.marked.snap" "$_raw_input" > "$dir/.raw_marked"
+if [ -n "$fmarked" ]; then
+  if [ -s "$dir/.marked.snap" ]; then
+    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.marked.snap" "$_raw_input" > "$dir/.raw_marked"
+  else
+    : > "$dir/.raw_marked"
+  fi
   _raw_input="$dir/.raw_marked"
   _count_input="$dir/.raw_marked"
 fi
