@@ -4623,7 +4623,7 @@ for file in "$@"; do
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value; found=1; skip_cont=1; next }
     { print }
-  ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
+  ' "$file" > "$_ftmp" && { if cmp -s "$_ftmp" "$file"; then rm -f "$_ftmp"; else mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"; fi; }
 done
 # Pin check: "always" pins every modified file; "auto" only pins when the
 # new value would cause the item to leave the current view
