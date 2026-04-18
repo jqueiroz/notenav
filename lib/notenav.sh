@@ -1470,8 +1470,8 @@ _nn_ver_cmp() {
     local av="${a[i]:-0}" bv="${b[i]:-0}"
     [[ "$av" =~ ^[0-9]+$ ]] || av=0
     [[ "$bv" =~ ^[0-9]+$ ]] || bv=0
-    (( 10#av > 10#bv )) && return 0
-    (( 10#av < 10#bv )) && return 1
+    (( 10#$av > 10#$bv )) && return 0
+    (( 10#$av < 10#$bv )) && return 1
   done
   return 0
 }
