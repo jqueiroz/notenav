@@ -76,7 +76,7 @@ Same dependencies as the one-liner. See [docs/install.md](docs/install.md) for d
 
 ## Getting started: the Zenith workflow
 
-`nn` works out of the box – just run it in any directory containing markdown files. No `nn init` required; if your directory lacks `.nn/workflow.toml`, notenav uses the `default_workflow` setting from your user config (`~/.config/notenav/config.toml`), which itself defaults to Zenith.
+`nn` works out of the box – just run it in any directory containing markdown files. By default, notenav uses the Zenith workflow. When you're ready to customize, see the [Configuration](#configuration) section below.
 
 Zenith is a simple workflow built around three note types, five statuses, and four priority levels. This is enough structure to manage a project without getting in the way.
 
