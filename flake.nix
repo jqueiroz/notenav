@@ -100,8 +100,8 @@
               # Doctor checks dependencies (all bundled via wrapProgram)
               machine.succeed("cd /tmp/notebook && nn doctor")
 
-              # Ad-hoc query on empty notebook exits cleanly
-              machine.succeed("cd /tmp/notebook && nn type=task || true")
+              # Ad-hoc query on empty notebook exits cleanly (exit 0 or 1, not 2+)
+              machine.succeed("cd /tmp/notebook && nn type=task; test $? -le 1")
             '';
           };
         });
