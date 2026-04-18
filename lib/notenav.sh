@@ -1365,6 +1365,7 @@ _NN_NATIVE_PARSER_AWK=$(cat << 'ENDAWK'
   in_fm = 0; collecting_tags = 0; found_title_heading = ""; post_fm = 0; fm_lines = 0
   while ((getline line < file) > 0) {
     gsub(/\r/, "", line)
+    if (NR_FILE == 0) gsub(/^\xEF\xBB\xBF/, "", line)
     if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; NR_FILE++; continue }
     NR_FILE++
     if (in_fm) {
