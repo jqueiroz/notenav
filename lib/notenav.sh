@@ -345,7 +345,7 @@ nn_load_config() {
   # Handle queries.inherit: if false in project config,
   # strip workflow queries so only explicit queries survive
   local _inherit
-  _inherit=$(printf '%s' "$project_wf_json" | jq -r '.queries.inherit // empty' 2>/dev/null)
+  _inherit=$(printf '%s' "$project_wf_json" | jq -r 'if (.queries // {}) | has("inherit") then .queries.inherit else empty end' 2>/dev/null)
   if [[ "$_inherit" == "false" ]]; then
     workflow_json=$(printf '%s' "$workflow_json" | jq 'del(.queries)' 2>/dev/null)
   fi
@@ -929,14 +929,19 @@ nn_precompute_workflow() {
   NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // " "')
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
   # Sanitize prompts: strip chars that break fzf action syntax in change-prompt()
+  # [ ] break transform[...] bracket depth; ( ) break action syntax; ' " break shell quoting
+  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//\[/}"
   NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//(/}"
   NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//)/}"
   NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//]/}"
   NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//\'/}"
+  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//\"/}"
+  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//\[/}"
   NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//(/}"
   NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//)/}"
   NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//]/}"
   NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//\'/}"
+  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//\"/}"
   NN_UI_EXIT_MESSAGE=$(nn_cfg '.ui.exit_message // "none"')
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
@@ -3918,10 +3923,6 @@ EOF
     _zk_probe_err=$(mktemp "${TMPDIR:-/tmp}/nn-zkprobe.XXXXXX" 2>/dev/null) || _zk_probe_err=""
     if ! zk list --format '{{absPath}}' --quiet --limit 1 "${_zk_probe[@]}" >/dev/null 2>"${_zk_probe_err:-/dev/null}"; then
       _NN_HAS_ZK=false
-      local _zk_probe_detail=""
-      if [[ -n "$_zk_probe_err" && -s "$_zk_probe_err" ]]; then
-        _zk_probe_detail=$(head -n 1 "$_zk_probe_err" | tr -d '\n')
-      fi
       _zk_fallback_msg="zk not available here – using native backend"
     fi
     [[ -n "$_zk_probe_err" ]] && rm -f "$_zk_probe_err"
@@ -4600,7 +4601,7 @@ for file in "$@"; do
     NR==1 && /^---/ { in_fm=1; fm_lines=0; print; next }
     in_fm && /^---/ { in_fm=0; if (!found && value != "") print field ": " value; print; skip_cont=0; next }
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
-    in_fm && skip_cont && /^[[:blank:]]+-/ { next }
+    in_fm && skip_cont && /^[[:blank:]]/ { next }
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":( |$)" { if (value != "") print field ": " value; found=1; skip_cont=1; next }
     { print }
@@ -4705,16 +4706,17 @@ if [ $# -gt 0 ] && [ -f "$1" ]; then
 fi
 case "$field" in
   status)
+    _use_tsv=1
     vals=""
     while IFS=$'\t' read -r v desc || [ -n "$v" ]; do
       [ -n "$vals" ] && vals="$vals"$'\n'
       if [ -n "${NO_COLOR+x}" ]; then
-        if [ -n "$desc" ]; then vals="$vals$v  – $desc"; else vals="$vals$v"; fi
+        if [ -n "$desc" ]; then vals="$vals$v"$'\t'"$v  – $desc"; else vals="$vals$v"$'\t'"$v"; fi
       else
         if [ -n "$desc" ]; then
-          vals="$vals$(printf '%s  \033[90m– %s\033[0m' "$v" "$desc")"
+          vals="$vals$v"$'\t'"$(printf '%s  \033[90m– %s\033[0m' "$v" "$desc")"
         else
-          vals="$vals$v"
+          vals="$vals$v"$'\t'"$v"
         fi
       fi
     done < "$dir/.schema_status_descs" ;;
@@ -4734,16 +4736,17 @@ case "$field" in
       vals="$vals"$'\n'$'\t'"(clear)"
     fi ;;
   type)
+    _use_tsv=1
     vals=""
     while IFS=$'\t' read -r v ic clr desc || [ -n "$v" ]; do
       [ -n "$vals" ] && vals="$vals"$'\n'
       if [ -n "${NO_COLOR+x}" ]; then
-        if [ -n "$desc" ]; then vals="$vals$ic $v  – $desc"; else vals="$vals$ic $v"; fi
+        if [ -n "$desc" ]; then vals="$vals$v"$'\t'"$ic $v  – $desc"; else vals="$vals$v"$'\t'"$ic $v"; fi
       else
         if [ -n "$desc" ]; then
-          vals="$vals$(printf '\033[%sm%s %s\033[0m  \033[90m– %s\033[0m' "$clr" "$ic" "$v" "$desc")"
+          vals="$vals$v"$'\t'"$(printf '\033[%sm%s %s\033[0m  \033[90m– %s\033[0m' "$clr" "$ic" "$v" "$desc")"
         else
-          vals="$vals$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
+          vals="$vals$v"$'\t'"$(printf '\033[%sm%s %s\033[0m' "$clr" "$ic" "$v")"
         fi
       fi
     done < "$dir/.schema_types" ;;
@@ -4763,12 +4766,8 @@ selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $
   "${pos_bind[@]}" "${_tsv_args[@]}" \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
 [ -z "$selected" ] && exit 1
-# Extract raw value: TSV mode uses column 1; otherwise strip ANSI, description, and icon prefix
-if [ -n "${_use_tsv:-}" ]; then
-  selected=$(printf '%s' "$selected" | awk -F'\t' '{print $1}')
-else
-  selected=$(echo "$selected" | sed "s/$(printf '\033')\[[0-9;]*m//g" | sed 's/  – .*//' | awk '{print $NF}')
-fi
+# Extract raw value from TSV column 1 (all field pickers use TSV mode)
+selected=$(printf '%s' "$selected" | awk -F'\t' '{print $1}')
 printf '%s\n' "$field" > "$dir/.fp_field"
 printf '%s\n' "$selected" > "$dir/.fp_value"
 ENDFP
@@ -4875,7 +4874,7 @@ set_type="$set_type" set_status="$set_status" \
     print; next
   }
   in_fm && ++fm_lines > 200 { in_fm=0; print; next }
-  in_fm && skip_cont && /^[ \t]+-/ { next }
+  in_fm && skip_cont && /^[ \t]/ { next }
   in_fm && skip_cont { skip_cont=0 }
   in_fm && /^type:/ {
     if (has_type) { if (!found_type && set_type != "") print "type: " set_type; found_type=1; skip_cont=1; next }
@@ -4952,19 +4951,19 @@ while IFS=$'\t' read -r path title field old_val new_val; do
       if [ -n "$new_val" ]; then
         valid=false
         while IFS= read -r v || [ -n "$v" ]; do [ "$new_val" = "$v" ] && valid=true && break; done < "$dir/.schema_type_values"
-        $valid || { errors="${errors}Invalid type '$new_val' for $(basename "$path")\n"; skip=true; }
+        $valid || { errors="${errors}Invalid type '${new_val}' for $(basename "$path")"$'\n'; skip=true; }
       fi ;;
     status)
       if [ -n "$new_val" ]; then
         valid=false
         while IFS= read -r v || [ -n "$v" ]; do [ "$new_val" = "$v" ] && valid=true && break; done < "$dir/.schema_status_values"
-        $valid || { errors="${errors}Invalid status '$new_val' for $(basename "$path")\n"; skip=true; }
+        $valid || { errors="${errors}Invalid status '${new_val}' for $(basename "$path")"$'\n'; skip=true; }
       fi ;;
     priority)
       if [ -n "$new_val" ] && [ "$(cat "$dir/.schema_priority_enabled")" != "false" ]; then
         valid=false
         while IFS= read -r v || [ -n "$v" ]; do [ "$new_val" = "$v" ] && valid=true && break; done < "$dir/.schema_priority_values"
-        $valid || { errors="${errors}Invalid priority '$new_val' for $(basename "$path")\n"; skip=true; }
+        $valid || { errors="${errors}Invalid priority '${new_val}' for $(basename "$path")"$'\n'; skip=true; }
       fi ;;
   esac
   $skip && continue
@@ -4981,7 +4980,7 @@ clear > /dev/tty 2>/dev/null
 
 # Show validation errors
 if [ -n "$errors" ]; then
-  printf "\n${_c_red}%b${_c_reset}" "$errors" > /dev/tty
+  printf "\n${_c_red}%s${_c_reset}" "$errors" > /dev/tty
 fi
 
 # No valid changes?
@@ -5079,7 +5078,7 @@ _apply_note() {
       if _would_drop "$_pa"; then pin_files+=("$prev_path"); break; fi
     done
   else
-    apply_errors="${apply_errors}Failed to update $(basename "$prev_path")\n"
+    apply_errors="${apply_errors}Failed to update $(basename "$prev_path")"$'\n'
     fail_count=$((fail_count + 1))
   fi
 }
@@ -5095,7 +5094,7 @@ _apply_note
 
 # Report results
 if [ -n "$apply_errors" ]; then
-  printf "${_c_red}%b${_c_reset}" "$apply_errors" > /dev/tty
+  printf "${_c_red}%s${_c_reset}" "$apply_errors" > /dev/tty
 fi
 if [ "$count" -gt 0 ]; then
   printf "${_c_green}Updated %d note(s)${_c_reset}\n" "$count" > /dev/tty
@@ -6022,7 +6021,12 @@ do_sort() {
     priority)
       local unset_pos; unset_pos=$(cat "$dir/.schema_priority_unset_pos")
       local placeholder
-      case "$unset_pos" in first) placeholder=-999999 ;; last) placeholder=999999 ;; *) nn_assert "do_sort: unknown unset_position '$unset_pos'" ;; esac
+      if [ -n "$_rev" ]; then
+        # Reversed sort: swap placeholders so "last" still means bottom of the visible list
+        case "$unset_pos" in first) placeholder=999999 ;; last) placeholder=-999999 ;; *) nn_assert "do_sort: unknown unset_position '$unset_pos'" ;; esac
+      else
+        case "$unset_pos" in first) placeholder=-999999 ;; last) placeholder=999999 ;; *) nn_assert "do_sort: unknown unset_position '$unset_pos'" ;; esac
+      fi
       local _pdir=n; [ -n "$_rev" ] && _pdir=nr
       awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' | sort -t'	' -k3,3${_pdir} -s | awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3==p)$3="";print}' ;;
     modified) if [ -n "$_rev" ]; then sort -t'	' -k7,7 -s; else sort -t'	' -k7,7r -s; fi ;;

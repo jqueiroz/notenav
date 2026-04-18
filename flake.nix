@@ -13,6 +13,7 @@
       });
       runtimeDepsFor = pkgs: with pkgs; [
         bash
+        git  # required by zk at runtime
         zk  # optional but bundled – enables faster indexing and link graph
         fzf
         bat
@@ -27,8 +28,6 @@
         curl
       ] ++ (if pkgs.stdenv.isLinux then [ pkgs.inotify-tools ]
            else if pkgs.stdenv.isDarwin then [ pkgs.fswatch ]
-           else if pkgs.stdenv.isFreeBSD then [ pkgs.fswatch ]   # kqueue backend
-           else if pkgs.stdenv.isOpenBSD then [ pkgs.fswatch ]  # kqueue backend
            else throw "unsupported platform for file watcher dependency");
     in
     {
@@ -111,7 +110,7 @@
         let runtimeDeps = runtimeDepsFor pkgs;
         in {
           default = pkgs.mkShell {
-            packages = runtimeDeps ++ [ pkgs.git ];
+            packages = runtimeDeps;
 
             shellHook = ''
               export PATH="$PWD/bin:$PATH"
