@@ -6039,10 +6039,10 @@ do_sort() {
       local _pdir=n; [ -n "$_rev" ] && _pdir=nr
       local _pvf="$dir/.schema_priority_values"
       awk -F'\t' -v p="$placeholder" -v pf="$_pvf" '
-        BEGIN { OFS=FS; while ((getline v < pf) > 0) m[v]=++idx; close(pf) }
+        BEGIN { OFS=FS; while ((getline v < pf) > 0) { idx++; m[v]=100000+idx }; close(pf) }
         { if ($3=="") $3=p; else if ($3 in m) $3=m[$3]; print }
       ' | sort -t'	' -k3,3${_pdir} -s | awk -F'\t' -v p="$placeholder" -v pf="$_pvf" '
-        BEGIN { OFS=FS; while ((getline v < pf) > 0) r[++idx]=v; close(pf) }
+        BEGIN { OFS=FS; while ((getline v < pf) > 0) { idx++; r[100000+idx]=v }; close(pf) }
         { if ($3==p) $3=""; else if (int($3) in r) $3=r[int($3)]; print }
       ' ;;
     modified) if [ -n "$_rev" ]; then sort -t'	' -k7,7 -s; else sort -t'	' -k7,7r -s; fi ;;
@@ -7172,10 +7172,10 @@ ENDDELETE
         local _pdir=n; [[ -n "$_rev" ]] && _pdir=nr
         local _pvals; _pvals=$(printf '%s\n' "${NN_PRIORITY_VALUES[@]}")
         _pvals="$_pvals" awk -F'\t' -v p="$_ph" '
-          BEGIN { OFS=FS; n=split(ENVIRON["_pvals"],a,"\n"); for(i=1;i<=n;i++) m[a[i]]=i }
+          BEGIN { OFS=FS; n=split(ENVIRON["_pvals"],a,"\n"); for(i=1;i<=n;i++) m[a[i]]=100000+i }
           { if($3=="") $3=p; else if($3 in m) $3=m[$3]; print }
         ' | sort -t'	' "-k3,3${_pdir}" -s | _pvals="$_pvals" awk -F'\t' -v p="$_ph" '
-          BEGIN { OFS=FS; n=split(ENVIRON["_pvals"],a,"\n"); for(i=1;i<=n;i++) r[i]=a[i] }
+          BEGIN { OFS=FS; n=split(ENVIRON["_pvals"],a,"\n"); for(i=1;i<=n;i++) r[100000+i]=a[i] }
           { if($3==p) $3=""; else if(int($3) in r) $3=r[int($3)]; print }
         ' ;;
       modified) if [[ -n "$_rev" ]]; then sort -t'	' -k7,7 -s; else sort -t'	' -k7,7r -s; fi ;;
