@@ -3988,13 +3988,16 @@ ENDFNFIND
     if [[ -s "$_nn_dir/.raw" ]]; then
       local _pf_pe=1
       [[ "$NN_PRIORITY_ENABLED" == "false" ]] && _pf_pe=0
+      local _pf_ts; _pf_ts=$(printf '%s\n' "${NN_TYPE_VALUES[@]}")
+      local _pf_ss; _pf_ss=$(printf '%s\n' "${NN_STATUS_VALUES[@]}")
+      local _pf_ps; _pf_ps=$(printf '%s\n' "${NN_PRIORITY_VALUES[@]}")
       local _pf_bad
-      _pf_bad=$(ts="${NN_TYPE_VALUES[*]}" ss="${NN_STATUS_VALUES[*]}" ps="${NN_PRIORITY_VALUES[*]}" pe="$_pf_pe" \
+      _pf_bad=$(ts="$_pf_ts" ss="$_pf_ss" ps="$_pf_ps" pe="$_pf_pe" \
         "${_NN_GAWK:-awk}" -F'\t' '
         BEGIN {
-          n = split(ENVIRON["ts"], a, " "); for (i=1;i<=n;i++) tk[a[i]]=1
-          n = split(ENVIRON["ss"], b, " "); for (i=1;i<=n;i++) sk[b[i]]=1
-          n = split(ENVIRON["ps"], c, " "); for (i=1;i<=n;i++) pk[c[i]]=1
+          n = split(ENVIRON["ts"], a, "\n"); for (i=1;i<=n;i++) tk[a[i]]=1
+          n = split(ENVIRON["ss"], b, "\n"); for (i=1;i<=n;i++) sk[b[i]]=1
+          n = split(ENVIRON["ps"], c, "\n"); for (i=1;i<=n;i++) pk[c[i]]=1
           pe = ENVIRON["pe"] + 0
         }
         {
@@ -4085,7 +4088,7 @@ Space/Tab toggle · Enter apply · Esc cancel'
 else
   _hdr=$'Filter the view to only include notes matching the selected tags.\n\033[36mSpace\033[0m/\033[36mTab\033[0m toggle \033[90m·\033[0m \033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel'
 fi
-selected=$(echo "$ordered" | fzf --multi --reverse --prompt 'tags: ' \
+selected=$(printf '%s\n' "$ordered" | fzf --multi --reverse --prompt 'tags: ' \
   "${_fzf_ansi[@]}" --header "$_hdr" \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up,space:toggle' ${start_bind:+--bind "$start_bind"})
 if [ $? -eq 0 ]; then
@@ -6350,10 +6353,12 @@ if [ -s "$dir/.f_tags" ]; then
 fi
 if [ -n "$ftitle" ]; then
   [ -n "$_mparts" ] && _mparts="$_mparts  "
-  _mparts="${_mparts}title:\033[1m\"${ftitle}\"\033[0m"
+  _esc="${ftitle//\\/\\\\}"
+  _mparts="${_mparts}title:\033[1m\"${_esc}\"\033[0m"
 elif [ -n "$fmatch" ]; then
   [ -n "$_mparts" ] && _mparts="$_mparts  "
-  _mparts="${_mparts}content:\033[1m\"${fmatch}\"\033[0m"
+  _esc="${fmatch//\\/\\\\}"
+  _mparts="${_mparts}content:\033[1m\"${_esc}\"\033[0m"
 fi
 if [ "$mark_count" -gt 0 ]; then
   [ -n "$_mparts" ] && _mparts="$_mparts  "
@@ -6491,10 +6496,12 @@ if [ "$count" -eq 0 ] && ! [ -s "$dir/.current" ]; then
     # Search filters persist after exiting search mode and are easy to forget.
     if [ -n "$fmatch" ]; then
       _hint_plain="(content:\"$fmatch\" active – enter /? to clear, or R to reset all)"
-      _hint_color=$(printf '\033[90m(content:\033[1m"%s"\033[0;90m active – enter \033[36m/?\033[90m to clear, or \033[36mR\033[90m to reset all)\033[0m' "$fmatch")
+      _esc="${fmatch//\\/\\\\}"
+      _hint_color=$(printf '\033[90m(content:\033[1m"%s"\033[0;90m active – enter \033[36m/?\033[90m to clear, or \033[36mR\033[90m to reset all)\033[0m' "$_esc")
     elif [ -n "$ftitle" ]; then
       _hint_plain="(title:\"$ftitle\" active – enter / to clear, or R to reset all)"
-      _hint_color=$(printf '\033[90m(title:\033[1m"%s"\033[0;90m active – enter \033[36m/\033[90m to clear, or \033[36mR\033[90m to reset all)\033[0m' "$ftitle")
+      _esc="${ftitle//\\/\\\\}"
+      _hint_color=$(printf '\033[90m(title:\033[1m"%s"\033[0;90m active – enter \033[36m/\033[90m to clear, or \033[36mR\033[90m to reset all)\033[0m' "$_esc")
     # If no filters are active and the archive view is hiding everything,
     # R won't help – suggest opening the archive picker via zh.
     elif [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && [ -z "$fmarked" ] && [ -z "$active_sq" ] && ! [ -s "$dir/.f_tags" ] && [ -s "$dir/.schema_archive" ]; then
