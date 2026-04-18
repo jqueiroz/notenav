@@ -3943,7 +3943,8 @@ EOF
       shopt -u nullglob; return 1
     fi
     chmod 700 "$_nn_dir"
-    trap '_p=$(cat "'"$_nn_dir"'/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "'"$_nn_dir"'"' EXIT HUP INT TERM QUIT
+    trap '_p=$(cat "'"$_nn_dir"'/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "'"$_nn_dir"'"' EXIT
+    trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 131' QUIT
     nn_write_workflow_files "$_nn_dir"
 
     # Write backend detection flag, gawk path, and notebook root for helper scripts
