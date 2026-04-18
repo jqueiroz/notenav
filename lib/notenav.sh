@@ -6165,7 +6165,7 @@ if [ -n "$fgroup" ]; then
         printf "\t%s── %s (%d) ──%s\n", pre, label, counts[g], suf
         printf "%s", lines[g]
       }
-    }' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current"
+    }' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current" || rm -f "$dir/.current.tmp"
 fi
 # Compute inline stats from filtered set
 awk_stats=$(cat "$dir/.awk_color_stats")
