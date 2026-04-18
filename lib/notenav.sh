@@ -1293,21 +1293,21 @@ _nn_load_nnignore() {
   # Name exact matches: _b == "pattern"
   local n_pat en
   for n_pat in "${name_pats[@]}"; do
-    en="${n_pat//\\/\\\\}"; en="${en//\"/\\\"}"
+    en="${n_pat//\\/\\\\}"; en="${en//\"/\\\"}"; en="${en//\$/\\$}"
     conds+=("_b == \"$en\"")
   done
 
   # Dir matches: path contains /dirname/
   local d_pat ed
   for d_pat in "${dir_pats[@]}"; do
-    ed="${d_pat//\\/\\\\}"; ed="${ed//\"/\\\"}"
+    ed="${d_pat//\\/\\\\}"; ed="${ed//\"/\\\"}"; ed="${ed//\$/\\$}"
     conds+=("index(\$6, \"/$ed/\") > 0")
   done
 
   # Path suffix matches: path ends with /relative/path
   local p_pat ep suf slen
   for p_pat in "${path_pats[@]}"; do
-    ep="${p_pat//\\/\\\\}"; ep="${ep//\"/\\\"}"
+    ep="${p_pat//\\/\\\\}"; ep="${ep//\"/\\\"}"; ep="${ep//\$/\\$}"
     suf="/$ep"
     slen=$(( ${#p_pat} + 1 ))
     conds+=("substr(\$6, length(\$6) - $slen + 1) == \"$suf\"")
