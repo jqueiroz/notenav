@@ -385,7 +385,7 @@ nn_cfg() {
 # written by nn_write_workflow_files().
 
 # Escape a string for safe interpolation into an AWK double-quoted literal.
-# Handles backslash, double-quote, and newline (the characters that break AWK strings).
+# Handles backslash, dollar, double-quote, and newline (the characters that break AWK strings).
 _nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/\$/\\$/g; s/"/\\"/g' | tr '\n' ' '; }
 # Build AWK condition for type/status/priority/tags field filtering.
 # Arguments: type status priority tags_string
@@ -5972,7 +5972,7 @@ printf '%s\n' "$fmatch" > "$dir/.f_match"
 printf '%s\n' "$fmarked" > "$dir/.f_marked"
 # Build awk condition
 # Sanitize values for safe interpolation into awk expressions
-awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' '; }
+awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/\$/\\$/g; s/"/\\"/g' | tr '\n' ' '; }
 # Build AWK condition for type/status/priority/tags field filtering.
 # Arguments: type status priority tags_string
 # tags_string is newline-delimited (or empty for no tag filter).
