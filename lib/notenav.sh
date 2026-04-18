@@ -7136,6 +7136,17 @@ ENDDELETE
   awk_cond=$(_nn_build_field_cond "${filters[type]}" "${filters[status]}" "${filters[priority]}" "$_tags_str")
   [[ -z "$awk_cond" ]] && awk_cond="1"
 
+  # Apply archive visibility (mirrors TUI filter.sh lines 6010-6019).
+  # An explicit status filter overrides archive hiding – the user typed
+  # status=X and wants to see X regardless of where it falls.
+  local _adhoc_archive=""
+  if [[ -z "${filters[status]}" ]]; then
+    case "$NN_DEFAULT_ARCHIVE" in
+      hide) _adhoc_archive="$NN_ARCHIVE_COND" ;;
+      only) _adhoc_archive="$NN_ARCHIVE_ONLY_COND" ;;
+    esac
+  fi
+
   # Sort helper for ad-hoc output (same column layout as TUI's filter.sh).
   # NOTE: must stay in sync with do_sort() in the filter.sh heredoc.
   _nn_adhoc_sort() {
@@ -7186,7 +7197,7 @@ ENDDELETE
     printf '#!/usr/bin/env bash\nmapfile -t nn_editor_cmd < <(cat "%s" 2>/dev/null)\n[ ${#nn_editor_cmd[@]} -eq 0 ] && nn_editor_cmd=(vi)\ntarget=$(cat "%s" 2>/dev/null)\n[ -f "$target" ] && "${nn_editor_cmd[@]}" "$target"\n' "$_nn_edit.editor" "$_nn_edit.target" > "$_nn_edit"
     chmod +x "$_nn_edit"
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
-      | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
+      | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND$_adhoc_archive" \
       | _nn_adhoc_sort \
       | awk -F'\t' "$_awk_color" > "$nn_tmp"
     local _nn_adhoc_fzf_ansi=(--ansi)
@@ -7238,7 +7249,7 @@ ENDDELETE
     local _adhoc_tmp
     _adhoc_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
-      | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND" \
+      | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND$_adhoc_archive" \
       | _nn_adhoc_sort \
       | awk -F'\t' "$_adhoc_fmt" > "$_adhoc_tmp"
     if [[ -s "$_adhoc_tmp" ]]; then
