@@ -7233,8 +7233,12 @@ ENDDELETE
           --bind 'J:preview-page-down,K:preview-page-up' \
           --bind 'H:toggle-wrap' \
           --bind "enter:transform[printf '%s' {1} > $_nn_edit.target; echo 'execute($_nn_edit)+refresh-preview']"
+    local _adhoc_fzf_rc=$?
     rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"
     trap - EXIT
+    unset -f _nn_adhoc_sort
+    shopt -u nullglob
+    return "$_adhoc_fzf_rc"
   else
     # Build the awk format string for the chosen output mode.
     local _adhoc_fmt
