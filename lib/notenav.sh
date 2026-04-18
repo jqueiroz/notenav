@@ -6036,7 +6036,14 @@ do_sort() {
         case "$unset_pos" in first) placeholder=-999999 ;; last) placeholder=999999 ;; *) nn_assert "do_sort: unknown unset_position '$unset_pos'" ;; esac
       fi
       local _pdir=n; [ -n "$_rev" ] && _pdir=nr
-      awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' | sort -t'	' -k3,3${_pdir} -s | awk -F'\t' -v p="$placeholder" 'BEGIN{OFS=FS}{if($3==p)$3="";print}' ;;
+      local _pvf="$dir/.schema_priority_values"
+      awk -F'\t' -v p="$placeholder" -v pf="$_pvf" '
+        BEGIN { OFS=FS; while ((getline v < pf) > 0) m[v]=++idx; close(pf) }
+        { if ($3=="") $3=p; else if ($3 in m) $3=m[$3]; print }
+      ' | sort -t'	' -k3,3${_pdir} -s | awk -F'\t' -v p="$placeholder" -v pf="$_pvf" '
+        BEGIN { OFS=FS; while ((getline v < pf) > 0) r[++idx]=v; close(pf) }
+        { if ($3==p) $3=""; else if (int($3) in r) $3=r[int($3)]; print }
+      ' ;;
     modified) if [ -n "$_rev" ]; then sort -t'	' -k7,7 -s; else sort -t'	' -k7,7r -s; fi ;;
     created)  if [ -n "$_rev" ]; then sort -t'	' -k8,8 -s; else sort -t'	' -k8,8r -s; fi ;;
     title)    if [ -n "$_rev" ]; then sort -t'	' -k5,5r -s; else sort -t'	' -k5,5 -s; fi ;;
@@ -7162,9 +7169,14 @@ ENDDELETE
           case "$NN_PRIORITY_UNSET_POS" in first) _ph=-999999 ;; last) _ph=999999 ;; *) nn_assert "_nn_adhoc_sort: unknown unset_position '$NN_PRIORITY_UNSET_POS'" ;; esac
         fi
         local _pdir=n; [[ -n "$_rev" ]] && _pdir=nr
-        awk -F'\t' -v p="$_ph" 'BEGIN{OFS=FS}{if($3=="")$3=p;print}' \
-          | sort -t'	' "-k3,3${_pdir}" -s \
-          | awk -F'\t' -v p="$_ph" 'BEGIN{OFS=FS}{if($3==p)$3="";print}' ;;
+        local _pvals; _pvals=$(printf '%s\n' "${NN_PRIORITY_VALUES[@]}")
+        _pvals="$_pvals" awk -F'\t' -v p="$_ph" '
+          BEGIN { OFS=FS; n=split(ENVIRON["_pvals"],a,"\n"); for(i=1;i<=n;i++) m[a[i]]=i }
+          { if($3=="") $3=p; else if($3 in m) $3=m[$3]; print }
+        ' | sort -t'	' "-k3,3${_pdir}" -s | _pvals="$_pvals" awk -F'\t' -v p="$_ph" '
+          BEGIN { OFS=FS; n=split(ENVIRON["_pvals"],a,"\n"); for(i=1;i<=n;i++) r[i]=a[i] }
+          { if($3==p) $3=""; else if(int($3) in r) $3=r[int($3)]; print }
+        ' ;;
       modified) if [[ -n "$_rev" ]]; then sort -t'	' -k7,7 -s; else sort -t'	' -k7,7r -s; fi ;;
       created)  if [[ -n "$_rev" ]]; then sort -t'	' -k8,8 -s; else sort -t'	' -k8,8r -s; fi ;;
       title)    if [[ -n "$_rev" ]]; then sort -t'	' -k5,5r -s; else sort -t'	' -k5,5 -s; fi ;;
