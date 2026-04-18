@@ -4527,7 +4527,7 @@ if [[ "$mode" = "watch" ]]; then
     rm -f "$_fifo"
     exit 0
   fi
-  trap 'kill $_watch_child 2>/dev/null; rm -f "$_fifo"; exit' EXIT TERM
+  trap 'kill $_watch_child 2>/dev/null; rm -f "$_fifo"; exit' EXIT HUP INT TERM QUIT
   while IFS= read -r _; do
     while IFS= read -r -t 1 _; do :; done
     post_reload
