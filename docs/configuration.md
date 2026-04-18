@@ -327,7 +327,7 @@ notenav ships with five workflows. Use `extends` in `.nn/workflow.toml` or `defa
 | **[cuboid](workflows/cuboid.md)** | idea, task, reference, ritual | active, blocked, new, done, removed | 1–4 | Personal wikis and mixed notebooks |
 | **[ado](workflows/ado.md)** | feature, task, bug | new, active, resolved, closed, removed | 1–4 | Azure DevOps-style work items |
 | **[gtd](workflows/gtd.md)** | action, project, reference | next, waiting, inbox, someday, done, dropped | 1–3 | Getting Things Done workflow |
-| **[zettelkasten](workflows/zettelkasten.md)** | fleeting, literature, permanent | review, draft, mature, archived | *(disabled)* | Slip-box knowledge management |
+| **[zettelkasten](workflows/zettelkasten.md)** | fleeting, literature, permanent | draft, review, mature, archived | *(disabled)* | Slip-box knowledge management |
 
 ## Creating a custom workflow
 
