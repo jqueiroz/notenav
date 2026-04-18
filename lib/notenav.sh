@@ -4619,7 +4619,7 @@ for file in "$@"; do
     NR==1 && /^---[[:space:]]*$/ { in_fm=1; fm_lines=0; print; next }
     in_fm && /^---[[:space:]]*$/ { in_fm=0; if (!found && value != "") print field ": " value; print; skip_cont=0; next }
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
-    in_fm && skip_cont && /^[[:blank:]]/ { next }
+    in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value; found=1; skip_cont=1; next }
     { print }
@@ -4891,7 +4891,7 @@ set_type="$set_type" set_status="$set_status" \
     print; next
   }
   in_fm && ++fm_lines > 200 { in_fm=0; print; next }
-  in_fm && skip_cont && /^[[:blank:]]/ { next }
+  in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
   in_fm && skip_cont { skip_cont=0 }
   in_fm && /^type:/ {
     if (has_type) { if (!found_type && set_type != "") print "type: " set_type; found_type=1; skip_cont=1; next }
