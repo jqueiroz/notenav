@@ -6891,6 +6891,7 @@ if [ $_del_ok -gt 0 ]; then
       rm)    _la_msg="deleted · $_la_title" ;;
     esac
   fi
+  [ $_del_fail -gt 0 ] && _la_msg="$_la_msg · $_del_fail failed"
   printf '%s' "$_la_msg" > "$dir/.last_action"
   printf "  ${_nn_green}Deleted %d note(s)${_nn_reset}\n" "$_del_ok" > /dev/tty
 fi
