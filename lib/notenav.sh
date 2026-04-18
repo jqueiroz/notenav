@@ -7005,7 +7005,7 @@ ENDDELETE
       --bind "enter:transform[case {1} in *.empty_placeholder) ;; *) if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+reload(cat $_nn_dir/.current)+execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh)+refresh-preview'; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; echo 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh)+refresh-preview'; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; echo 'execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh)+refresh-preview'; fi; fi;; esac]"
     local _fzf_rc=$?
     _p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null
-    trap - EXIT
+    trap - EXIT HUP INT TERM QUIT
     rm -rf "$_nn_dir"
     shopt -u nullglob
     case "$NN_UI_EXIT_MESSAGE" in
