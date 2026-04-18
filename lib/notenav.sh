@@ -6077,6 +6077,7 @@ if [ -n "$ftitle" ]; then
     '~'*)
       _tq="${ftitle#'~'}"
       q="$_tq" $nn_gawk -F'\t' 'BEGIN{q=tolower(ENVIRON["q"])} tolower($5)~q' "$_raw_input" > "$dir/.raw_title" 2>/dev/null
+      if [ $? -ne 0 ]; then printf '⚠ invalid regex' > "$dir/.last_action"; fi
       ;;
     *)
       q="$ftitle" $nn_gawk -F'\t' 'BEGIN{q=tolower(ENVIRON["q"])} index(tolower($5),q)' "$_raw_input" > "$dir/.raw_title"
@@ -6120,9 +6121,9 @@ if [ -s "$dir/.pinned.snap" ] || [ -s "$dir/.marked.snap" ]; then
     !('"${cond}"') && ($6 in is_pinned) && ($6 in is_marked) { gc++; '"${marked_awk}"' }
     !('"${cond}"') && ($6 in is_pinned) && !($6 in is_marked) { gc++; '"${pinned_awk}"' }
     END { printf "%d", gc+0 > ghost_file }
-  ' > "$dir/.current"
+  ' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current" || rm -f "$dir/.current.tmp"
 else
-  do_sort "$fsort" < "$_raw_input" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current"
+  do_sort "$fsort" < "$_raw_input" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current" || rm -f "$dir/.current.tmp"
   printf '0' > "$dir/.pin_ghost_count"
 fi
 # Pipeline: AWK filter → count → grouping → empty-view → border/output
