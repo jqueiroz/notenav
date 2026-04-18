@@ -1416,6 +1416,7 @@ _NN_NATIVE_PARSER_AWK=$(cat << 'ENDAWK'
       sub(/\.md$/, "", title)
     }
   }
+  gsub(/\t/, " ", title); gsub(/\t/, " ", tags)
   printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", type, status, priority, tags, title, file, mtime, created
 }
 BEGIN { NR_FILE = 0 }
