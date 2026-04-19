@@ -6,7 +6,7 @@
 default_workflow = "zenith"  # "zenith" | "cuboid" | "ado" | "gtd" | "zettelkasten"
 
 [defaults]
-sort_by = "created"       # "created" | "modified" | "title" | "priority"
+sort_by = "priority"      # "created" | "modified" | "title" | "priority"
 sort_reverse = false       # true to reverse the default sort direction
 group_by = "none"          # "none" | "type" | "status"
 type_visibility = "all"           # "typed_only" | "all"

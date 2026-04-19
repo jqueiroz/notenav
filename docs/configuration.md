@@ -407,7 +407,7 @@ Initial view settings. These control what you see on launch; most can be toggled
 
 ```toml
 [defaults]
-sort_by = "created"             # created | modified | title | priority
+sort_by = "priority"            # created | modified | title | priority
 sort_reverse = false            # true to reverse the default sort direction
 group_by = "none"               # none | type | status
 type_visibility = "all"          # typed_only | all
@@ -424,7 +424,7 @@ title    = ["created"]
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `sort_by` | string | `"created"` | Sort order for notes (`"priority"` only meaningful when the active workflow has `priority.enabled = true`) |
+| `sort_by` | string | `"priority"` | Sort order for notes (falls back to `"created"` when the active workflow has `priority.enabled = false`) |
 | `sort_reverse` | boolean | `false` | Whether to reverse the default sort direction |
 | `group_by` | string | `"none"` | Grouping in the list; `"none"` for no grouping |
 | `type_visibility` | string | `"all"` | Which notes appear based on their type field: `"typed_only"` (hide untyped) or `"all"` (show all) |

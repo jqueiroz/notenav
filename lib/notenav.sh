@@ -914,7 +914,7 @@ nn_precompute_workflow() {
   # jq's `//` filters out `false` from the LHS and would silently substitute
   # the default. Works today only because base.toml happens to default these
   # to `false` – fragile if a default ever flips. See NN_PRIORITY_ENABLED above.
-  NN_DEFAULT_SORT=$(nn_cfg '.defaults.sort_by // "created"')
+  NN_DEFAULT_SORT=$(nn_cfg '.defaults.sort_by // "priority"')
   NN_DEFAULT_SORT_REV=$(nn_cfg 'if (.defaults // {}) | has("sort_reverse") then .defaults.sort_reverse else false end')
   # User-facing config uses "none" for no grouping; the runtime stores
   # group state as the empty string (file convention in .f_group).
@@ -986,8 +986,11 @@ nn_precompute_workflow() {
     *) echo "notenav: refresh.mode '$NN_REFRESH_MODE' invalid (must be 'watch', 'poll', or 'manual')" >&2; return 1 ;; esac
   case "$NN_DEFAULT_SORT" in created|modified|title|priority|"") ;;
     *) echo "notenav: defaults.sort_by '$NN_DEFAULT_SORT' invalid (must be 'created', 'modified', 'title', or 'priority')" >&2; return 1 ;; esac
+  # Silently fall back to "created" when priority sorting is requested but
+  # the workflow has priority disabled (e.g. zettelkasten).
   if [[ "$NN_DEFAULT_SORT" == "priority" && "$NN_PRIORITY_ENABLED" == "false" ]]; then
-    echo "notenav: defaults.sort_by is 'priority' but priority is disabled" >&2; return 1; fi
+    NN_DEFAULT_SORT="created"
+  fi
   case "$NN_DEFAULT_GROUP" in type|status|"") ;;
     *) echo "notenav: defaults.group_by '$NN_DEFAULT_GROUP' invalid (must be 'none', 'type', or 'status')" >&2; return 1 ;; esac
   case "$NN_DEFAULT_ARCHIVE" in hide|show|only) ;;
@@ -1007,8 +1010,10 @@ nn_precompute_workflow() {
     for _sc_entry in "${_sc_arr[@]}"; do
       case "$_sc_entry" in created|modified|title|priority|status|type) ;;
         *) echo "notenav: defaults.sort_chain.${_sc_key} contains invalid field '${_sc_entry}' (must be created, modified, title, priority, status, or type)" >&2; return 1 ;; esac
+      # Allow "priority" in chains when priority is disabled – the chain
+      # field sort is a no-op at runtime (skips when values file is empty).
       if [[ "$_sc_entry" == "priority" && "$NN_PRIORITY_ENABLED" == "false" ]]; then
-        echo "notenav: defaults.sort_chain.${_sc_key} contains 'priority' but priority is disabled" >&2; return 1; fi
+        continue; fi
     done
   done
 
@@ -2372,7 +2377,7 @@ EOF
         *) _warn "defaults.sort_by '$_def_sort' invalid (must be created, modified, title, or priority)" ;;
       esac
       if [[ "$_def_sort" == "priority" && "$_pri_enabled" == "false" ]]; then
-        _warn "defaults.sort_by is 'priority' but priority is disabled"
+        _warn "defaults.sort_by is 'priority' but priority is disabled (falls back to 'created')"
       fi
     fi
     local _def_group
@@ -2420,7 +2425,7 @@ EOF
           *) _warn "defaults.sort_chain.${_sc_dk}: invalid field '${_sc_de}' (must be created, modified, title, priority, status, or type)" ;;
         esac
         if [[ "$_sc_de" == "priority" && "$_pri_enabled" == "false" ]]; then
-          _warn "defaults.sort_chain.${_sc_dk}: chain contains 'priority' but priority is disabled"
+          _warn "defaults.sort_chain.${_sc_dk}: chain contains 'priority' but priority is disabled (skipped at runtime)"
         fi
         if [[ "$_sc_de" == "$_sc_dk" ]]; then
           _warn "defaults.sort_chain.${_sc_dk}: chain contains '${_sc_dk}' (same as primary sort – redundant)"
