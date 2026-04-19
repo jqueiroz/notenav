@@ -14,3 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Changed
 
 - Default `sort_by` is now `"priority"` (was `"created"`). Workflows that disable priority (e.g. zettelkasten) automatically fall back to `"created"`.
+- Default `group_by` is now `"type"` (was `"none"`).
+
+### Fixed
+
+- Clearing the search query and pressing Esc no longer restores the previous search; it clears the search filter as expected.

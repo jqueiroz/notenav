@@ -409,7 +409,7 @@ Initial view settings. These control what you see on launch; most can be toggled
 [defaults]
 sort_by = "priority"            # created | modified | title | priority
 sort_reverse = false            # true to reverse the default sort direction
-group_by = "none"               # none | type | status
+group_by = "type"               # none | type | status
 type_visibility = "all"          # typed_only | all
 archive_visibility = "hide"     # hide | show | only – which archive statuses appear
 wrap_preview = false            # true to wrap the preview pane by default
@@ -426,7 +426,7 @@ title    = ["created"]
 |-----|------|---------|-------------|
 | `sort_by` | string | `"priority"` | Sort order for notes (falls back to `"created"` when the active workflow has `priority.enabled = false`) |
 | `sort_reverse` | boolean | `false` | Whether to reverse the default sort direction |
-| `group_by` | string | `"none"` | Grouping in the list; `"none"` for no grouping |
+| `group_by` | string | `"type"` | Grouping in the list; `"none"` for no grouping |
 | `type_visibility` | string | `"all"` | Which notes appear based on their type field: `"typed_only"` (hide untyped) or `"all"` (show all) |
 | `archive_visibility` | string | `"hide"` | Whether archive statuses appear (see below) |
 | `wrap_preview` | boolean | `false` | Whether the preview pane wraps long lines on launch |

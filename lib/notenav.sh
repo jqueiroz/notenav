@@ -918,7 +918,7 @@ nn_precompute_workflow() {
   NN_DEFAULT_SORT_REV=$(nn_cfg 'if (.defaults // {}) | has("sort_reverse") then .defaults.sort_reverse else false end')
   # User-facing config uses "none" for no grouping; the runtime stores
   # group state as the empty string (file convention in .f_group).
-  NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // "none"')
+  NN_DEFAULT_GROUP=$(nn_cfg '.defaults.group_by // "type"')
   [[ "$NN_DEFAULT_GROUP" == "none" ]] && NN_DEFAULT_GROUP=""
   NN_DEFAULT_ARCHIVE=$(nn_cfg '.defaults.archive_visibility // "hide"')
   NN_DEFAULT_WRAP=$(nn_cfg 'if (.defaults // {}) | has("wrap_preview") then .defaults.wrap_preview else false end')
