@@ -413,6 +413,13 @@ group_by = "none"               # none | type | status
 type_visibility = "all"          # typed_only | all
 archive_visibility = "hide"     # hide | show | only – which archive statuses appear
 wrap_preview = false            # true to wrap the preview pane by default
+
+[defaults.sort_chain]
+priority = ["status", "created", "title"]
+status   = ["priority", "created", "title"]
+created  = ["title"]
+modified = ["title"]
+title    = ["created"]
 ```
 
 | Key | Type | Default | Description |
@@ -423,6 +430,7 @@ wrap_preview = false            # true to wrap the preview pane by default
 | `type_visibility` | string | `"all"` | Which notes appear based on their type field: `"typed_only"` (hide untyped) or `"all"` (show all) |
 | `archive_visibility` | string | `"hide"` | Whether archive statuses appear (see below) |
 | `wrap_preview` | boolean | `false` | Whether the preview pane wraps long lines on launch |
+| `sort_chain.*` | array | *(see below)* | Tie-breaking fields applied when two notes share the same primary sort value |
 
 **`defaults.archive_visibility`** controls how archive statuses (declared per-workflow in `[status] archive = [...]`) participate in the default view:
 
@@ -442,6 +450,23 @@ In the TUI, press `z` then `h` to open a picker that lets you switch between the
 | `all` | *(default)* Shows all notes. Notes without a type appear with a dim `·` icon; notes with an unrecognized type value appear with a dim `?` icon. |
 
 When filtering by a specific type (`ft` key or `type=task`), only notes matching that type are shown regardless of this setting.
+
+**`defaults.sort_chain`** defines tie-breaking fields for each primary sort. When two notes share the same primary sort value, the chain fields break the tie in order. Each field uses its natural direction (priority/status/type follow their configured value order; created/modified sort newest-first; title sorts alphabetically). `sort_reverse` only affects the primary sort – chain fields always use their natural direction.
+
+| Primary | Default chain | Effect |
+|---------|---------------|--------|
+| `priority` | `["status", "created", "title"]` | Same priority – group by status, then newest first, then alphabetical |
+| `status` | `["priority", "created", "title"]` | Same status – most urgent first, then newest, then alphabetical |
+| `created` | `["title"]` | Same timestamp – alphabetical |
+| `modified` | `["title"]` | Same timestamp – alphabetical |
+| `title` | `["created"]` | Same title – newest first |
+
+Valid chain fields: `created`, `modified`, `title`, `priority`, `status`, `type`. An empty array (`[]`) disables tie-breaking for that primary sort. To override a single chain, set it in your user config:
+
+```toml
+[defaults.sort_chain]
+priority = ["status", "modified"]   # prefer last-modified over creation date
+```
 
 ### `[ui]`
 

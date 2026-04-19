@@ -923,6 +923,13 @@ nn_precompute_workflow() {
   NN_DEFAULT_ARCHIVE=$(nn_cfg '.defaults.archive_visibility // "hide"')
   NN_DEFAULT_WRAP=$(nn_cfg 'if (.defaults // {}) | has("wrap_preview") then .defaults.wrap_preview else false end')
 
+  # Sort chains: per-field tie-breaking sequences
+  declare -gA NN_SORT_CHAINS
+  local _sc_field
+  for _sc_field in priority status created modified title; do
+    NN_SORT_CHAINS[$_sc_field]=$(nn_cfg ".defaults.sort_chain.${_sc_field} // [] | join(\"\\t\")")
+  done
+
   # UI preferences
   NN_UI_HEADER=$(nn_cfg '.ui.initial_header_mode // "guided"')
   NN_UI_EDITOR=$(nn_cfg '.ui.editor // empty')
@@ -991,6 +998,19 @@ nn_precompute_workflow() {
   fi
   case "$NN_DEFAULT_PIN_MODE" in auto|always) ;;
     *) echo "notenav: ui.pin_mode '$NN_DEFAULT_PIN_MODE' invalid (must be 'auto' or 'always')" >&2; return 1 ;; esac
+  # Validate sort chain entries
+  local _sc_key _sc_entry
+  for _sc_key in "${!NN_SORT_CHAINS[@]}"; do
+    [[ -z "${NN_SORT_CHAINS[$_sc_key]}" ]] && continue
+    local -a _sc_arr
+    IFS=$'\t' read -ra _sc_arr <<< "${NN_SORT_CHAINS[$_sc_key]}"
+    for _sc_entry in "${_sc_arr[@]}"; do
+      case "$_sc_entry" in created|modified|title|priority|status|type) ;;
+        *) echo "notenav: defaults.sort_chain.${_sc_key} contains invalid field '${_sc_entry}' (must be created, modified, title, priority, status, or type)" >&2; return 1 ;; esac
+      if [[ "$_sc_entry" == "priority" && "$NN_PRIORITY_ENABLED" == "false" ]]; then
+        echo "notenav: defaults.sort_chain.${_sc_key} contains 'priority' but priority is disabled" >&2; return 1; fi
+    done
+  done
 
   # ZK format (hardcoded – the entire pipeline assumes this exact column layout)
   NN_ZK_FMT='{{metadata.type}}\t{{metadata.status}}\t{{metadata.priority}}\t{{join tags " "}}\t{{title}}\t{{absPath}}\t{{modified}}\t{{created}}'
@@ -1158,6 +1178,18 @@ nn_write_workflow_files() {
   fi
 
   printf '%s' "$NN_PRIORITY_UNSET_POS" > "$dir/.schema_priority_unset_pos"
+
+  # Sort chain (TSV: primary_field\tchain_entry1\tchain_entry2\t...)
+  local _sc_key
+  for _sc_key in priority status created modified title; do
+    if [[ -n "${NN_SORT_CHAINS[$_sc_key]+x}" && -n "${NN_SORT_CHAINS[$_sc_key]}" ]]; then
+      printf '%s\t%s\n' "$_sc_key" "${NN_SORT_CHAINS[$_sc_key]}"
+    fi
+  done > "$dir/.schema_sort_chains"
+
+  # Display order lists for chain sorting (status/type secondary sort mapping)
+  printf '%s\n' "${NN_STATUS_DISPLAY_ORDER[@]}" > "$dir/.schema_status_sort_order"
+  printf '%s\n' "${NN_TYPE_DISPLAY_ORDER[@]}" > "$dir/.schema_type_sort_order"
 
   # Priority labels (TSV: value\tlabel)
   for _v in "${NN_PRIORITY_VALUES[@]}"; do
@@ -2377,6 +2409,21 @@ EOF
     if [[ -n "$_def_wrap" && "$_def_wrap" != "true" && "$_def_wrap" != "false" ]]; then
       _warn "defaults.wrap_preview '$_def_wrap' invalid (must be true or false)"
     fi
+    # Sort chain validation
+    local _sc_dk _sc_de
+    for _sc_dk in priority status created modified title; do
+      local _sc_arr_str
+      _sc_arr_str=$(nn_cfg ".defaults.sort_chain.${_sc_dk} // [] | .[]" 2>/dev/null)
+      [[ -z "$_sc_arr_str" ]] && continue
+      while IFS= read -r _sc_de; do
+        case "$_sc_de" in created|modified|title|priority|status|type) ;;
+          *) _warn "defaults.sort_chain.${_sc_dk}: invalid field '${_sc_de}' (must be created, modified, title, priority, status, or type)" ;;
+        esac
+        if [[ "$_sc_de" == "priority" && "$_pri_enabled" == "false" ]]; then
+          _warn "defaults.sort_chain.${_sc_dk}: chain contains 'priority' but priority is disabled"
+        fi
+      done <<< "$_sc_arr_str"
+    done
     # Check for unrecognized keys in [defaults]
     if [[ -n "$_known_defaults" ]]; then
       local _dk
@@ -6060,6 +6107,74 @@ do_sort() {
     *)        nn_assert "do_sort: unknown field '$1'" ;;
   esac
 }
+# Sort a single field in its natural direction (for chain / tie-breaking).
+# Natural directions: priority → values order, status/type → display_order,
+# created/modified → newest first, title → A-Z.
+do_chain_field_sort() {
+  case "$1" in
+    priority)
+      local _pvf="$dir/.schema_priority_values"
+      [ ! -s "$_pvf" ] && { cat; return; }
+      local _up; _up=$(cat "$dir/.schema_priority_unset_pos")
+      local _ph; case "$_up" in first) _ph=-999999 ;; last) _ph=999999 ;; *) _ph=999999 ;; esac
+      awk -F'\t' -v p="$_ph" -v pf="$_pvf" '
+        BEGIN { OFS=FS; while ((getline v < pf) > 0) { idx++; m[v]=100000+idx }; close(pf) }
+        { if ($3=="") $3=p; else if ($3 in m) $3=m[$3]; print }
+      ' | sort -t'	' -k3,3n -s | awk -F'\t' -v p="$_ph" -v pf="$_pvf" '
+        BEGIN { OFS=FS; while ((getline v < pf) > 0) { idx++; r[100000+idx]=v }; close(pf) }
+        { if ($3==p) $3=""; else if (int($3) in r) $3=r[int($3)]; print }
+      ' ;;
+    status)
+      local _sof="$dir/.schema_status_sort_order"
+      awk -F'\t' -v sf="$_sof" '
+        BEGIN { OFS=FS; while ((getline v < sf) > 0) { idx++; m[v]=100000+idx }; close(sf) }
+        { sv=$2; if (sv != "" && sv in m) $2=m[sv]; print }
+      ' | sort -t'	' -k2,2n -s | awk -F'\t' -v sf="$_sof" '
+        BEGIN { OFS=FS; while ((getline v < sf) > 0) { idx++; r[100000+idx]=v }; close(sf) }
+        { if (int($2) in r) $2=r[int($2)]; print }
+      ' ;;
+    type)
+      local _tof="$dir/.schema_type_sort_order"
+      awk -F'\t' -v sf="$_tof" '
+        BEGIN { OFS=FS; while ((getline v < sf) > 0) { idx++; m[v]=100000+idx }; close(sf) }
+        { sv=$1; if (sv != "" && sv in m) $1=m[sv]; print }
+      ' | sort -t'	' -k1,1n -s | awk -F'\t' -v sf="$_tof" '
+        BEGIN { OFS=FS; while ((getline v < sf) > 0) { idx++; r[100000+idx]=v }; close(sf) }
+        { if (int($1) in r) $1=r[int($1)]; print }
+      ' ;;
+    modified) sort -t'	' -k7,7r -s ;;
+    created)  sort -t'	' -k8,8r -s ;;
+    title)    sort -t'	' -k5,5 -s ;;
+    *)        cat ;;
+  esac
+}
+# Apply tie-breaking chain for a primary sort field.
+# Reads the chain from .schema_sort_chains and applies each chain field
+# in reverse order using stable sort, so the first chain entry is the
+# strongest tie-breaker after the primary sort.
+do_chain_sort() {
+  local _primary="$1"
+  [ -z "$_primary" ] && { cat; return; }
+  local _chain_str=""
+  while IFS=$'\t' read -r _ck _cr; do
+    [ "$_ck" = "$_primary" ] && { _chain_str="$_cr"; break; }
+  done < "$dir/.schema_sort_chains" 2>/dev/null
+  [ -z "$_chain_str" ] && { cat; return; }
+  local -a _chain
+  IFS=$'\t' read -ra _chain <<< "$_chain_str"
+  [ ${#_chain[@]} -eq 0 ] && { cat; return; }
+  # Apply in reverse order: last chain entry first, so the first entry
+  # ends up as the strongest tie-breaker after the primary sort.
+  local _tmpf; _tmpf=$(mktemp)
+  cat > "$_tmpf"
+  local _i
+  for ((_i=${#_chain[@]}-1; _i>=0; _i--)); do
+    do_chain_field_sort "${_chain[$_i]}" < "$_tmpf" > "$_tmpf.out"
+    mv "$_tmpf.out" "$_tmpf"
+  done
+  cat "$_tmpf"
+  rm -f "$_tmpf"
+}
 now=$(date +%s)
 # Snapshot .raw, .pinned, .marked so concurrent actions cannot modify them mid-filter
 cp "$dir/.raw" "$dir/.raw.snap"
@@ -6114,7 +6229,7 @@ awk_body=$(cat "$dir/.awk_color_body")
 pinned_awk=$(cat "$dir/.awk_color_pinned")
 marked_awk=$(cat "$dir/.awk_color_marked")
 if [ -s "$dir/.pinned.snap" ] || [ -s "$dir/.marked.snap" ]; then
-  do_sort "$fsort" < "$_raw_input" | "$nn_gawk" -F'\t' -v now="$now" \
+  do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" \
     -v marked_file="$dir/.marked.snap" -v pinned_file="$dir/.pinned.snap" -v mfilt="$fmarked" \
     -v ghost_file="$dir/.pin_ghost_count" '
     BEGIN {
@@ -6131,7 +6246,7 @@ if [ -s "$dir/.pinned.snap" ] || [ -s "$dir/.marked.snap" ]; then
     END { printf "%d", gc+0 > ghost_file }
   ' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current" || rm -f "$dir/.current.tmp"
 else
-  do_sort "$fsort" < "$_raw_input" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current" || rm -f "$dir/.current.tmp"
+  do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current" || rm -f "$dir/.current.tmp"
   printf '0' > "$dir/.pin_ghost_count"
 fi
 # Pipeline: AWK filter → count → grouping → empty-view → border/output
@@ -7195,6 +7310,63 @@ ENDDELETE
       *)        nn_assert "_nn_adhoc_sort: unknown field '$NN_DEFAULT_SORT'" ;;
     esac
   }
+  # Chain field sort for ad-hoc path (natural direction only).
+  # NOTE: must stay in sync with do_chain_field_sort() in filter.sh.
+  _nn_adhoc_chain_field_sort() {
+    case "$1" in
+      priority)
+        if [[ "$NN_PRIORITY_ENABLED" == "false" || ${#NN_PRIORITY_VALUES[@]} -eq 0 ]]; then cat; return; fi
+        local _ph; case "$NN_PRIORITY_UNSET_POS" in first) _ph=-999999 ;; *) _ph=999999 ;; esac
+        local _pvals; _pvals=$(printf '%s\n' "${NN_PRIORITY_VALUES[@]}")
+        _pvals="$_pvals" awk -F'\t' -v p="$_ph" '
+          BEGIN { OFS=FS; n=split(ENVIRON["_pvals"],a,"\n"); for(i=1;i<=n;i++) m[a[i]]=100000+i }
+          { if($3=="") $3=p; else if($3 in m) $3=m[$3]; print }
+        ' | sort -t'	' -k3,3n -s | _pvals="$_pvals" awk -F'\t' -v p="$_ph" '
+          BEGIN { OFS=FS; n=split(ENVIRON["_pvals"],a,"\n"); for(i=1;i<=n;i++) r[100000+i]=a[i] }
+          { if($3==p) $3=""; else if(int($3) in r) $3=r[int($3)]; print }
+        ' ;;
+      status)
+        local _svals; _svals=$(printf '%s\n' "${NN_STATUS_DISPLAY_ORDER[@]}")
+        _svals="$_svals" awk -F'\t' '
+          BEGIN { OFS=FS; n=split(ENVIRON["_svals"],a,"\n"); for(i=1;i<=n;i++) m[a[i]]=100000+i }
+          { sv=$2; if (sv != "" && sv in m) $2=m[sv]; print }
+        ' | sort -t'	' -k2,2n -s | _svals="$_svals" awk -F'\t' '
+          BEGIN { OFS=FS; n=split(ENVIRON["_svals"],a,"\n"); for(i=1;i<=n;i++) r[100000+i]=a[i] }
+          { if (int($2) in r) $2=r[int($2)]; print }
+        ' ;;
+      type)
+        local _tvals; _tvals=$(printf '%s\n' "${NN_TYPE_DISPLAY_ORDER[@]}")
+        _tvals="$_tvals" awk -F'\t' '
+          BEGIN { OFS=FS; n=split(ENVIRON["_tvals"],a,"\n"); for(i=1;i<=n;i++) m[a[i]]=100000+i }
+          { sv=$1; if (sv != "" && sv in m) $1=m[sv]; print }
+        ' | sort -t'	' -k1,1n -s | _tvals="$_tvals" awk -F'\t' '
+          BEGIN { OFS=FS; n=split(ENVIRON["_tvals"],a,"\n"); for(i=1;i<=n;i++) r[100000+i]=a[i] }
+          { if (int($1) in r) $1=r[int($1)]; print }
+        ' ;;
+      modified) sort -t'	' -k7,7r -s ;;
+      created)  sort -t'	' -k8,8r -s ;;
+      title)    sort -t'	' -k5,5 -s ;;
+      *)        cat ;;
+    esac
+  }
+  # Apply tie-breaking chain for ad-hoc sort.
+  # NOTE: must stay in sync with do_chain_sort() in filter.sh.
+  _nn_adhoc_chain_sort() {
+    local _chain_str="${NN_SORT_CHAINS[$NN_DEFAULT_SORT]:-}"
+    [[ -z "$_chain_str" ]] && { cat; return; }
+    local -a _chain
+    IFS=$'\t' read -ra _chain <<< "$_chain_str"
+    [[ ${#_chain[@]} -eq 0 ]] && { cat; return; }
+    local _tmpf; _tmpf=$(mktemp)
+    cat > "$_tmpf"
+    local _i
+    for ((_i=${#_chain[@]}-1; _i>=0; _i--)); do
+      _nn_adhoc_chain_field_sort "${_chain[$_i]}" < "$_tmpf" > "$_tmpf.out"
+      mv "$_tmpf.out" "$_tmpf"
+    done
+    cat "$_tmpf"
+    rm -f "$_tmpf"
+  }
 
   if $interactive; then
     if [[ "${TERM:-dumb}" == "dumb" ]]; then
@@ -7221,7 +7393,7 @@ ENDDELETE
     chmod +x "$_nn_edit"
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND$_adhoc_archive" \
-      | _nn_adhoc_sort \
+      | _nn_adhoc_chain_sort | _nn_adhoc_sort \
       | awk -F'\t' "$_awk_color" > "$nn_tmp"
     local _nn_adhoc_fzf_ansi=(--ansi)
     [[ -n "${NO_COLOR+x}" ]] && _nn_adhoc_fzf_ansi=()
@@ -7240,7 +7412,7 @@ ENDDELETE
     local _adhoc_fzf_rc=$?
     rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"
     trap - EXIT
-    unset -f _nn_adhoc_sort
+    unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort
     shopt -u nullglob
     return "$_adhoc_fzf_rc"
   else
@@ -7277,7 +7449,7 @@ ENDDELETE
     _adhoc_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND$_adhoc_archive" \
-      | _nn_adhoc_sort \
+      | _nn_adhoc_chain_sort | _nn_adhoc_sort \
       | awk -F'\t' "$_adhoc_fmt" > "$_adhoc_tmp"
     if [[ -s "$_adhoc_tmp" ]]; then
       cat "$_adhoc_tmp"
@@ -7299,11 +7471,11 @@ ENDDELETE
       if [[ -t 2 ]] && ! $long_output && ! $null_output; then
         echo "notenav: (try -i for an interactive picker)" >&2
       fi
-      unset -f _nn_adhoc_sort
+      unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort
       shopt -u nullglob
       return 1
     fi
   fi
-  unset -f _nn_adhoc_sort
+  unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort
   shopt -u nullglob
 }

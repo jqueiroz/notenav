@@ -13,6 +13,19 @@ type_visibility = "all"           # "typed_only" | "all"
 archive_visibility = "hide"  # "hide" | "show" | "only" – which archive statuses appear
 wrap_preview = false       # true to wrap the preview pane by default
 
+# Tie-breaking chains: when two notes share the same primary sort value,
+# the chain fields break the tie in order.  Each field uses its natural
+# direction (priority → values array order, status → display_order,
+# created/modified → newest first, title → alphabetical).
+# sort_reverse only affects the primary sort; chain fields keep their
+# natural direction so the secondary grouping stays intuitive.
+[defaults.sort_chain]
+priority = ["status", "created", "title"]   # same priority → group by status, then newest, then alphabetical
+status   = ["priority", "created", "title"] # same status → most urgent first, then newest, then alphabetical
+created  = ["title"]                        # same timestamp (rare) → alphabetical
+modified = ["title"]                        # same timestamp (rare) → alphabetical
+title    = ["created"]                      # same title (rare) → newest first
+
 [ui]
 initial_header_mode = "guided"  # "clean" | "guided" – toggle at runtime with h
 editor = ""              # empty = $EDITOR, then nvim/vim/vi/nano/emacs
