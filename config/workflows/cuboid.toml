@@ -17,7 +17,7 @@ schema_version = 1
 
 [type]
 default_color = "cyan"
-values = ["idea", "task", "reference", "ritual"]
+values = ["task", "idea", "reference", "ritual"]
 
 [type.idea]
 icon = "✦"
