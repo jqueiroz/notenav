@@ -2422,6 +2422,9 @@ EOF
         if [[ "$_sc_de" == "priority" && "$_pri_enabled" == "false" ]]; then
           _warn "defaults.sort_chain.${_sc_dk}: chain contains 'priority' but priority is disabled"
         fi
+        if [[ "$_sc_de" == "$_sc_dk" ]]; then
+          _warn "defaults.sort_chain.${_sc_dk}: chain contains '${_sc_dk}' (same as primary sort – redundant)"
+        fi
       done <<< "$_sc_arr_str"
     done
     # Check for unrecognized keys in [defaults]
@@ -6155,10 +6158,11 @@ do_chain_field_sort() {
 do_chain_sort() {
   local _primary="$1"
   [ -z "$_primary" ] && { cat; return; }
+  [ ! -f "$dir/.schema_sort_chains" ] && { cat; return; }
   local _chain_str=""
   while IFS=$'\t' read -r _ck _cr; do
     [ "$_ck" = "$_primary" ] && { _chain_str="$_cr"; break; }
-  done < "$dir/.schema_sort_chains" 2>/dev/null
+  done < "$dir/.schema_sort_chains"
   [ -z "$_chain_str" ] && { cat; return; }
   local -a _chain
   IFS=$'\t' read -ra _chain <<< "$_chain_str"
