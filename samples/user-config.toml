@@ -12,6 +12,15 @@
 # archive_visibility = "hide"   # hide | show | only – which archive statuses appear
 # wrap_preview = false          # true to wrap the preview pane by default
 
+# Tie-breaking chains: when notes share the same primary sort value,
+# these fields break the tie in order.
+# [defaults.sort_chain]
+# priority = ["status", "created", "title"]
+# status   = ["priority", "created", "title"]
+# created  = ["title"]
+# modified = ["title"]
+# title    = ["created"]
+
 # [ui]
 # initial_header_mode = "guided"  # "clean" | "guided" – toggle at runtime with h
 # editor = ""                   # empty = $EDITOR, then nvim/vim/vi/nano/emacs
