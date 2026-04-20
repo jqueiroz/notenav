@@ -5286,7 +5286,7 @@ dir="$1"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 cols=$(tput cols 2>/dev/null || printf '80')
 inner=$(( cols - 6 ))
-[ "$inner" -gt 80 ] && inner=80
+[ "$inner" -gt 112 ] && inner=112
 [ "$inner" -lt 40 ] && inner=40
 
 # NO_COLOR: suppress color codes but keep cursor-movement codes
