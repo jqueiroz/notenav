@@ -5322,6 +5322,7 @@ fi
 
 # ── Read title with cursor movement and Esc-to-cancel ──
 # Uses current value of $title (caller sets it before calling).
+# If $max_len is set, limits title to that many characters.
 # Supports: left/right arrows, Home/End, Ctrl+A/E, Ctrl+U, backspace.
 # On Esc: clears title and returns. On Enter: returns with current title.
 _nn_read_title() {
@@ -5394,11 +5395,13 @@ _nn_read_title() {
         break ;;
       $'\t')  ;; # Ignore tab – breaks TSV pipeline
       *)  # Regular character → insert at cursor
-        after="${title:pos}"
-        title="${title:0:pos}${ch}${after}"
-        pos=$((pos + 1))
-        printf '%s' "${ch}${after}" > /dev/tty
-        [ "${#after}" -gt 0 ] && printf '\033[%dD' "${#after}" > /dev/tty ;;
+        if [ -z "$max_len" ] || [ "${#title}" -lt "$max_len" ]; then
+          after="${title:pos}"
+          title="${title:0:pos}${ch}${after}"
+          pos=$((pos + 1))
+          printf '%s' "${ch}${after}" > /dev/tty
+          [ "${#after}" -gt 0 ] && printf '\033[%dD' "${#after}" > /dev/tty
+        fi ;;
     esac
   done
 }
@@ -5435,6 +5438,7 @@ if [ "$mode" = "auto" ]; then
   # Cursor: up 5 to title line, column 13 (after "  │  Title: ")
   printf '\033[5A\033[13G' > /dev/tty
   title=""
+  max_len=$((inner - 12))
   _nn_read_title
   if [ -z "$title" ]; then
     # Move past box bottom (4 lines down from title+1)
@@ -5553,6 +5557,7 @@ else
   printf "  ${_nn_cyan}╰%s╯${_nn_reset}\n" "$bot_dashes" > /dev/tty
   # Cursor: up 5 to title line, column 16 (after "  │  1. Title: ")
   printf '\033[5A\033[16G' > /dev/tty
+  max_len=$((inner - 15))
   _nn_read_title
   if [ -z "$title" ]; then
     # Move past box bottom (4 lines down from type line)
