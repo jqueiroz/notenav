@@ -4478,13 +4478,11 @@ ENDCSPERSIST
     printf '%s' "$_scope_path" > "$_nn_dir/.scope_path"
     echo "$_fmt" > "$_nn_dir/.list_fmt"
 
-    # Reload raw data helper: consolidates zk/native backend dispatch for reloading
+    # Reload raw data helper: re-scans notes via native find+AWK backend
     cat > "$_nn_dir/reload_raw.sh" << 'ENDRELOAD'
 #!/usr/bin/env bash
 dir="$1"
-has_zk=$(cat "$dir/.has_zk" 2>/dev/null)
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-fmt=$(cat "$dir/.list_fmt")
 scope_path=$(cat "$dir/.scope_path")
 
 # Apply .nnignore filter to .raw.tmp (non-fatal: falls back to unfiltered data)
@@ -4509,34 +4507,20 @@ if [ -s "$dir/.ignore_dirs" ]; then
   done < "$dir/.ignore_dirs"
 fi
 
-if [ "$has_zk" = "true" ]; then
-  # Workaround: zk list <root> returns only root-level notes; omit the path.
-  _zk_scope=("$scope_path")
-  [ -d "$scope_path/.zk" ] && _zk_scope=()
-  zk index --quiet >/dev/null 2>&1
-  _zk_err=$(mktemp) || { printf 'mktemp failed (TMPDIR=%s) – press r to retry' "${TMPDIR:-/tmp}" > "$dir/.last_action"; exit 0; }
-  if zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>"$_zk_err" > "$dir/.raw.tmp" \
-    && _nn_apply_ignore "$dir" \
-    && mv "$dir/.raw.tmp" "$dir/.raw"; then
-    rm -f "$_zk_err"
-  else
-    _zk_msg=$(head -n 3 "$_zk_err" 2>/dev/null | awk '{if(NR>1) printf "; "; printf "%s", $0}')
-    rm -f "$_zk_err" "$dir/.raw.tmp"
-    printf 'zk error%s – press r to retry' "${_zk_msg:+ ($_zk_msg)}" > "$dir/.last_action"
-  fi
+# Always use the native find+AWK backend for reloads.  This reads files
+# directly (always-current frontmatter, no index overhead) and avoids
+# the expensive `zk index` that previously ran on every single reload.
+search_dir="$scope_path"
+# Source shared find function and AWK parser (written at startup)
+source "$dir/.fn_find_md"
+if _nn_find_md_with_mtime "$search_dir" \
+  | "$nn_gawk" -F'\t' -f "$dir/.awk_native_parser" > "$dir/.raw.tmp" \
+  && _nn_apply_ignore "$dir" \
+  && mv "$dir/.raw.tmp" "$dir/.raw"; then
+  :
 else
-  search_dir="$scope_path"
-  # Source shared find function and AWK parser (written at startup)
-  source "$dir/.fn_find_md"
-  if _nn_find_md_with_mtime "$search_dir" \
-    | "$nn_gawk" -F'\t' -f "$dir/.awk_native_parser" > "$dir/.raw.tmp" \
-    && _nn_apply_ignore "$dir" \
-    && mv "$dir/.raw.tmp" "$dir/.raw"; then
-    :
-  else
-    rm -f "$dir/.raw.tmp"
-    printf 'scan error – press r to retry' > "$dir/.last_action"
-  fi
+  rm -f "$dir/.raw.tmp"
+  printf 'scan error – press r to retry' > "$dir/.last_action"
 fi
 
 # Prune satellite files: remove paths that no longer exist in .raw
