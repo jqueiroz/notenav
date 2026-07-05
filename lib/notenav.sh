@@ -4474,9 +4474,8 @@ fi
 ENDCSPERSIST
     chmod +x "$_nn_dir/csearch_persist.sh"
 
-    # Store scope and format for reload
+    # Store scope path for reload
     printf '%s' "$_scope_path" > "$_nn_dir/.scope_path"
-    echo "$_fmt" > "$_nn_dir/.list_fmt"
 
     # Reload raw data helper: re-scans notes via native find+AWK backend
     cat > "$_nn_dir/reload_raw.sh" << 'ENDRELOAD'
