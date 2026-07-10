@@ -1,0 +1,5 @@
+# Force LF on checkout for all text files. lib/notenav.sh generates helper
+# scripts from heredocs at runtime – a CRLF checkout (e.g. core.autocrlf=true
+# on a Windows clone) would break every one of them, and the tests build
+# CRLF fixtures with printf at runtime precisely so git never touches them.
+* text=auto eol=lf

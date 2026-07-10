@@ -31,7 +31,7 @@ nn
 
 ## Under the hood
 
-`nn` is a single bash script[^2] that runs on **Linux**, **macOS**, and **FreeBSD** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/)). The required dependencies are:
+`nn` is a single bash script[^2] that runs on **Linux**, **macOS**, and **FreeBSD** (Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/) – notes with Windows CRLF line endings and BOMs are fully supported; see the [FAQ](docs/faq.md#can-i-keep-my-notes-on-a-windows-drive--edit-them-with-windows-tools-wsl)). The required dependencies are:
 
 - **[fzf](https://github.com/junegunn/fzf)** 0.58+ – the TUI engine and beloved fuzzy finder
 - **[yq](https://github.com/mikefarah/yq)**[^3], **[jq](https://github.com/jqlang/jq)** – config parsing

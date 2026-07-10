@@ -25,6 +25,17 @@ Rules and conventions for contributing to notenav.
 - **File timestamps (`find -printf` / `stat -c` / `stat -f`):** GNU `find -printf` is fastest but unavailable on BSD/macOS. Use a capability-probe fallback chain: try `find -printf` first, then `stat -c` (GNU/BusyBox on Linux/Alpine), then `stat -f` (BSD/macOS). For one-off timestamp reads, try `stat -c '%y' "$file" 2>/dev/null` with a `stat -f '%Sm' -t '%Y-%m-%d' "$file" 2>/dev/null` fallback.
 - **`awk` version flags:** BSD awk (FreeBSD) reads from stdin when given unrecognised flags like `--version` or `-W version`. Always redirect stdin from `/dev/null` when probing awk: `awk --version < /dev/null 2>/dev/null`.
 
+### Windows-authored notes (CRLF / BOM)
+
+Notebooks are often edited from Windows (WSL users on `/mnt/c`, Obsidian on Windows, Notepad). Notes may therefore use CRLF line endings and start with a UTF-8 BOM — in any mix, per file, within one notebook. Four invariants apply to all code that touches note content:
+
+- **I1 – Tolerant reads:** every read of note content must strip a trailing `\r` from each line and tolerate a BOM at the start of line 1. The canonical frontmatter fence test is `^---[[:space:]]*$` (`[[:space:]]` matches `\r`), with an optional BOM allowed on line 1 only: `^(\xEF\xBB\xBF)?---[[:space:]]*$`.
+- **I2 – Preserving writes:** in-place note rewrites must be byte-preserving on untouched lines (each line keeps its own terminator; a BOM stays at byte 0, including when a frontmatter block is prepended). Lines notenav inserts or replaces use the file's EOL style, detected from line 1 (`NR==1 { if (/\r$/) eol="\r" }` in the awk rewriters). Never normalize a whole file.
+- **I3 – New notes match the notebook:** native note creation samples existing notes and uses the dominant EOL style (LF for empty notebooks). Never write a BOM to a new file. (zk-created notes follow zk's own output; the backfill then preserves that file's style per I2.)
+- **I4 – Accepted normalizations:** a rewritten file whose last line had no terminator gains one (pre-existing awk `print` behavior); unclosed frontmatter makes the write a no-op; CR-only (classic Mac) files are treated as having no frontmatter.
+
+Scoping rule: bash-isms used for this (`$'\r'`, `$'\xef\xbb\xbf'`, `[[ =~ ]]`) are safe only inside the `#!/usr/bin/env bash` generated scripts and at lib top level — never in fzf `--bind` command strings (which run under `sh`) or `wrapkey.sh` (`#!/bin/sh`). Note that shellcheck does not lint heredoc-generated script bodies; `tests/run.sh` is the safety net for them, so extend `tests/` when touching the write paths.
+
 ## Keybindings
 
 - **No modifier keys.** Do not use Ctrl, Alt, or Meta keybindings in fzf. Users run notenav inside tmux, terminal emulators, and window managers that may claim these combos, causing keys to be silently eaten. **Exceptions:** `ctrl-j` / `ctrl-k` are used for page-down/page-up across all fzf instances (main TUI and sub-popups) – no plain-key alternative exists for paging without conflicting with the modal key space, and these specific combos are rarely claimed by terminals. `shift-tab` pairs with `tab` for previous/next query preset – plain-key alternatives `[`/`]` cover the same action, but `shift-tab` is a standard expectation alongside `tab` and is not swallowed by terminals. Do not add further modifier-key exceptions.

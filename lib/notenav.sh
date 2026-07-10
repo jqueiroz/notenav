@@ -1466,6 +1466,122 @@ _nn_list_notes_native() {
   "${_NN_GAWK:-awk}" -F'\t' "$_NN_NATIVE_PARSER_AWK"
 }
 
+# Frontmatter backfill for zk-created notes – ensures type/status/created are
+# present.  Written to $_nn_dir/.awk_fm_backfill and run by newnote.sh with
+# nn_type/nn_status/nn_created in the environment.  CRLF/BOM-tolerant: the
+# fence test allows a UTF-8 BOM on line 1, inserted lines reuse the file's
+# EOL style, and untouched lines pass through byte-for-byte.
+_NN_FM_BACKFILL_AWK=$(cat << 'ENDBACKFILL'
+BEGIN { nn_type=ENVIRON["nn_type"]; nn_status=ENVIRON["nn_status"]; nn_created=ENVIRON["nn_created"] }
+NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; print; next }
+in_fm && /^---[[:space:]]*$/ {
+  in_fm=0
+  if (!found_type)    print "type: " nn_type eol
+  if (!found_status && nn_status != "")  print "status: " nn_status eol
+  if (!found_created) print "created: " nn_created eol
+  print; next
+}
+in_fm && /^type:( |\r?$)/    { found_type=1 }
+in_fm && /^status:( |\r?$)/  { found_status=1 }
+in_fm && /^created:( |\r?$)/ { found_created=1 }
+{ print }
+ENDBACKFILL
+)
+
+# Repair for the duplicated-frontmatter corruption written by pre-0.2.0
+# versions when editing CRLF/BOM notes (run via `nn doctor --fix-frontmatter`).
+# Matches ONLY the known damage shape: a leading fence block containing
+# nothing but type/status/priority/tags lines – the only keys the write bug
+# could emit – immediately followed by a second fence block holding the
+# note's original frontmatter.  The key restriction is load-bearing: it makes
+# the matcher refuse clean notes whose body legitimately starts with a fence
+# block (YAML examples, multi-doc files), and it terminates the caller's
+# multi-pass loop once the merged block contains ordinary frontmatter keys.
+# Merges the two blocks (original block as base, leading block's keys
+# override – they hold the user's post-corruption edits), re-emits in the
+# original block's EOL style with any BOM restored to byte 0, and exits 3
+# without output when the file doesn't match.  Requires gawk (3-arg match).
+_NN_FM_REPAIR_AWK=$(cat << 'ENDREPAIR'
+function emit_b1(j,   line, parts, p, np) {
+  line = b1line[j]; sub(/\r$/, "", line)
+  print line eol2
+  if (b1cont[j] != "") {
+    np = split(b1cont[j], parts, SUBSEP)
+    for (p = 1; p <= np; p++) {
+      if (parts[p] == "") continue
+      line = parts[p]; sub(/\r$/, "", line)
+      print line eol2
+    }
+  }
+}
+{ L[++n] = $0 }
+END {
+  if (n < 5) exit 3
+  l = L[1]; sub(/^\xEF\xBB\xBF/, "", l); bom1 = (l != L[1]); sub(/\r$/, "", l)
+  if (l !~ /^---[[:space:]]*$/) exit 3
+  # Leading block: only the keys the write bug could have left, each at most
+  # once (the bug edited fields in place, so a repeated key is not bug damage)
+  c1 = 0; nk = 0
+  for (i = 2; i <= n && i <= 22; i++) {
+    l = L[i]; sub(/\r$/, "", l)
+    if (l ~ /^---[[:space:]]*$/) { c1 = i; break }
+    if (l ~ /^(type|status|priority|tags):([ \t].*)?$/) {
+      k = l; sub(/:.*$/, "", k)
+      if (k in b1seen) exit 3
+      b1seen[k] = 1
+      b1key[++nk] = k; b1line[nk] = L[i]; b1cont[nk] = ""
+    } else if (l ~ /^[ \t]+-[ \t]/ && nk > 0) {
+      b1cont[nk] = b1cont[nk] L[i] SUBSEP
+    } else exit 3
+  }
+  if (!c1 || !nk) exit 3
+  # Second fence must open on the very next line (may carry the original BOM)
+  o2 = c1 + 1
+  if (o2 > n) exit 3
+  l = L[o2]; sub(/^\xEF\xBB\xBF/, "", l); bom2 = (l != L[o2]); sub(/\r$/, "", l)
+  if (l !~ /^---[[:space:]]*$/) exit 3
+  eol2 = (L[o2] ~ /\r$/) ? "\r" : ""
+  # Original block: must close, be YAML-shaped throughout (keys, list items,
+  # indentation, blanks, comments – no prose), and contain at least one
+  # common frontmatter key.  Mirrors the doctor scan signature; a body that
+  # merely opens with fence-delimited key-shaped prose is refused.
+  c2 = 0; havekey = 0
+  for (i = o2 + 1; i <= n && i <= o2 + 200; i++) {
+    l = L[i]; sub(/\r$/, "", l)
+    if (l ~ /^---[[:space:]]*$/) { c2 = i; break }
+    if (l ~ /^(type|status|priority|tags|title|created)[A-Za-z0-9_.-]*:/) havekey = 1
+    else if (l ~ /^[A-Za-z_][A-Za-z0-9_.-]*:/) continue
+    else if (l == "" || l ~ /^[ \t]/ || l ~ /^#/ || l ~ /^-([ \t]|$)/) continue
+    else exit 3
+  }
+  if (!c2 || !havekey) exit 3
+  for (j = 1; j <= nk; j++) kv[b1key[j]] = j
+  # Emit merged note
+  if (bom1 || bom2) printf "\xEF\xBB\xBF"
+  print "---" eol2
+  skip = 0
+  for (i = o2 + 1; i < c2; i++) {
+    l = L[i]; sub(/\r$/, "", l)
+    # While replacing a key, also swallow its list items (indented or
+    # zero-indent) and blank separator lines so old values can't leak through
+    if (skip && (l ~ /^[ \t]|^-[ \t]/ || l == "")) continue
+    skip = 0
+    if (match(l, /^([A-Za-z_]+):/, m) && (m[1] in kv)) {
+      j = kv[m[1]]
+      if (!(j in used)) { emit_b1(j); used[j] = 1 }
+      skip = 1
+      continue
+    }
+    print L[i]
+  }
+  for (j = 1; j <= nk; j++) if (!(j in used)) emit_b1(j)
+  print "---" eol2
+  for (i = c2 + 1; i <= n; i++) print L[i]
+  exit 0
+}
+ENDREPAIR
+)
+
 # Lists notes for a given directory. Uses zk if available, native fallback otherwise.
 # Arguments: has_zk fmt scope_path...
 # Output: 8-column TSV to stdout
@@ -1478,8 +1594,10 @@ _nn_list_notes() {
       # when <path> is the zk notebook root; omit the path in that case.
       local _zk_scope=("$@")
       [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
-      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null
-      local _zk_rc=$?
+      # tr strips any stray CR so downstream exact-match filters stay reliable
+      # (defense in depth – zk itself normally emits clean LF output)
+      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null | tr -d '\r'
+      local _zk_rc="${PIPESTATUS[0]}"
       if [[ $_zk_rc -gt 1 ]]; then
         echo "notenav: zk list failed (exit $_zk_rc) – run 'nn doctor' or try without zk" >&2
       fi
@@ -1522,13 +1640,32 @@ nn_doctor() {
   # Intercept --help/-h
   if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     cat <<'EOF'
-Usage: nn doctor    check setup and diagnose problems
+Usage: nn doctor [--fix-frontmatter]    check setup and diagnose problems
 
 Validates dependencies, config files, workflow integrity, notebook
 structure, and note frontmatter. Exits 0 if all checks pass.
+
+Options:
+  --fix-frontmatter   Repair notes with a duplicated frontmatter block
+                      (damage left by pre-0.2.0 versions when editing
+                      CRLF/BOM notes). Writes a .bak backup per note and
+                      refuses notes that don't match the known pattern.
 EOF
     return 0
   fi
+
+  local _fix_fm=false
+  if [[ "${1:-}" == "--fix-frontmatter" ]]; then
+    _fix_fm=true
+    shift
+  fi
+  if [[ "${1:-}" == --* || "${1:-}" == -* ]]; then
+    echo "notenav: doctor: unknown option '$1' (see nn doctor --help)" >&2
+    return 2
+  fi
+  # Set when the Phase-6 frontmatter scan actually runs; --fix-frontmatter
+  # must not report "nothing to repair" when the scan was skipped.
+  local _fm_scan_ran=false
 
   local fails=0 warns=0
 
@@ -2963,6 +3100,7 @@ EOF
     if ! "$_fm_gawk" 'BEGIN { match("x", /x/, m) }' /dev/null 2>/dev/null; then
       _info "Frontmatter validation skipped (requires gawk)"
     else
+    _fm_scan_ran=true
 
     # Use the ASCII unit separator (\x1f) between fields instead of tab.
     # Bash `read` with IFS=$'\t' collapses adjacent tabs (tab is a whitespace
@@ -2982,12 +3120,51 @@ EOF
       BEGIN { US = sprintf("%c", 31); NR_FILE = 0 }
       {
         file = $0; type = ""; status = ""; priority = ""; in_fm = 0; had_fm = 0; fm_lines = 0
+        bom = 0; crlf = 0; lf_n = 0; crlf_n = 0; dup = 0
+        fm_nn_only = 1; has_prev = 0; prev_cr = 0
         while ((getline line < file) > 0) {
+          # EOL counting is committed one line late: a successful read of the
+          # NEXT line proves the previous one was newline-terminated, so a
+          # final line without a terminator never counts (it would otherwise
+          # flag intact CRLF notes saved without a trailing newline as mixed)
+          if (has_prev) { if (prev_cr) crlf_n++; else lf_n++ }
+          prev_cr = (line ~ /\r$/); has_prev = 1
+          if (NR_FILE == 0) {
+            if (line ~ /^\xEF\xBB\xBF/) { bom = 1; sub(/^\xEF\xBB\xBF/, "", line) }
+            if (line ~ /\r$/) crlf = 1
+          }
           gsub(/\r/, "", line)
           if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; had_fm = 1; NR_FILE++; continue }
           NR_FILE++
           if (in_fm) {
-            if (line ~ /^---[[:space:]]*$/) break
+            if (line ~ /^---[[:space:]]*$/) {
+              # Duplicated-frontmatter signature left by the pre-0.2.0
+              # CRLF/BOM write bug (see nn doctor --fix-frontmatter): the
+              # block just scanned held ONLY keys the bug could write, and it
+              # is immediately followed by a second closed fence block that is
+              # YAML-shaped throughout and holds at least one common
+              # frontmatter key.  Anything looser mislabels notes whose body
+              # legitimately opens with a fenced block.
+              if (fm_nn_only && (getline l2 < file) > 0) {
+                if (prev_cr) crlf_n++; else lf_n++   # close fence proven terminated
+                has_prev = 0
+                sub(/^\xEF\xBB\xBF/, "", l2); sub(/\r$/, "", l2)
+                if (l2 ~ /^---[[:space:]]*$/) {
+                  b2_ok = 1; b2_key = 0; b2_closed = 0; b2_n = 0
+                  while ((getline l3 < file) > 0) {
+                    sub(/\r$/, "", l3)
+                    if (l3 ~ /^---[[:space:]]*$/) { b2_closed = 1; break }
+                    if (++b2_n > 200) break
+                    if (l3 ~ /^(type|status|priority|tags|title|created)[A-Za-z0-9_.-]*:/) b2_key = 1
+                    else if (l3 ~ /^[A-Za-z_][A-Za-z0-9_.-]*:/) continue
+                    else if (l3 == "" || l3 ~ /^[ \t]/ || l3 ~ /^#/ || l3 ~ /^-([ \t]|$)/) continue
+                    else { b2_ok = 0; break }
+                  }
+                  if (b2_ok && b2_key && b2_closed) dup = 1
+                }
+              }
+              break
+            }
             if (++fm_lines > 200) break
             if (match(line, /^type:[ \t]*(.*)$/, m)) {
               val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
@@ -3001,20 +3178,37 @@ EOF
               val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
               priority = val
             }
+            if (line !~ /^(type|status|priority|tags):([ \t].*)?$/ && line !~ /^[ \t]+-[ \t]/) fm_nn_only = 0
           } else break
         }
         close(file); NR_FILE = 0
-        printf "%s%s%s%s%s%s%s%s%s\n", type, US, status, US, priority, US, had_fm, US, file
+        mixed = (lf_n > 0 && crlf_n > 0) ? 1 : 0
+        printf "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n", type, US, status, US, priority, US, had_fm, US, bom, US, crlf, US, mixed, US, dup, US, file
       }')
 
     local _fm_unknown_types=0 _fm_unknown_statuses=0 _fm_unknown_priorities=0
     local _fm_no_type=0 _fm_no_status=0 _fm_no_frontmatter=0
+    local _fm_crlf_n=0 _fm_bom_n=0 _fm_mixed_n=0 _fm_dup_n=0
     local -A _fm_seen_bad_types _fm_seen_bad_statuses _fm_seen_bad_priorities
     local _fm_bad_types="" _fm_bad_statuses="" _fm_bad_priorities=""
     local -a _fm_example_type_files=() _fm_example_status_files=() _fm_example_priority_files=()
+    local -a _fm_example_mixed=() _fm_example_dup=() _fm_dup_files_all=()
     local _fm_max_examples=5
-    while IFS=$'\x1f' read -r _fm_type _fm_status _fm_priority _fm_had_fm _fm_file; do
+    while IFS=$'\x1f' read -r _fm_type _fm_status _fm_priority _fm_had_fm _fm_bom _fm_crlf _fm_mixed _fm_dup _fm_file; do
       [[ -z "$_fm_file" ]] && continue
+      # Line-ending/BOM bookkeeping (counted for all notes, with or without
+      # frontmatter)
+      [[ "$_fm_crlf" == "1" ]] && { (( _fm_crlf_n++ )) || true; }
+      [[ "$_fm_bom" == "1" ]] && { (( _fm_bom_n++ )) || true; }
+      if [[ "$_fm_mixed" == "1" ]]; then
+        (( _fm_mixed_n++ )) || true
+        [[ ${#_fm_example_mixed[@]} -lt $_fm_max_examples ]] && _fm_example_mixed+=("${_fm_file#"$_nn_root"/}")
+      fi
+      if [[ "$_fm_dup" == "1" ]]; then
+        (( _fm_dup_n++ )) || true
+        _fm_dup_files_all+=("$_fm_file")
+        [[ ${#_fm_example_dup[@]} -lt 10 ]] && _fm_example_dup+=("${_fm_file#"$_nn_root"/}")
+      fi
       # Files without any frontmatter block are reported separately and
       # excluded from the per-field empty checks below (they would otherwise
       # double-count as both "no type" and "no status").
@@ -3122,6 +3316,24 @@ EOF
       }
       _info "$_fm_info_parts ${_dim}(may be intentional)${_reset}"
     fi
+    # Line-ending / BOM diagnostics (Windows-authored notes are supported;
+    # these are informational except where they indicate real damage)
+    if [[ $_fm_crlf_n -gt 0 ]]; then
+      _info "$_fm_crlf_n note(s) use CRLF (Windows) line endings ${_dim}(supported)${_reset}"
+    fi
+    if [[ $_fm_bom_n -gt 0 ]]; then
+      _info "$_fm_bom_n note(s) start with a UTF-8 byte-order mark ${_dim}(supported)${_reset}"
+    fi
+    if [[ $_fm_mixed_n -gt 0 ]]; then
+      _warn "$_fm_mixed_n note(s) have mixed line endings in their frontmatter"
+      _fm_show_examples "$_fm_mixed_n" "${_fm_example_mixed[@]}"
+    fi
+    if [[ $_fm_dup_n -gt 0 ]]; then
+      _warn "$_fm_dup_n note(s) appear to have a duplicated frontmatter block"
+      _fm_show_examples "$_fm_dup_n" "${_fm_example_dup[@]}"
+      echo "          ${_dim}Likely written by an earlier notenav when editing CRLF/BOM notes.${_reset}"
+      echo "          ${_dim}Run 'nn doctor --fix-frontmatter' to repair (writes .bak backups).${_reset}"
+    fi
     # Warn if typed_only would hide every note (notes with no type AND
     # notes with no frontmatter are both effectively untyped).
     # NB: doctor calls nn_load_config but not nn_precompute_workflow, so the
@@ -3140,6 +3352,68 @@ EOF
       _info "Scanned first 2000 of ${_ign_after:-$_note_count} files"
     fi
     fi  # end gawk guard
+  fi
+
+  # ── Repair: --fix-frontmatter ──
+  # Repairs the duplicated-frontmatter damage detected above.  Only files
+  # flagged by the scan are touched; each gets a .bak backup first, and files
+  # that don't match the known corruption pattern are skipped untouched.
+  if [[ "$_fix_fm" == "true" ]]; then
+    echo ""
+    echo "Repair:"
+    if [[ "$_fm_scan_ran" != "true" ]]; then
+      _warn "Cannot scan for duplicated frontmatter (requires gawk and a reachable notebook) – nothing repaired"
+    elif [[ -z "${_fm_dup_files_all[*]:-}" ]]; then
+      _pass "No duplicated frontmatter blocks found – nothing to repair"
+      if [[ "${_ign_after:-0}" -gt 2000 ]]; then
+        _info "Note: only the first 2000 of ${_ign_after} files were scanned"
+      fi
+    else
+      local _fix_gawk
+      _fix_gawk=$(_nn_resolve_gawk)
+      local _fix_ok=0 _fix_skip=0 _fixf _fixrel _fixtmp _fix_i _fix_changed
+      for _fixf in "${_fm_dup_files_all[@]}"; do
+        _fixrel="${_fixf#"$_nn_root"/}"
+        if [[ -e "$_fixf.bak" ]]; then
+          _warn "skipped $_fixrel ${_dim}($_fixrel.bak already exists – remove it and re-run)${_reset}"
+          (( _fix_skip++ )) || true
+          continue
+        fi
+        if ! cp -p "$_fixf" "$_fixf.bak"; then
+          _warn "skipped $_fixrel ${_dim}(could not write backup)${_reset}"
+          (( _fix_skip++ )) || true
+          continue
+        fi
+        _fix_changed=false
+        # Stacked corruption merges one layer per pass; iterate to converge
+        for _fix_i in 1 2 3 4 5; do
+          _fixtmp=$(mktemp "$_fixf.XXXXXX") || break
+          if "$_fix_gawk" "$_NN_FM_REPAIR_AWK" "$_fixf" > "$_fixtmp" 2>/dev/null; then
+            if mv "$_fixtmp" "$_fixf"; then
+              _fix_changed=true
+            else
+              rm -f "$_fixtmp"
+              break
+            fi
+          else
+            rm -f "$_fixtmp"
+            break
+          fi
+        done
+        if [[ "$_fix_changed" == "true" ]]; then
+          _pass "repaired $_fixrel ${_dim}(backup: $_fixrel.bak)${_reset}"
+          (( _fix_ok++ )) || true
+        else
+          rm -f "$_fixf.bak"
+          _warn "skipped $_fixrel ${_dim}(does not match the known corruption pattern)${_reset}"
+          (( _fix_skip++ )) || true
+        fi
+      done
+      _info "Repaired $_fix_ok note(s), skipped $_fix_skip"
+      if [[ "${_ign_after:-0}" -gt 2000 ]]; then
+        _info "Note: only the first 2000 of ${_ign_after} files were scanned – re-run to be safe"
+      fi
+    fi
   fi
 
   # Summary
@@ -4020,6 +4294,8 @@ EOF
 
     # Shared native-listing AWK parser for reload_raw.sh (zk-free backend).
     printf '%s\n' "$_NN_NATIVE_PARSER_AWK" > "$_nn_dir/.awk_native_parser"
+    # Frontmatter backfill for zk-created notes – run by newnote.sh.
+    printf '%s\n' "$_NN_FM_BACKFILL_AWK" > "$_nn_dir/.awk_fm_backfill"
     # Shared find function for native listing – sourced by reload_raw.sh.
     # Requires _prune_args array to be set before sourcing.
     cat > "$_nn_dir/.fn_find_md" << 'ENDFNFIND'
@@ -4636,17 +4912,25 @@ count=0; first_ok=""; ok_files=(); _no_fm_clear=0
 for file in "$@"; do
   case "$file" in *.empty_placeholder) continue ;; esac
   [ ! -f "$file" ] && continue
-  # Check for frontmatter before attempting write
+  # Check for frontmatter before attempting write.  Windows-authored notes may
+  # use CRLF endings and a UTF-8 BOM; the fence test must tolerate both (plus
+  # trailing blanks, matching the awk fence regex below).  Written lines reuse
+  # the file's own EOL style, detected from line 1.
   first_line=$(head -n 1 "$file")
-  if [ "$first_line" != "---" ]; then
+  _eol=""; case "$first_line" in *$'\r') _eol=$'\r' ;; esac
+  _fl=${first_line#$'\xef\xbb\xbf'}
+  if ! [[ "$_fl" =~ ^---[[:space:]]*$ ]]; then
     # No frontmatter – clearing a field is a no-op; otherwise create one
     [ -z "$value" ] && { _no_fm_clear=$((_no_fm_clear + 1)); continue; }
     _ftmp=$(mktemp "$file.XXXXXX") || continue
     {
-      printf '%s\n' "---"
-      printf '%s: %s\n' "$field" "$value"
-      printf '%s\n' "---"
-      cat "$file"
+      _bom=""
+      [ "$(dd if="$file" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ] && _bom=1
+      [ -n "$_bom" ] && printf '\357\273\277'
+      printf '%s\n' "---$_eol"
+      printf '%s: %s%s\n' "$field" "$value" "$_eol"
+      printf '%s\n' "---$_eol"
+      if [ -n "$_bom" ]; then tail -c +4 "$file"; else cat "$file"; fi
     } > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
     continue
   fi
@@ -4654,12 +4938,12 @@ for file in "$@"; do
   _ftmp=$(mktemp "$file.XXXXXX") || continue
   field="$field" value="$value" "$nn_gawk" '
     BEGIN { field=ENVIRON["field"]; value=ENVIRON["value"] }
-    NR==1 && /^---[[:space:]]*$/ { in_fm=1; fm_lines=0; print; next }
-    in_fm && /^---[[:space:]]*$/ { in_fm=0; if (!found && value != "") print field ": " value; print; skip_cont=0; next }
+    NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; fm_lines=0; print; next }
+    in_fm && /^---[[:space:]]*$/ { in_fm=0; if (!found && value != "") print field ": " value eol; print; skip_cont=0; next }
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
     in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
     in_fm && skip_cont { skip_cont=0 }
-    in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value; found=1; skip_cont=1; next }
+    in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value eol; found=1; skip_cont=1; next }
     { print }
   ' "$file" > "$_ftmp" && { if cmp -s "$_ftmp" "$file"; then rm -f "$_ftmp"; else mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"; fi; } || rm -f "$_ftmp"
 done
@@ -4707,7 +4991,9 @@ if [ "$count" -eq 0 ]; then
   if [ "$_no_fm_clear" -gt 0 ]; then
     printf '⚠ nothing to clear (no frontmatter)' > "$dir/.last_action"
   else
-    printf '⚠ no files modified' > "$dir/.last_action"
+    # Covers both "value already set" and write failures (e.g. a note held
+    # locked by a Windows app when the notebook lives on /mnt/c).
+    printf '⚠ no files modified (unchanged, or file locked?)' > "$dir/.last_action"
   fi
 else
   _la_title=$(p="${first_ok:-}" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
@@ -4862,9 +5148,12 @@ nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 # Usage: bulkedit_update.sh <file> field=value [field=value ...]
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
+# CRLF/BOM-tolerant fence test; _eol carries the file's EOL style (line 1)
 first_line=$(head -n 1 "$file")
+_eol=""; case "$first_line" in *$'\r') _eol=$'\r' ;; esac
+_fl=${first_line#$'\xef\xbb\xbf'}
 has_fm=1
-[ "$first_line" != "---" ] && has_fm=0
+[[ "$_fl" =~ ^---[[:space:]]*$ ]] || has_fm=0
 # Parse field=value pairs into individual vars
 set_type=""; set_status=""; set_priority=""; set_tags=""
 has_type=0; has_status=0; has_priority=0; has_tags=0
@@ -4898,15 +5187,22 @@ if [ "$has_priority" = 1 ] && [ -n "$set_priority" ]; then
 fi
 _ftmp=$(mktemp "$file.XXXXXX") || exit 1
 # No frontmatter: prepend a new block with the requested values, then the body
+# (in the file's own EOL style; a leading BOM stays at byte 0)
 if [ "$has_fm" = 0 ]; then
+  _bom=""
+  [ "$(dd if="$file" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ] && _bom=1
   if {
-    printf '%s\n' "---"
-    [ "$has_type" = 1 ] && [ -n "$set_type" ] && printf 'type: %s\n' "$set_type"
-    [ "$has_status" = 1 ] && [ -n "$set_status" ] && printf 'status: %s\n' "$set_status"
-    [ "$has_priority" = 1 ] && [ -n "$set_priority" ] && printf 'priority: %s\n' "$set_priority"
-    [ "$has_tags" = 1 ] && [ -n "$set_tags" ] && printf 'tags:\n%s\n' "$set_tags"
-    printf '%s\n' "---"
-    cat "$file"
+    [ -n "$_bom" ] && printf '\357\273\277'
+    printf '%s\n' "---$_eol"
+    [ "$has_type" = 1 ] && [ -n "$set_type" ] && printf 'type: %s%s\n' "$set_type" "$_eol"
+    [ "$has_status" = 1 ] && [ -n "$set_status" ] && printf 'status: %s%s\n' "$set_status" "$_eol"
+    [ "$has_priority" = 1 ] && [ -n "$set_priority" ] && printf 'priority: %s%s\n' "$set_priority" "$_eol"
+    if [ "$has_tags" = 1 ] && [ -n "$set_tags" ]; then
+      printf 'tags:%s\n' "$_eol"
+      while IFS= read -r _t || [ -n "$_t" ]; do printf '%s%s\n' "$_t" "$_eol"; done <<< "$set_tags"
+    fi
+    printf '%s\n' "---$_eol"
+    if [ -n "$_bom" ]; then tail -c +4 "$file"; else cat "$file"; fi
   } > "$_ftmp" && mv "$_ftmp" "$file"; then
     exit 0
   else
@@ -4918,33 +5214,38 @@ set_type="$set_type" set_status="$set_status" \
     set_priority="$set_priority" set_tags="$set_tags" \
     "$nn_gawk" -v has_type="$has_type" -v has_status="$has_status" \
     -v has_priority="$has_priority" -v has_tags="$has_tags" '
+  function print_tags(   n, i, tl) {
+    print "tags:" eol
+    n = split(set_tags, tl, "\n")
+    for (i = 1; i <= n; i++) print tl[i] eol
+  }
   BEGIN { set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"] }
-  NR==1 && /^---[[:space:]]*$/ { in_fm=1; fm_lines=0; print; next }
+  NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; fm_lines=0; print; next }
   in_fm && /^---[[:space:]]*$/ {
     in_fm=0; skip_cont=0
-    if (has_type && !found_type && set_type != "") print "type: " set_type
-    if (has_status && !found_status && set_status != "") print "status: " set_status
-    if (has_priority && !found_priority && set_priority != "") print "priority: " set_priority
-    if (has_tags && !found_tags && set_tags != "") printf "tags:\n%s\n", set_tags
+    if (has_type && !found_type && set_type != "") print "type: " set_type eol
+    if (has_status && !found_status && set_status != "") print "status: " set_status eol
+    if (has_priority && !found_priority && set_priority != "") print "priority: " set_priority eol
+    if (has_tags && !found_tags && set_tags != "") print_tags()
     print; next
   }
   in_fm && ++fm_lines > 200 { in_fm=0; print; next }
   in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
   in_fm && skip_cont { skip_cont=0 }
   in_fm && /^type:/ {
-    if (has_type) { if (!found_type && set_type != "") print "type: " set_type; found_type=1; skip_cont=1; next }
+    if (has_type) { if (!found_type && set_type != "") print "type: " set_type eol; found_type=1; skip_cont=1; next }
     else { found_type=1 }
   }
   in_fm && /^status:/ {
-    if (has_status) { if (!found_status && set_status != "") print "status: " set_status; found_status=1; skip_cont=1; next }
+    if (has_status) { if (!found_status && set_status != "") print "status: " set_status eol; found_status=1; skip_cont=1; next }
     else { found_status=1 }
   }
   in_fm && /^priority:/ {
-    if (has_priority) { if (!found_priority && set_priority != "") print "priority: " set_priority; found_priority=1; skip_cont=1; next }
+    if (has_priority) { if (!found_priority && set_priority != "") print "priority: " set_priority eol; found_priority=1; skip_cont=1; next }
     else { found_priority=1 }
   }
   in_fm && /^tags:/ {
-    if (has_tags) { if (!found_tags && set_tags != "") printf "tags:\n%s\n", set_tags; found_tags=1; skip_cont=1; next }
+    if (has_tags) { if (!found_tags && set_tags != "") print_tags(); found_tags=1; skip_cont=1; next }
     else { found_tags=1 }
   }
   { print }
@@ -5638,52 +5939,59 @@ if [ "$_nn_has_zk" = "true" ]; then
   fi
   rm -f "$_zk_err"
 
-  # Ensure essential frontmatter fields are present
+  # Ensure essential frontmatter fields are present (CRLF/BOM-tolerant fence
+  # test; written lines follow the file's own EOL style, detected from line 1)
   _nn_has_fm=$(head -n 1 "$new_path" 2>/dev/null)
-  if [ "$_nn_has_fm" = "---" ]; then
+  _nn_eol=""; case "$_nn_has_fm" in *$'\r') _nn_eol=$'\r' ;; esac
+  _nn_fl=${_nn_has_fm#$'\xef\xbb\xbf'}
+  if [[ "$_nn_fl" =~ ^---[[:space:]]*$ ]]; then
     _nntmp=$(mktemp "$new_path.XXXXXX") || exit 1
-    nn_type="$selected" nn_status="$_nn_initial_status" nn_created="$_nn_now" $nn_gawk '
-      BEGIN { nn_type=ENVIRON["nn_type"]; nn_status=ENVIRON["nn_status"]; nn_created=ENVIRON["nn_created"] }
-      NR==1 && /^---[[:space:]]*$/ { in_fm=1; print; next }
-      in_fm && /^---[[:space:]]*$/ {
-        in_fm=0
-        if (!found_type)    print "type: " nn_type
-        if (!found_status && nn_status != "")  print "status: " nn_status
-        if (!found_created) print "created: " nn_created
-        print; next
-      }
-      in_fm && /^type:( |$)/    { found_type=1 }
-      in_fm && /^status:( |$)/  { found_status=1 }
-      in_fm && /^created:( |$)/ { found_created=1 }
-      { print }
-    ' "$new_path" > "$_nntmp" && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
+    nn_type="$selected" nn_status="$_nn_initial_status" nn_created="$_nn_now" \
+      $nn_gawk -f "$dir/.awk_fm_backfill" \
+      "$new_path" > "$_nntmp" && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
   else
     _nntmp=$(mktemp "$new_path.XXXXXX") || exit 1
     {
-      printf '%s\n' "---"
-      printf 'type: %s\n' "$selected"
-      [ -n "$_nn_initial_status" ] && printf 'status: %s\n' "$_nn_initial_status"
-      printf 'created: %s\n' "$_nn_now"
-      printf '%s\n' "---"
-      cat "$new_path"
+      _nn_bom=""
+      [ "$(dd if="$new_path" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ] && _nn_bom=1
+      [ -n "$_nn_bom" ] && printf '\357\273\277'
+      printf '%s\n' "---$_nn_eol"
+      printf 'type: %s%s\n' "$selected" "$_nn_eol"
+      [ -n "$_nn_initial_status" ] && printf 'status: %s%s\n' "$_nn_initial_status" "$_nn_eol"
+      printf 'created: %s%s\n' "$_nn_now" "$_nn_eol"
+      printf '%s\n' "---$_nn_eol"
+      if [ -n "$_nn_bom" ]; then tail -c +4 "$new_path"; else cat "$new_path"; fi
     } > "$_nntmp" && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
   fi
 else
   # Native note creation (no zk)
   _slug=$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
   [ -z "$_slug" ] && _slug="note"
-  # Escape double quotes for valid YAML
-  _yaml_title=$(printf '%s' "$title" | tr '\n' ' ' | sed 's/\\/\\\\/g; s/"/\\"/g')
+  # Escape double quotes for valid YAML (and drop CR from pasted CRLF input)
+  _yaml_title=$(printf '%s' "$title" | tr -d '\r' | tr '\n' ' ' | sed 's/\\/\\\\/g; s/"/\\"/g')
+  # Match the notebook's prevailing line-ending style (sampled from the first
+  # few indexed notes) so new notes fit in with their neighbours; LF fallback.
+  # cut -f6 extracts the path column – `read` with IFS=tab would collapse the
+  # empty status/priority/tags fields and shift columns.
+  _nn_ceol=""
+  _nn_crlf_n=0; _nn_samp_n=0
+  while IFS= read -r _nn_sp; do
+    [ "$_nn_samp_n" -ge 5 ] && break
+    [ -f "$_nn_sp" ] || continue
+    _nn_samp_n=$((_nn_samp_n + 1))
+    case "$(head -n 1 "$_nn_sp")" in *$'\r') _nn_crlf_n=$((_nn_crlf_n + 1)) ;; esac
+  done < <(cut -f6 "$dir/.raw" 2>/dev/null)
+  [ "$_nn_samp_n" -gt 0 ] && [ "$_nn_crlf_n" -gt $((_nn_samp_n / 2)) ] && _nn_ceol=$'\r'
   _nn_tmp=$(mktemp "$PWD/.nn-new.XXXXXX") || { printf "\n  ${_nn_red}mktemp failed in %s (check directory permissions)${_nn_reset}\n\n" "$PWD" > /dev/tty; exit 1; }
   # mktemp creates 0600; widen to match what a normal file creation would produce
   chmod "$(printf '%04o' "$(( 0666 & ~$(umask) ))")" "$_nn_tmp"
   {
-    printf '%s\n' "---"
-    printf 'title: "%s"\n' "$_yaml_title"
-    printf 'type: %s\n' "$selected"
-    [ -n "$_nn_initial_status" ] && printf 'status: %s\n' "$_nn_initial_status"
-    printf 'created: %s\n' "$_nn_now"
-    printf '%s\n' "---"
+    printf '%s\n' "---$_nn_ceol"
+    printf 'title: "%s"%s\n' "$_yaml_title" "$_nn_ceol"
+    printf 'type: %s%s\n' "$selected" "$_nn_ceol"
+    [ -n "$_nn_initial_status" ] && printf 'status: %s%s\n' "$_nn_initial_status" "$_nn_ceol"
+    printf 'created: %s%s\n' "$_nn_now" "$_nn_ceol"
+    printf '%s\n' "---$_nn_ceol"
   } > "$_nn_tmp"
   # ln fails atomically if target already exists (avoids TOCTOU vs -f check)
   new_path="$PWD/${_slug}.md"
@@ -5765,7 +6073,7 @@ dir="$1"; file="$2"; direction="${3:-fwd}"
 case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-cur=$($nn_gawk 'FNR==1&&!/^---[[:space:]]*$/{exit} /^---[[:space:]]*$/{if(++n==2)exit;next} n==1&&/^status:/{gsub(/\r/,"");sub(/^status:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
+cur=$($nn_gawk 'FNR==1{sub(/^\xEF\xBB\xBF/,"")} FNR==1&&!/^---[[:space:]]*$/{exit} /^---[[:space:]]*$/{if(++n==2)exit;next} n==1&&/^status:/{gsub(/\r/,"");sub(/^status:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
 if [ -z "$cur" ]; then
   # No status set – assign the workflow's initial status
   next=$(cat "$dir/.schema_status_initial" 2>/dev/null)
@@ -5795,7 +6103,7 @@ case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-cur=$($nn_gawk 'FNR==1&&!/^---[[:space:]]*$/{exit} /^---[[:space:]]*$/{if(++n==2)exit;next} n==1&&/^priority:/{gsub(/\r/,"");sub(/^priority:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
+cur=$($nn_gawk 'FNR==1{sub(/^\xEF\xBB\xBF/,"")} FNR==1&&!/^---[[:space:]]*$/{exit} /^---[[:space:]]*$/{if(++n==2)exit;next} n==1&&/^priority:/{gsub(/\r/,"");sub(/^priority:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
 if [ -z "$cur" ]; then
   # No priority set – enter at lowest priority
   next=$(tail -1 "$dir/.schema_priority_values")

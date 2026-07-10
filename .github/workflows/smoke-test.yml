@@ -7,12 +7,14 @@ on:
       - 'bin/**'
       - 'lib/**'
       - 'config/**'
+      - 'tests/**'
       - '.github/workflows/smoke-test.yml'
   pull_request:
     paths:
       - 'bin/**'
       - 'lib/**'
       - 'config/**'
+      - 'tests/**'
       - '.github/workflows/smoke-test.yml'
 
 jobs:
@@ -69,6 +71,9 @@ jobs:
           printf -- '---\ntype: fleeting\n---\n# zkfleeting-marker\n' > a.md
           bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkfleeting-marker
 
+      - name: Test suite (CRLF/BOM write paths, doctor, read path)
+        run: bash "$GITHUB_WORKSPACE/tests/run.sh"
+
   smoke-test-freebsd:
     runs-on: ubuntu-latest
     steps:
@@ -93,6 +98,11 @@ jobs:
             bash "$GITHUB_WORKSPACE/bin/nn" doctor
             printf -- '---\ntype: fleeting\n---\n# zkfleeting-marker\n' > a.md
             bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkfleeting-marker
+            printf -- '---\r\ntype: fleeting\r\n---\r\n# zkcrlf-marker\r\n' > b.md
+            bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkcrlf-marker
+            printf '\357\273\277---\ntype: fleeting\n---\n# zkbom-marker\n' > c.md
+            bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkbom-marker
+            bash "$GITHUB_WORKSPACE/tests/run.sh"
 
   smoke-test-openbsd:
     runs-on: ubuntu-latest
@@ -121,3 +131,7 @@ jobs:
             bash "$GITHUB_WORKSPACE/bin/nn" doctor
             printf -- '---\ntype: fleeting\n---\n# zkfleeting-marker\n' > a.md
             bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkfleeting-marker
+            printf -- '---\r\ntype: fleeting\r\n---\r\n# zkcrlf-marker\r\n' > b.md
+            bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkcrlf-marker
+            printf '\357\273\277---\ntype: fleeting\n---\n# zkbom-marker\n' > c.md
+            bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkbom-marker

@@ -193,7 +193,11 @@ nn doctor
 
 5. **Notebook:** confirms a notebook is reachable from the current directory by looking for `.nn/workflow.toml`. Reports the notebook root, markdown file count, `.nnignore` pattern count, and active backend (zk or native).
 
-6. **Notes:** scans markdown files and checks frontmatter values against the workflow definition. Reports notes with unrecognized type, status, or priority values (summary counts, the unknown values found, and up to 5 example file paths). Priority is only checked when enabled in the workflow. Notes with no type or status, and notes with no frontmatter at all, are reported as informational. Scans up to 2000 files.
+6. **Notes:** scans markdown files and checks frontmatter values against the workflow definition. Reports notes with unrecognized type, status, or priority values (summary counts, the unknown values found, and up to 5 example file paths). Priority is only checked when enabled in the workflow. Notes with no type or status, and notes with no frontmatter at all, are reported as informational. Also reports line-ending diagnostics: counts of CRLF and BOM notes (informational – both are supported), warnings for notes with mixed line endings in their frontmatter, and warnings for notes with a duplicated frontmatter block (damage left by pre-0.2.0 versions editing CRLF/BOM notes; see `--fix-frontmatter` below). Scans up to 2000 files.
+
+**Options:**
+
+- `--fix-frontmatter` – repairs notes flagged with a duplicated frontmatter block by merging the two blocks (the leading block's values win, since they hold the edits made after the damage occurred). Each repaired note gets a `<name>.md.bak` backup written next to it first; notes that don't match the known damage pattern are skipped untouched, as are notes whose `.bak` already exists. Without this flag, doctor never modifies any file.
 
 **Output markers:**
 

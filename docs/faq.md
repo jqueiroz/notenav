@@ -156,6 +156,19 @@ See [Configuration – Tags](configuration.md#tags) and [TUI Reference – Tags]
 
 Yes. notenav works with any markdown files that use YAML frontmatter. It reads `type`, `status`, `priority`, and `tags` fields from the frontmatter – the rest of the file is untouched. notenav and Obsidian (or any other tool) can coexist on the same vault without conflicts.
 
+## Can I keep my notes on a Windows drive / edit them with Windows tools (WSL)?
+
+Yes. Notes with Windows (CRLF) line endings and/or a UTF-8 byte-order mark are fully supported, in any mix within one notebook. Reads tolerate them, and edits preserve each file's own style byte-for-byte: changing a note's status touches only that one line, keeps the file's CRLF endings, and leaves a BOM at byte 0. New notes created by notenav match the notebook's dominant line-ending style. `nn doctor` reports how many notes use CRLF or a BOM.
+
+Caveats for notebooks under `/mnt/c` (the Windows drive mounted in WSL):
+
+- **File watching doesn't work on `/mnt/c`.** Linux inotify never fires for Windows-drive paths, so `refresh.mode = "watch"` silently does nothing there – use `"poll"` (or manual refresh). For the fastest experience, keep the notebook in the Linux filesystem (e.g. `~/notes`) and access it from Windows via `\\wsl$`.
+- **Indexing is slower** on `/mnt/c` because every file access crosses the Windows/Linux boundary.
+- **A note held open by a Windows app** (with a sharing lock) can make an edit fail; notenav reports "no files modified" instead of writing.
+- **If you version your notebook with git**, disable line-ending conversion for it (`git config core.autocrlf false` in the notebook, or a `.gitattributes` with `*.md -text`), otherwise git itself may rewrite your notes' endings on checkout.
+
+**Repairing notes damaged by older versions:** notenav versions before 0.2.0 had a bug where editing a CRLF or BOM note prepended a duplicate frontmatter block (the note then lost its type/status in the list, and its real frontmatter showed as body text). `nn doctor` detects affected notes; `nn doctor --fix-frontmatter` repairs them by merging the two blocks (your latest edits win), writing a `.bak` backup next to each repaired note and refusing anything that doesn't match the known damage pattern. Review the result, then delete the `.bak` files.
+
 ## I changed my config but the TUI looks the same?
 
 Config changes take effect on the next `nn` launch. Most display settings (sort order, grouping, archive visibility, preview wrap) can also be changed at runtime via the `z` prefix – press `z` then the sub-key shown in the header.
