@@ -5,8 +5,9 @@ REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 FAILS=0
 
 # Hermetic: a contributor's ~/.config/notenav/config.toml must not leak into
-# test runs. Point XDG_CONFIG_HOME at a path that cannot contain one.
-export XDG_CONFIG_HOME="${TMPDIR:-/tmp}/nn-test-no-user-config"
+# test runs. Point XDG_CONFIG_HOME at a per-run unique path that is never
+# created (a fixed /tmp name could be pre-created by another user/stale run).
+export XDG_CONFIG_HOME="${TMPDIR:-/tmp}/nn-test-no-user-config.$$.$RANDOM"
 
 fail() { printf '  FAIL: %s\n' "$*"; FAILS=$((FAILS + 1)); }
 finish() { exit $((FAILS > 0 ? 1 : 0)); }

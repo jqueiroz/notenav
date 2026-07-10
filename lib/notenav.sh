@@ -1544,21 +1544,23 @@ END {
   if (l !~ /^---[[:space:]]*$/) exit 3
   eol2 = (L[o2] ~ /\r$/) ? "\r" : ""
   # Original block: must close, be YAML-shaped throughout (keys, list items,
-  # indentation, blanks, comments – no prose), and either hold a notenav-
-  # managed key (type/status/priority) or share a key with the leading block.
-  # Mirrors the doctor scan signature; a body that merely opens with a fenced
-  # YAML-shaped example (Jekyll/pandoc metadata, multi-doc) is refused.
-  c2 = 0; havekey = 0
-  for (i = o2 + 1; i <= n && i <= o2 + 200; i++) {
+  # indentation, blanks, comments – no prose), hold a notenav-managed key
+  # (type/status/priority) or share a key with the leading block, AND hold at
+  # least one key absent from the leading block (original frontmatter always
+  # brings something new; a body YAML example whose keys are a subset of the
+  # frontmatter must be refused).  Mirrors the doctor scan signature.
+  c2 = 0; havekey = 0; extrakey = 0
+  for (i = o2 + 1; i <= n && i <= o2 + 201; i++) {
     l = L[i]; sub(/\r$/, "", l)
     if (l ~ /^---[[:space:]]*$/) { c2 = i; break }
     if (match(l, /^([A-Za-z_][A-Za-z0-9_.-]*):/, km)) {
       if (km[1] ~ /^(type|status|priority)$/ || (km[1] in b1seen)) havekey = 1
+      if (!(km[1] in b1seen)) extrakey = 1
     }
     else if (l == "" || l ~ /^[ \t]/ || l ~ /^#/ || l ~ /^-([ \t]|$)/) continue
     else exit 3
   }
-  if (!c2 || !havekey) exit 3
+  if (!c2 || !havekey || !extrakey) exit 3
   for (j = 1; j <= nk; j++) kv[b1key[j]] = j
   # Emit merged note
   if (bom1 || bom2) printf "\xEF\xBB\xBF"
@@ -3159,18 +3161,26 @@ EOF
                 has_prev = 0
                 sub(/^\xEF\xBB\xBF/, "", l2); sub(/\r$/, "", l2)
                 if (fm_nn_only && l2 ~ /^---[[:space:]]*$/) {
-                  b2_ok = 1; b2_key = 0; b2_closed = 0; b2_n = 0
+                  # b2_extra: the second block must also hold a key ABSENT
+                  # from the leading block – original frontmatter always
+                  # brings something new, whereas a body YAML example whose
+                  # keys are a subset of the frontmatter (e.g. a lone
+                  # "type: post") must not be flagged.  Detection is
+                  # deliberately conservative: damage it cannot prove is
+                  # left for the manual recipe in the FAQ.
+                  b2_ok = 1; b2_key = 0; b2_extra = 0; b2_closed = 0; b2_n = 0
                   while ((getline l3 < file) > 0) {
                     sub(/\r$/, "", l3)
                     if (l3 ~ /^---[[:space:]]*$/) { b2_closed = 1; break }
                     if (++b2_n > 200) break
                     if (match(l3, /^([A-Za-z_][A-Za-z0-9_.-]*):/, km)) {
                       if (km[1] ~ /^(type|status|priority)$/ || (km[1] in b1k)) b2_key = 1
+                      if (!(km[1] in b1k)) b2_extra = 1
                     }
                     else if (l3 == "" || l3 ~ /^[ \t]/ || l3 ~ /^#/ || l3 ~ /^-([ \t]|$)/) continue
                     else { b2_ok = 0; break }
                   }
-                  if (b2_ok && b2_key && b2_closed) dup = 1
+                  if (b2_ok && b2_key && b2_extra && b2_closed) dup = 1
                 }
               }
               break
@@ -3396,19 +3406,22 @@ EOF
           continue
         fi
         _fix_changed=false
-        local _fix_rc=0 _fix_io=false
+        local _fix_rc=0 _fix_io=false _fix_mode=""
+        # Note permissions: mktemp creates 0600, so capture the note's mode
+        # and restore it after the atomic mv (works for read-only notes too,
+        # since rename needs only directory write permission).
+        _fix_mode=$(stat -c '%a' "$_fixf" 2>/dev/null || stat -f '%Lp' "$_fixf" 2>/dev/null)
         # Stacked corruption merges one layer per pass; iterate to converge.
-        # The repaired content is cat-ed back over the original file (rather
-        # than mv-ed) so the note keeps its permissions/ownership; the .bak
-        # taken above covers the non-atomic window.
+        # mv is atomic, so the note is always either intact or fully merged –
+        # never truncated mid-write.
         for _fix_i in 1 2 3 4 5; do
           _fixtmp=$(mktemp "$_fixf.XXXXXX") || { _fix_io=true; break; }
           "$_fix_gawk" "$_NN_FM_REPAIR_AWK" "$_fixf" > "$_fixtmp" 2>/dev/null
           _fix_rc=$?
           if [[ $_fix_rc -eq 0 ]]; then
-            if cat "$_fixtmp" > "$_fixf"; then
+            if mv "$_fixtmp" "$_fixf"; then
               _fix_changed=true
-              rm -f "$_fixtmp"
+              [[ -n "$_fix_mode" ]] && chmod "$_fix_mode" "$_fixf" 2>/dev/null
             else
               _fix_io=true
               rm -f "$_fixtmp"
@@ -3420,12 +3433,18 @@ EOF
             break
           fi
         done
-        if [[ "$_fix_changed" == "true" ]]; then
+        if [[ "$_fix_changed" == "true" && "$_fix_io" == "true" ]]; then
+          # Later pass failed after an earlier one succeeded: the note holds a
+          # valid intermediate merge; keep the backup and say so.
+          _warn "partially repaired $_fixrel – re-run to finish ${_dim}(backup kept: $_fixrel.bak)${_reset}"
+          (( _fix_skip++ )) || true
+        elif [[ "$_fix_changed" == "true" ]]; then
           _pass "repaired $_fixrel ${_dim}(backup: $_fixrel.bak)${_reset}"
           (( _fix_ok++ )) || true
         elif [[ "$_fix_io" == "true" ]]; then
-          _warn "skipped $_fixrel ${_dim}(read/write failed – file locked or permissions?)${_reset}"
-          rm -f "$_fixf.bak"
+          # Original file is intact (mv is atomic), but keep the backup
+          # anyway – it costs nothing and errs on the safe side.
+          _warn "skipped $_fixrel – read/write failed ${_dim}(file locked or permissions? backup kept: $_fixrel.bak)${_reset}"
           (( _fix_skip++ )) || true
         else
           rm -f "$_fixf.bak"
@@ -4936,6 +4955,9 @@ count=0; first_ok=""; ok_files=(); _no_fm_clear=0
 for file in "$@"; do
   case "$file" in *.empty_placeholder) continue ;; esac
   [ ! -f "$file" ] && continue
+  # mktemp creates the temp 0600 and mv carries that onto the note; capture
+  # the note's mode so it can be restored after a successful write.
+  _mode=$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file" 2>/dev/null)
   # Check for frontmatter before attempting write.  Windows-authored notes may
   # use CRLF endings and a UTF-8 BOM; the fence test must tolerate both (plus
   # trailing blanks, matching the awk fence regex below).  Written lines reuse
@@ -4955,7 +4977,7 @@ for file in "$@"; do
       printf '%s: %s%s\n' "$field" "$value" "$_eol"
       printf '%s\n' "---$_eol"
       if [ -n "$_bom" ]; then tail -c +4 "$file"; else cat "$file"; fi
-    } > "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
+    } > "$_ftmp" && mv "$_ftmp" "$file" && { [ -n "$_mode" ] && chmod "$_mode" "$file" 2>/dev/null; count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
     continue
   fi
   # Update field within YAML frontmatter (between first --- and second ---)
@@ -4969,7 +4991,7 @@ for file in "$@"; do
       # without this, field/continuation matching can eat body lines.
       _f = ARGV[1]; _n = 0
       if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-        while ((getline _l < _f) > 0 && ++_n <= 200)
+        while ((getline _l < _f) > 0 && ++_n <= 201)
           if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
       close(_f)
     }
@@ -4981,7 +5003,7 @@ for file in "$@"; do
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value eol; found=1; skip_cont=1; next }
     { print }
-  ' "$file" > "$_ftmp" && { if cmp -s "$_ftmp" "$file"; then rm -f "$_ftmp"; else mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"; fi; } || rm -f "$_ftmp"
+  ' "$file" > "$_ftmp" && { if cmp -s "$_ftmp" "$file"; then rm -f "$_ftmp"; else mv "$_ftmp" "$file" && { [ -n "$_mode" ] && chmod "$_mode" "$file" 2>/dev/null; count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"; fi; } || rm -f "$_ftmp"
 done
 # Pin check: "always" pins every modified file; "auto" only pins when the
 # new value would cause the item to leave the current view
@@ -5185,6 +5207,9 @@ nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 # Usage: bulkedit_update.sh <file> field=value [field=value ...]
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
+# mktemp creates the temp 0600 and mv carries that onto the note; capture
+# the note's mode so it can be restored after a successful write.
+_mode=$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file" 2>/dev/null)
 # CRLF/BOM-tolerant fence test; _eol carries the file's EOL style (line 1)
 first_line=$(head -n 1 "$file")
 _eol=""; case "$first_line" in *$'\r') _eol=$'\r' ;; esac
@@ -5240,7 +5265,7 @@ if [ "$has_fm" = 0 ]; then
     fi
     printf '%s\n' "---$_eol"
     if [ -n "$_bom" ]; then tail -c +4 "$file"; else cat "$file"; fi
-  } > "$_ftmp" && mv "$_ftmp" "$file"; then
+  } > "$_ftmp" && mv "$_ftmp" "$file" && { [ -z "$_mode" ] || chmod "$_mode" "$file" 2>/dev/null || true; }; then
     exit 0
   else
     rm -f "$_ftmp"
@@ -5261,7 +5286,7 @@ set_type="$set_type" set_status="$set_status" \
     # Pre-scan (see action.sh): never rewrite unclosed frontmatter
     _f = ARGV[1]; _n = 0
     if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-      while ((getline _l < _f) > 0 && ++_n <= 200)
+      while ((getline _l < _f) > 0 && ++_n <= 201)
         if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
     close(_f)
   }
@@ -5296,6 +5321,7 @@ set_type="$set_type" set_status="$set_status" \
   }
   { print }
 ' "$file" > "$_ftmp" && mv "$_ftmp" "$file" || { rm -f "$_ftmp"; exit 1; }
+[ -z "$_mode" ] || chmod "$_mode" "$file" 2>/dev/null || true
 ENDBEU
     chmod +x "$_nn_dir/bulkedit_update.sh"
 

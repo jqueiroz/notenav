@@ -24,4 +24,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **Notes with Windows (CRLF) line endings or a UTF-8 BOM are no longer corrupted by inline actions.** Previously, setting a type/status/priority (including status cycle, priority bump, and bulk edit) on such a note prepended a duplicate frontmatter block, hiding the note's real metadata. Frontmatter detection now tolerates CRLF, BOMs, and trailing blanks after the `---` fence; rewrites preserve each file's own line endings byte-for-byte (inserted lines match the file's style, a BOM stays at byte 0). Existing damage can be repaired with `nn doctor --fix-frontmatter`.
 - New notes created by notenav (native backend) now match the notebook's prevailing line-ending style instead of always using LF; zk-created notes follow zk's own output.
+- Inline and bulk edits no longer reset a note's file permissions to 0600 (the temp-file mode used to survive the atomic rename); `nn doctor --fix-frontmatter` preserves permissions too.
 - Clearing the search query and pressing Esc no longer restores the previous search; it clears the search filter as expected.

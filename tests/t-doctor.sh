@@ -241,6 +241,34 @@ run_doctor "$NB17" --fix-frontmatter || fail "doctor --fix-frontmatter (perms) e
 _mode=$(stat -c '%a' "$pm" 2>/dev/null || stat -f '%Lp' "$pm" 2>/dev/null)
 [[ "$_mode" == "664" ]] || fail "repair changed file permissions (664 -> $_mode)"
 
+# ── Body block whose keys are a subset of the frontmatter: not flagged ───
+# (clean zk-style note: fm = type/status/created; body opens with a fenced
+# YAML example holding only keys already in the frontmatter)
+NB18="$WORK/nb-subset"
+mkdir -p "$NB18"
+sb="$NB18/note.md"
+printf -- '---\ntype: fleeting\nstatus: new\ncreated: 2026-01-01\n---\n---\ntype: post\n---\nbody prose\n' > "$sb"
+cp "$sb" "$WORK/sb.orig"
+run_doctor "$NB18" || fail "doctor exited non-zero on subset-keys note"
+grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "subset-keys body block falsely flagged"
+run_doctor "$NB18" --fix-frontmatter || fail "doctor --fix-frontmatter (subset) exited non-zero"
+assert_bytes "$sb" "$WORK/sb.orig" "subset-keys note left untouched"
+
+# ── Read-only note is still repairable (mv + mode restore) ───────────────
+NB19="$WORK/nb-readonly"
+mkdir -p "$NB19"
+ro="$NB19/note.md"
+{
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\r\ntype: task\r\n---\r\nbody\r\n'
+} > "$ro"
+chmod 444 "$ro"
+run_doctor "$NB19" --fix-frontmatter || fail "doctor --fix-frontmatter (read-only) exited non-zero"
+grep -q 'repaired note.md' "$WORK/doctor.out" || fail "read-only note not repaired"
+_romode=$(stat -c '%a' "$ro" 2>/dev/null || stat -f '%Lp' "$ro" 2>/dev/null)
+[[ "$_romode" == "444" ]] || fail "read-only note lost its mode (444 -> $_romode)"
+chmod 644 "$ro"
+
 # ── --help works in any argument position; unknown flags error ────────────
 (cd "$NB17" && bash "$REPO/bin/nn" doctor --fix-frontmatter --help </dev/null >/dev/null 2>&1) \
   || fail "doctor --fix-frontmatter --help should exit 0"

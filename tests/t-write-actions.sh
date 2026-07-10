@@ -171,6 +171,20 @@ assert_bytes "$f" "$WORK/cap.orig" "beyond-cap close: bulk edit refused"
 run_bulk "$f" "tags=alpha"
 assert_bytes "$f" "$WORK/cap.orig" "beyond-cap close: still refused on second run (no tag duplication)"
 
+# Exactly 200 frontmatter lines (the documented cap): write must succeed
+{
+  printf -- '---\n'
+  for i in $(seq 1 199); do printf 'k%s: v\n' "$i"; done
+  printf -- 'status: new\n---\nbody\n'
+} > "$f"
+{
+  printf -- '---\n'
+  for i in $(seq 1 199); do printf 'k%s: v\n' "$i"; done
+  printf -- 'status: active\n---\nbody\n'
+} > "$x"
+run_action status active "$f"
+assert_bytes "$f" "$x" "200-line frontmatter boundary: write succeeds"
+
 # ── bulkedit_update.sh: multi-field incl. multi-line tags ──────────────
 for enc in "lf 0" "crlf 0" "crlf 1"; do
   # shellcheck disable=SC2086  # intentional split into "<eol> <bom>"
@@ -194,5 +208,24 @@ mk_note "$f" crlf 0 '---' 'type: task' 'tags: [old, stale]' '---' 'body text'
 mk_note "$x" crlf 0 '---' 'type: task' 'tags:' '  - alpha' '  - beta' '---' 'body text'
 run_bulk "$f" "tags=alpha beta"
 assert_bytes "$f" "$x" "bulk tags replace (crlf)"
+
+# ── writes preserve file permissions (mktemp is 0600; mode must survive) ─
+file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }
+mk_note "$f" crlf 0 "${BASE[@]}"
+chmod 664 "$f"
+run_action status active "$f"
+[[ "$(file_mode "$f")" == "664" ]] || fail "action.sh awk edit changed mode (664 -> $(file_mode "$f"))"
+mk_note "$f" crlf 0 '# Marker note' 'body text'
+chmod 664 "$f"
+run_action status active "$f"
+[[ "$(file_mode "$f")" == "664" ]] || fail "action.sh prepend changed mode (664 -> $(file_mode "$f"))"
+mk_note "$f" crlf 0 "${BASE[@]}"
+chmod 664 "$f"
+run_bulk "$f" status=done
+[[ "$(file_mode "$f")" == "664" ]] || fail "bulkedit awk edit changed mode (664 -> $(file_mode "$f"))"
+mk_note "$f" crlf 0 '# Marker note' 'body text'
+chmod 664 "$f"
+run_bulk "$f" status=done
+[[ "$(file_mode "$f")" == "664" ]] || fail "bulkedit prepend changed mode (664 -> $(file_mode "$f"))"
 
 finish
