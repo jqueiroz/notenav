@@ -135,3 +135,4 @@ jobs:
             bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkcrlf-marker
             printf '\357\273\277---\ntype: fleeting\n---\n# zkbom-marker\n' > c.md
             bash "$GITHUB_WORKSPACE/bin/nn" type=fleeting | grep -q zkbom-marker
+            bash "$GITHUB_WORKSPACE/tests/run.sh"

@@ -2,6 +2,7 @@
 # Doctor: CRLF/BOM/mixed/duplicated-frontmatter diagnostics and the
 # --fix-frontmatter repair.
 set -u
+# shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 
 WORK=$(mktemp -d /tmp/nn-t-doctor.XXXXXX) || exit 2
@@ -142,7 +143,7 @@ cp "$dk" "$WORK/dk.orig"
 run_doctor "$NB6b" --fix-frontmatter || fail "doctor --fix-frontmatter (dup key) exited non-zero"
 grep -q 'skipped note.md' "$WORK/doctor.out" || fail "dup-key note not reported as skipped"
 assert_bytes "$dk" "$WORK/dk.orig" "dup-key note left untouched"
-[ -e "$dk.bak" ] && fail "no backup should remain for a skipped note"
+[[ -e "$dk.bak" ]] && fail "no backup should remain for a skipped note"
 
 # ── Body prose disguised as keys: never flagged, never repaired ──────────
 # (adversarial review repros: interview-style body and non-frontmatter keys)
@@ -171,5 +172,79 @@ mkdir -p "$NB12"
 printf -- '---\r\ntype: task\r\n---' > "$NB12/n.md"
 run_doctor "$NB12" || fail "doctor exited non-zero on CRLF no-final-newline note"
 grep -q 'mixed line endings' "$WORK/doctor.out" && fail "CRLF note without final newline falsely flagged as mixed"
+
+# ── Jekyll/pandoc YAML example in the body: never flagged/repaired ──────
+# (nn-only frontmatter + fenced example holding title:/layout: — the block2
+# qualifier requires a managed key or key overlap with the leading block)
+NB13="$WORK/nb-jekyll"
+mkdir -p "$NB13"
+jek="$NB13/jekyll.md"
+printf -- '---\ntype: task\nstatus: new\n---\n---\ntitle: Example Jekyll frontmatter\nlayout: post\n---\nProse about frontmatter\n' > "$jek"
+cp "$jek" "$WORK/jek.orig"
+run_doctor "$NB13" || fail "doctor exited non-zero on jekyll note"
+grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "jekyll example falsely flagged"
+run_doctor "$NB13" --fix-frontmatter || fail "doctor --fix-frontmatter (jekyll) exited non-zero"
+assert_bytes "$jek" "$WORK/jek.orig" "jekyll example left untouched"
+
+# ── zk-path damage (type/status/created block) is detected and repaired ──
+NB14="$WORK/nb-zkdamage"
+mkdir -p "$NB14"
+zkd="$NB14/note.md"
+{
+  printf -- '---\ntype: fleeting\nstatus: new\ncreated: 2026-01-01 10:00\n---\n'
+  printf -- '---\r\ntitle: from template\r\ntype: fleeting\r\n---\r\nbody\r\n'
+} > "$zkd"
+run_doctor "$NB14" --fix-frontmatter || fail "doctor --fix-frontmatter (zk damage) exited non-zero"
+grep -q 'repaired note.md' "$WORK/doctor.out" || fail "zk-path damage not repaired"
+printf -- '---\r\ntitle: from template\r\ntype: fleeting\r\nstatus: new\r\ncreated: 2026-01-01 10:00\r\n---\r\nbody\r\n' > "$WORK/zkd.expected"
+assert_bytes "$zkd" "$WORK/zkd.expected" "zk-path damage merged correctly"
+
+# ── Long tags list in the damage block: scan and repair caps agree ───────
+NB15="$WORK/nb-longtags"
+mkdir -p "$NB15"
+lt="$NB15/note.md"
+{
+  printf -- '---\ntags:\n'
+  for i in $(seq 1 25); do printf '  - tag%s\n' "$i"; done
+  printf -- '---\n'
+  printf -- '---\r\ntype: task\r\ntags: [old]\r\n---\r\nbody\r\n'
+} > "$lt"
+run_doctor "$NB15" --fix-frontmatter || fail "doctor --fix-frontmatter (long tags) exited non-zero"
+grep -q 'repaired note.md' "$WORK/doctor.out" || fail "long-tags damage flagged but not repaired (cap asymmetry)"
+
+# ── Over-merge protection: repair stops at the correct state ─────────────
+NB16="$WORK/nb-overmerge"
+mkdir -p "$NB16"
+om="$NB16/note.md"
+{
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\r\ntype: task\r\nstatus: todo\r\n---\r\n'
+  printf -- '---\ncreated: 2020-01-01 example\n---\nprose body\n'
+} > "$om"
+run_doctor "$NB16" --fix-frontmatter || fail "doctor --fix-frontmatter (over-merge) exited non-zero"
+{
+  printf -- '---\r\ntype: task\r\nstatus: done\r\n---\r\n'
+  printf -- '---\ncreated: 2020-01-01 example\n---\nprose body\n'
+} > "$WORK/om.expected"
+assert_bytes "$om" "$WORK/om.expected" "repair stops at correct state; body fence block not absorbed"
+
+# ── Repair preserves file permissions ─────────────────────────────────────
+NB17="$WORK/nb-perms"
+mkdir -p "$NB17"
+pm="$NB17/note.md"
+{
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\r\ntype: task\r\n---\r\nbody\r\n'
+} > "$pm"
+chmod 664 "$pm"
+run_doctor "$NB17" --fix-frontmatter || fail "doctor --fix-frontmatter (perms) exited non-zero"
+_mode=$(stat -c '%a' "$pm" 2>/dev/null || stat -f '%Lp' "$pm" 2>/dev/null)
+[[ "$_mode" == "664" ]] || fail "repair changed file permissions (664 -> $_mode)"
+
+# ── --help works in any argument position; unknown flags error ────────────
+(cd "$NB17" && bash "$REPO/bin/nn" doctor --fix-frontmatter --help </dev/null >/dev/null 2>&1) \
+  || fail "doctor --fix-frontmatter --help should exit 0"
+(cd "$NB17" && bash "$REPO/bin/nn" doctor --bogus </dev/null >/dev/null 2>&1)
+[[ $? -eq 2 ]] || fail "doctor --bogus should exit 2"
 
 finish

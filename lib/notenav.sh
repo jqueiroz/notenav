@@ -1519,13 +1519,15 @@ END {
   if (n < 5) exit 3
   l = L[1]; sub(/^\xEF\xBB\xBF/, "", l); bom1 = (l != L[1]); sub(/\r$/, "", l)
   if (l !~ /^---[[:space:]]*$/) exit 3
-  # Leading block: only the keys the write bug could have left, each at most
-  # once (the bug edited fields in place, so a repeated key is not bug damage)
+  # Leading block: only the keys the write bugs could have left (actions
+  # wrote type/status/priority/tags; the zk newnote path also wrote created),
+  # each at most once (the bugs edited fields in place, so a repeated key is
+  # not bug damage).  Cap mirrors the scan's 200-line frontmatter cap.
   c1 = 0; nk = 0
-  for (i = 2; i <= n && i <= 22; i++) {
+  for (i = 2; i <= n && i <= 202; i++) {
     l = L[i]; sub(/\r$/, "", l)
     if (l ~ /^---[[:space:]]*$/) { c1 = i; break }
-    if (l ~ /^(type|status|priority|tags):([ \t].*)?$/) {
+    if (l ~ /^(type|status|priority|tags|created):([ \t].*)?$/) {
       k = l; sub(/:.*$/, "", k)
       if (k in b1seen) exit 3
       b1seen[k] = 1
@@ -1542,15 +1544,17 @@ END {
   if (l !~ /^---[[:space:]]*$/) exit 3
   eol2 = (L[o2] ~ /\r$/) ? "\r" : ""
   # Original block: must close, be YAML-shaped throughout (keys, list items,
-  # indentation, blanks, comments – no prose), and contain at least one
-  # common frontmatter key.  Mirrors the doctor scan signature; a body that
-  # merely opens with fence-delimited key-shaped prose is refused.
+  # indentation, blanks, comments – no prose), and either hold a notenav-
+  # managed key (type/status/priority) or share a key with the leading block.
+  # Mirrors the doctor scan signature; a body that merely opens with a fenced
+  # YAML-shaped example (Jekyll/pandoc metadata, multi-doc) is refused.
   c2 = 0; havekey = 0
   for (i = o2 + 1; i <= n && i <= o2 + 200; i++) {
     l = L[i]; sub(/\r$/, "", l)
     if (l ~ /^---[[:space:]]*$/) { c2 = i; break }
-    if (l ~ /^(type|status|priority|tags|title|created)[A-Za-z0-9_.-]*:/) havekey = 1
-    else if (l ~ /^[A-Za-z_][A-Za-z0-9_.-]*:/) continue
+    if (match(l, /^([A-Za-z_][A-Za-z0-9_.-]*):/, km)) {
+      if (km[1] ~ /^(type|status|priority)$/ || (km[1] in b1seen)) havekey = 1
+    }
     else if (l == "" || l ~ /^[ \t]/ || l ~ /^#/ || l ~ /^-([ \t]|$)/) continue
     else exit 3
   }
@@ -1655,14 +1659,15 @@ EOF
   fi
 
   local _fix_fm=false
-  if [[ "${1:-}" == "--fix-frontmatter" ]]; then
-    _fix_fm=true
-    shift
-  fi
-  if [[ "${1:-}" == --* || "${1:-}" == -* ]]; then
-    echo "notenav: doctor: unknown option '$1' (see nn doctor --help)" >&2
-    return 2
-  fi
+  while [[ "${1:-}" == -* ]]; do
+    case "$1" in
+      --fix-frontmatter) _fix_fm=true; shift ;;
+      --help|-h) nn_doctor "$notenav_root" --help; return 0 ;;
+      *)
+        echo "notenav: doctor: unknown option '$1' (see nn doctor --help)" >&2
+        return 2 ;;
+    esac
+  done
   # Set when the Phase-6 frontmatter scan actually runs; --fix-frontmatter
   # must not report "nothing to repair" when the scan was skipped.
   local _fm_scan_ran=false
@@ -3122,6 +3127,7 @@ EOF
         file = $0; type = ""; status = ""; priority = ""; in_fm = 0; had_fm = 0; fm_lines = 0
         bom = 0; crlf = 0; lf_n = 0; crlf_n = 0; dup = 0
         fm_nn_only = 1; has_prev = 0; prev_cr = 0
+        delete b1k
         while ((getline line < file) > 0) {
           # EOL counting is committed one line late: a successful read of the
           # NEXT line proves the previous one was newline-terminated, so a
@@ -3139,24 +3145,28 @@ EOF
           if (in_fm) {
             if (line ~ /^---[[:space:]]*$/) {
               # Duplicated-frontmatter signature left by the pre-0.2.0
-              # CRLF/BOM write bug (see nn doctor --fix-frontmatter): the
-              # block just scanned held ONLY keys the bug could write, and it
-              # is immediately followed by a second closed fence block that is
-              # YAML-shaped throughout and holds at least one common
-              # frontmatter key.  Anything looser mislabels notes whose body
-              # legitimately opens with a fenced block.
-              if (fm_nn_only && (getline l2 < file) > 0) {
+              # CRLF/BOM write bugs (see nn doctor --fix-frontmatter): the
+              # block just scanned held ONLY keys those bugs could write
+              # (type/status/priority/tags via actions, +created via the zk
+              # newnote path), and it is immediately followed by a second
+              # closed fence block that is YAML-shaped throughout and either
+              # holds a notenav-managed key (type/status/priority) or shares
+              # a key with the leading block.  Anything looser mislabels
+              # notes whose body legitimately opens with a fenced block
+              # (Jekyll/pandoc YAML examples, multi-doc files).
+              if ((getline l2 < file) > 0) {
                 if (prev_cr) crlf_n++; else lf_n++   # close fence proven terminated
                 has_prev = 0
                 sub(/^\xEF\xBB\xBF/, "", l2); sub(/\r$/, "", l2)
-                if (l2 ~ /^---[[:space:]]*$/) {
+                if (fm_nn_only && l2 ~ /^---[[:space:]]*$/) {
                   b2_ok = 1; b2_key = 0; b2_closed = 0; b2_n = 0
                   while ((getline l3 < file) > 0) {
                     sub(/\r$/, "", l3)
                     if (l3 ~ /^---[[:space:]]*$/) { b2_closed = 1; break }
                     if (++b2_n > 200) break
-                    if (l3 ~ /^(type|status|priority|tags|title|created)[A-Za-z0-9_.-]*:/) b2_key = 1
-                    else if (l3 ~ /^[A-Za-z_][A-Za-z0-9_.-]*:/) continue
+                    if (match(l3, /^([A-Za-z_][A-Za-z0-9_.-]*):/, km)) {
+                      if (km[1] ~ /^(type|status|priority)$/ || (km[1] in b1k)) b2_key = 1
+                    }
                     else if (l3 == "" || l3 ~ /^[ \t]/ || l3 ~ /^#/ || l3 ~ /^-([ \t]|$)/) continue
                     else { b2_ok = 0; break }
                   }
@@ -3178,7 +3188,8 @@ EOF
               val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
               priority = val
             }
-            if (line !~ /^(type|status|priority|tags):([ \t].*)?$/ && line !~ /^[ \t]+-[ \t]/) fm_nn_only = 0
+            if (match(line, /^(type|status|priority|tags|created):([ \t].*)?$/, bm)) b1k[bm[1]] = 1
+            else if (line !~ /^[ \t]+-[ \t]/) fm_nn_only = 0
           } else break
         }
         close(file); NR_FILE = 0
@@ -3385,24 +3396,37 @@ EOF
           continue
         fi
         _fix_changed=false
-        # Stacked corruption merges one layer per pass; iterate to converge
+        local _fix_rc=0 _fix_io=false
+        # Stacked corruption merges one layer per pass; iterate to converge.
+        # The repaired content is cat-ed back over the original file (rather
+        # than mv-ed) so the note keeps its permissions/ownership; the .bak
+        # taken above covers the non-atomic window.
         for _fix_i in 1 2 3 4 5; do
-          _fixtmp=$(mktemp "$_fixf.XXXXXX") || break
-          if "$_fix_gawk" "$_NN_FM_REPAIR_AWK" "$_fixf" > "$_fixtmp" 2>/dev/null; then
-            if mv "$_fixtmp" "$_fixf"; then
+          _fixtmp=$(mktemp "$_fixf.XXXXXX") || { _fix_io=true; break; }
+          "$_fix_gawk" "$_NN_FM_REPAIR_AWK" "$_fixf" > "$_fixtmp" 2>/dev/null
+          _fix_rc=$?
+          if [[ $_fix_rc -eq 0 ]]; then
+            if cat "$_fixtmp" > "$_fixf"; then
               _fix_changed=true
+              rm -f "$_fixtmp"
             else
+              _fix_io=true
               rm -f "$_fixtmp"
               break
             fi
           else
             rm -f "$_fixtmp"
+            [[ $_fix_rc -ne 3 ]] && _fix_io=true
             break
           fi
         done
         if [[ "$_fix_changed" == "true" ]]; then
           _pass "repaired $_fixrel ${_dim}(backup: $_fixrel.bak)${_reset}"
           (( _fix_ok++ )) || true
+        elif [[ "$_fix_io" == "true" ]]; then
+          _warn "skipped $_fixrel ${_dim}(read/write failed – file locked or permissions?)${_reset}"
+          rm -f "$_fixf.bak"
+          (( _fix_skip++ )) || true
         else
           rm -f "$_fixf.bak"
           _warn "skipped $_fixrel ${_dim}(does not match the known corruption pattern)${_reset}"
@@ -4706,7 +4730,7 @@ scope_path=$(cat "$dir/.scope_path")
 if [ "$has_zk" = "true" ]; then
   _zk_scope=("$scope_path")
   [ -d "$scope_path/.zk" ] && _zk_scope=()
-  zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.csearch_paths"
+  zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null | tr -d '\r' > "$dir/.csearch_paths"
 else
   if command -v rg >/dev/null 2>&1; then
     rg -Fl --type md -- "$query" "$scope_path" 2>/dev/null > "$dir/.csearch_paths"
@@ -4733,7 +4757,7 @@ if [ -n "$query" ]; then
   if [ "$has_zk" = "true" ]; then
     _zk_scope=("$scope_path")
     [ -d "$scope_path/.zk" ] && _zk_scope=()
-    zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null > "$dir/.f_match_paths"
+    zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null | tr -d '\r' > "$dir/.f_match_paths"
   else
     if command -v rg >/dev/null 2>&1; then
       rg -Fl --type md -- "$query" "$scope_path" 2>/dev/null > "$dir/.f_match_paths"
@@ -4937,7 +4961,19 @@ for file in "$@"; do
   # Update field within YAML frontmatter (between first --- and second ---)
   _ftmp=$(mktemp "$file.XXXXXX") || continue
   field="$field" value="$value" "$nn_gawk" '
-    BEGIN { field=ENVIRON["field"]; value=ENVIRON["value"] }
+    BEGIN {
+      field=ENVIRON["field"]; value=ENVIRON["value"]
+      # Pre-scan: only rewrite when line 1 opens a fence AND a closing fence
+      # follows within the 200-line cap.  Unclosed frontmatter must be a
+      # byte-identical no-op (exit 9 -> caller discards the tmp file);
+      # without this, field/continuation matching can eat body lines.
+      _f = ARGV[1]; _n = 0
+      if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
+        while ((getline _l < _f) > 0 && ++_n <= 200)
+          if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
+      close(_f)
+    }
+    !fm_ok { exit 9 }
     NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; fm_lines=0; print; next }
     in_fm && /^---[[:space:]]*$/ { in_fm=0; if (!found && value != "") print field ": " value eol; print; skip_cont=0; next }
     in_fm && ++fm_lines > 200 { in_fm=0; print; next }
@@ -4993,7 +5029,8 @@ if [ "$count" -eq 0 ]; then
   else
     # Covers both "value already set" and write failures (e.g. a note held
     # locked by a Windows app when the notebook lives on /mnt/c).
-    printf '⚠ no files modified (unchanged, or file locked?)' > "$dir/.last_action"
+    # NB: no parentheses – the border label consumer strips ( and ).
+    printf '⚠ no files modified – unchanged or locked?' > "$dir/.last_action"
   fi
 else
   _la_title=$(p="${first_ok:-}" $nn_gawk -F'\t' '$6 == ENVIRON["p"] {print $5; exit}' "$dir/.raw")
@@ -5219,7 +5256,16 @@ set_type="$set_type" set_status="$set_status" \
     n = split(set_tags, tl, "\n")
     for (i = 1; i <= n; i++) print tl[i] eol
   }
-  BEGIN { set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"] }
+  BEGIN {
+    set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"]
+    # Pre-scan (see action.sh): never rewrite unclosed frontmatter
+    _f = ARGV[1]; _n = 0
+    if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
+      while ((getline _l < _f) > 0 && ++_n <= 200)
+        if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
+    close(_f)
+  }
+  !fm_ok { exit 9 }
   NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; fm_lines=0; print; next }
   in_fm && /^---[[:space:]]*$/ {
     in_fm=0; skip_cont=0
@@ -5249,7 +5295,7 @@ set_type="$set_type" set_status="$set_status" \
     else { found_tags=1 }
   }
   { print }
-' "$file" > "$_ftmp" && mv "$_ftmp" "$file" || rm -f "$_ftmp"
+' "$file" > "$_ftmp" && mv "$_ftmp" "$file" || { rm -f "$_ftmp"; exit 1; }
 ENDBEU
     chmod +x "$_nn_dir/bulkedit_update.sh"
 

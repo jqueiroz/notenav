@@ -158,7 +158,7 @@ Yes. notenav works with any markdown files that use YAML frontmatter. It reads `
 
 ## Can I keep my notes on a Windows drive / edit them with Windows tools (WSL)?
 
-Yes. Notes with Windows (CRLF) line endings and/or a UTF-8 byte-order mark are fully supported, in any mix within one notebook. Reads tolerate them, and edits preserve each file's own style byte-for-byte: changing a note's status touches only that one line, keeps the file's CRLF endings, and leaves a BOM at byte 0. New notes created by notenav match the notebook's dominant line-ending style. `nn doctor` reports how many notes use CRLF or a BOM.
+Yes. Notes with Windows (CRLF) line endings and/or a UTF-8 byte-order mark are fully supported, in any mix within one notebook. Reads tolerate them, and edits preserve each file's own style byte-for-byte: changing a note's status touches only that one line, keeps the file's CRLF endings, and leaves a BOM at byte 0. New notes created by notenav match the notebook's prevailing line-ending style, sampled from existing notes (notes created through the optional zk backend follow zk's own output, typically LF). `nn doctor` reports how many notes use CRLF or a BOM.
 
 Caveats for notebooks under `/mnt/c` (the Windows drive mounted in WSL):
 

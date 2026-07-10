@@ -3,6 +3,7 @@
 # across line-ending/BOM variants. Fixtures and expected outputs are built with
 # printf at runtime so git line-ending settings can never affect them.
 set -u
+# shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 
 WORK=$(mktemp -d /tmp/nn-t-write.XXXXXX) || exit 2
@@ -25,6 +26,7 @@ x="$WORK/expected.md"
 
 # ── action.sh: set existing key ────────────────────────────────────────
 for enc in "lf 0" "crlf 0" "crlf 1" "lf 1"; do
+  # shellcheck disable=SC2086  # intentional split into "<eol> <bom>"
   set -- $enc
   mk_note "$f" "$1" "$2" "${BASE[@]}"
   mk_note "$x" "$1" "$2" '---' 'type: task' 'status: active' '---' '# Marker note' 'body text'
@@ -34,6 +36,7 @@ done
 
 # ── action.sh: set absent key (insert before closing fence) ───────────
 for enc in "lf 0" "crlf 0" "crlf 1"; do
+  # shellcheck disable=SC2086  # intentional split into "<eol> <bom>"
   set -- $enc
   mk_note "$f" "$1" "$2" "${BASE[@]}"
   mk_note "$x" "$1" "$2" '---' 'type: task' 'status: new' 'priority: 2' '---' '# Marker note' 'body text'
@@ -43,6 +46,7 @@ done
 
 # ── action.sh: clear existing key ──────────────────────────────────────
 for enc in "lf 0" "crlf 0"; do
+  # shellcheck disable=SC2086  # intentional split into "<eol> <bom>"
   set -- $enc
   mk_note "$f" "$1" "$2" "${BASE[@]}"
   mk_note "$x" "$1" "$2" '---' 'type: task' '---' '# Marker note' 'body text'
@@ -52,6 +56,7 @@ done
 
 # ── action.sh: same-value set must be a byte-identical no-op ───────────
 for enc in "lf 0" "crlf 0" "crlf 1"; do
+  # shellcheck disable=SC2086  # intentional split into "<eol> <bom>"
   set -- $enc
   mk_note "$f" "$1" "$2" "${BASE[@]}"
   mk_note "$x" "$1" "$2" "${BASE[@]}"
@@ -138,8 +143,37 @@ cp "$f" "$WORK/cr-only.run2"
 run_action status active "$f"
 assert_bytes "$f" "$WORK/cr-only.run2" "cr-only third run is byte-stable"
 
+# ── unclosed frontmatter: refused, byte-identical (fuzzer repros) ───────
+# Continuation-shaped body lines after an unclosed fence must never be eaten
+printf -- '---\nstatus: new\n  precious indented text\n- precious dash line\n' > "$f"
+cp "$f" "$WORK/unclosed.orig"
+run_action status '' "$f"
+assert_bytes "$f" "$WORK/unclosed.orig" "unclosed fm: clear is a byte-identical no-op"
+run_action status active "$f"
+assert_bytes "$f" "$WORK/unclosed.orig" "unclosed fm: set is a byte-identical no-op"
+
+# A CR-terminated close fence merges into the next record (mixed CR/LF file):
+# frontmatter that renders as closed is unclosed to awk – body must survive
+printf -- '---\ntitle: x\n---\rMy notes\nstatus: needs review with Bob\n' > "$f"
+cp "$f" "$WORK/crclose.orig"
+run_action status active "$f"
+assert_bytes "$f" "$WORK/crclose.orig" "CR-merged close fence: body line not rewritten"
+
+# Frontmatter closing beyond the 200-line cap: refused, idempotent
+{
+  printf -- '---\n'
+  for i in $(seq 1 199); do printf 'k%s: v\n' "$i"; done
+  printf -- 'tags:\n  - alpha\n---\nbody\n'
+} > "$f"
+cp "$f" "$WORK/cap.orig"
+run_bulk "$f" "tags=alpha"
+assert_bytes "$f" "$WORK/cap.orig" "beyond-cap close: bulk edit refused"
+run_bulk "$f" "tags=alpha"
+assert_bytes "$f" "$WORK/cap.orig" "beyond-cap close: still refused on second run (no tag duplication)"
+
 # ── bulkedit_update.sh: multi-field incl. multi-line tags ──────────────
 for enc in "lf 0" "crlf 0" "crlf 1"; do
+  # shellcheck disable=SC2086  # intentional split into "<eol> <bom>"
   set -- $enc
   mk_note "$f" "$1" "$2" "${BASE[@]}"
   mk_note "$x" "$1" "$2" '---' 'type: idea' 'status: done' 'priority: 1' 'tags:' \

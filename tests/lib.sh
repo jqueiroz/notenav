@@ -4,6 +4,10 @@
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 FAILS=0
 
+# Hermetic: a contributor's ~/.config/notenav/config.toml must not leak into
+# test runs. Point XDG_CONFIG_HOME at a path that cannot contain one.
+export XDG_CONFIG_HOME="${TMPDIR:-/tmp}/nn-test-no-user-config"
+
 fail() { printf '  FAIL: %s\n' "$*"; FAILS=$((FAILS + 1)); }
 finish() { exit $((FAILS > 0 ? 1 : 0)); }
 
@@ -13,9 +17,9 @@ mk_note() {
   local dest=$1 eol=$2 bom=$3
   shift 3
   local e=$'\n'
-  [ "$eol" = crlf ] && e=$'\r\n'
+  [[ "$eol" == crlf ]] && e=$'\r\n'
   {
-    [ "$bom" = 1 ] && printf '\357\273\277'
+    [[ "$bom" == 1 ]] && printf '\357\273\277'
     local l
     for l in "$@"; do printf '%s%s' "$l" "$e"; done
   } > "$dest"
@@ -55,13 +59,13 @@ ENDSHIM
       bash "$REPO/bin/nn" </dev/null >/dev/null 2>"$tmp/stderr"
   )
   rc=$?
-  if [ "$rc" -ne 130 ]; then
+  if [[ "$rc" -ne 130 ]]; then
     fail "nn exited $rc (expected 130 via shim); stderr:"
     sed 's/^/    /' "$tmp/stderr" | head -10
     rm -rf "$tmp"
     return 1
   fi
-  if [ ! -x "$dest/action.sh" ]; then
+  if [[ ! -x "$dest/action.sh" ]]; then
     fail "capture incomplete: $dest/action.sh missing"
     rm -rf "$tmp"
     return 1
