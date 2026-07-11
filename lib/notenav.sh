@@ -1624,9 +1624,12 @@ _nn_list_notes() {
       # when <path> is the zk notebook root; omit the path in that case.
       local _zk_scope=("$@")
       [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
-      # tr strips any stray CR so downstream exact-match filters stay reliable
-      # (defense in depth – zk itself normally emits clean LF output)
-      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null | sed $'s/\r$//'
+      # sed strips CR at end-of-line ONLY so downstream exact-match filters
+      # stay reliable (defense in depth – zk normally emits clean LF).  Do
+      # NOT use tr -d here: a CR byte INSIDE a note path is legal and must
+      # survive byte-exact or every consumer targets a nonexistent file.
+      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null \
+        | "${_NN_GAWK:-awk}" -F'\t' 'NF == 8 { sub(/\r$/, ""); print }'
       local _zk_rc="${PIPESTATUS[0]}"
       if [[ $_zk_rc -gt 1 ]]; then
         echo "notenav: zk list failed (exit $_zk_rc) – run 'nn doctor' or try without zk" >&2
@@ -3123,6 +3126,17 @@ EOF
       while IFS= read -r _fmv; do [[ -n "$_fmv" ]] && _fm_known_priorities[$_fmv]=1; done < <(nn_cfg '.priority.values // [] | .[]')
     fi
 
+    # Newline-named files are excluded from indexing and scanning (their
+    # paths cannot ride line-oriented pipelines or fzf rows); warn about
+    # them here, before the gawk gate – this check needs only find
+    local _fm_nl=$'\n'
+    local _fm_nl_count
+    _fm_nl_count=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune \
+      -o -name '*.md' -path "*${_fm_nl}*" -type f -exec printf x \; 2>/dev/null | wc -c | tr -d ' ')
+    if [[ "${_fm_nl_count:-0}" -gt 0 ]]; then
+      _warn "$_fm_nl_count note filename(s) contain a newline – unsupported, these notes are not indexed or scanned"
+    fi
+
     # Scan frontmatter with a single gawk pass over all .md files
     local _fm_gawk
     _fm_gawk=$(_nn_resolve_gawk)
@@ -3140,16 +3154,6 @@ EOF
     # Apply the same .nnignore filtering as the runtime so excluded notes
     # (e.g. archived directories) don't produce spurious warnings.  Reuses
     # _ign_prune (built in Phase 5) and _nn_ignore_pipe for consistency.
-    # Newline-named files are excluded here as in the runtime listing; a
-    # dedicated warning below tells the user such notes exist but are not
-    # indexed (their paths cannot ride line-oriented pipelines or fzf rows)
-    local _fm_nl=$'\n'
-    local _fm_nl_count
-    _fm_nl_count=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune \
-      -o -name '*.md' -path "*${_fm_nl}*" -type f -exec printf x \; 2>/dev/null | wc -c | tr -d ' ')
-    if [[ "${_fm_nl_count:-0}" -gt 0 ]]; then
-      _warn "$_fm_nl_count note filename(s) contain a newline – unsupported, these notes are not indexed or scanned"
-    fi
     # 2000-file cap keeps plain doctor fast on huge notebooks; a repair run
     # must see everything, so --fix-frontmatter raises it
     local _fm_scan_cap=2000
@@ -5058,12 +5062,13 @@ for file in "$@"; do
     BEGIN {
       field=ENVIRON["field"]; value=ENVIRON["value"]
       # Pre-scan: only rewrite when line 1 opens a fence AND a closing fence
-      # follows within the 200-line cap.  Unclosed frontmatter must be a
-      # byte-identical no-op (exit 9 -> caller discards the tmp file);
-      # without this, field/continuation matching can eat body lines.
-      _f = ARGV[1]
+      # follows within the same 100000-line bound the rewriter uses.
+      # Unclosed frontmatter must be a byte-identical no-op (exit 9 -> the
+      # caller discards the tmp file); without this, field/continuation
+      # matching can eat body lines.
+      _f = ARGV[1]; _n = 0
       if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-        while ((getline _l < _f) > 0)
+        while ((getline _l < _f) > 0 && ++_n <= 100000)
           if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
       close(_f)
     }
@@ -5357,9 +5362,9 @@ set_type="$set_type" set_status="$set_status" \
   BEGIN {
     set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"]
     # Pre-scan (see action.sh): never rewrite unclosed frontmatter
-    _f = ARGV[1]
+    _f = ARGV[1]; _n = 0
     if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-      while ((getline _l < _f) > 0)
+      while ((getline _l < _f) > 0 && ++_n <= 100000)
         if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
     close(_f)
   }

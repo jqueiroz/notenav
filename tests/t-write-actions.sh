@@ -278,8 +278,10 @@ assert_bytes "$f" "$x" "cyclestatus assigns initial status on CRLF note"
 # CRLF majority must win, and .raw rows with EMPTY status/priority/tags
 # fields must not shift the path column (the IFS=tab read regression)
 _sampler=$(awk '/prevailing line-ending style/{s=1} s{print} s && /&& _nn_ceol=/{exit}' "$CAP/newnote.sh")
-if [[ -z "$_sampler" ]]; then
-  fail "sampler snippet not found in newnote.sh"
+# Fail closed if either anchor drifts: the snippet must stay small and must
+# never reach the note-creation code below it
+if [[ -z "$_sampler" || $(wc -l <<< "$_sampler") -gt 25 || "$_sampler" == *mktemp* ]]; then
+  fail "sampler snippet extraction anchors drifted – update this test"
 else
   SDIR=$(mktemp -d /tmp/nn-sampler.XXXXXX)
   for i in 1 2 3; do mk_note "$SDIR/c$i.md" crlf 0 '---' 'type: task' '---' 'b'; done
