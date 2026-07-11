@@ -1561,13 +1561,11 @@ END {
     else exit 3
   }
   if (!c2 || !havekey) exit 3
-  # Check mode (gawk -v nn_check=1 – a -v variable, NOT an env var, so an
-  # ambient export can never flip a write invocation into silent check
-  # mode): report whether a repairable-looking residue remains WITHOUT the
-  # extra-key requirement and without writing.  The caller uses this after
-  # a successful merge to flag blocks that may be stacked same-key damage.
-  if (nn_check == 1) exit 0
-  if (!extrakey) exit 3
+  # exit 4 = structurally repairable but refused by the extra-key rule.
+  # The caller reads this from the convergence loop's terminal status to
+  # flag possible stacked same-key residue after a successful merge – no
+  # separate check invocation or mode flag needed.
+  if (!extrakey) exit 4
   for (j = 1; j <= nk; j++) kv[b1key[j]] = j
   # Emit merged note
   if (bom1 || bom2) printf "\xEF\xBB\xBF"
@@ -3438,21 +3436,17 @@ EOF
             fi
           else
             rm -f "$_fixtmp"
-            [[ $_fix_rc -ne 3 ]] && _fix_io=true
+            [[ $_fix_rc -ne 3 && $_fix_rc -ne 4 ]] && _fix_io=true
             break
           fi
         done
-        # After a successful merge, check for a repairable-looking block the
-        # conservative matcher will not touch.  It is either stacked
+        # Terminal rc 4 after a successful merge: a repairable-looking block
+        # remains that only the extra-key rule refused.  It is either stacked
         # same-key damage or legitimate body content of the same shape –
         # indistinguishable by bytes – so the repair counts as done and the
-        # user is asked to glance at it.  (Skipped on the I/O-failure path,
-        # where the partial-repair branch wins anyway.)
+        # user is asked to glance at it.
         local _fix_residue=false
-        if [[ "$_fix_changed" == "true" && "$_fix_io" != "true" ]] && \
-           "$_fix_gawk" -v nn_check=1 "$_NN_FM_REPAIR_AWK" "$_fixf" >/dev/null 2>&1; then
-          _fix_residue=true
-        fi
+        [[ "$_fix_changed" == "true" && $_fix_rc -eq 4 ]] && _fix_residue=true
         if [[ "$_fix_changed" == "true" && "$_fix_io" == "true" ]]; then
           # Later pass failed after an earlier one succeeded: the note holds a
           # valid intermediate merge; keep the backup and be explicit.
