@@ -1499,8 +1499,11 @@ ENDBACKFILL
 # multi-pass loop once the merged block contains ordinary frontmatter keys.
 # Merges the two blocks (original block as base, leading block's keys
 # override – they hold the user's post-corruption edits), re-emits in the
-# original block's EOL style with any BOM restored to byte 0, and exits 3
-# without output when the file doesn't match.  Requires gawk (3-arg match).
+# original block's EOL style with any BOM restored to byte 0.  Refusals
+# produce no output: exit 3 when the file doesn't match, exit 4 when only
+# the extra-key rule refused (possible stacked same-key residue – the
+# caller reads this from the convergence loop's terminal status).
+# Requires gawk (3-arg match).
 _NN_FM_REPAIR_AWK=$(cat << 'ENDREPAIR'
 function emit_b1(j,   line, parts, p, np) {
   line = b1line[j]; sub(/\r$/, "", line)
