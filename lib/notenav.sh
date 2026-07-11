@@ -1631,15 +1631,19 @@ _nn_list_notes() {
       # bytes.  A widened row is not reconstructed: the extra tabs may come
       # from the title, the path, or quoted values, and any guess can point
       # the path column at an innocent existing file (a mis-write hazard).
-      # A short row is always the leading half of a split logical row, so
-      # the line after it is a fragment too – skipped even when it happens
-      # to look well-formed (a path holding a newline AND several tabs).
-      # Such pathological notes are simply absent from the zk listing (the
-      # native backend sanitizes tab titles; nn doctor flags newline names).
+      # A single newline in a path splits its row into two short fragments:
+      # the first matches NF < 8 and arms the latch, the latch then consumes
+      # the second (whatever its shape), and following legitimate rows pass
+      # untouched – the latch MUST be evaluated first or a short second
+      # fragment re-arms it and eats the next real note.  Paths combining
+      # multiple newlines with several tabs can defeat this (fragments
+      # beyond the first pair, or a tab-heavy leading fragment, may emit a
+      # garbage row) – accepted: nn doctor flags newline names, and the
+      # native backend used for reloads sanitizes tab titles.
       zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null \
         | "${_NN_GAWK:-awk}" -F'\t' '
-            NF < 8 { skip = 1; next }
             skip { skip = 0; next }
+            NF < 8 { skip = 1; next }
             NF == 8 && $6 ~ /^\// { sub(/\r$/, ""); print }'
       local _zk_rc="${PIPESTATUS[0]}"
       if [[ $_zk_rc -gt 1 ]]; then

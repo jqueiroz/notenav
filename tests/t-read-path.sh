@@ -32,4 +32,19 @@ fi
 grep -q 'echo-newline-marker' "$out" && fail "newline-named note must be excluded, not listed"
 grep -q '^name.md' "$out" && fail "phantom row leaked from newline-named note"
 
+# ── zk row-normalization stage (extracted from lib): fragment latch ──────
+# A split row's fragments must be dropped WITHOUT eating the next real note
+# (the latch must consume before the short-row rule re-arms it)
+_zkstage=$(awk '/skip \{ skip = 0; next \}/{s=1} s{print} s && /print \}/{exit}' "$REPO/lib/notenav.sh")
+if [[ -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 6 ]]; then
+  fail "zk stage extraction anchors drifted – update this test"
+else
+  _zkout=$(printf 'task\topen\tp1\tt\tti\t/bad\nname.md\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n' \
+    | gawk -F'\t' "${_zkstage%\'}")
+  [[ "$_zkout" == *Good* ]] || fail "legit row after split fragments was eaten (latch order)"
+  [[ "$_zkout" == *name.md* ]] && fail "split fragment leaked through the zk stage"
+  _zkcnt=$(printf '%s\n' "$_zkout" | grep -c .)
+  [[ "$_zkcnt" -eq 1 ]] || fail "zk stage emitted $_zkcnt rows, expected 1"
+fi
+
 finish
