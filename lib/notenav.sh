@@ -1627,14 +1627,20 @@ _nn_list_notes() {
       # The awk stage normalizes zk output to reliable 8-field TSV rows:
       # strips CR at end-of-line ONLY (a CR inside a note path is legal and
       # must survive byte-exact, so no tr -d) and DROPS malformed rows –
-      # phantom halves of newline-named files and rows widened by tab bytes.
-      # A widened row is not reconstructed: the extra tabs may come from the
-      # title, the path, or quoted values, and any guess can point the path
-      # column at an innocent existing file (a mis-write hazard).  Such rare
-      # notes are simply absent from the zk listing; the native backend
-      # (reloads, watchers) sanitizes tab titles and lists them.
+      # phantom fragments of newline-named files and rows widened by tab
+      # bytes.  A widened row is not reconstructed: the extra tabs may come
+      # from the title, the path, or quoted values, and any guess can point
+      # the path column at an innocent existing file (a mis-write hazard).
+      # A short row is always the leading half of a split logical row, so
+      # the line after it is a fragment too – skipped even when it happens
+      # to look well-formed (a path holding a newline AND several tabs).
+      # Such pathological notes are simply absent from the zk listing (the
+      # native backend sanitizes tab titles; nn doctor flags newline names).
       zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null \
-        | "${_NN_GAWK:-awk}" -F'\t' 'NF == 8 && $6 ~ /^\// { sub(/\r$/, ""); print }'
+        | "${_NN_GAWK:-awk}" -F'\t' '
+            NF < 8 { skip = 1; next }
+            skip { skip = 0; next }
+            NF == 8 && $6 ~ /^\// { sub(/\r$/, ""); print }'
       local _zk_rc="${PIPESTATUS[0]}"
       if [[ $_zk_rc -gt 1 ]]; then
         echo "notenav: zk list failed (exit $_zk_rc) – run 'nn doctor' or try without zk" >&2
