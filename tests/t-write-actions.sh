@@ -191,6 +191,21 @@ assert_bytes "$f" "$x" "201-line frontmatter: second run idempotent (no duplicat
 run_action status 'done' "$f"
 assert_bytes "$f" "$x" "250-line frontmatter: status edit succeeds"
 
+# Exactly at the 100000-line rewriter cap: pre-scan must see the close fence
+# (the off-by-one class has bitten twice; pin the real constant)
+{
+  printf -- '---\nstatus: new\n'
+  seq 1 99999 | awk '{print "k" $0 ": v"}'
+  printf -- '---\nbody\n'
+} > "$f"
+{
+  printf -- '---\nstatus: active\n'
+  seq 1 99999 | awk '{print "k" $0 ": v"}'
+  printf -- '---\nbody\n'
+} > "$x"
+run_action status active "$f"
+assert_bytes "$f" "$x" "100000-line frontmatter cap boundary: edit succeeds"
+
 # Exactly 200 frontmatter lines (the documented cap): write must succeed
 {
   printf -- '---\n'

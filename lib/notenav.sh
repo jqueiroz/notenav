@@ -1624,12 +1624,22 @@ _nn_list_notes() {
       # when <path> is the zk notebook root; omit the path in that case.
       local _zk_scope=("$@")
       [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
-      # sed strips CR at end-of-line ONLY so downstream exact-match filters
-      # stay reliable (defense in depth – zk normally emits clean LF).  Do
-      # NOT use tr -d here: a CR byte INSIDE a note path is legal and must
-      # survive byte-exact or every consumer targets a nonexistent file.
+      # The awk stage normalizes zk output to reliable 8-field TSV rows:
+      # strips CR at end-of-line ONLY (a CR inside a note path is legal and
+      # must survive byte-exact, so no tr -d), collapses extra tabs from
+      # tab-containing titles into spaces (matching the native parser), and
+      # drops short rows (the phantom halves of newline-named files).
       zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null \
-        | "${_NN_GAWK:-awk}" -F'\t' 'NF == 8 { sub(/\r$/, ""); print }'
+        | "${_NN_GAWK:-awk}" -F'\t' -v OFS='\t' '
+            NF < 8 { next }
+            {
+              sub(/\r$/, "")
+              if (NF > 8) {
+                t = $5
+                for (i = 6; i <= NF - 3; i++) t = t " " $i
+                print $1, $2, $3, $4, t, $(NF-2), $(NF-1), $NF
+              } else print
+            }'
       local _zk_rc="${PIPESTATUS[0]}"
       if [[ $_zk_rc -gt 1 ]]; then
         echo "notenav: zk list failed (exit $_zk_rc) – run 'nn doctor' or try without zk" >&2
@@ -5068,7 +5078,7 @@ for file in "$@"; do
       # matching can eat body lines.
       _f = ARGV[1]; _n = 0
       if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-        while ((getline _l < _f) > 0 && ++_n <= 100000)
+        while ((getline _l < _f) > 0 && ++_n <= 100001)
           if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
       close(_f)
     }
@@ -5364,7 +5374,7 @@ set_type="$set_type" set_status="$set_status" \
     # Pre-scan (see action.sh): never rewrite unclosed frontmatter
     _f = ARGV[1]; _n = 0
     if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-      while ((getline _l < _f) > 0 && ++_n <= 100000)
+      while ((getline _l < _f) > 0 && ++_n <= 100001)
         if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
     close(_f)
   }
