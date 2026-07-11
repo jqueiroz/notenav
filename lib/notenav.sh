@@ -1561,11 +1561,12 @@ END {
     else exit 3
   }
   if (!c2 || !havekey) exit 3
-  # Check mode (NN_REPAIR_CHECK=1): report whether a repairable-looking
-  # residue remains WITHOUT the extra-key requirement and without writing.
-  # The caller uses this after a successful merge to warn about stacked
-  # same-key damage the conservative matcher will not touch.
-  if (ENVIRON["NN_REPAIR_CHECK"] == "1") exit 0
+  # Check mode (gawk -v nn_check=1 – a -v variable, NOT an env var, so an
+  # ambient export can never flip a write invocation into silent check
+  # mode): report whether a repairable-looking residue remains WITHOUT the
+  # extra-key requirement and without writing.  The caller uses this after
+  # a successful merge to flag blocks that may be stacked same-key damage.
+  if (nn_check == 1) exit 0
   if (!extrakey) exit 3
   for (j = 1; j <= nk; j++) kv[b1key[j]] = j
   # Emit merged note
@@ -3441,12 +3442,15 @@ EOF
             break
           fi
         done
-        # After a successful merge, check for repairable-looking residue the
-        # conservative matcher will not touch (stacked damage whose original
-        # keys were all duplicated in the bug block).
+        # After a successful merge, check for a repairable-looking block the
+        # conservative matcher will not touch.  It is either stacked
+        # same-key damage or legitimate body content of the same shape –
+        # indistinguishable by bytes – so the repair counts as done and the
+        # user is asked to glance at it.  (Skipped on the I/O-failure path,
+        # where the partial-repair branch wins anyway.)
         local _fix_residue=false
-        if [[ "$_fix_changed" == "true" ]] && \
-           NN_REPAIR_CHECK=1 "$_fix_gawk" "$_NN_FM_REPAIR_AWK" "$_fixf" >/dev/null 2>&1; then
+        if [[ "$_fix_changed" == "true" && "$_fix_io" != "true" ]] && \
+           "$_fix_gawk" -v nn_check=1 "$_NN_FM_REPAIR_AWK" "$_fixf" >/dev/null 2>&1; then
           _fix_residue=true
         fi
         if [[ "$_fix_changed" == "true" && "$_fix_io" == "true" ]]; then
@@ -3455,8 +3459,8 @@ EOF
           _warn "partially repaired $_fixrel – inspect manually; original kept at $_fixrel.bak"
           (( _fix_skip++ )) || true
         elif [[ "$_fix_changed" == "true" && "$_fix_residue" == "true" ]]; then
-          _warn "merged $_fixrel but a residual duplicated block remains – inspect manually; original kept at $_fixrel.bak"
-          (( _fix_skip++ )) || true
+          _warn "repaired $_fixrel – a fenced block remains right after the frontmatter; verify it is intended content ${_dim}[backup: $_fixrel.bak]${_reset}"
+          (( _fix_ok++ )) || true
         elif [[ "$_fix_changed" == "true" ]]; then
           _pass "repaired $_fixrel ${_dim}(backup: $_fixrel.bak)${_reset}"
           (( _fix_ok++ )) || true

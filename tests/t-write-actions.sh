@@ -223,6 +223,19 @@ mk_note "$x" crlf 0 '---' 'type: task' 'tags:' '  - alpha' '  - beta' '---' 'bod
 run_bulk "$f" "tags=alpha beta"
 assert_bytes "$f" "$x" "bulk tags replace (crlf)"
 
+# ── cyclestatus.sh end-to-end: reader + action.sh on BOM/CRLF notes ─────
+# (zenith lifecycle: new -> active)
+mk_note "$f" crlf 1 "${BASE[@]}"
+mk_note "$x" crlf 1 '---' 'type: task' 'status: active' '---' '# Marker note' 'body text'
+bash "$CAP/cyclestatus.sh" "$CAP" "$f" fwd >/dev/null 2>&1
+assert_bytes "$f" "$x" "cyclestatus reads through BOM+CRLF and writes in style"
+
+# A CRLF note without a status gets the workflow's initial status
+mk_note "$f" crlf 0 '---' 'type: task' '---' 'body text'
+mk_note "$x" crlf 0 '---' 'type: task' 'status: new' '---' 'body text'
+bash "$CAP/cyclestatus.sh" "$CAP" "$f" fwd >/dev/null 2>&1
+assert_bytes "$f" "$x" "cyclestatus assigns initial status on CRLF note"
+
 # ── writes preserve file permissions (mktemp is 0600; mode must survive) ─
 file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }
 mk_note "$f" crlf 0 "${BASE[@]}"

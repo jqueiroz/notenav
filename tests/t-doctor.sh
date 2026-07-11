@@ -254,9 +254,16 @@ rsd="$NB20/note.md"
   printf -- '---\r\ntype: note\r\nstatus: new\r\n---\r\nbody\r\n'
 } > "$rsd"
 run_doctor "$NB20" --fix-frontmatter || fail "doctor --fix-frontmatter (residue) exited non-zero"
-grep -q 'repaired note.md (backup:' "$WORK/doctor.out" && fail "residual merge falsely reported as full repair"
-grep -q 'residual duplicated block remains' "$WORK/doctor.out" || fail "residue warning not shown"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" && fail "residual merge shown as plain success without verify hint"
+grep -q 'verify it is intended content' "$WORK/doctor.out" || fail "residue verify-warning not shown"
 [[ -e "$rsd.bak" ]] || fail "backup must be kept when residue remains"
+# The intermediate state must be exactly the two bug layers merged (LF, the
+# outer layer's values winning) with the original block left as-is below
+{
+  printf -- '---\nstatus: done\ntype: task\n---\n'
+  printf -- '---\r\ntype: note\r\nstatus: new\r\n---\r\nbody\r\n'
+} > "$WORK/rsd.expected"
+assert_bytes "$rsd" "$WORK/rsd.expected" "residue case: bug layers merged, original block untouched"
 
 # ── Body block whose keys are a subset of the frontmatter: not flagged ───
 # (clean zk-style note: fm = type/status/created; body opens with a fenced
@@ -285,6 +292,18 @@ grep -q 'repaired note.md (backup:' "$WORK/doctor.out" || fail "read-only note n
 _romode=$(stat -c '%a' "$ro" 2>/dev/null || stat -f '%Lp' "$ro" 2>/dev/null)
 [[ "$_romode" == "444" ]] || fail "read-only note lost its mode (444 -> $_romode)"
 chmod 644 "$ro"
+
+# ── Ambient NN_REPAIR_CHECK must never flip repair into check mode ───────
+NB21="$WORK/nb-envcheck"
+mkdir -p "$NB21"
+ec="$NB21/note.md"
+{
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\r\ntype: task\r\n---\r\nbody\r\n'
+} > "$ec"
+(cd "$NB21" && NN_REPAIR_CHECK=1 NO_COLOR=1 bash "$REPO/bin/nn" doctor --fix-frontmatter </dev/null >/dev/null 2>&1)
+printf -- '---\r\ntype: task\r\nstatus: done\r\n---\r\nbody\r\n' > "$WORK/ec.expected"
+assert_bytes "$ec" "$WORK/ec.expected" "ambient NN_REPAIR_CHECK does not corrupt the repair"
 
 # ── --help works in any argument position; unknown flags error ────────────
 (cd "$NB17" && bash "$REPO/bin/nn" doctor --fix-frontmatter --help </dev/null >/dev/null 2>&1) \
