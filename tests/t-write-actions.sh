@@ -185,6 +185,20 @@ assert_bytes "$f" "$WORK/cap.orig" "beyond-cap close: still refused on second ru
 run_action status active "$f"
 assert_bytes "$f" "$x" "200-line frontmatter boundary: write succeeds"
 
+# Same boundary through bulkedit (separate copy of the pre-scan)
+{
+  printf -- '---\n'
+  for i in $(seq 1 199); do printf 'k%s: v\n' "$i"; done
+  printf -- 'status: new\n---\nbody\n'
+} > "$f"
+{
+  printf -- '---\n'
+  for i in $(seq 1 199); do printf 'k%s: v\n' "$i"; done
+  printf -- 'status: done\n---\nbody\n'
+} > "$x"
+run_bulk "$f" status=done
+assert_bytes "$f" "$x" "200-line frontmatter boundary: bulk edit succeeds"
+
 # ── bulkedit_update.sh: multi-field incl. multi-line tags ──────────────
 for enc in "lf 0" "crlf 0" "crlf 1"; do
   # shellcheck disable=SC2086  # intentional split into "<eol> <bom>"

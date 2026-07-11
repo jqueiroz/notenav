@@ -11,7 +11,7 @@ trap 'rm -rf "$WORK"' EXIT
 run_doctor() { # <notebook> [args...] -> $WORK/doctor.out, returns rc
   local nb=$1
   shift
-  (cd "$nb" && bash "$REPO/bin/nn" doctor "$@" </dev/null 2>&1) > "$WORK/doctor.out"
+  (cd "$nb" && NO_COLOR=1 bash "$REPO/bin/nn" doctor "$@" </dev/null 2>&1) > "$WORK/doctor.out"
 }
 
 # ── Healthy CRLF/BOM notebook: informational only, exit 0 ───────────────
@@ -56,7 +56,7 @@ grep -q 'note.md' "$WORK/doctor.out" || fail "affected path not listed"
 grep -q 'fix-frontmatter' "$WORK/doctor.out" || fail "repair hint not shown"
 
 run_doctor "$NB4" --fix-frontmatter || fail "doctor --fix-frontmatter exited non-zero"
-grep -q 'repaired note.md' "$WORK/doctor.out" || fail "repair not reported"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" || fail "repair not reported"
 printf -- '---\r\ntype: task\r\nstatus: done\r\ntitle: x\r\n---\r\nbody\r\n' > "$WORK/repaired.expected"
 assert_bytes "$corrupt" "$WORK/repaired.expected" "repaired note merges blocks in original EOL style"
 assert_bytes "$corrupt.bak" "$WORK/corrupt.orig" "backup preserves original bytes"
@@ -195,7 +195,7 @@ zkd="$NB14/note.md"
   printf -- '---\r\ntitle: from template\r\ntype: fleeting\r\n---\r\nbody\r\n'
 } > "$zkd"
 run_doctor "$NB14" --fix-frontmatter || fail "doctor --fix-frontmatter (zk damage) exited non-zero"
-grep -q 'repaired note.md' "$WORK/doctor.out" || fail "zk-path damage not repaired"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" || fail "zk-path damage not repaired"
 printf -- '---\r\ntitle: from template\r\ntype: fleeting\r\nstatus: new\r\ncreated: 2026-01-01 10:00\r\n---\r\nbody\r\n' > "$WORK/zkd.expected"
 assert_bytes "$zkd" "$WORK/zkd.expected" "zk-path damage merged correctly"
 
@@ -210,7 +210,7 @@ lt="$NB15/note.md"
   printf -- '---\r\ntype: task\r\ntags: [old]\r\n---\r\nbody\r\n'
 } > "$lt"
 run_doctor "$NB15" --fix-frontmatter || fail "doctor --fix-frontmatter (long tags) exited non-zero"
-grep -q 'repaired note.md' "$WORK/doctor.out" || fail "long-tags damage flagged but not repaired (cap asymmetry)"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" || fail "long-tags damage flagged but not repaired (cap asymmetry)"
 
 # ── Over-merge protection: repair stops at the correct state ─────────────
 NB16="$WORK/nb-overmerge"
@@ -241,6 +241,23 @@ run_doctor "$NB17" --fix-frontmatter || fail "doctor --fix-frontmatter (perms) e
 _mode=$(stat -c '%a' "$pm" 2>/dev/null || stat -f '%Lp' "$pm" 2>/dev/null)
 [[ "$_mode" == "664" ]] || fail "repair changed file permissions (664 -> $_mode)"
 
+# ── Stacked same-key damage: partial merge is reported honestly ──────────
+# Two bug layers over an original whose keys are all duplicated in them:
+# the conservative matcher merges the bug layers but refuses the final
+# subset-key merge, so doctor must NOT claim full success.
+NB20="$WORK/nb-residue"
+mkdir -p "$NB20"
+rsd="$NB20/note.md"
+{
+  printf -- '---\ntype: task\n---\n'
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\r\ntype: note\r\nstatus: new\r\n---\r\nbody\r\n'
+} > "$rsd"
+run_doctor "$NB20" --fix-frontmatter || fail "doctor --fix-frontmatter (residue) exited non-zero"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" && fail "residual merge falsely reported as full repair"
+grep -q 'residual duplicated block remains' "$WORK/doctor.out" || fail "residue warning not shown"
+[[ -e "$rsd.bak" ]] || fail "backup must be kept when residue remains"
+
 # ── Body block whose keys are a subset of the frontmatter: not flagged ───
 # (clean zk-style note: fm = type/status/created; body opens with a fenced
 # YAML example holding only keys already in the frontmatter)
@@ -264,7 +281,7 @@ ro="$NB19/note.md"
 } > "$ro"
 chmod 444 "$ro"
 run_doctor "$NB19" --fix-frontmatter || fail "doctor --fix-frontmatter (read-only) exited non-zero"
-grep -q 'repaired note.md' "$WORK/doctor.out" || fail "read-only note not repaired"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" || fail "read-only note not repaired"
 _romode=$(stat -c '%a' "$ro" 2>/dev/null || stat -f '%Lp' "$ro" 2>/dev/null)
 [[ "$_romode" == "444" ]] || fail "read-only note lost its mode (444 -> $_romode)"
 chmod 644 "$ro"

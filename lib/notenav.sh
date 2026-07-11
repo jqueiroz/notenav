@@ -1560,7 +1560,13 @@ END {
     else if (l == "" || l ~ /^[ \t]/ || l ~ /^#/ || l ~ /^-([ \t]|$)/) continue
     else exit 3
   }
-  if (!c2 || !havekey || !extrakey) exit 3
+  if (!c2 || !havekey) exit 3
+  # Check mode (NN_REPAIR_CHECK=1): report whether a repairable-looking
+  # residue remains WITHOUT the extra-key requirement and without writing.
+  # The caller uses this after a successful merge to warn about stacked
+  # same-key damage the conservative matcher will not touch.
+  if (ENVIRON["NN_REPAIR_CHECK"] == "1") exit 0
+  if (!extrakey) exit 3
   for (j = 1; j <= nk; j++) kv[b1key[j]] = j
   # Emit merged note
   if (bom1 || bom2) printf "\xEF\xBB\xBF"
@@ -3408,9 +3414,11 @@ EOF
         _fix_changed=false
         local _fix_rc=0 _fix_io=false _fix_mode=""
         # Note permissions: mktemp creates 0600, so capture the note's mode
-        # and restore it after the atomic mv (works for read-only notes too,
-        # since rename needs only directory write permission).
-        _fix_mode=$(stat -c '%a' "$_fixf" 2>/dev/null || stat -f '%Lp' "$_fixf" 2>/dev/null)
+        # (-L follows symlinked notes; %Mp%Lp keeps BSD setgid/sticky digits,
+        # matching GNU %a) and stamp it on the temp file BEFORE the rename –
+        # content and mode then land atomically.  mv needs only directory
+        # write permission, so read-only notes stay repairable.
+        _fix_mode=$(stat -L -c '%a' "$_fixf" 2>/dev/null || stat -L -f '%Mp%Lp' "$_fixf" 2>/dev/null)
         # Stacked corruption merges one layer per pass; iterate to converge.
         # mv is atomic, so the note is always either intact or fully merged –
         # never truncated mid-write.
@@ -3419,9 +3427,9 @@ EOF
           "$_fix_gawk" "$_NN_FM_REPAIR_AWK" "$_fixf" > "$_fixtmp" 2>/dev/null
           _fix_rc=$?
           if [[ $_fix_rc -eq 0 ]]; then
+            [[ -n "$_fix_mode" ]] && chmod "$_fix_mode" "$_fixtmp" 2>/dev/null
             if mv "$_fixtmp" "$_fixf"; then
               _fix_changed=true
-              [[ -n "$_fix_mode" ]] && chmod "$_fix_mode" "$_fixf" 2>/dev/null
             else
               _fix_io=true
               rm -f "$_fixtmp"
@@ -3433,10 +3441,21 @@ EOF
             break
           fi
         done
+        # After a successful merge, check for repairable-looking residue the
+        # conservative matcher will not touch (stacked damage whose original
+        # keys were all duplicated in the bug block).
+        local _fix_residue=false
+        if [[ "$_fix_changed" == "true" ]] && \
+           NN_REPAIR_CHECK=1 "$_fix_gawk" "$_NN_FM_REPAIR_AWK" "$_fixf" >/dev/null 2>&1; then
+          _fix_residue=true
+        fi
         if [[ "$_fix_changed" == "true" && "$_fix_io" == "true" ]]; then
           # Later pass failed after an earlier one succeeded: the note holds a
-          # valid intermediate merge; keep the backup and say so.
-          _warn "partially repaired $_fixrel – re-run to finish ${_dim}(backup kept: $_fixrel.bak)${_reset}"
+          # valid intermediate merge; keep the backup and be explicit.
+          _warn "partially repaired $_fixrel – inspect manually; original kept at $_fixrel.bak"
+          (( _fix_skip++ )) || true
+        elif [[ "$_fix_changed" == "true" && "$_fix_residue" == "true" ]]; then
+          _warn "merged $_fixrel but a residual duplicated block remains – inspect manually; original kept at $_fixrel.bak"
           (( _fix_skip++ )) || true
         elif [[ "$_fix_changed" == "true" ]]; then
           _pass "repaired $_fixrel ${_dim}(backup: $_fixrel.bak)${_reset}"
@@ -4955,9 +4974,6 @@ count=0; first_ok=""; ok_files=(); _no_fm_clear=0
 for file in "$@"; do
   case "$file" in *.empty_placeholder) continue ;; esac
   [ ! -f "$file" ] && continue
-  # mktemp creates the temp 0600 and mv carries that onto the note; capture
-  # the note's mode so it can be restored after a successful write.
-  _mode=$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file" 2>/dev/null)
   # Check for frontmatter before attempting write.  Windows-authored notes may
   # use CRLF endings and a UTF-8 BOM; the fence test must tolerate both (plus
   # trailing blanks, matching the awk fence regex below).  Written lines reuse
@@ -4969,6 +4985,10 @@ for file in "$@"; do
     # No frontmatter – clearing a field is a no-op; otherwise create one
     [ -z "$value" ] && { _no_fm_clear=$((_no_fm_clear + 1)); continue; }
     _ftmp=$(mktemp "$file.XXXXXX") || continue
+    # mktemp creates the temp 0600; stamp the note's own mode on it BEFORE
+    # the rename so content and permissions land atomically (-L follows
+    # symlinked notes; BSD %Mp%Lp keeps setgid/sticky digits like GNU %a)
+    _mode=$(stat -L -c '%a' "$file" 2>/dev/null || stat -L -f '%Mp%Lp' "$file" 2>/dev/null)
     {
       _bom=""
       [ "$(dd if="$file" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ] && _bom=1
@@ -4977,7 +4997,7 @@ for file in "$@"; do
       printf '%s: %s%s\n' "$field" "$value" "$_eol"
       printf '%s\n' "---$_eol"
       if [ -n "$_bom" ]; then tail -c +4 "$file"; else cat "$file"; fi
-    } > "$_ftmp" && mv "$_ftmp" "$file" && { [ -n "$_mode" ] && chmod "$_mode" "$file" 2>/dev/null; count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
+    } > "$_ftmp" && { [ -z "$_mode" ] || chmod "$_mode" "$_ftmp" 2>/dev/null || true; } && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
     continue
   fi
   # Update field within YAML frontmatter (between first --- and second ---)
@@ -5003,7 +5023,7 @@ for file in "$@"; do
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value eol; found=1; skip_cont=1; next }
     { print }
-  ' "$file" > "$_ftmp" && { if cmp -s "$_ftmp" "$file"; then rm -f "$_ftmp"; else mv "$_ftmp" "$file" && { [ -n "$_mode" ] && chmod "$_mode" "$file" 2>/dev/null; count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"; fi; } || rm -f "$_ftmp"
+  ' "$file" > "$_ftmp" && { if cmp -s "$_ftmp" "$file"; then rm -f "$_ftmp"; else _mode=$(stat -L -c '%a' "$file" 2>/dev/null || stat -L -f '%Mp%Lp' "$file" 2>/dev/null); { [ -z "$_mode" ] || chmod "$_mode" "$_ftmp" 2>/dev/null || true; }; mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"; fi; } || rm -f "$_ftmp"
 done
 # Pin check: "always" pins every modified file; "auto" only pins when the
 # new value would cause the item to leave the current view
@@ -5207,9 +5227,10 @@ nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 # Usage: bulkedit_update.sh <file> field=value [field=value ...]
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
-# mktemp creates the temp 0600 and mv carries that onto the note; capture
-# the note's mode so it can be restored after a successful write.
-_mode=$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file" 2>/dev/null)
+# mktemp creates the temp 0600; the note's own mode is stamped on the temp
+# before each rename so content and permissions land atomically (-L follows
+# symlinked notes; BSD %Mp%Lp keeps setgid/sticky digits like GNU %a)
+_mode=$(stat -L -c '%a' "$file" 2>/dev/null || stat -L -f '%Mp%Lp' "$file" 2>/dev/null)
 # CRLF/BOM-tolerant fence test; _eol carries the file's EOL style (line 1)
 first_line=$(head -n 1 "$file")
 _eol=""; case "$first_line" in *$'\r') _eol=$'\r' ;; esac
@@ -5265,7 +5286,7 @@ if [ "$has_fm" = 0 ]; then
     fi
     printf '%s\n' "---$_eol"
     if [ -n "$_bom" ]; then tail -c +4 "$file"; else cat "$file"; fi
-  } > "$_ftmp" && mv "$_ftmp" "$file" && { [ -z "$_mode" ] || chmod "$_mode" "$file" 2>/dev/null || true; }; then
+  } > "$_ftmp" && { [ -z "$_mode" ] || chmod "$_mode" "$_ftmp" 2>/dev/null || true; } && mv "$_ftmp" "$file"; then
     exit 0
   else
     rm -f "$_ftmp"
@@ -5320,8 +5341,7 @@ set_type="$set_type" set_status="$set_status" \
     else { found_tags=1 }
   }
   { print }
-' "$file" > "$_ftmp" && mv "$_ftmp" "$file" || { rm -f "$_ftmp"; exit 1; }
-[ -z "$_mode" ] || chmod "$_mode" "$file" 2>/dev/null || true
+' "$file" > "$_ftmp" && { [ -z "$_mode" ] || chmod "$_mode" "$_ftmp" 2>/dev/null || true; } && mv "$_ftmp" "$file" || { rm -f "$_ftmp"; exit 1; }
 ENDBEU
     chmod +x "$_nn_dir/bulkedit_update.sh"
 
