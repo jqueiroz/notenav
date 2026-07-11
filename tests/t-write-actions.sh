@@ -206,6 +206,20 @@ assert_bytes "$f" "$x" "250-line frontmatter: status edit succeeds"
 run_action status active "$f"
 assert_bytes "$f" "$x" "100000-line frontmatter cap boundary: edit succeeds"
 
+# Same boundary through bulkedit's independent copy of the cap
+{
+  printf -- '---\nstatus: new\n'
+  seq 1 99999 | awk '{print "k" $0 ": v"}'
+  printf -- '---\nbody\n'
+} > "$f"
+{
+  printf -- '---\nstatus: done\n'
+  seq 1 99999 | awk '{print "k" $0 ": v"}'
+  printf -- '---\nbody\n'
+} > "$x"
+run_bulk "$f" status=done
+assert_bytes "$f" "$x" "100000-line frontmatter cap boundary: bulk edit succeeds"
+
 # Exactly 200 frontmatter lines (the documented cap): write must succeed
 {
   printf -- '---\n'

@@ -1626,20 +1626,15 @@ _nn_list_notes() {
       [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
       # The awk stage normalizes zk output to reliable 8-field TSV rows:
       # strips CR at end-of-line ONLY (a CR inside a note path is legal and
-      # must survive byte-exact, so no tr -d), collapses extra tabs from
-      # tab-containing titles into spaces (matching the native parser), and
-      # drops short rows (the phantom halves of newline-named files).
+      # must survive byte-exact, so no tr -d) and DROPS malformed rows –
+      # phantom halves of newline-named files and rows widened by tab bytes.
+      # A widened row is not reconstructed: the extra tabs may come from the
+      # title, the path, or quoted values, and any guess can point the path
+      # column at an innocent existing file (a mis-write hazard).  Such rare
+      # notes are simply absent from the zk listing; the native backend
+      # (reloads, watchers) sanitizes tab titles and lists them.
       zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null \
-        | "${_NN_GAWK:-awk}" -F'\t' -v OFS='\t' '
-            NF < 8 { next }
-            {
-              sub(/\r$/, "")
-              if (NF > 8) {
-                t = $5
-                for (i = 6; i <= NF - 3; i++) t = t " " $i
-                print $1, $2, $3, $4, t, $(NF-2), $(NF-1), $NF
-              } else print
-            }'
+        | "${_NN_GAWK:-awk}" -F'\t' 'NF == 8 && $6 ~ /^\// { sub(/\r$/, ""); print }'
       local _zk_rc="${PIPESTATUS[0]}"
       if [[ $_zk_rc -gt 1 ]]; then
         echo "notenav: zk list failed (exit $_zk_rc) – run 'nn doctor' or try without zk" >&2
@@ -5068,24 +5063,25 @@ for file in "$@"; do
   fi
   # Update field within YAML frontmatter (between first --- and second ---)
   _ftmp=$(mktemp "$file.XXXXXX") || continue
-  field="$field" value="$value" "$nn_gawk" '
+  field="$field" value="$value" "$nn_gawk" -v fm_cap=100000 '
     BEGIN {
       field=ENVIRON["field"]; value=ENVIRON["value"]
       # Pre-scan: only rewrite when line 1 opens a fence AND a closing fence
-      # follows within the same 100000-line bound the rewriter uses.
-      # Unclosed frontmatter must be a byte-identical no-op (exit 9 -> the
-      # caller discards the tmp file); without this, field/continuation
-      # matching can eat body lines.
+      # follows within the frontmatter cap (fm_cap content lines; the close
+      # fence itself is record fm_cap+1 – keep the +1 or edits at exactly
+      # fm_cap lines silently fail).  Unclosed frontmatter must be a
+      # byte-identical no-op (exit 9 -> the caller discards the tmp file);
+      # without this, field/continuation matching can eat body lines.
       _f = ARGV[1]; _n = 0
       if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-        while ((getline _l < _f) > 0 && ++_n <= 100001)
+        while ((getline _l < _f) > 0 && ++_n <= fm_cap + 1)
           if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
       close(_f)
     }
     !fm_ok { exit 9 }
     NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; fm_lines=0; print; next }
     in_fm && /^---[[:space:]]*$/ { in_fm=0; if (!found && value != "") print field ": " value eol; print; skip_cont=0; next }
-    in_fm && ++fm_lines > 100000 { in_fm=0; print; next }
+    in_fm && ++fm_lines > fm_cap { in_fm=0; print; next }
     in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value eol; found=1; skip_cont=1; next }
@@ -5362,7 +5358,7 @@ if [ "$has_fm" = 0 ]; then
 fi
 set_type="$set_type" set_status="$set_status" \
     set_priority="$set_priority" set_tags="$set_tags" \
-    "$nn_gawk" -v has_type="$has_type" -v has_status="$has_status" \
+    "$nn_gawk" -v fm_cap=100000 -v has_type="$has_type" -v has_status="$has_status" \
     -v has_priority="$has_priority" -v has_tags="$has_tags" '
   function print_tags(   n, i, tl) {
     print "tags:" eol
@@ -5371,10 +5367,11 @@ set_type="$set_type" set_status="$set_status" \
   }
   BEGIN {
     set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"]
-    # Pre-scan (see action.sh): never rewrite unclosed frontmatter
+    # Pre-scan (see action.sh): never rewrite unclosed frontmatter; the
+    # close fence is record fm_cap+1 when the frontmatter is exactly at cap
     _f = ARGV[1]; _n = 0
     if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-      while ((getline _l < _f) > 0 && ++_n <= 100001)
+      while ((getline _l < _f) > 0 && ++_n <= fm_cap + 1)
         if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
     close(_f)
   }
@@ -5388,7 +5385,7 @@ set_type="$set_type" set_status="$set_status" \
     if (has_tags && !found_tags && set_tags != "") print_tags()
     print; next
   }
-  in_fm && ++fm_lines > 100000 { in_fm=0; print; next }
+  in_fm && ++fm_lines > fm_cap { in_fm=0; print; next }
   in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
   in_fm && skip_cont { skip_cont=0 }
   in_fm && /^type:/ {
