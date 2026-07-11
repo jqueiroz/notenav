@@ -14,6 +14,9 @@ mk_note "$NOTEBOOK/a.md" lf 0 '---' 'title: alpha-lf-marker' 'type: task' 'statu
 mk_note "$NOTEBOOK/b.md" crlf 0 '---' 'title: bravo-crlf-marker' 'type: task' 'status: new' '---' 'body'
 mk_note "$NOTEBOOK/c.md" crlf 1 '---' 'title: charlie-bomcrlf-marker' 'type: task' 'status: new' '---' 'body'
 mk_note "$NOTEBOOK/d.md" lf 1 '---' 'title: delta-bomlf-marker' 'type: task' 'status: new' '---' 'body'
+# Unsupported: a newline in the filename must be excluded entirely (phantom
+# rows in line-oriented pipelines could misdirect writes to innocent files)
+mk_note "$NOTEBOOK/nl"$'\n'"name.md" crlf 0 '---' 'title: echo-newline-marker' 'type: task' 'status: new' '---' 'body'
 
 out="$WORK/out.txt"
 (cd "$NOTEBOOK" && TERM=xterm bash "$REPO/bin/nn" type=task </dev/null 2>"$WORK/stderr") > "$out"
@@ -26,5 +29,7 @@ done
 if grep -q $'\r' "$out"; then
   fail "query output contains CR bytes"
 fi
+grep -q 'echo-newline-marker' "$out" && fail "newline-named note must be excluded, not listed"
+grep -q '^name.md' "$out" && fail "phantom row leaked from newline-named note"
 
 finish

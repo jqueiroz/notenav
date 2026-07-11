@@ -293,6 +293,137 @@ _romode=$(stat -c '%a' "$ro" 2>/dev/null || stat -f '%Lp' "$ro" 2>/dev/null)
 [[ "$_romode" == "444" ]] || fail "read-only note lost its mode (444 -> $_romode)"
 chmod 644 "$ro"
 
+# ── \x1c byte in a tag continuation survives repair byte-exact ───────────
+# (the continuation join must never use a separator that can appear in data)
+NB23="$WORK/nb-fs-byte"
+mkdir -p "$NB23"
+fsb="$NB23/note.md"
+{
+  printf -- '---\ntags:\n  - a\034b\n---\n'
+  printf -- '---\ntitle: hi\ntype: task\ntags:\n  - old\n---\nbody\n'
+} > "$fsb"
+run_doctor "$NB23" --fix-frontmatter || fail "doctor --fix-frontmatter (fs byte) exited non-zero"
+printf -- '---\ntitle: hi\ntype: task\ntags:\n  - a\034b\n---\nbody\n' > "$WORK/fsb.expected"
+assert_bytes "$fsb" "$WORK/fsb.expected" "\\x1c byte in tag survives repair intact"
+
+# ── \x1f byte in a frontmatter value never derails the scan protocol ─────
+NB24="$WORK/nb-us-value"
+mkdir -p "$NB24"
+usv="$NB24/note.md"
+printf -- '---\r\ntype: a\037b\037c\r\nstatus: new\r\n---\r\nbody\r\n' > "$usv"
+cp "$usv" "$WORK/usv.orig"
+run_doctor "$NB24" || fail "doctor exited non-zero on US-byte value"
+grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "US byte in value caused false dup diagnosis"
+grep -q 'no frontmatter' "$WORK/doctor.out" && fail "US byte in value miscounted as no-frontmatter"
+run_doctor "$NB24" --fix-frontmatter || fail "doctor --fix-frontmatter (US value) exited non-zero"
+assert_bytes "$usv" "$WORK/usv.orig" "US-byte note untouched by repair"
+
+# ── Merge leaving an unqualified-keys block: honest verify-warning ───────
+# (two bug layers over an original with only unmanaged keys: pass 2 refuses
+# structurally-with-no-qualifying-key — must NOT claim plain success)
+NB25="$WORK/nb-rc5"
+mkdir -p "$NB25"
+r5="$NB25/note.md"
+{
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\ntype: task\n---\n'
+  printf -- '---\ntitle: real\nauthor: me\n---\nbody\n'
+} > "$r5"
+run_doctor "$NB25" --fix-frontmatter || fail "doctor --fix-frontmatter (rc5) exited non-zero"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" && fail "rc5 residue reported as plain success"
+grep -q 'verify it is intended content' "$WORK/doctor.out" || fail "rc5 residue verify-warning not shown"
+
+# ── Middle layer without a qualifying key: honest verify-warning ─────────
+# (a tags-only layer cannot qualify as the original block, so the chain
+# stalls at rc 5 after merging what it can — must not claim plain success)
+NB26a="$WORK/nb-stall"
+mkdir -p "$NB26a"
+st="$NB26a/note.md"
+{
+  printf -- '---\npriority: 1\n---\n'
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\ntags:\n  - t1\n---\n'
+  printf -- '---\r\ntitle: x\r\ntype: note\r\n---\r\nbody\r\n'
+} > "$st"
+run_doctor "$NB26a" --fix-frontmatter || fail "doctor --fix-frontmatter (stall) exited non-zero"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" && fail "stalled chain reported as plain success"
+grep -q 'verify it is intended content' "$WORK/doctor.out" || fail "stall verify-warning not shown"
+
+# ── True rc-0 exhaustion (5 merges) is necessarily the full repair ───────
+# (each merge must add a new key; five bug-writable keys force the fifth
+# merge to consume the original — assert plain success, byte-exact)
+NB26="$WORK/nb-deepstack"
+mkdir -p "$NB26"
+ex="$NB26/note.md"
+{
+  printf -- '---\npriority: 1\n---\n'
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\ntags:\n  - t1\nstatus: mid\n---\n'
+  printf -- '---\ncreated: 2026-01-01\npriority: 3\n---\n'
+  printf -- '---\ntype: task\n---\n'
+  printf -- '---\r\ntitle: x\r\ntype: note\r\nstatus: new\r\n---\r\nbody\r\n'
+} > "$ex"
+run_doctor "$NB26" --fix-frontmatter || fail "doctor --fix-frontmatter (deep stack) exited non-zero"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" || fail "deep 5-key stack not reported as plain success"
+grep -q 'verify it is intended content' "$WORK/doctor.out" && fail "full deep repair falsely residue-warned"
+printf -- '---\r\ntitle: x\r\ntype: task\r\nstatus: done\r\ncreated: 2026-01-01\r\npriority: 1\r\ntags:\r\n  - t1\r\n---\r\nbody\r\n' > "$WORK/deep.expected"
+assert_bytes "$ex" "$WORK/deep.expected" "deep stack fully merged with outer values winning"
+
+# ── Long ORIGINAL frontmatter (25 tag lines) is still detected ────────────
+NB27="$WORK/nb-longorig"
+mkdir -p "$NB27"
+{
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\r\ntype: task\r\ntags:\r\n'
+  for i in $(seq 1 25); do printf '  - tag%s\r\n' "$i"; done
+  printf -- '---\r\nbody\r\n'
+} > "$NB27/note.md"
+run_doctor "$NB27" || fail "doctor exited non-zero on long-original note"
+grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" \
+  || fail "long original frontmatter not detected"
+
+# ── Repair I/O failure: reported distinctly, .bak kept ────────────────────
+NB28="$WORK/nb-iofail"
+mkdir -p "$NB28" "$WORK/gawkshim"
+iof="$NB28/note.md"
+{
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\r\ntype: task\r\n---\r\nbody\r\n'
+} > "$iof"
+# _nn_resolve_gawk prefers plain awk when it is GNU – shim both names
+real_gawk=$(command -v gawk)
+{
+  printf '#!/usr/bin/env bash\n'
+  printf 'for a in "$@"; do case "$a" in *emit_b1*) exit 7 ;; esac; done\n'
+  printf 'exec %s "$@"\n' "$real_gawk"
+} > "$WORK/gawkshim/gawk"
+chmod +x "$WORK/gawkshim/gawk"
+cp "$WORK/gawkshim/gawk" "$WORK/gawkshim/awk"
+chmod +x "$WORK/gawkshim/awk"
+(cd "$NB28" && PATH="$WORK/gawkshim:$PATH" NO_COLOR=1 bash "$REPO/bin/nn" doctor --fix-frontmatter </dev/null 2>&1) > "$WORK/doctor.out"
+grep -q 'read/write failed' "$WORK/doctor.out" || fail "repair I/O failure not reported distinctly"
+[[ -e "$iof.bak" ]] || fail "backup must be kept after repair I/O failure"
+
+# ── Corruption beyond the diagnostic 2000-file cap is still repaired ──────
+NB29="$WORK/nb-bigcap"
+mkdir -p "$NB29"
+for i in $(seq 1 2000); do printf -- '---\ntype: task\n---\nb\n' > "$NB29/f$i.md"; done
+{
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\r\ntype: task\r\n---\r\nbody\r\n'
+} > "$NB29/zz-corrupt.md"
+run_doctor "$NB29" --fix-frontmatter || fail "doctor --fix-frontmatter (2001 files) exited non-zero"
+grep -q 'repaired zz-corrupt.md (backup:' "$WORK/doctor.out" || fail "corruption beyond diagnostic cap not repaired"
+
+# ── Newline-named notes: warned about, never phantom-scanned ─────────────
+NB22="$WORK/nb-newline"
+mkdir -p "$NB22"
+mk_note "$NB22/ok.md" crlf 0 '---' 'type: task' '---' 'body'
+mk_note "$NB22/nl"$'\n'"name.md" crlf 0 '---' 'type: task' '---' 'body'
+run_doctor "$NB22" || fail "doctor exited non-zero on newline-named notebook"
+grep -q 'contain a newline' "$WORK/doctor.out" || fail "newline-filename warning not shown"
+grep -q 'no frontmatter' "$WORK/doctor.out" && fail "phantom row counted as no-frontmatter note"
+
 # ── Ambient NN_REPAIR_CHECK must never flip repair into check mode ───────
 NB21="$WORK/nb-envcheck"
 mkdir -p "$NB21"

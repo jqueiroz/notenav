@@ -159,17 +159,37 @@ cp "$f" "$WORK/crclose.orig"
 run_action status active "$f"
 assert_bytes "$f" "$WORK/crclose.orig" "CR-merged close fence: body line not rewritten"
 
-# Frontmatter closing beyond the 200-line cap: refused, idempotent
+# Long frontmatter (201 content lines): the pre-scan finds the close fence
+# wherever it is, so the edit succeeds cleanly — and is idempotent
 {
   printf -- '---\n'
   for i in $(seq 1 199); do printf 'k%s: v\n' "$i"; done
   printf -- 'tags:\n  - alpha\n---\nbody\n'
 } > "$f"
-cp "$f" "$WORK/cap.orig"
-run_bulk "$f" "tags=alpha"
-assert_bytes "$f" "$WORK/cap.orig" "beyond-cap close: bulk edit refused"
-run_bulk "$f" "tags=alpha"
-assert_bytes "$f" "$WORK/cap.orig" "beyond-cap close: still refused on second run (no tag duplication)"
+{
+  printf -- '---\n'
+  for i in $(seq 1 199); do printf 'k%s: v\n' "$i"; done
+  printf -- 'tags:\n  - beta\n---\nbody\n'
+} > "$x"
+run_bulk "$f" "tags=beta"
+assert_bytes "$f" "$x" "201-line frontmatter: bulk tags replace succeeds"
+run_bulk "$f" "tags=beta"
+assert_bytes "$f" "$x" "201-line frontmatter: second run idempotent (no duplication)"
+
+# 250-line frontmatter with the target key at line 2: previously editable,
+# regressed by a capped pre-scan, must stay editable (max-review repro)
+{
+  printf -- '---\nstatus: new\n'
+  for i in $(seq 1 249); do printf 'k%s: v\n' "$i"; done
+  printf -- '---\nbody\n'
+} > "$f"
+{
+  printf -- '---\nstatus: done\n'
+  for i in $(seq 1 249); do printf 'k%s: v\n' "$i"; done
+  printf -- '---\nbody\n'
+} > "$x"
+run_action status 'done' "$f"
+assert_bytes "$f" "$x" "250-line frontmatter: status edit succeeds"
 
 # Exactly 200 frontmatter lines (the documented cap): write must succeed
 {
@@ -223,6 +243,24 @@ mk_note "$x" crlf 0 '---' 'type: task' 'tags:' '  - alpha' '  - beta' '---' 'bod
 run_bulk "$f" "tags=alpha beta"
 assert_bytes "$f" "$x" "bulk tags replace (crlf)"
 
+# ── prepend on a BOM'd no-frontmatter note: single BOM at byte 0 ────────
+# (mutation testing found only bom=0 prepend fixtures existed)
+mk_note "$f" crlf 1 '# Marker note' 'body text'
+mk_note "$x" crlf 1 '---' 'status: active' '---' '# Marker note' 'body text'
+run_action status active "$f"
+assert_bytes "$f" "$x" "no-frontmatter prepend keeps single BOM (action, crlf bom=1)"
+
+mk_note "$f" crlf 1 '# Marker note' 'body text'
+mk_note "$x" crlf 1 '---' 'type: idea' '---' '# Marker note' 'body text'
+run_bulk "$f" type=idea
+assert_bytes "$f" "$x" "no-frontmatter prepend keeps single BOM (bulk, crlf bom=1)"
+
+# ── bumppri.sh reads through BOM+CRLF (zenith ladder: 2 -up-> 1) ────────
+mk_note "$f" crlf 1 '---' 'type: task' 'priority: 2' '---' 'body'
+mk_note "$x" crlf 1 '---' 'type: task' 'priority: 1' '---' 'body'
+bash "$CAP/bumppri.sh" "$CAP" "$f" up >/dev/null 2>&1
+assert_bytes "$f" "$x" "bumppri reads through BOM+CRLF and steps priority"
+
 # ── cyclestatus.sh end-to-end: reader + action.sh on BOM/CRLF notes ─────
 # (zenith lifecycle: new -> active)
 mk_note "$f" crlf 1 "${BASE[@]}"
@@ -235,6 +273,31 @@ mk_note "$f" crlf 0 '---' 'type: task' '---' 'body text'
 mk_note "$x" crlf 0 '---' 'type: task' 'status: new' '---' 'body text'
 bash "$CAP/cyclestatus.sh" "$CAP" "$f" fwd >/dev/null 2>&1
 assert_bytes "$f" "$x" "cyclestatus assigns initial status on CRLF note"
+
+# ── new-note EOL sampler (extracted from the shipped newnote.sh) ─────────
+# CRLF majority must win, and .raw rows with EMPTY status/priority/tags
+# fields must not shift the path column (the IFS=tab read regression)
+_sampler=$(awk '/prevailing line-ending style/{s=1} s{print} s && /&& _nn_ceol=/{exit}' "$CAP/newnote.sh")
+if [[ -z "$_sampler" ]]; then
+  fail "sampler snippet not found in newnote.sh"
+else
+  SDIR=$(mktemp -d /tmp/nn-sampler.XXXXXX)
+  for i in 1 2 3; do mk_note "$SDIR/c$i.md" crlf 0 '---' 'type: task' '---' 'b'; done
+  mk_note "$SDIR/l1.md" lf 0 '---' 'type: task' '---' 'b'
+  {
+    for i in 1 2 3; do printf 'task\t\t\t\tt\t%s\t2026-01-01 00:00\t\n' "$SDIR/c$i.md"; done
+    printf 'task\t\t\t\tt\t%s\t2026-01-01 00:00\t\n' "$SDIR/l1.md"
+  } > "$WORK/raw.sampletest"
+  cp "$CAP/.raw" "$WORK/raw.keep" 2>/dev/null || : > "$WORK/raw.keep"
+  cp "$WORK/raw.sampletest" "$CAP/.raw"
+  # shellcheck disable=SC2034  # dir is read inside the eval'd snippet
+  dir="$CAP"
+  eval "$_sampler"
+  # shellcheck disable=SC2154  # _nn_ceol is assigned inside the eval'd snippet
+  [[ "${_nn_ceol:-}" == $'\r' ]] || fail "sampler did not choose CRLF majority"
+  cp "$WORK/raw.keep" "$CAP/.raw"
+  rm -rf "$SDIR"
+fi
 
 # ── writes preserve file permissions (mktemp is 0600; mode must survive) ─
 file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }

@@ -1267,15 +1267,19 @@ _nn_find_md_with_mtime() {
   for _ign in "${_NN_IGNORE_DIRS[@]}"; do
     prune+=(-o -name "$_ign")
   done
+  # A newline in a filename would split into phantom rows in every
+  # line-oriented consumer (.raw, fzf, doctor) and could misdirect writes –
+  # such names are unsupported and excluded (nn doctor warns about them)
+  local _nl=$'\n'
   if find "$dir" -maxdepth 0 -printf '' 2>/dev/null; then
     # GNU find – space-separated date to match zk's {{modified}} format
-    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
+    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' ! -path "*${_nl}*" -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
   elif stat -c '%n' /dev/null >/dev/null 2>&1; then
     # BusyBox / GNU stat -c (Alpine, other minimal Linux)
-    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' -type f -exec stat -c '%n	%y' {} +
+    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' ! -path "*${_nl}*" -type f -exec stat -c '%n	%y' {} +
   else
     # BSD find + stat (macOS)
-    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
+    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' ! -path "*${_nl}*" -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
   fi
 }
 
@@ -1509,7 +1513,9 @@ function emit_b1(j,   line, parts, p, np) {
   line = b1line[j]; sub(/\r$/, "", line)
   print line eol2
   if (b1cont[j] != "") {
-    np = split(b1cont[j], parts, SUBSEP)
+    # continuation lines are newline-joined – a line can never contain \n,
+    # so hostile bytes (e.g. a literal \x1c/SUBSEP) can never split lines
+    np = split(b1cont[j], parts, "\n")
     for (p = 1; p <= np; p++) {
       if (parts[p] == "") continue
       line = parts[p]; sub(/\r$/, "", line)
@@ -1517,8 +1523,17 @@ function emit_b1(j,   line, parts, p, np) {
     }
   }
 }
-{ L[++n] = $0 }
-END {
+# The match/merge decision needs at most ~405 lines (both blocks are capped);
+# buffer only that much, then stream the rest of the body straight through so
+# huge notes never sit in memory.
+{
+  if (streaming) { print; next }
+  L[++n] = $0
+  if (n >= 405) decide()
+}
+END { if (!done) decide() }
+function decide(   l, i, j, k, c1, o2, c2, nk, havekey, extrakey, skip) {
+  done = 1
   if (n < 5) exit 3
   l = L[1]; sub(/^\xEF\xBB\xBF/, "", l); bom1 = (l != L[1]); sub(/\r$/, "", l)
   if (l !~ /^---[[:space:]]*$/) exit 3
@@ -1536,7 +1551,7 @@ END {
       b1seen[k] = 1
       b1key[++nk] = k; b1line[nk] = L[i]; b1cont[nk] = ""
     } else if (l ~ /^[ \t]+-[ \t]/ && nk > 0) {
-      b1cont[nk] = b1cont[nk] L[i] SUBSEP
+      b1cont[nk] = b1cont[nk] L[i] "\n"
     } else exit 3
   }
   if (!c1 || !nk) exit 3
@@ -1563,11 +1578,12 @@ END {
     else if (l == "" || l ~ /^[ \t]/ || l ~ /^#/ || l ~ /^-([ \t]|$)/) continue
     else exit 3
   }
-  if (!c2 || !havekey) exit 3
-  # exit 4 = structurally repairable but refused by the extra-key rule.
-  # The caller reads this from the convergence loop's terminal status to
-  # flag possible stacked same-key residue after a successful merge – no
-  # separate check invocation or mode flag needed.
+  if (!c2) exit 3
+  # exit 5 = both blocks structurally present but the original block has no
+  # qualifying key; exit 4 = refused only by the extra-key rule.  The caller
+  # reads the convergence loop's terminal status: either code after a
+  # successful merge means a fenced block remains that may be residue.
+  if (!havekey) exit 5
   if (!extrakey) exit 4
   for (j = 1; j <= nk; j++) kv[b1key[j]] = j
   # Emit merged note
@@ -1591,7 +1607,7 @@ END {
   for (j = 1; j <= nk; j++) if (!(j in used)) emit_b1(j)
   print "---" eol2
   for (i = c2 + 1; i <= n; i++) print L[i]
-  exit 0
+  streaming = 1
 }
 ENDREPAIR
 )
@@ -1610,7 +1626,7 @@ _nn_list_notes() {
       [[ $# -eq 1 && -d "$1/.zk" ]] && _zk_scope=()
       # tr strips any stray CR so downstream exact-match filters stay reliable
       # (defense in depth – zk itself normally emits clean LF output)
-      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null | tr -d '\r'
+      zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null | sed $'s/\r$//'
       local _zk_rc="${PIPESTATUS[0]}"
       if [[ $_zk_rc -gt 1 ]]; then
         echo "notenav: zk list failed (exit $_zk_rc) – run 'nn doctor' or try without zk" >&2
@@ -3124,13 +3140,27 @@ EOF
     # Apply the same .nnignore filtering as the runtime so excluded notes
     # (e.g. archived directories) don't produce spurious warnings.  Reuses
     # _ign_prune (built in Phase 5) and _nn_ignore_pipe for consistency.
+    # Newline-named files are excluded here as in the runtime listing; a
+    # dedicated warning below tells the user such notes exist but are not
+    # indexed (their paths cannot ride line-oriented pipelines or fzf rows)
+    local _fm_nl=$'\n'
+    local _fm_nl_count
+    _fm_nl_count=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune \
+      -o -name '*.md' -path "*${_fm_nl}*" -type f -exec printf x \; 2>/dev/null | wc -c | tr -d ' ')
+    if [[ "${_fm_nl_count:-0}" -gt 0 ]]; then
+      _warn "$_fm_nl_count note filename(s) contain a newline – unsupported, these notes are not indexed or scanned"
+    fi
+    # 2000-file cap keeps plain doctor fast on huge notebooks; a repair run
+    # must see everything, so --fix-frontmatter raises it
+    local _fm_scan_cap=2000
+    [[ "$_fix_fm" == "true" ]] && _fm_scan_cap=200000
     local _fm_scan
     _fm_scan=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune \
-      -o -name '*.md' -type f -print 2>/dev/null \
+      -o -name '*.md' ! -path "*${_fm_nl}*" -type f -print 2>/dev/null \
       | awk '{printf "\t\t\t\t\t%s\n", $0}' \
       | _nn_ignore_pipe \
       | awk -F'\t' '{print $6}' \
-      | head -2000 \
+      | head -n "$_fm_scan_cap" \
       | "$_fm_gawk" '
       BEGIN { US = sprintf("%c", 31); NR_FILE = 0 }
       {
@@ -3196,14 +3226,17 @@ EOF
             if (++fm_lines > 200) break
             if (match(line, /^type:[ \t]*(.*)$/, m)) {
               val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
+              gsub(/\x1f/, "", val)   # a literal US byte would derail the record protocol
               type = val
             }
             if (match(line, /^status:[ \t]*(.*)$/, m)) {
               val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
+              gsub(/\x1f/, "", val)
               status = val
             }
             if (match(line, /^priority:[ \t]*(.*)$/, m)) {
               val = m[1]; gsub(/^["'"'"']|["'"'"']$/, "", val); gsub(/[ \t]+$/, "", val)
+              gsub(/\x1f/, "", val)
               priority = val
             }
             if (match(line, /^(type|status|priority|tags|created):([ \t].*)?$/, bm)) b1k[bm[1]] = 1
@@ -3377,8 +3410,8 @@ EOF
         echo "          Set defaults.type_visibility = \"all\" or add type: to note frontmatter"
       fi
     fi
-    if [[ "${_ign_after:-0}" -gt 2000 ]]; then
-      _info "Scanned first 2000 of ${_ign_after:-$_note_count} files"
+    if [[ "${_ign_after:-0}" -gt "$_fm_scan_cap" ]]; then
+      _info "Scanned first $_fm_scan_cap of ${_ign_after:-$_note_count} files"
     fi
     fi  # end gawk guard
   fi
@@ -3394,24 +3427,31 @@ EOF
       _warn "Cannot scan for duplicated frontmatter (requires gawk and a reachable notebook) – nothing repaired"
     elif [[ -z "${_fm_dup_files_all[*]:-}" ]]; then
       _pass "No duplicated frontmatter blocks found – nothing to repair"
-      if [[ "${_ign_after:-0}" -gt 2000 ]]; then
-        _info "Note: only the first 2000 of ${_ign_after} files were scanned"
+      if [[ "${_ign_after:-0}" -gt "$_fm_scan_cap" ]]; then
+        _warn "Only the first $_fm_scan_cap of ${_ign_after} files were scanned – corruption beyond that is not detected"
       fi
     else
-      local _fix_gawk
-      _fix_gawk=$(_nn_resolve_gawk)
+      # _fm_gawk is guaranteed resolved+validated: repair only runs when the
+      # scan ran (_fm_scan_ran), and the scan resolves it first
+      local _fix_gawk="$_fm_gawk"
       local _fix_ok=0 _fix_skip=0 _fixf _fixrel _fixtmp _fix_i _fix_changed
+      _info "Tip: close running nn sessions on this notebook before repairing"
       for _fixf in "${_fm_dup_files_all[@]}"; do
         _fixrel="${_fixf#"$_nn_root"/}"
-        if [[ -e "$_fixf.bak" ]]; then
-          _warn "skipped $_fixrel ${_dim}($_fixrel.bak already exists – remove it and re-run)${_reset}"
-          (( _fix_skip++ )) || true
-          continue
-        fi
-        if ! cp -p "$_fixf" "$_fixf.bak"; then
-          _warn "skipped $_fixrel ${_dim}(could not write backup)${_reset}"
-          (( _fix_skip++ )) || true
-          continue
+        # ln claims the .bak atomically (fails if it exists), so concurrent
+        # repair runs can never clobber each other's backup; the hard link
+        # keeps the original bytes even after mv replaces the note's inode.
+        # cp is the fallback for filesystems without hard links.
+        if ! ln "$_fixf" "$_fixf.bak" 2>/dev/null; then
+          if [[ -e "$_fixf.bak" ]]; then
+            _warn "skipped $_fixrel ${_dim}($_fixrel.bak already exists – remove it and re-run)${_reset}"
+            (( _fix_skip++ )) || true
+            continue
+          elif ! cp -p "$_fixf" "$_fixf.bak"; then
+            _warn "skipped $_fixrel ${_dim}(could not write backup)${_reset}"
+            (( _fix_skip++ )) || true
+            continue
+          fi
         fi
         _fix_changed=false
         local _fix_rc=0 _fix_io=false _fix_mode=""
@@ -3439,17 +3479,22 @@ EOF
             fi
           else
             rm -f "$_fixtmp"
-            [[ $_fix_rc -ne 3 && $_fix_rc -ne 4 ]] && _fix_io=true
+            [[ $_fix_rc -ne 3 && $_fix_rc -ne 4 && $_fix_rc -ne 5 ]] && _fix_io=true
             break
           fi
         done
-        # Terminal rc 4 after a successful merge: a repairable-looking block
-        # remains that only the extra-key rule refused.  It is either stacked
-        # same-key damage or legitimate body content of the same shape –
-        # indistinguishable by bytes – so the repair counts as done and the
-        # user is asked to glance at it.
+        # A fenced block remaining after a successful merge may be residue:
+        # terminal rc 4 (extra-key refusal) or rc 5 (structural match without
+        # a qualifying key – e.g. the original held only unmanaged keys).
+        # Both are indistinguishable-by-bytes from legitimate body content,
+        # so the repair counts as done and the user is asked to glance at it.
+        # (Terminal rc 0 after the 5th pass cannot leave residue: each merge
+        # must add a new key and only five bug-writable keys exist, so the
+        # fifth merge is necessarily the full repair.)
         local _fix_residue=false
-        [[ "$_fix_changed" == "true" && $_fix_rc -eq 4 ]] && _fix_residue=true
+        if [[ "$_fix_changed" == "true" ]]; then
+          case "$_fix_rc" in 4|5) _fix_residue=true ;; *) ;; esac
+        fi
         if [[ "$_fix_changed" == "true" && "$_fix_io" == "true" ]]; then
           # Later pass failed after an earlier one succeeded: the note holds a
           # valid intermediate merge; keep the backup and be explicit.
@@ -3473,8 +3518,8 @@ EOF
         fi
       done
       _info "Repaired $_fix_ok note(s), skipped $_fix_skip"
-      if [[ "${_ign_after:-0}" -gt 2000 ]]; then
-        _info "Note: only the first 2000 of ${_ign_after} files were scanned – re-run to be safe"
+      if [[ "${_ign_after:-0}" -gt "$_fm_scan_cap" ]]; then
+        _warn "Only the first $_fm_scan_cap of ${_ign_after} files were scanned – corruption beyond that is not detected"
       fi
     fi
   fi
@@ -4364,15 +4409,17 @@ EOF
     cat > "$_nn_dir/.fn_find_md" << 'ENDFNFIND'
 _nn_find_md_with_mtime() {
   local d="$1"
+  # Newline-named files are unsupported – they would split into phantom rows
+  local _nl=$'\n'
   if find "$d" -maxdepth 0 -printf '' 2>/dev/null; then
     find "$d" \( "${_prune_args[@]}" \) \
-      -prune -o -name '*.md' -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
+      -prune -o -name '*.md' ! -path "*${_nl}*" -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
   elif stat -c '%n' /dev/null >/dev/null 2>&1; then
     find "$d" \( "${_prune_args[@]}" \) \
-      -prune -o -name '*.md' -type f -exec stat -c '%n	%y' {} +
+      -prune -o -name '*.md' ! -path "*${_nl}*" -type f -exec stat -c '%n	%y' {} +
   else
     find "$d" \( "${_prune_args[@]}" \) \
-      -prune -o -name '*.md' -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
+      -prune -o -name '*.md' ! -path "*${_nl}*" -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
   fi
 }
 ENDFNFIND
@@ -4769,7 +4816,7 @@ scope_path=$(cat "$dir/.scope_path")
 if [ "$has_zk" = "true" ]; then
   _zk_scope=("$scope_path")
   [ -d "$scope_path/.zk" ] && _zk_scope=()
-  zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null | tr -d '\r' > "$dir/.csearch_paths"
+  zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null | sed $'s/\r$//' > "$dir/.csearch_paths"
 else
   if command -v rg >/dev/null 2>&1; then
     rg -Fl --type md -- "$query" "$scope_path" 2>/dev/null > "$dir/.csearch_paths"
@@ -4796,7 +4843,7 @@ if [ -n "$query" ]; then
   if [ "$has_zk" = "true" ]; then
     _zk_scope=("$scope_path")
     [ -d "$scope_path/.zk" ] && _zk_scope=()
-    zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null | tr -d '\r' > "$dir/.f_match_paths"
+    zk list "${_zk_scope[@]}" --match "$query" --format '{{absPath}}' --quiet 2>/dev/null | sed $'s/\r$//' > "$dir/.f_match_paths"
   else
     if command -v rg >/dev/null 2>&1; then
       rg -Fl --type md -- "$query" "$scope_path" 2>/dev/null > "$dir/.f_match_paths"
@@ -4823,16 +4870,17 @@ dir="$1"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 scope_path=$(cat "$dir/.scope_path")
 
-# Apply .nnignore filter to .raw.tmp (non-fatal: falls back to unfiltered data)
+# Apply .nnignore filter to the given tmp file (non-fatal: falls back to
+# unfiltered data)
 _nn_apply_ignore() {
-  local d="$1"
+  local d="$1" t="$2"
   local _ign
   _ign=$(cat "$d/.ignore_awk" 2>/dev/null) || true
   [ -z "$_ign" ] && return 0
-  if "$nn_gawk" -F'\t' "$_ign" "$d/.raw.tmp" > "$d/.raw.ign"; then
-    mv "$d/.raw.ign" "$d/.raw.tmp"
+  if "$nn_gawk" -F'\t' "$_ign" "$t" > "$t.ign"; then
+    mv "$t.ign" "$t"
   else
-    rm -f "$d/.raw.ign"
+    rm -f "$t.ign"
   fi
   return 0
 }
@@ -4851,13 +4899,16 @@ fi
 search_dir="$scope_path"
 # Source shared find function and AWK parser (written at startup)
 source "$dir/.fn_find_md"
+# Per-invocation tmp name: concurrent reloads (watcher + binds) sharing one
+# fixed tmp used to garble .raw transiently with interleaved/truncated rows
+_raw_tmp=$(mktemp "$dir/.raw.XXXXXX") || _raw_tmp="$dir/.raw.tmp.$$"
 if _nn_find_md_with_mtime "$search_dir" \
-  | "$nn_gawk" -F'\t' -f "$dir/.awk_native_parser" > "$dir/.raw.tmp" \
-  && _nn_apply_ignore "$dir" \
-  && mv "$dir/.raw.tmp" "$dir/.raw"; then
+  | "$nn_gawk" -F'\t' -f "$dir/.awk_native_parser" > "$_raw_tmp" \
+  && _nn_apply_ignore "$dir" "$_raw_tmp" \
+  && mv "$_raw_tmp" "$dir/.raw"; then
   :
 else
-  rm -f "$dir/.raw.tmp"
+  rm -f "$_raw_tmp"
   printf 'scan error – press r to retry' > "$dir/.last_action"
 fi
 
@@ -4865,8 +4916,8 @@ fi
 if [ -s "$dir/.raw" ]; then
   for _sat in "$dir/.pinned" "$dir/.marked" "$dir/.f_match_paths"; do
     [ -s "$_sat" ] || continue
-    awk -F'\t' 'NR==FNR{paths[$6]=1;next} ($0 in paths)' "$dir/.raw" "$_sat" > "$_sat.tmp" \
-      && mv "$_sat.tmp" "$_sat" || rm -f "$_sat.tmp"
+    awk -F'\t' 'NR==FNR{paths[$6]=1;next} ($0 in paths)' "$dir/.raw" "$_sat" > "$_sat.tmp.$$" \
+      && mv "$_sat.tmp.$$" "$_sat" || rm -f "$_sat.tmp.$$"
   done
 fi
 ENDRELOAD
@@ -5010,16 +5061,16 @@ for file in "$@"; do
       # follows within the 200-line cap.  Unclosed frontmatter must be a
       # byte-identical no-op (exit 9 -> caller discards the tmp file);
       # without this, field/continuation matching can eat body lines.
-      _f = ARGV[1]; _n = 0
+      _f = ARGV[1]
       if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-        while ((getline _l < _f) > 0 && ++_n <= 201)
+        while ((getline _l < _f) > 0)
           if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
       close(_f)
     }
     !fm_ok { exit 9 }
     NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; fm_lines=0; print; next }
     in_fm && /^---[[:space:]]*$/ { in_fm=0; if (!found && value != "") print field ": " value eol; print; skip_cont=0; next }
-    in_fm && ++fm_lines > 200 { in_fm=0; print; next }
+    in_fm && ++fm_lines > 100000 { in_fm=0; print; next }
     in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
     in_fm && skip_cont { skip_cont=0 }
     in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value eol; found=1; skip_cont=1; next }
@@ -5062,8 +5113,8 @@ else
   esac
 fi
 if $_need_pin && [ ${#ok_files[@]} -gt 0 ]; then
-  { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${ok_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
-  mv "$dir/.pinned.tmp" "$dir/.pinned"
+  { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${ok_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp.$$"
+  mv "$dir/.pinned.tmp.$$" "$dir/.pinned"
   rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
 fi
 if [ "$count" -eq 0 ]; then
@@ -5306,9 +5357,9 @@ set_type="$set_type" set_status="$set_status" \
   BEGIN {
     set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"]
     # Pre-scan (see action.sh): never rewrite unclosed frontmatter
-    _f = ARGV[1]; _n = 0
+    _f = ARGV[1]
     if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-      while ((getline _l < _f) > 0 && ++_n <= 201)
+      while ((getline _l < _f) > 0)
         if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
     close(_f)
   }
@@ -5322,7 +5373,7 @@ set_type="$set_type" set_status="$set_status" \
     if (has_tags && !found_tags && set_tags != "") print_tags()
     print; next
   }
-  in_fm && ++fm_lines > 200 { in_fm=0; print; next }
+  in_fm && ++fm_lines > 100000 { in_fm=0; print; next }
   in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
   in_fm && skip_cont { skip_cont=0 }
   in_fm && /^type:/ {
@@ -5549,8 +5600,8 @@ if [ "$count" -gt 0 ]; then
   printf "${_c_green}Updated %d note(s)${_c_reset}\n" "$count" > /dev/tty
   # Pin files whose changes would cause them to leave the current view
   if [ ${#pin_files[@]} -gt 0 ]; then
-    { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${pin_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
-    mv "$dir/.pinned.tmp" "$dir/.pinned"
+    { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${pin_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp.$$"
+    mv "$dir/.pinned.tmp.$$" "$dir/.pinned"
     rm -f "$dir/.pinned.bak"
   fi
 fi
@@ -6145,8 +6196,8 @@ else
   if ! $_need_pin && [ -s "$dir/.f_tags" ]; then _need_pin=true; fi
 fi
 if $_need_pin; then
-  { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$new_path"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp"
-  mv "$dir/.pinned.tmp" "$dir/.pinned"
+  { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$new_path"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp.$$"
+  mv "$dir/.pinned.tmp.$$" "$dir/.pinned"
   rm -f "$dir/.pinned.bak"
 fi
 # Regenerate raw
@@ -6367,12 +6418,12 @@ case "$action" in
     case "$path" in *.empty_placeholder) path="" ;; esac
     if [ -n "$path" ]; then
       if grep -qxF "$path" "$dir/.marked" 2>/dev/null; then
-        { grep -vxF "$path" "$dir/.marked" || [ $? -eq 1 ]; } > "$dir/.marked.tmp"
-        mv "$dir/.marked.tmp" "$dir/.marked"
+        { grep -vxF "$path" "$dir/.marked" || [ $? -eq 1 ]; } > "$dir/.marked.tmp.$$"
+        mv "$dir/.marked.tmp.$$" "$dir/.marked"
         # Pin the unmarked item when mark filter is on so it doesn't vanish
         if [ -n "$fmarked" ]; then
-          { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$path"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp" \
-            && mv "$dir/.pinned.tmp" "$dir/.pinned"
+          { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$path"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp.$$" \
+            && mv "$dir/.pinned.tmp.$$" "$dir/.pinned"
           rm -f "$dir/.pinned.bak"
         fi
       else
@@ -6383,8 +6434,8 @@ case "$action" in
     if [ -s "$dir/.m_sel" ]; then
       { grep -v '\.empty_placeholder$' "$dir/.m_sel" || [ $? -eq 1 ]; } > "$dir/.m_sel.tmp"
       mv "$dir/.m_sel.tmp" "$dir/.m_sel"
-      { cat "$dir/.marked" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.marked.tmp"
-      mv "$dir/.marked.tmp" "$dir/.marked"
+      { cat "$dir/.marked" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.marked.tmp.$$"
+      mv "$dir/.marked.tmp.$$" "$dir/.marked"
     fi ;;
   mark-remove)
     if [ -s "$dir/.m_sel" ]; then
@@ -6392,12 +6443,12 @@ case "$action" in
       mv "$dir/.m_sel.tmp" "$dir/.m_sel"
       # Pin the unmarked items when mark filter is on so they don't vanish
       if [ -n "$fmarked" ]; then
-        { cat "$dir/.pinned" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp" \
-          && mv "$dir/.pinned.tmp" "$dir/.pinned"
+        { cat "$dir/.pinned" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp.$$" \
+          && mv "$dir/.pinned.tmp.$$" "$dir/.pinned"
         rm -f "$dir/.pinned.bak"
       fi
-      awk 'NR==FNR{del[$0]=1;next} !($0 in del)' "$dir/.m_sel" "$dir/.marked" > "$dir/.marked.tmp" \
-        && mv "$dir/.marked.tmp" "$dir/.marked"
+      awk 'NR==FNR{del[$0]=1;next} !($0 in del)' "$dir/.m_sel" "$dir/.marked" > "$dir/.marked.tmp.$$" \
+        && mv "$dir/.marked.tmp.$$" "$dir/.marked"
     fi ;;
   mark-clear) : > "$dir/.marked" ;;
   mark-filter)
@@ -7374,13 +7425,13 @@ for f in "${targets[@]}"; do
     _del_ok=$((_del_ok + 1))
     # Clean up .pinned
     if [ -s "$dir/.pinned" ]; then
-      { grep -vxF "$f" "$dir/.pinned" || [ $? -eq 1 ]; } > "$dir/.pinned.tmp"
-      mv "$dir/.pinned.tmp" "$dir/.pinned"
+      { grep -vxF "$f" "$dir/.pinned" || [ $? -eq 1 ]; } > "$dir/.pinned.tmp.$$"
+      mv "$dir/.pinned.tmp.$$" "$dir/.pinned"
     fi
     # Clean up .marked
     if [ -s "$dir/.marked" ]; then
-      { grep -vxF "$f" "$dir/.marked" || [ $? -eq 1 ]; } > "$dir/.marked.tmp"
-      mv "$dir/.marked.tmp" "$dir/.marked"
+      { grep -vxF "$f" "$dir/.marked" || [ $? -eq 1 ]; } > "$dir/.marked.tmp.$$"
+      mv "$dir/.marked.tmp.$$" "$dir/.marked"
     fi
   else
     _del_fail=$((_del_fail + 1))
