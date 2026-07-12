@@ -35,9 +35,9 @@ grep -q '^name.md' "$out" && fail "phantom row leaked from newline-named note"
 # ── zk row-normalization stage (extracted from lib): fragment consumer ───
 # Split-row fragments must be consumed exactly, never eating the next real
 # note, for any pure-newline path shape (POSIX awk – no gawk dependency)
-_zkanchor='frag { fj++'
+_zkanchor='rem { rem -='
 _zkanchors=$(grep -cF "$_zkanchor" "$REPO/lib/notenav.sh")
-_zkstage=$(awk '/frag \{ fj\+\+/{s=1} s{print} s && /print \}/{exit}' "$REPO/lib/notenav.sh")
+_zkstage=$(awk '/rem \{ rem -=/{s=1} s{print} s && /print \}/{exit}' "$REPO/lib/notenav.sh")
 if [[ "$_zkanchors" -ne 1 || -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 6 ]]; then
   fail "zk stage extraction anchors drifted (found $_zkanchors) – update this test"
 else
@@ -52,7 +52,9 @@ else
       'task\topen\tp1\tt\tti\t/bad\nname.md\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n' \
       'task\topen\tp1\tt\tti\t/a\n\nb.md\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n' \
       'task\tnew\t\ta\tT\t/nb/a\nb\tc\td\te\tf\t/g.md\t2026\t2026\ntask\tnew\t\ta\tGood\t/good.md\t2026\t2026\n' \
-      'task\topen\tp1\tt\tti\t/a\n\n\nb.md\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n'; do
+      'task\topen\tp1\tt\tti\t/a\n\n\nb.md\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n' \
+      'task\topen\tp1\tt\tti\t\nname.md\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n' \
+      'task\topen\tp1\tt\tti\t/a\n\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n'; do
       _zkout=$(run_zkstage "$case_in")
       [[ "$_zkout" == *Good* ]] || fail "legit row eaten after fragments: $case_in"
       _zkcnt=$(printf '%s\n' "$_zkout" | grep -c .)

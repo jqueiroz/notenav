@@ -1632,18 +1632,20 @@ _nn_list_notes() {
       # from the title, the path, or quoted values, and any guess can point
       # the path column at an innocent existing file (a mis-write hazard).
       # Newlines in a path split its row into fragments.  Each newline turns
-      # one field into two, so a split row is fully consumed exactly when
-      # sum(max(NF,1)) - (fragments - 1) reaches 8 – the accumulator below
-      # eats the right number of fragments for ANY pure-newline path
-      # (including empty fragments from consecutive newlines) and following
-      # legitimate rows always pass.  Residual: paths combining tabs AND
-      # newlines can still cost one following row or leak a malformed row –
-      # every such file carries a newline and is flagged by nn doctor; the
-      # native backend used for reloads sanitizes tab titles.
+      # one field into two, so after an arming fragment with max(NF,1)
+      # fields, rem = 8 - that counts the fields still owed; every further
+      # fragment nets max(NF,1) - 1 new fields, and the row is fully
+      # consumed when rem drops below 1.  This eats exactly the right
+      # number of fragments for ANY pure-newline path (including empty
+      # boundary/middle fragments) and following legitimate rows always
+      # pass.  Residual: a path combining tabs AND newlines can leak a
+      # malformed row and additionally cost one following row – every such
+      # file carries a newline and is flagged by nn doctor; the native
+      # backend used for reloads sanitizes tab titles.
       zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null \
         | "${_NN_GAWK:-awk}" -F'\t' '
-            frag { fj++; facc += (NF > 0 ? NF : 1); if (facc - fj + 1 >= 8) frag = 0; next }
-            NF < 8 { frag = 1; fj = 1; facc = (NF > 0 ? NF : 1); next }
+            rem { rem -= (NF > 0 ? NF : 1) - 1; if (rem < 1) rem = 0; next }
+            NF < 8 { rem = 8 - (NF > 0 ? NF : 1); next }
             NF == 8 && $6 ~ /^\// { sub(/\r$/, ""); print }'
       local _zk_rc="${PIPESTATUS[0]}"
       if [[ $_zk_rc -gt 1 ]]; then
