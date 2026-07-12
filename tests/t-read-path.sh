@@ -32,19 +32,33 @@ fi
 grep -q 'echo-newline-marker' "$out" && fail "newline-named note must be excluded, not listed"
 grep -q '^name.md' "$out" && fail "phantom row leaked from newline-named note"
 
-# ── zk row-normalization stage (extracted from lib): fragment latch ──────
-# A split row's fragments must be dropped WITHOUT eating the next real note
-# (the latch must consume before the short-row rule re-arms it)
-_zkstage=$(awk '/skip \{ skip = 0; next \}/{s=1} s{print} s && /print \}/{exit}' "$REPO/lib/notenav.sh")
-if [[ -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 6 ]]; then
-  fail "zk stage extraction anchors drifted – update this test"
+# ── zk row-normalization stage (extracted from lib): fragment consumer ───
+# Split-row fragments must be consumed exactly, never eating the next real
+# note, for any pure-newline path shape (POSIX awk – no gawk dependency)
+_zkanchor='frag { fj++'
+_zkanchors=$(grep -cF "$_zkanchor" "$REPO/lib/notenav.sh")
+_zkstage=$(awk '/frag \{ fj\+\+/{s=1} s{print} s && /print \}/{exit}' "$REPO/lib/notenav.sh")
+if [[ "$_zkanchors" -ne 1 || -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 6 ]]; then
+  fail "zk stage extraction anchors drifted (found $_zkanchors) – update this test"
 else
-  _zkout=$(printf 'task\topen\tp1\tt\tti\t/bad\nname.md\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n' \
-    | gawk -F'\t' "${_zkstage%\'}")
-  [[ "$_zkout" == *Good* ]] || fail "legit row after split fragments was eaten (latch order)"
-  [[ "$_zkout" == *name.md* ]] && fail "split fragment leaked through the zk stage"
-  _zkcnt=$(printf '%s\n' "$_zkout" | grep -c .)
-  [[ "$_zkcnt" -eq 1 ]] || fail "zk stage emitted $_zkcnt rows, expected 1"
+  _zkprog="${_zkstage%\'}"
+  # shellcheck disable=SC2059  # the case strings ARE printf formats (\t/\n escapes)
+  run_zkstage() { printf "$1" | awk -F'\t' "$_zkprog" 2>/dev/null; }
+  # sanity: the extracted program must execute at all (distinct diagnosis)
+  if ! printf 'a\tb\tc\td\te\t/f\tg\th\n' | awk -F'\t' "$_zkprog" >/dev/null 2>&1; then
+    fail "extracted zk stage does not execute – extraction problem, not a latch regression"
+  else
+    for case_in in \
+      'task\topen\tp1\tt\tti\t/bad\nname.md\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n' \
+      'task\topen\tp1\tt\tti\t/a\n\nb.md\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n' \
+      'task\tnew\t\ta\tT\t/nb/a\nb\tc\td\te\tf\t/g.md\t2026\t2026\ntask\tnew\t\ta\tGood\t/good.md\t2026\t2026\n' \
+      'task\topen\tp1\tt\tti\t/a\n\n\nb.md\t2026\t2026\ntask\topen\tp2\tt\tGood\t/good.md\t2026\t2026\n'; do
+      _zkout=$(run_zkstage "$case_in")
+      [[ "$_zkout" == *Good* ]] || fail "legit row eaten after fragments: $case_in"
+      _zkcnt=$(printf '%s\n' "$_zkout" | grep -c .)
+      [[ "$_zkcnt" -eq 1 ]] || fail "zk stage emitted $_zkcnt rows (want 1) for: $case_in"
+    done
+  fi
 fi
 
 finish

@@ -1631,19 +1631,19 @@ _nn_list_notes() {
       # bytes.  A widened row is not reconstructed: the extra tabs may come
       # from the title, the path, or quoted values, and any guess can point
       # the path column at an innocent existing file (a mis-write hazard).
-      # A single newline in a path splits its row into two short fragments:
-      # the first matches NF < 8 and arms the latch, the latch then consumes
-      # the second (whatever its shape), and following legitimate rows pass
-      # untouched – the latch MUST be evaluated first or a short second
-      # fragment re-arms it and eats the next real note.  Paths combining
-      # multiple newlines with several tabs can defeat this (fragments
-      # beyond the first pair, or a tab-heavy leading fragment, may emit a
-      # garbage row) – accepted: nn doctor flags newline names, and the
+      # Newlines in a path split its row into fragments.  Each newline turns
+      # one field into two, so a split row is fully consumed exactly when
+      # sum(max(NF,1)) - (fragments - 1) reaches 8 – the accumulator below
+      # eats the right number of fragments for ANY pure-newline path
+      # (including empty fragments from consecutive newlines) and following
+      # legitimate rows always pass.  Residual: paths combining tabs AND
+      # newlines can still cost one following row or leak a malformed row –
+      # every such file carries a newline and is flagged by nn doctor; the
       # native backend used for reloads sanitizes tab titles.
       zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null \
         | "${_NN_GAWK:-awk}" -F'\t' '
-            skip { skip = 0; next }
-            NF < 8 { skip = 1; next }
+            frag { fj++; facc += (NF > 0 ? NF : 1); if (facc - fj + 1 >= 8) frag = 0; next }
+            NF < 8 { frag = 1; fj = 1; facc = (NF > 0 ? NF : 1); next }
             NF == 8 && $6 ~ /^\// { sub(/\r$/, ""); print }'
       local _zk_rc="${PIPESTATUS[0]}"
       if [[ $_zk_rc -gt 1 ]]; then
