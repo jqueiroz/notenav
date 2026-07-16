@@ -214,6 +214,7 @@ nn doctor
 |------|---------|
 | 0 | All critical checks passed (warnings are OK) |
 | 1 | One or more checks failed |
+| 2 | Invalid arguments (unknown option) |
 
 ### `nn --version` / `nn -V`
 
@@ -316,8 +317,10 @@ patterns it contains.
 |------|---------|---------|
 | 0 | any | Success |
 | 1 | `nn doctor` | One or more checks failed |
+| 2 | `nn doctor` | Invalid arguments (unknown option) |
 | 1 | `nn init` | Config already exists or fetch/write failure |
 | 2 | `nn init` | Invalid arguments (unknown flag, bad workflow name) |
 | 1 | `nn <query>` | Query preset recursion too deep |
+| 1 | `nn <query>` | Invalid arguments (unknown flag, filter key, or preset; incompatible output flags) |
 | 1 | `nn` (TUI) | Terminal not available (`$TERM` is `dumb` or unset) |
 | 130 | `nn` (TUI) | User quit with `q` or `ctrl-c` (normal fzf exit) |
