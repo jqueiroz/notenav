@@ -4252,7 +4252,7 @@ EOF
     # Resolve gawk binary once (may differ from `awk` on Debian/Ubuntu)
     local _NN_GAWK
     _NN_GAWK=$(_nn_resolve_gawk)
-    # gawk capability probe – mktime/strtonum/3-arg match are required
+    # gawk capability probe – mktime/strtonum are required (and imply gawk)
     if ! "$_NN_GAWK" 'BEGIN { mktime("2020 1 1 0 0 0"); strtonum("0x1") }' /dev/null 2>/dev/null; then
       local _awk_impl
       _awk_impl=$("$_NN_GAWK" -W version < /dev/null 2>&1 | head -n 1 || true)
