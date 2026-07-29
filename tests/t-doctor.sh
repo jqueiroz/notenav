@@ -451,6 +451,47 @@ run_doctor "$NB30" --fix-frontmatter || fail "doctor --fix-frontmatter (cont-fir
 grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "continuation-first block flagged despite repair refusing it"
 assert_bytes "$cf" "$WORK/cf.orig" "continuation-first note left untouched"
 
+# ── Mid-line CR in leading block: not flagged (repair would refuse) ──────
+NB31="$WORK/nb-midcr"
+mkdir -p "$NB31"
+mc="$NB31/note.md"
+{
+  printf -- '---\n\rtype: task\n---\n'
+  printf -- '---\r\ntitle: x\r\ntype: note\r\n---\r\nbody\r\n'
+} > "$mc"
+cp "$mc" "$WORK/mc.orig"
+run_doctor "$NB31" --fix-frontmatter || fail "doctor --fix-frontmatter (mid-CR) exited non-zero"
+grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "mid-line-CR block flagged despite repair refusing it"
+assert_bytes "$mc" "$WORK/mc.orig" "mid-CR note left untouched"
+
+# ── Empty leading fence block: not flagged (repair would refuse) ─────────
+NB32="$WORK/nb-emptyb1"
+mkdir -p "$NB32"
+eb="$NB32/note.md"
+printf -- '---\n---\n---\ntype: task\nextra: y\n---\nbody\n' > "$eb"
+cp "$eb" "$WORK/eb.orig"
+run_doctor "$NB32" --fix-frontmatter || fail "doctor --fix-frontmatter (empty b1) exited non-zero"
+grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "empty leading block flagged despite repair refusing it"
+assert_bytes "$eb" "$WORK/eb.orig" "empty-leading-block note left untouched"
+
+# ── Skipped-path reporting: pre-existing .bak triggers a deterministic ───
+# skip with the note untouched and the precious .bak preserved
+NB33="$WORK/nb-bakexists"
+mkdir -p "$NB33"
+bk="$NB33/note.md"
+{
+  printf -- '---\nstatus: done\n---\n'
+  printf -- '---\r\ntype: task\r\n---\r\nbody\r\n'
+} > "$bk"
+printf 'precious pre-existing backup\n' > "$bk.bak"
+cp "$bk" "$WORK/bk.orig"
+run_doctor "$NB33" --fix-frontmatter || fail "doctor --fix-frontmatter (bak exists) exited non-zero"
+grep -q 'skipped note.md' "$WORK/doctor.out" || fail "bak-exists skip not reported"
+grep -q 'skipped 1' "$WORK/doctor.out" || fail "skip not counted in summary"
+assert_bytes "$bk" "$WORK/bk.orig" "note untouched when its .bak already exists"
+printf 'precious pre-existing backup\n' > "$WORK/bk.bak.expected"
+assert_bytes "$bk.bak" "$WORK/bk.bak.expected" "pre-existing .bak preserved byte-exact"
+
 # ── --help works in any argument position; unknown flags error ────────────
 (cd "$NB17" && bash "$REPO/bin/nn" doctor --fix-frontmatter --help </dev/null >/dev/null 2>&1) \
   || fail "doctor --fix-frontmatter --help should exit 0"

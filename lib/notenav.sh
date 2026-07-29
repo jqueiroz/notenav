@@ -1497,7 +1497,8 @@ ENDBACKFILL
 # Matches ONLY the known damage shape: a leading fence block containing
 # nothing but type/status/priority/tags/created lines – the only keys the
 # write bugs could emit – immediately followed by a second fence block
-# holding the note's original frontmatter.  The key restriction is load-bearing: it makes
+# holding the note's original frontmatter.  The key restriction is
+# load-bearing: it makes
 # the matcher refuse clean notes whose body legitimately starts with a fence
 # block (YAML examples, multi-doc files), and it terminates the caller's
 # multi-pass loop once the merged block contains ordinary frontmatter keys.
@@ -3065,8 +3066,10 @@ EOF
       _ign_prune+=(-o -name "$_ign_dir")
     done
     local _ign_after
-    _ign_nl=$'\n'
-    _ign_after=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune -o -name '*.md' ! -path "*${_ign_nl}*" -type f -print 2>/dev/null \
+    # Newline-named files are excluded here AND in the Phase-6 scan below –
+    # one shared variable so the two find pipelines can never diverge
+    local _fm_nl=$'\n'
+    _ign_after=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune -o -name '*.md' ! -path "*${_fm_nl}*" -type f -print 2>/dev/null \
       | awk '{printf "\t\t\t\t\t%s\n", $0}' \
       | _nn_ignore_pipe \
       | wc -l | tr -d ' ')
@@ -3154,7 +3157,6 @@ EOF
     # Newline-named files are excluded from indexing and scanning (their
     # paths cannot ride line-oriented pipelines or fzf rows); warn about
     # them here, before the gawk gate – this check needs only find
-    local _fm_nl=$'\n'
     local _fm_nl_count
     _fm_nl_count=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune \
       -o -name '*.md' -path "*${_fm_nl}*" -type f -exec printf x \; 2>/dev/null | wc -c | tr -d ' ')
@@ -3204,6 +3206,11 @@ EOF
           # flag intact CRLF notes saved without a trailing newline as mixed)
           if (has_prev) { if (prev_cr) crlf_n++; else lf_n++ }
           prev_cr = (line ~ /\r$/); has_prev = 1
+          # A CR anywhere but end-of-line is never bug-written; note it
+          # BEFORE the gsub below hides it from the block1 matching (the
+          # repair matcher strips trailing CRs only and would refuse)
+          mid_cr = 0; l_t = line; sub(/\r$/, "", l_t)
+          if (l_t ~ /\r/) mid_cr = 1
           if (NR_FILE == 0) {
             if (line ~ /^\xEF\xBB\xBF/) { bom = 1; sub(/^\xEF\xBB\xBF/, "", line) }
             if (line ~ /\r$/) crlf = 1
@@ -3227,7 +3234,7 @@ EOF
                 if (prev_cr) crlf_n++; else lf_n++   # close fence proven terminated
                 has_prev = 0
                 sub(/^\xEF\xBB\xBF/, "", l2); sub(/\r$/, "", l2)
-                if (fm_nn_only && l2 ~ /^---[[:space:]]*$/) {
+                if (fm_nn_only && b1n && l2 ~ /^---[[:space:]]*$/) {
                   # b2_extra: the second block must also hold a key ABSENT
                   # from the leading block – original frontmatter always
                   # brings something new, whereas a body YAML example whose
@@ -3268,6 +3275,7 @@ EOF
               gsub(/\x1f/, "", val)
               priority = val
             }
+            if (mid_cr) fm_nn_only = 0
             if (match(line, /^(type|status|priority|tags|created):([ \t].*)?$/, bm)) {
               # a repeated key is not bug damage (the bugs edited in place) –
               # mirror the repair matcher or doctor flags what repair refuses
