@@ -35,9 +35,14 @@ grep -q '^name.md' "$out" && fail "phantom row leaked from newline-named note"
 # ── zk row-normalization stage (extracted from lib): fragment consumer ───
 # Split-row fragments must be consumed exactly, never eating the next real
 # note, for any pure-newline path shape.  The stage's BOM-divert regex uses
-# gawk \x escapes, so run it under gawk (a hard production dependency;
-# installed on every CI leg)
-_zkawk=$(command -v gawk || command -v awk)
+# gawk \x escapes, so it requires gawk (a hard production dependency;
+# installed on every CI leg) – fail fast with a clear message rather than
+# letting a silently non-matching regex read as a lib regression
+if ! command -v gawk >/dev/null 2>&1; then
+  fail "gawk not installed – required by the zk-stage tests"
+  finish
+fi
+_zkawk=gawk
 _zkanchor='rem { rem -='
 _zkanchors=$(grep -cF "$_zkanchor" "$REPO/lib/notenav.sh")
 # extract from the first latch rule to the program's closing brace+quote line
