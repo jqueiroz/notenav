@@ -336,7 +336,9 @@ fi
 mk_note "$f" crlf 0 "${BASE[@]}"
 cp "$f" "$WORK/fnnote.orig"
 mv "$CAP/.fn_note" "$CAP/.fn_note.hidden"
-run_action status active "$f"
+if run_action status active "$f"; then
+  fail "action.sh should exit non-zero without .fn_note"
+fi
 assert_bytes "$f" "$WORK/fnnote.orig" "action.sh refuses byte-identically without .fn_note"
 if bash "$CAP/bulkedit_update.sh" "$f" status=done >/dev/null 2>&1; then
   fail "bulkedit should exit non-zero without .fn_note"

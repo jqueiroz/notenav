@@ -1591,6 +1591,21 @@ _nn_stamp_mode() { [ -z "$1" ] || chmod "$1" "$2" 2>/dev/null || true; }
 # (dd, not head -c: OpenBSD head has no -c)
 _nn_note_bom() { [ "$(dd if="$1" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ]; }
 
+# _nn_file_mtime <file> – echo the file's modification time as UTC
+# "YYYY-MM-DD HH:MM:SS" (zk emits {{modified}} in UTC, so re-listed rows
+# must match or they sort hours out of place).  GNU stat -c first, BSD
+# stat -f fallback chained on emptiness (a pipeline exit status would be
+# cut's, never stat's).
+_nn_file_mtime() {
+  local _mt
+  _mt=$(TZ=UTC0 stat -c '%y' "$1" 2>/dev/null)
+  if [[ -n "$_mt" ]]; then
+    printf '%s' "${_mt:0:19}"
+  else
+    TZ=UTC0 stat -f '%Sm' -t '%Y-%m-%d %H:%M:%S' "$1" 2>/dev/null
+  fi
+}
+
 # _nn_fence_probe <file> – CRLF/BOM-tolerant frontmatter test on line 1.
 # Sets NN_FM (1 when line 1 is a fence after BOM strip, else 0) and NN_FEOL
 # (carriage return when the file's line-1 style is CRLF, else empty).
@@ -1764,24 +1779,24 @@ _nn_list_notes() {
       local _zk_bomlist
       _zk_bomlist=$(mktemp "${TMPDIR:-/tmp}/nn-zkbom.XXXXXX") || _zk_bomlist=""
       zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null \
-        | "${_NN_GAWK:-awk}" -F'\t' -v bomlist="${_zk_bomlist:-/dev/null}" '
+        | "${_NN_GAWK:-awk}" -F'\t' -v bomlist="$_zk_bomlist" '
             rem { rem -= (NF > 0 ? NF : 1) - 1; if (rem < 1) rem = 0; next }
             NF < 8 { rem = 8 - (NF > 0 ? NF : 1); next }
             NF == 8 && $6 ~ /^\// {
               sub(/\r$/, "")
-              if ($5 ~ /^\xEF\xBB\xBF/) { print $6 > bomlist; next }
+              # divert only when the side list exists; with mktemp failed,
+              # degrade to listing the garbled row – never drop the note
+              if (bomlist != "" && $5 ~ /^\xEF\xBB\xBF/) { print $6 > bomlist; next }
               print
             }'
       local _zk_rc="${PIPESTATUS[0]}"
       if [[ -n "$_zk_bomlist" && -s "$_zk_bomlist" ]]; then
         # Re-list the diverted notes natively.  One-off mtime per file via
         # the documented stat fallback chain (GUIDELINES portability).
-        local _zk_bp _zk_bm
+        local _zk_bp
         while IFS= read -r _zk_bp; do
           [[ -f "$_zk_bp" ]] || continue
-          _zk_bm=$(stat -c '%y' "$_zk_bp" 2>/dev/null | cut -c1-19) \
-            || _zk_bm=$(stat -f '%Sm' -t '%Y-%m-%d %H:%M:%S' "$_zk_bp" 2>/dev/null)
-          printf '%s\t%s\n' "$_zk_bp" "${_zk_bm:-}"
+          printf '%s\t%s\n' "$_zk_bp" "$(_nn_file_mtime "$_zk_bp")"
         done < "$_zk_bomlist" | _nn_list_notes_native
       fi
       [[ -n "$_zk_bomlist" ]] && rm -f "$_zk_bomlist"
@@ -6205,7 +6220,10 @@ if [ "$_nn_has_zk" = "true" ]; then
 
   # Ensure essential frontmatter fields are present (CRLF/BOM-tolerant fence
   # test; written lines follow the file's own EOL style, detected from line 1)
-  . "$dir/.fn_note" || exit 1
+  . "$dir/.fn_note" || {
+    printf "\n  ${_nn_red}internal error: session helpers missing – note created without metadata${_nn_reset}\n\n" > /dev/tty
+    exit 1
+  }
   _nn_fence_probe "$new_path"; _nn_eol="$NN_FEOL"
   _nn_mode=$(_nn_note_mode "$new_path")
   if [ "$NN_FM" = 1 ]; then
