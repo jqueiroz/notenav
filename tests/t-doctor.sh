@@ -517,6 +517,23 @@ run_doctor "$NB35" --fix-frontmatter || fail "doctor --fix-frontmatter (fence CR
 grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "CR-in-fence block flagged despite repair refusing it"
 assert_bytes "$fc" "$WORK/fc.orig" "CR-in-fence note left untouched"
 
+# ── Byte-0 BOM dup note: flagged and repaired (l_t must strip line-1 BOM) ─
+NB36="$WORK/nb-bom0dup"
+mkdir -p "$NB36"
+b0="$NB36/note.md"
+{
+  printf '\357\273\277'
+  printf -- '---\r\nstatus: done\r\n---\r\n'
+  printf -- '---\r\ntype: task\r\ntitle: z\r\n---\r\nbody\r\n'
+} > "$b0"
+run_doctor "$NB36" --fix-frontmatter || fail "doctor --fix-frontmatter (byte-0 BOM dup) exited non-zero"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" || fail "byte-0 BOM dup note not flagged/repaired"
+{
+  printf '\357\273\277'
+  printf -- '---\r\ntype: task\r\ntitle: z\r\nstatus: done\r\n---\r\nbody\r\n'
+} > "$WORK/b0.expected"
+assert_bytes "$b0" "$WORK/b0.expected" "byte-0 BOM dup repaired byte-exact, BOM preserved"
+
 # ── --help works in any argument position; unknown flags error ────────────
 (cd "$NB17" && bash "$REPO/bin/nn" doctor --fix-frontmatter --help </dev/null >/dev/null 2>&1) \
   || fail "doctor --fix-frontmatter --help should exit 0"

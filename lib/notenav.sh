@@ -3214,6 +3214,8 @@ EOF
           if (NR_FILE == 0) {
             if (line ~ /^\xEF\xBB\xBF/) { bom = 1; sub(/^\xEF\xBB\xBF/, "", line) }
             if (line ~ /\r$/) crlf = 1
+            # repair strips a line-1 BOM before classifying – mirror it
+            sub(/^\xEF\xBB\xBF/, "", l_t)
           }
           gsub(/\r/, "", line)
           if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) {
