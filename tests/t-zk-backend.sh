@@ -7,6 +7,7 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 
+require_gawk
 if ! command -v zk >/dev/null 2>&1; then
   echo "  SKIP: zk not installed"
   finish
