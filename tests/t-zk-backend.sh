@@ -11,10 +11,6 @@ if ! command -v zk >/dev/null 2>&1; then
   echo "  SKIP: zk not installed"
   finish
 fi
-# after the gawk-independent zk skip (per the require_gawk contract):
-# with zk present, bin/nn still hard-fails without GNU awk
-require_gawk
-
 WORK=$(mktemp -d /tmp/nn-t-zk.XXXXXX) || exit 2
 trap 'rm -rf "$WORK"' EXIT
 NOTEBOOK="$WORK/notebook"
@@ -24,6 +20,10 @@ if ! (cd "$NOTEBOOK" && zk init --no-input . >/dev/null 2>&1); then
   echo "  SKIP: zk init failed (unsupported zk version?)"
   finish
 fi
+
+# after BOTH gawk-independent skips (per the require_gawk contract):
+# from here on bin/nn runs, which hard-fails without GNU awk
+require_gawk
 
 mk_note "$NOTEBOOK/a.md" crlf 0 '---' 'title: zk-crlf-marker' 'type: task' 'status: new' '---' 'body'
 mk_note "$NOTEBOOK/b.md" crlf 1 '---' 'title: zk-bomcrlf-marker' 'type: task' 'status: new' '---' 'body'
