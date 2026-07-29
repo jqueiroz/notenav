@@ -492,6 +492,31 @@ assert_bytes "$bk" "$WORK/bk.orig" "note untouched when its .bak already exists"
 printf 'precious pre-existing backup\n' > "$WORK/bk.bak.expected"
 assert_bytes "$bk.bak" "$WORK/bk.bak.expected" "pre-existing .bak preserved byte-exact"
 
+# ── \r\r-ended damage: still flagged and repaired (repair accepts it) ────
+# (a mid-value/extra-trailing CR does NOT refuse in the repair matcher, so
+# the scan must keep flagging such notes — one-strip classification parity)
+NB34="$WORK/nb-doublecr"
+mkdir -p "$NB34"
+dc="$NB34/note.md"
+printf -- '---\r\r\nstatus: done\r\r\n---\r\r\n---\r\r\ntype: task\r\r\ntitle: x\r\r\n---\r\r\nbody\r\r\n' > "$dc"
+run_doctor "$NB34" --fix-frontmatter || fail "doctor --fix-frontmatter (double CR) exited non-zero"
+grep -q 'repaired note.md (backup:' "$WORK/doctor.out" || fail "double-CR damage not flagged/repaired"
+printf -- '---\r\ntype: task\r\r\ntitle: x\r\r\nstatus: done\r\r\n---\r\nbody\r\r\n' > "$WORK/dc.expected"
+assert_bytes "$dc" "$WORK/dc.expected" "double-CR merge: untouched lines verbatim, rewritten in detected style"
+
+# ── CR inside a fence line: not flagged (repair's fence test refuses) ────
+NB35="$WORK/nb-fencecr"
+mkdir -p "$NB35"
+fc="$NB35/note.md"
+{
+  printf -- '\r---\nstatus: done\n---\n'
+  printf -- '---\r\ntype: task\r\ntitle: y\r\n---\r\nbody\r\n'
+} > "$fc"
+cp "$fc" "$WORK/fc.orig"
+run_doctor "$NB35" --fix-frontmatter || fail "doctor --fix-frontmatter (fence CR) exited non-zero"
+grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "CR-in-fence block flagged despite repair refusing it"
+assert_bytes "$fc" "$WORK/fc.orig" "CR-in-fence note left untouched"
+
 # ── --help works in any argument position; unknown flags error ────────────
 (cd "$NB17" && bash "$REPO/bin/nn" doctor --fix-frontmatter --help </dev/null >/dev/null 2>&1) \
   || fail "doctor --fix-frontmatter --help should exit 0"

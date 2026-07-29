@@ -3206,20 +3206,24 @@ EOF
           # flag intact CRLF notes saved without a trailing newline as mixed)
           if (has_prev) { if (prev_cr) crlf_n++; else lf_n++ }
           prev_cr = (line ~ /\r$/); has_prev = 1
-          # A CR anywhere but end-of-line is never bug-written; note it
-          # BEFORE the gsub below hides it from the block1 matching (the
-          # repair matcher strips trailing CRs only and would refuse)
-          mid_cr = 0; l_t = line; sub(/\r$/, "", l_t)
-          if (l_t ~ /\r/) mid_cr = 1
+          # l_t = the line after exactly ONE trailing-CR strip: the repair
+          # matcher classifies lines this way, so all dup-signature checks
+          # below use l_t (the full gsub on `line` serves only the
+          # display-side scan: had_fm, value extraction)
+          l_t = line; sub(/\r$/, "", l_t)
           if (NR_FILE == 0) {
             if (line ~ /^\xEF\xBB\xBF/) { bom = 1; sub(/^\xEF\xBB\xBF/, "", line) }
             if (line ~ /\r$/) crlf = 1
           }
           gsub(/\r/, "", line)
-          if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) { in_fm = 1; had_fm = 1; NR_FILE++; continue }
+          if (NR_FILE == 0 && line ~ /^---[[:space:]]*$/) {
+            if (l_t !~ /^---[[:space:]]*$/) fm_nn_only = 0
+            in_fm = 1; had_fm = 1; NR_FILE++; continue
+          }
           NR_FILE++
           if (in_fm) {
             if (line ~ /^---[[:space:]]*$/) {
+              if (l_t !~ /^---[[:space:]]*$/) fm_nn_only = 0
               # Duplicated-frontmatter signature left by the pre-0.2.0
               # CRLF/BOM write bugs (see nn doctor --fix-frontmatter): the
               # block just scanned held ONLY keys those bugs could write
@@ -3275,14 +3279,13 @@ EOF
               gsub(/\x1f/, "", val)
               priority = val
             }
-            if (mid_cr) fm_nn_only = 0
-            if (match(line, /^(type|status|priority|tags|created):([ \t].*)?$/, bm)) {
+            if (match(l_t, /^(type|status|priority|tags|created):([ \t].*)?$/, bm)) {
               # a repeated key is not bug damage (the bugs edited in place) –
               # mirror the repair matcher or doctor flags what repair refuses
               if (bm[1] in b1k) fm_nn_only = 0
               b1k[bm[1]] = 1; b1n++
             }
-            else if (line ~ /^[ \t]+-[ \t]/) { if (!b1n) fm_nn_only = 0 }
+            else if (l_t ~ /^[ \t]+-[ \t]/) { if (!b1n) fm_nn_only = 0 }
             else fm_nn_only = 0
           } else break
         }
