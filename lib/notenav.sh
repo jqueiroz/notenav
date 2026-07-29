@@ -1495,9 +1495,9 @@ ENDBACKFILL
 # Repair for the duplicated-frontmatter corruption written by pre-0.2.0
 # versions when editing CRLF/BOM notes (run via `nn doctor --fix-frontmatter`).
 # Matches ONLY the known damage shape: a leading fence block containing
-# nothing but type/status/priority/tags lines – the only keys the write bug
-# could emit – immediately followed by a second fence block holding the
-# note's original frontmatter.  The key restriction is load-bearing: it makes
+# nothing but type/status/priority/tags/created lines – the only keys the
+# write bugs could emit – immediately followed by a second fence block
+# holding the note's original frontmatter.  The key restriction is load-bearing: it makes
 # the matcher refuse clean notes whose body legitimately starts with a fence
 # block (YAML examples, multi-doc files), and it terminates the caller's
 # multi-pass loop once the merged block contains ordinary frontmatter keys.
@@ -1505,8 +1505,9 @@ ENDBACKFILL
 # override – they hold the user's post-corruption edits), re-emits in the
 # original block's EOL style with any BOM restored to byte 0.  Refusals
 # produce no output: exit 3 when the file doesn't match, exit 4 when only
-# the extra-key rule refused (possible stacked same-key residue – the
-# caller reads this from the convergence loop's terminal status).
+# the extra-key rule refused, exit 5 when the blocks are structurally
+# present but the original holds no qualifying key (the caller reads 4/5
+# from the convergence loop's terminal status as possible residue).
 # Requires gawk (3-arg match).
 _NN_FM_REPAIR_AWK=$(cat << 'ENDREPAIR'
 function emit_b1(j,   line, parts, p, np) {
@@ -1714,6 +1715,12 @@ EOF
         return 2 ;;
     esac
   done
+  if [[ $# -gt 0 ]]; then
+    # A stray positional (e.g. a mistyped 'fix-frontmatter' without dashes)
+    # must not silently run a plain check that looks like a passed repair
+    echo "notenav: doctor: unexpected argument '$1' (see nn doctor --help)" >&2
+    return 2
+  fi
   # Set when the Phase-6 frontmatter scan actually runs; --fix-frontmatter
   # must not report "nothing to repair" when the scan was skipped.
   local _fm_scan_ran=false
@@ -3058,7 +3065,8 @@ EOF
       _ign_prune+=(-o -name "$_ign_dir")
     done
     local _ign_after
-    _ign_after=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune -o -name '*.md' -type f -print 2>/dev/null \
+    _ign_nl=$'\n'
+    _ign_after=$(find "$_nn_root" \( "${_ign_prune[@]}" \) -prune -o -name '*.md' ! -path "*${_ign_nl}*" -type f -print 2>/dev/null \
       | awk '{printf "\t\t\t\t\t%s\n", $0}' \
       | _nn_ignore_pipe \
       | wc -l | tr -d ' ')
@@ -3187,7 +3195,7 @@ EOF
       {
         file = $0; type = ""; status = ""; priority = ""; in_fm = 0; had_fm = 0; fm_lines = 0
         bom = 0; crlf = 0; lf_n = 0; crlf_n = 0; dup = 0
-        fm_nn_only = 1; has_prev = 0; prev_cr = 0
+        fm_nn_only = 1; has_prev = 0; prev_cr = 0; b1n = 0
         delete b1k
         while ((getline line < file) > 0) {
           # EOL counting is committed one line late: a successful read of the
@@ -3260,8 +3268,14 @@ EOF
               gsub(/\x1f/, "", val)
               priority = val
             }
-            if (match(line, /^(type|status|priority|tags|created):([ \t].*)?$/, bm)) b1k[bm[1]] = 1
-            else if (line !~ /^[ \t]+-[ \t]/) fm_nn_only = 0
+            if (match(line, /^(type|status|priority|tags|created):([ \t].*)?$/, bm)) {
+              # a repeated key is not bug damage (the bugs edited in place) –
+              # mirror the repair matcher or doctor flags what repair refuses
+              if (bm[1] in b1k) fm_nn_only = 0
+              b1k[bm[1]] = 1; b1n++
+            }
+            else if (line ~ /^[ \t]+-[ \t]/) { if (!b1n) fm_nn_only = 0 }
+            else fm_nn_only = 0
           } else break
         }
         close(file); NR_FILE = 0
@@ -3445,7 +3459,7 @@ EOF
     echo ""
     echo "Repair:"
     if [[ "$_fm_scan_ran" != "true" ]]; then
-      _warn "Cannot scan for duplicated frontmatter (requires gawk and a reachable notebook) – nothing repaired"
+      _warn "Cannot scan for duplicated frontmatter (requires gawk, a reachable notebook, and a valid config) – nothing repaired"
     elif [[ -z "${_fm_dup_files_all[*]:-}" ]]; then
       _pass "No duplicated frontmatter blocks found – nothing to repair"
       if [[ "${_ign_after:-0}" -gt "$_fm_scan_cap" ]]; then
@@ -3455,7 +3469,7 @@ EOF
       # _fm_gawk is guaranteed resolved+validated: repair only runs when the
       # scan ran (_fm_scan_ran), and the scan resolves it first
       local _fix_gawk="$_fm_gawk"
-      local _fix_ok=0 _fix_skip=0 _fixf _fixrel _fixtmp _fix_i _fix_changed
+      local _fix_ok=0 _fix_skip=0 _fix_partial=0 _fixf _fixrel _fixtmp _fix_i _fix_changed
       _info "Tip: close running nn sessions on this notebook before repairing"
       for _fixf in "${_fm_dup_files_all[@]}"; do
         _fixrel="${_fixf#"$_nn_root"/}"
@@ -3520,7 +3534,7 @@ EOF
           # Later pass failed after an earlier one succeeded: the note holds a
           # valid intermediate merge; keep the backup and be explicit.
           _warn "partially repaired $_fixrel – inspect manually; original kept at $_fixrel.bak"
-          (( _fix_skip++ )) || true
+          (( _fix_partial++ )) || true
         elif [[ "$_fix_changed" == "true" && "$_fix_residue" == "true" ]]; then
           _warn "repaired $_fixrel – a fenced block remains right after the frontmatter; verify it is intended content ${_dim}[backup: $_fixrel.bak]${_reset}"
           (( _fix_ok++ )) || true
@@ -3538,7 +3552,11 @@ EOF
           (( _fix_skip++ )) || true
         fi
       done
-      _info "Repaired $_fix_ok note(s), skipped $_fix_skip"
+      if [[ $_fix_partial -gt 0 ]]; then
+        _info "Repaired $_fix_ok note(s), partially repaired $_fix_partial, skipped $_fix_skip"
+      else
+        _info "Repaired $_fix_ok note(s), skipped $_fix_skip"
+      fi
       if [[ "${_ign_after:-0}" -gt "$_fm_scan_cap" ]]; then
         _warn "Only the first $_fm_scan_cap of ${_ign_after} files were scanned – corruption beyond that is not detected"
       fi
@@ -4252,8 +4270,8 @@ EOF
     # Resolve gawk binary once (may differ from `awk` on Debian/Ubuntu)
     local _NN_GAWK
     _NN_GAWK=$(_nn_resolve_gawk)
-    # gawk capability probe – mktime/strtonum are required (and imply gawk)
-    if ! "$_NN_GAWK" 'BEGIN { mktime("2020 1 1 0 0 0"); strtonum("0x1") }' /dev/null 2>/dev/null; then
+    # gawk capability probe – mktime/strtonum/3-arg match are all required
+    if ! "$_NN_GAWK" 'BEGIN { mktime("2020 1 1 0 0 0"); strtonum("0x1"); match("x", /x/, _m) }' /dev/null 2>/dev/null; then
       local _awk_impl
       _awk_impl=$("$_NN_GAWK" -W version < /dev/null 2>&1 | head -n 1 || true)
       case "$_awk_impl" in
@@ -6112,11 +6130,16 @@ if [ "$_nn_has_zk" = "true" ]; then
   _nn_has_fm=$(head -n 1 "$new_path" 2>/dev/null)
   _nn_eol=""; case "$_nn_has_fm" in *$'\r') _nn_eol=$'\r' ;; esac
   _nn_fl=${_nn_has_fm#$'\xef\xbb\xbf'}
+  # mktemp creates the temp 0600; stamp the zk-created note's own mode on it
+  # before the rename (same pattern as action.sh – GUIDELINES I2)
+  _nn_mode=$(stat -L -c '%a' "$new_path" 2>/dev/null || stat -L -f '%Mp%Lp' "$new_path" 2>/dev/null)
   if [[ "$_nn_fl" =~ ^---[[:space:]]*$ ]]; then
     _nntmp=$(mktemp "$new_path.XXXXXX") || exit 1
     nn_type="$selected" nn_status="$_nn_initial_status" nn_created="$_nn_now" \
       $nn_gawk -f "$dir/.awk_fm_backfill" \
-      "$new_path" > "$_nntmp" && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
+      "$new_path" > "$_nntmp" \
+      && { [ -z "$_nn_mode" ] || chmod "$_nn_mode" "$_nntmp" 2>/dev/null || true; } \
+      && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
   else
     _nntmp=$(mktemp "$new_path.XXXXXX") || exit 1
     {
@@ -6129,7 +6152,9 @@ if [ "$_nn_has_zk" = "true" ]; then
       printf 'created: %s%s\n' "$_nn_now" "$_nn_eol"
       printf '%s\n' "---$_nn_eol"
       if [ -n "$_nn_bom" ]; then tail -c +4 "$new_path"; else cat "$new_path"; fi
-    } > "$_nntmp" && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
+    } > "$_nntmp" \
+      && { [ -z "$_nn_mode" ] || chmod "$_nn_mode" "$_nntmp" 2>/dev/null || true; } \
+      && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
   fi
 else
   # Native note creation (no zk)

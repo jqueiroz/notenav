@@ -131,7 +131,9 @@ run_doctor "$NB6" --fix-frontmatter || fail "doctor --fix-frontmatter (prose blo
 grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "prose block1 should not be flagged"
 assert_bytes "$amb" "$WORK/amb.orig" "prose-block1 note left untouched"
 
-# ── Scan-flagged but repair-refused: duplicate key in leading block ──────
+# ── Duplicate key in leading block: not flagged (scan mirrors repair) ────
+# A repeated key is not bug damage; the scan must not flag what the repair
+# matcher refuses, or the user gets an un-clearable warning loop
 NB6b="$WORK/nb-dupkey"
 mkdir -p "$NB6b"
 dk="$NB6b/note.md"
@@ -141,9 +143,9 @@ dk="$NB6b/note.md"
 } > "$dk"
 cp "$dk" "$WORK/dk.orig"
 run_doctor "$NB6b" --fix-frontmatter || fail "doctor --fix-frontmatter (dup key) exited non-zero"
-grep -q 'skipped note.md' "$WORK/doctor.out" || fail "dup-key note not reported as skipped"
+grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "dup-key block flagged despite repair refusing it"
 assert_bytes "$dk" "$WORK/dk.orig" "dup-key note left untouched"
-[[ -e "$dk.bak" ]] && fail "no backup should remain for a skipped note"
+[[ -e "$dk.bak" ]] && fail "no backup should exist for an unflagged note"
 
 # ── Body prose disguised as keys: never flagged, never repaired ──────────
 # (adversarial review repros: interview-style body and non-frontmatter keys)
@@ -436,10 +438,26 @@ ec="$NB21/note.md"
 printf -- '---\r\ntype: task\r\nstatus: done\r\n---\r\nbody\r\n' > "$WORK/ec.expected"
 assert_bytes "$ec" "$WORK/ec.expected" "ambient NN_REPAIR_CHECK does not corrupt the repair"
 
+# ── Continuation before any key in leading block: not flagged ────────────
+NB30="$WORK/nb-cont-first"
+mkdir -p "$NB30"
+cf="$NB30/note.md"
+{
+  printf -- '---\n  - orphan item\nstatus: done\n---\n'
+  printf -- '---\r\ntype: task\r\n---\r\nbody\r\n'
+} > "$cf"
+cp "$cf" "$WORK/cf.orig"
+run_doctor "$NB30" --fix-frontmatter || fail "doctor --fix-frontmatter (cont-first) exited non-zero"
+grep -q 'appear to have a duplicated frontmatter' "$WORK/doctor.out" && fail "continuation-first block flagged despite repair refusing it"
+assert_bytes "$cf" "$WORK/cf.orig" "continuation-first note left untouched"
+
 # ── --help works in any argument position; unknown flags error ────────────
 (cd "$NB17" && bash "$REPO/bin/nn" doctor --fix-frontmatter --help </dev/null >/dev/null 2>&1) \
   || fail "doctor --fix-frontmatter --help should exit 0"
 (cd "$NB17" && bash "$REPO/bin/nn" doctor --bogus </dev/null >/dev/null 2>&1)
 [[ $? -eq 2 ]] || fail "doctor --bogus should exit 2"
+# a mistyped flag without dashes must NOT silently run a plain check
+(cd "$NB17" && bash "$REPO/bin/nn" doctor fix-frontmatter </dev/null >/dev/null 2>&1)
+[[ $? -eq 2 ]] || fail "doctor with positional argument should exit 2"
 
 finish
