@@ -13,3 +13,4 @@ virtualization/arch/images/
 virtualization/nixos/images/
 virtualization/gentoo/images/
 .claude/worktrees/
+nn-prev/
