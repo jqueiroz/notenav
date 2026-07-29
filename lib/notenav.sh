@@ -1756,12 +1756,35 @@ _nn_list_notes() {
       # malformed row and additionally cost one following row – every such
       # file carries a newline and is flagged by nn doctor; the native
       # backend used for reloads sanitizes tab titles.
+      # zk (through 0.15.x) cannot parse BOM'd frontmatter: such rows come
+      # back with empty metadata and the raw frontmatter concatenated into
+      # the title, starting with a literal U+FEFF.  Divert those paths to a
+      # side list and re-parse them below with the native parser, which
+      # handles BOMs – GUIDELINES I1 must hold on both backends.
+      local _zk_bomlist
+      _zk_bomlist=$(mktemp "${TMPDIR:-/tmp}/nn-zkbom.XXXXXX") || _zk_bomlist=""
       zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null \
-        | "${_NN_GAWK:-awk}" -F'\t' '
+        | "${_NN_GAWK:-awk}" -F'\t' -v bomlist="${_zk_bomlist:-/dev/null}" '
             rem { rem -= (NF > 0 ? NF : 1) - 1; if (rem < 1) rem = 0; next }
             NF < 8 { rem = 8 - (NF > 0 ? NF : 1); next }
-            NF == 8 && $6 ~ /^\// { sub(/\r$/, ""); print }'
+            NF == 8 && $6 ~ /^\// {
+              sub(/\r$/, "")
+              if ($5 ~ /^\xEF\xBB\xBF/) { print $6 > bomlist; next }
+              print
+            }'
       local _zk_rc="${PIPESTATUS[0]}"
+      if [[ -n "$_zk_bomlist" && -s "$_zk_bomlist" ]]; then
+        # Re-list the diverted notes natively.  One-off mtime per file via
+        # the documented stat fallback chain (GUIDELINES portability).
+        local _zk_bp _zk_bm
+        while IFS= read -r _zk_bp; do
+          [[ -f "$_zk_bp" ]] || continue
+          _zk_bm=$(stat -c '%y' "$_zk_bp" 2>/dev/null | cut -c1-19) \
+            || _zk_bm=$(stat -f '%Sm' -t '%Y-%m-%d %H:%M:%S' "$_zk_bp" 2>/dev/null)
+          printf '%s\t%s\n' "$_zk_bp" "${_zk_bm:-}"
+        done < "$_zk_bomlist" | _nn_list_notes_native
+      fi
+      [[ -n "$_zk_bomlist" ]] && rm -f "$_zk_bomlist"
       if [[ $_zk_rc -gt 1 ]]; then
         echo "notenav: zk list failed (exit $_zk_rc) – run 'nn doctor' or try without zk" >&2
       fi

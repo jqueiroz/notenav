@@ -37,15 +37,16 @@ grep -q '^name.md' "$out" && fail "phantom row leaked from newline-named note"
 # note, for any pure-newline path shape (POSIX awk – no gawk dependency)
 _zkanchor='rem { rem -='
 _zkanchors=$(grep -cF "$_zkanchor" "$REPO/lib/notenav.sh")
-_zkstage=$(awk '/rem \{ rem -=/{s=1} s{print} s && /print \}/{exit}' "$REPO/lib/notenav.sh")
-if [[ "$_zkanchors" -ne 1 || -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 6 ]]; then
+# extract from the first latch rule to the program's closing brace+quote line
+_zkstage=$(awk '/rem \{ rem -=/{s=1} s{print} s && /^[[:space:]]*\}.$/{exit}' "$REPO/lib/notenav.sh")
+if [[ "$_zkanchors" -ne 1 || -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 14 ]]; then
   fail "zk stage extraction anchors drifted (found $_zkanchors) – update this test"
 else
   _zkprog="${_zkstage%\'}"
   # shellcheck disable=SC2059  # the case strings ARE printf formats (\t/\n escapes)
-  run_zkstage() { printf "$1" | awk -F'\t' "$_zkprog" 2>/dev/null; }
+  run_zkstage() { printf "$1" | awk -F'\t' -v bomlist=/dev/null "$_zkprog" 2>/dev/null; }
   # sanity: the extracted program must execute at all (distinct diagnosis)
-  if ! printf 'a\tb\tc\td\te\t/f\tg\th\n' | awk -F'\t' "$_zkprog" >/dev/null 2>&1; then
+  if ! printf 'a\tb\tc\td\te\t/f\tg\th\n' | awk -F'\t' -v bomlist=/dev/null "$_zkprog" >/dev/null 2>&1; then
     fail "extracted zk stage does not execute – extraction problem, not a latch regression"
   else
     for case_in in \
@@ -60,6 +61,9 @@ else
       _zkcnt=$(printf '%s\n' "$_zkout" | grep -c .)
       [[ "$_zkcnt" -eq 1 ]] || fail "zk stage emitted $_zkcnt rows (want 1) for: $case_in"
     done
+    # a zk-unparsed BOM row (U+FEFF-prefixed title) is diverted, not printed
+    _zkout=$(run_zkstage '\t\t\t\t\xef\xbb\xbf---title: x\t/p/b.md\t2026\t2026\n')
+    [[ -z "$_zkout" ]] || fail "BOM-titled zk row leaked through instead of diverting"
   fi
 fi
 
