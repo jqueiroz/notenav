@@ -330,6 +330,20 @@ else
   rm -rf "$SDIR"
 fi
 
+# ── missing .fn_note helpers: writers fail CLOSED, never corrupt ─────────
+# (running on without the helpers would misclassify frontmatter notes and
+# re-create the duplicate-block damage this whole feature exists to fix)
+mk_note "$f" crlf 0 "${BASE[@]}"
+cp "$f" "$WORK/fnnote.orig"
+mv "$CAP/.fn_note" "$CAP/.fn_note.hidden"
+run_action status active "$f"
+assert_bytes "$f" "$WORK/fnnote.orig" "action.sh refuses byte-identically without .fn_note"
+if bash "$CAP/bulkedit_update.sh" "$f" status=done >/dev/null 2>&1; then
+  fail "bulkedit should exit non-zero without .fn_note"
+fi
+assert_bytes "$f" "$WORK/fnnote.orig" "bulkedit refuses byte-identically without .fn_note"
+mv "$CAP/.fn_note.hidden" "$CAP/.fn_note"
+
 # ── writes preserve file permissions (mktemp is 0600; mode must survive) ─
 file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }
 mk_note "$f" crlf 0 "${BASE[@]}"

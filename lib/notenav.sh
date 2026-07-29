@@ -1524,7 +1524,6 @@ in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
 in_fm && skip_cont { skip_cont=0 }
 in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value eol; found=1; skip_cont=1; next }
 { print }
-  
 ENDACTREW
 )
 
@@ -1573,36 +1572,37 @@ ENDBULKREW
 
 # Shared write-path helpers – single source of truth for the mode capture,
 # BOM probe, mode stamp, and CRLF/BOM fence probe that every note-rewriting
-# script needs.  Written to $_nn_dir/.fn_note and sourced by action.sh,
-# bulkedit_update.sh, and newnote.sh; also eval'd into lib scope for the
-# doctor repair loop.  All callers are bash (never sh).
-_NN_FN_NOTE=$(cat << 'ENDFNNOTE'
+# script needs.  Defined as ordinary lib functions (shellcheck-visible,
+# parse errors caught at load) and emitted to $_nn_dir/.fn_note via
+# `declare -f` for action.sh, bulkedit_update.sh, and newnote.sh to source.
+# All callers are bash (never sh).
+
 # _nn_note_mode <file> – echo the note's permission bits, empty on failure
 # (-L follows symlinked notes; BSD %Mp%Lp keeps setgid/sticky digits like
 # GNU %a).  mktemp creates temps 0600, so writers stamp this mode on the
 # temp BEFORE the rename – content and permissions land atomically.
 _nn_note_mode() { stat -L -c '%a' "$1" 2>/dev/null || stat -L -f '%Mp%Lp' "$1" 2>/dev/null; }
+
 # _nn_stamp_mode <mode> <tmpfile> – best-effort chmod that never fails the
 # caller's && chain (an empty mode degrades safely to mktemp's 0600)
 _nn_stamp_mode() { [ -z "$1" ] || chmod "$1" "$2" 2>/dev/null || true; }
+
 # _nn_note_bom <file> – succeed when the file starts with a UTF-8 BOM
 # (dd, not head -c: OpenBSD head has no -c)
 _nn_note_bom() { [ "$(dd if="$1" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ]; }
+
 # _nn_fence_probe <file> – CRLF/BOM-tolerant frontmatter test on line 1.
 # Sets NN_FM (1 when line 1 is a fence after BOM strip, else 0) and NN_FEOL
 # (carriage return when the file's line-1 style is CRLF, else empty).
 _nn_fence_probe() {
   local _fp
-  _fp=$(head -n 1 "$1")
+  _fp=$(head -n 1 "$1" 2>/dev/null)
   NN_FEOL=""; case "$_fp" in *$'\r') NN_FEOL=$'\r' ;; esac
   _fp=${_fp#$'\xef\xbb\xbf'}
   NN_FM=0
   [[ "$_fp" =~ ^---[[:space:]]*$ ]] && NN_FM=1
   return 0
 }
-ENDFNNOTE
-)
-eval "$_NN_FN_NOTE"
 
 # Repair for the duplicated-frontmatter corruption written by pre-0.2.0
 # versions when editing CRLF/BOM notes (run via `nn doctor --fix-frontmatter`).
@@ -4592,7 +4592,7 @@ EOF
     # Frontmatter backfill for zk-created notes – run by newnote.sh.
     printf '%s\n' "$_NN_FM_BACKFILL_AWK" > "$_nn_dir/.awk_fm_backfill"
     # Shared write-path helpers – sourced by action.sh/bulkedit_update.sh/newnote.sh
-    printf '%s\n' "$_NN_FN_NOTE" > "$_nn_dir/.fn_note"
+    declare -f _nn_note_mode _nn_stamp_mode _nn_note_bom _nn_fence_probe > "$_nn_dir/.fn_note"
     # Field rewriters + shared unclosed-frontmatter pre-scan (gawk -f -f)
     printf '%s\n' "$_NN_FM_PRESCAN_AWK" > "$_nn_dir/.awk_prescan"
     printf '%s\n' "$_NN_ACTION_REWRITE_AWK" > "$_nn_dir/.awk_action_rewrite"
@@ -5206,7 +5206,9 @@ ENDWATCHER
 # Usage: action.sh <dir> <field> <value> <file1> [file2 ...]
 dir="$1"; field="$2"; value="$3"; shift 3
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-. "$dir/.fn_note"
+# Fail CLOSED if the helpers are missing: running on without them would
+# misclassify frontmatter notes and re-create the duplicate-block damage
+. "$dir/.fn_note" || exit 1
 case "$field" in type|status|priority) ;; *) echo "notenav: action.sh: unknown field '$field'" >&2; exit 1 ;; esac
 # Validate value against workflow schema before writing
 if [ -n "$value" ]; then
@@ -5449,7 +5451,7 @@ nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
 _beu_dir=$(dirname "$0")
-. "$_beu_dir/.fn_note"
+. "$_beu_dir/.fn_note" || exit 1
 _mode=$(_nn_note_mode "$file")
 _nn_fence_probe "$file"; _eol="$NN_FEOL"; has_fm="$NN_FM"
 # Parse field=value pairs into individual vars
@@ -6203,7 +6205,7 @@ if [ "$_nn_has_zk" = "true" ]; then
 
   # Ensure essential frontmatter fields are present (CRLF/BOM-tolerant fence
   # test; written lines follow the file's own EOL style, detected from line 1)
-  . "$dir/.fn_note"
+  . "$dir/.fn_note" || exit 1
   _nn_fence_probe "$new_path"; _nn_eol="$NN_FEOL"
   _nn_mode=$(_nn_note_mode "$new_path")
   if [ "$NN_FM" = 1 ]; then
