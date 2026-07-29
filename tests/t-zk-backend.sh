@@ -7,11 +7,13 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 
-require_gawk
 if ! command -v zk >/dev/null 2>&1; then
   echo "  SKIP: zk not installed"
   finish
 fi
+# after the gawk-independent zk skip (per the require_gawk contract):
+# with zk present, bin/nn still hard-fails without GNU awk
+require_gawk
 
 WORK=$(mktemp -d /tmp/nn-t-zk.XXXXXX) || exit 2
 trap 'rm -rf "$WORK"' EXIT
