@@ -18,6 +18,24 @@ mk_note "$NOTEBOOK/d.md" lf 1 '---' 'title: delta-bomlf-marker' 'type: task' 'st
 # rows in line-oriented pipelines could misdirect writes to innocent files)
 mk_note "$NOTEBOOK/nl"$'\n'"name.md" crlf 0 '---' 'title: echo-newline-marker' 'type: task' 'status: new' '---' 'body'
 
+# ── zk row-normalization stage (extracted from lib): anchor checks ───────
+# The stage's BOM-divert regex uses gawk \x escapes, but the extraction and
+# anchor checks here are plain POSIX; they run BEFORE require_gawk so anchor
+# drift still gets its own diagnosis on machines without GNU awk
+_zkanchor='rem { rem -='
+_zkanchors=$(grep -cF "$_zkanchor" "$REPO/lib/notenav.sh")
+# extract from the first latch rule to the program's closing brace+quote line
+_zkstage=$(awk '/rem \{ rem -=/{s=1} s{print} s && /^[[:space:]]*\}.$/{exit}' "$REPO/lib/notenav.sh")
+_zkstage_ok=1
+if [[ "$_zkanchors" -ne 1 || -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 14 ]]; then
+  fail "zk stage extraction anchors drifted (found $_zkanchors) – update this test"
+  _zkstage_ok=0
+fi
+
+# after ALL gawk-independent checks (per the require_gawk contract): from
+# here on bin/nn and the extracted stage run, both of which need GNU awk
+require_gawk
+
 out="$WORK/out.txt"
 (cd "$NOTEBOOK" && TERM=xterm bash "$REPO/bin/nn" type=task </dev/null 2>"$WORK/stderr") > "$out"
 rc=$?
@@ -32,19 +50,10 @@ fi
 grep -q 'echo-newline-marker' "$out" && fail "newline-named note must be excluded, not listed"
 grep -q '^name.md' "$out" && fail "phantom row leaked from newline-named note"
 
-# ── zk row-normalization stage (extracted from lib): fragment consumer ───
+# ── zk stage execution: fragment consumer ────────────────────────────────
 # Split-row fragments must be consumed exactly, never eating the next real
-# note, for any pure-newline path shape.  The stage's BOM-divert regex uses
-# gawk \x escapes; require_gawk fires below, AFTER the gawk-independent
-# extraction/anchor checks, so anchor drift still gets its own diagnosis
-_zkanchor='rem { rem -='
-_zkanchors=$(grep -cF "$_zkanchor" "$REPO/lib/notenav.sh")
-# extract from the first latch rule to the program's closing brace+quote line
-_zkstage=$(awk '/rem \{ rem -=/{s=1} s{print} s && /^[[:space:]]*\}.$/{exit}' "$REPO/lib/notenav.sh")
-if [[ "$_zkanchors" -ne 1 || -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 14 ]]; then
-  fail "zk stage extraction anchors drifted (found $_zkanchors) – update this test"
-else
-  require_gawk
+# note, for any pure-newline path shape
+if [[ "$_zkstage_ok" -eq 1 ]]; then
   _zkprog="${_zkstage%\'}"
   # shellcheck disable=SC2059  # the case strings ARE printf formats (\t/\n escapes)
   run_zkstage() { printf "$1" | "$NN_TEST_GAWK" -F'\t' -v bomlist= "$_zkprog" 2>/dev/null; }
