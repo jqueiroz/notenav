@@ -5,6 +5,7 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 
+require_gawk
 WORK=$(mktemp -d /tmp/nn-t-doctor.XXXXXX) || exit 2
 trap 'rm -rf "$WORK"' EXIT
 
@@ -393,7 +394,7 @@ iof="$NB28/note.md"
   printf -- '---\r\ntype: task\r\n---\r\nbody\r\n'
 } > "$iof"
 # _nn_resolve_gawk prefers plain awk when it is GNU – shim both names
-real_gawk=$(command -v gawk)
+real_gawk=$(command -v "$NN_TEST_GAWK")
 {
   printf '#!/usr/bin/env bash\n'
   printf 'for a in "$@"; do case "$a" in *emit_b1*) exit 7 ;; esac; done\n'

@@ -35,14 +35,8 @@ grep -q '^name.md' "$out" && fail "phantom row leaked from newline-named note"
 # ── zk row-normalization stage (extracted from lib): fragment consumer ───
 # Split-row fragments must be consumed exactly, never eating the next real
 # note, for any pure-newline path shape.  The stage's BOM-divert regex uses
-# gawk \x escapes, so it requires gawk (a hard production dependency;
-# installed on every CI leg) – fail fast with a clear message rather than
-# letting a silently non-matching regex read as a lib regression
-if ! command -v gawk >/dev/null 2>&1; then
-  fail "gawk not installed – required by the zk-stage tests"
-  finish
-fi
-_zkawk=gawk
+# gawk \x escapes; require_gawk fires below, AFTER the gawk-independent
+# extraction/anchor checks, so anchor drift still gets its own diagnosis
 _zkanchor='rem { rem -='
 _zkanchors=$(grep -cF "$_zkanchor" "$REPO/lib/notenav.sh")
 # extract from the first latch rule to the program's closing brace+quote line
@@ -50,11 +44,12 @@ _zkstage=$(awk '/rem \{ rem -=/{s=1} s{print} s && /^[[:space:]]*\}.$/{exit}' "$
 if [[ "$_zkanchors" -ne 1 || -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 14 ]]; then
   fail "zk stage extraction anchors drifted (found $_zkanchors) – update this test"
 else
+  require_gawk
   _zkprog="${_zkstage%\'}"
   # shellcheck disable=SC2059  # the case strings ARE printf formats (\t/\n escapes)
-  run_zkstage() { printf "$1" | "$_zkawk" -F'\t' -v bomlist= "$_zkprog" 2>/dev/null; }
+  run_zkstage() { printf "$1" | "$NN_TEST_GAWK" -F'\t' -v bomlist= "$_zkprog" 2>/dev/null; }
   # sanity: the extracted program must execute at all (distinct diagnosis)
-  if ! printf 'a\tb\tc\td\te\t/f\tg\th\n' | "$_zkawk" -F'\t' -v bomlist= "$_zkprog" >/dev/null 2>&1; then
+  if ! printf 'a\tb\tc\td\te\t/f\tg\th\n' | "$NN_TEST_GAWK" -F'\t' -v bomlist= "$_zkprog" >/dev/null 2>&1; then
     fail "extracted zk stage does not execute – extraction problem, not a latch regression"
   else
     for case_in in \
@@ -75,7 +70,7 @@ else
     _zkbl="$WORK/bomlist"
     : > "$_zkbl"
     _zkout=$(printf '\t\t\t\t\xef\xbb\xbf---title: x\t/p/b.md\t2026\t2026\n' \
-      | "$_zkawk" -F'\t' -v bomlist="$_zkbl" "$_zkprog" 2>/dev/null)
+      | "$NN_TEST_GAWK" -F'\t' -v bomlist="$_zkbl" "$_zkprog" 2>/dev/null)
     [[ -z "$_zkout" ]] || fail "BOM-titled zk row printed despite an available side list"
     grep -qxF '/p/b.md' "$_zkbl" || fail "BOM-titled zk row's path not diverted to the side list"
     _zkout=$(run_zkstage '\t\t\t\t\xef\xbb\xbf---title: x\t/p/b.md\t2026\t2026\n')

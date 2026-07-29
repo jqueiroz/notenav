@@ -12,6 +12,26 @@ export XDG_CONFIG_HOME="${TMPDIR:-/tmp}/nn-test-no-user-config.$$.$RANDOM"
 fail() { printf '  FAIL: %s\n' "$*"; FAILS=$((FAILS + 1)); }
 finish() { exit $((FAILS > 0 ? 1 : 0)); }
 
+# GNU awk resolution, mirroring lib's _nn_resolve_gawk: plain awk counts
+# when it IS gawk (Debian ships gawk as awk); empty when no GNU awk exists.
+if awk --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk'; then
+  NN_TEST_GAWK="awk"
+elif command -v gawk >/dev/null 2>&1; then
+  NN_TEST_GAWK="gawk"
+else
+  NN_TEST_GAWK=""
+fi
+
+# require_gawk – fail the current test file with a clear dependency message
+# instead of letting gawk-only constructs (\x regexes, 3-arg match) surface
+# as phantom lib regressions. Call after any gawk-independent diagnostics.
+require_gawk() {
+  if [[ -z "$NN_TEST_GAWK" ]]; then
+    fail "GNU awk not installed – required by this test file"
+    finish
+  fi
+}
+
 # mk_note <dest> <lf|crlf> <bom:0|1> line...
 # Builds a note file with the given EOL style on every line.
 mk_note() {

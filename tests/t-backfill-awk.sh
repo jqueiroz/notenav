@@ -5,6 +5,7 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 
+require_gawk
 WORK=$(mktemp -d /tmp/nn-t-backfill.XXXXXX) || exit 2
 trap 'rm -rf "$WORK"' EXIT
 NOTEBOOK="$WORK/notebook"
