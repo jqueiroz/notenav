@@ -1492,6 +1492,118 @@ in_fm && /^created:( |\r?$)/ { found_created=1 }
 ENDBACKFILL
 )
 
+# Shared unclosed-frontmatter pre-scan for the field rewriters, emitted to
+# $_nn_dir/.awk_prescan and concatenated ahead of a rewriter program via
+# `gawk -f .awk_prescan -f .awk_<x>_rewrite` (BEGIN blocks run in file
+# order).  Only rewrite when line 1 opens a fence AND a closing fence
+# follows within the frontmatter cap (fm_cap content lines via -v; the
+# close fence itself is record fm_cap+1 – keep the +1 or edits at exactly
+# fm_cap lines silently fail).  Unclosed frontmatter must be a
+# byte-identical no-op (exit 9 -> the caller discards the tmp file);
+# without this, field/continuation matching can eat body lines.
+_NN_FM_PRESCAN_AWK=$(cat << 'ENDPRESCAN'
+BEGIN {
+  _f = ARGV[1]; _n = 0
+  if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
+    while ((getline _l < _f) > 0 && ++_n <= fm_cap + 1)
+      if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
+  close(_f)
+}
+!fm_ok { exit 9 }
+ENDPRESCAN
+)
+
+# Field rewriter for action.sh – emitted to $_nn_dir/.awk_action_rewrite
+# and run behind the shared pre-scan (see _NN_FM_PRESCAN_AWK above).
+_NN_ACTION_REWRITE_AWK=$(cat << 'ENDACTREW'
+BEGIN { field=ENVIRON["field"]; value=ENVIRON["value"] }
+NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; fm_lines=0; print; next }
+in_fm && /^---[[:space:]]*$/ { in_fm=0; if (!found && value != "") print field ": " value eol; print; skip_cont=0; next }
+in_fm && ++fm_lines > fm_cap { in_fm=0; print; next }
+in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
+in_fm && skip_cont { skip_cont=0 }
+in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value eol; found=1; skip_cont=1; next }
+{ print }
+  
+ENDACTREW
+)
+
+# Multi-field rewriter for bulkedit_update.sh – emitted to
+# $_nn_dir/.awk_bulk_rewrite and run behind the shared pre-scan.
+_NN_BULK_REWRITE_AWK=$(cat << 'ENDBULKREW'
+function print_tags(   n, i, tl) {
+  print "tags:" eol
+  n = split(set_tags, tl, "\n")
+  for (i = 1; i <= n; i++) print tl[i] eol
+}
+BEGIN {
+  set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"]
+}
+NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; fm_lines=0; print; next }
+in_fm && /^---[[:space:]]*$/ {
+  in_fm=0; skip_cont=0
+  if (has_type && !found_type && set_type != "") print "type: " set_type eol
+  if (has_status && !found_status && set_status != "") print "status: " set_status eol
+  if (has_priority && !found_priority && set_priority != "") print "priority: " set_priority eol
+  if (has_tags && !found_tags && set_tags != "") print_tags()
+  print; next
+}
+in_fm && ++fm_lines > fm_cap { in_fm=0; print; next }
+in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
+in_fm && skip_cont { skip_cont=0 }
+in_fm && /^type:/ {
+  if (has_type) { if (!found_type && set_type != "") print "type: " set_type eol; found_type=1; skip_cont=1; next }
+  else { found_type=1 }
+}
+in_fm && /^status:/ {
+  if (has_status) { if (!found_status && set_status != "") print "status: " set_status eol; found_status=1; skip_cont=1; next }
+  else { found_status=1 }
+}
+in_fm && /^priority:/ {
+  if (has_priority) { if (!found_priority && set_priority != "") print "priority: " set_priority eol; found_priority=1; skip_cont=1; next }
+  else { found_priority=1 }
+}
+in_fm && /^tags:/ {
+  if (has_tags) { if (!found_tags && set_tags != "") print_tags(); found_tags=1; skip_cont=1; next }
+  else { found_tags=1 }
+}
+{ print }
+ENDBULKREW
+)
+
+# Shared write-path helpers – single source of truth for the mode capture,
+# BOM probe, mode stamp, and CRLF/BOM fence probe that every note-rewriting
+# script needs.  Written to $_nn_dir/.fn_note and sourced by action.sh,
+# bulkedit_update.sh, and newnote.sh; also eval'd into lib scope for the
+# doctor repair loop.  All callers are bash (never sh).
+_NN_FN_NOTE=$(cat << 'ENDFNNOTE'
+# _nn_note_mode <file> – echo the note's permission bits, empty on failure
+# (-L follows symlinked notes; BSD %Mp%Lp keeps setgid/sticky digits like
+# GNU %a).  mktemp creates temps 0600, so writers stamp this mode on the
+# temp BEFORE the rename – content and permissions land atomically.
+_nn_note_mode() { stat -L -c '%a' "$1" 2>/dev/null || stat -L -f '%Mp%Lp' "$1" 2>/dev/null; }
+# _nn_stamp_mode <mode> <tmpfile> – best-effort chmod that never fails the
+# caller's && chain (an empty mode degrades safely to mktemp's 0600)
+_nn_stamp_mode() { [ -z "$1" ] || chmod "$1" "$2" 2>/dev/null || true; }
+# _nn_note_bom <file> – succeed when the file starts with a UTF-8 BOM
+# (dd, not head -c: OpenBSD head has no -c)
+_nn_note_bom() { [ "$(dd if="$1" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ]; }
+# _nn_fence_probe <file> – CRLF/BOM-tolerant frontmatter test on line 1.
+# Sets NN_FM (1 when line 1 is a fence after BOM strip, else 0) and NN_FEOL
+# (carriage return when the file's line-1 style is CRLF, else empty).
+_nn_fence_probe() {
+  local _fp
+  _fp=$(head -n 1 "$1")
+  NN_FEOL=""; case "$_fp" in *$'\r') NN_FEOL=$'\r' ;; esac
+  _fp=${_fp#$'\xef\xbb\xbf'}
+  NN_FM=0
+  [[ "$_fp" =~ ^---[[:space:]]*$ ]] && NN_FM=1
+  return 0
+}
+ENDFNNOTE
+)
+eval "$_NN_FN_NOTE"
+
 # Repair for the duplicated-frontmatter corruption written by pre-0.2.0
 # versions when editing CRLF/BOM notes (run via `nn doctor --fix-frontmatter`).
 # Matches ONLY the known damage shape: a leading fence block containing
@@ -3508,7 +3620,7 @@ EOF
         # matching GNU %a) and stamp it on the temp file BEFORE the rename –
         # content and mode then land atomically.  mv needs only directory
         # write permission, so read-only notes stay repairable.
-        _fix_mode=$(stat -L -c '%a' "$_fixf" 2>/dev/null || stat -L -f '%Mp%Lp' "$_fixf" 2>/dev/null)
+        _fix_mode=$(_nn_note_mode "$_fixf")
         # Stacked corruption merges one layer per pass; iterate to converge.
         # mv is atomic, so the note is always either intact or fully merged –
         # never truncated mid-write.
@@ -3517,7 +3629,7 @@ EOF
           "$_fix_gawk" "$_NN_FM_REPAIR_AWK" "$_fixf" > "$_fixtmp" 2>/dev/null
           _fix_rc=$?
           if [[ $_fix_rc -eq 0 ]]; then
-            [[ -n "$_fix_mode" ]] && chmod "$_fix_mode" "$_fixtmp" 2>/dev/null
+            _nn_stamp_mode "$_fix_mode" "$_fixtmp"
             if mv "$_fixtmp" "$_fixf"; then
               _fix_changed=true
             else
@@ -4456,6 +4568,12 @@ EOF
     printf '%s\n' "$_NN_NATIVE_PARSER_AWK" > "$_nn_dir/.awk_native_parser"
     # Frontmatter backfill for zk-created notes – run by newnote.sh.
     printf '%s\n' "$_NN_FM_BACKFILL_AWK" > "$_nn_dir/.awk_fm_backfill"
+    # Shared write-path helpers – sourced by action.sh/bulkedit_update.sh/newnote.sh
+    printf '%s\n' "$_NN_FN_NOTE" > "$_nn_dir/.fn_note"
+    # Field rewriters + shared unclosed-frontmatter pre-scan (gawk -f -f)
+    printf '%s\n' "$_NN_FM_PRESCAN_AWK" > "$_nn_dir/.awk_prescan"
+    printf '%s\n' "$_NN_ACTION_REWRITE_AWK" > "$_nn_dir/.awk_action_rewrite"
+    printf '%s\n' "$_NN_BULK_REWRITE_AWK" > "$_nn_dir/.awk_bulk_rewrite"
     # Shared find function for native listing – sourced by reload_raw.sh.
     # Requires _prune_args array to be set before sourcing.
     cat > "$_nn_dir/.fn_find_md" << 'ENDFNFIND'
@@ -5065,6 +5183,7 @@ ENDWATCHER
 # Usage: action.sh <dir> <field> <value> <file1> [file2 ...]
 dir="$1"; field="$2"; value="$3"; shift 3
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
+. "$dir/.fn_note"
 case "$field" in type|status|priority) ;; *) echo "notenav: action.sh: unknown field '$field'" >&2; exit 1 ;; esac
 # Validate value against workflow schema before writing
 if [ -n "$value" ]; then
@@ -5082,54 +5201,27 @@ for file in "$@"; do
   # use CRLF endings and a UTF-8 BOM; the fence test must tolerate both (plus
   # trailing blanks, matching the awk fence regex below).  Written lines reuse
   # the file's own EOL style, detected from line 1.
-  first_line=$(head -n 1 "$file")
-  _eol=""; case "$first_line" in *$'\r') _eol=$'\r' ;; esac
-  _fl=${first_line#$'\xef\xbb\xbf'}
-  if ! [[ "$_fl" =~ ^---[[:space:]]*$ ]]; then
+  _nn_fence_probe "$file"; _eol="$NN_FEOL"
+  if [ "$NN_FM" != 1 ]; then
     # No frontmatter – clearing a field is a no-op; otherwise create one
     [ -z "$value" ] && { _no_fm_clear=$((_no_fm_clear + 1)); continue; }
     _ftmp=$(mktemp "$file.XXXXXX") || continue
-    # mktemp creates the temp 0600; stamp the note's own mode on it BEFORE
-    # the rename so content and permissions land atomically (-L follows
-    # symlinked notes; BSD %Mp%Lp keeps setgid/sticky digits like GNU %a)
-    _mode=$(stat -L -c '%a' "$file" 2>/dev/null || stat -L -f '%Mp%Lp' "$file" 2>/dev/null)
+    _mode=$(_nn_note_mode "$file")
     {
       _bom=""
-      [ "$(dd if="$file" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ] && _bom=1
+      _nn_note_bom "$file" && _bom=1
       [ -n "$_bom" ] && printf '\357\273\277'
       printf '%s\n' "---$_eol"
       printf '%s: %s%s\n' "$field" "$value" "$_eol"
       printf '%s\n' "---$_eol"
       if [ -n "$_bom" ]; then tail -c +4 "$file"; else cat "$file"; fi
-    } > "$_ftmp" && { [ -z "$_mode" ] || chmod "$_mode" "$_ftmp" 2>/dev/null || true; } && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
+    } > "$_ftmp" && _nn_stamp_mode "$_mode" "$_ftmp" && mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"
     continue
   fi
   # Update field within YAML frontmatter (between first --- and second ---)
   _ftmp=$(mktemp "$file.XXXXXX") || continue
-  field="$field" value="$value" "$nn_gawk" -v fm_cap=100000 '
-    BEGIN {
-      field=ENVIRON["field"]; value=ENVIRON["value"]
-      # Pre-scan: only rewrite when line 1 opens a fence AND a closing fence
-      # follows within the frontmatter cap (fm_cap content lines; the close
-      # fence itself is record fm_cap+1 – keep the +1 or edits at exactly
-      # fm_cap lines silently fail).  Unclosed frontmatter must be a
-      # byte-identical no-op (exit 9 -> the caller discards the tmp file);
-      # without this, field/continuation matching can eat body lines.
-      _f = ARGV[1]; _n = 0
-      if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-        while ((getline _l < _f) > 0 && ++_n <= fm_cap + 1)
-          if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
-      close(_f)
-    }
-    !fm_ok { exit 9 }
-    NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; fm_lines=0; print; next }
-    in_fm && /^---[[:space:]]*$/ { in_fm=0; if (!found && value != "") print field ": " value eol; print; skip_cont=0; next }
-    in_fm && ++fm_lines > fm_cap { in_fm=0; print; next }
-    in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
-    in_fm && skip_cont { skip_cont=0 }
-    in_fm && $0 ~ "^"field":" { if (!found && value != "") print field ": " value eol; found=1; skip_cont=1; next }
-    { print }
-  ' "$file" > "$_ftmp" && { if cmp -s "$_ftmp" "$file"; then rm -f "$_ftmp"; else _mode=$(stat -L -c '%a' "$file" 2>/dev/null || stat -L -f '%Mp%Lp' "$file" 2>/dev/null); { [ -z "$_mode" ] || chmod "$_mode" "$_ftmp" 2>/dev/null || true; }; mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"; fi; } || rm -f "$_ftmp"
+  field="$field" value="$value" "$nn_gawk" -v fm_cap=100000 \
+    -f "$dir/.awk_prescan" -f "$dir/.awk_action_rewrite" "$file" > "$_ftmp" && { if cmp -s "$_ftmp" "$file"; then rm -f "$_ftmp"; else _nn_stamp_mode "$(_nn_note_mode "$file")" "$_ftmp"; mv "$_ftmp" "$file" && { count=$((count + 1)); [ -z "$first_ok" ] && first_ok="$file"; ok_files+=("$file"); true; } || rm -f "$_ftmp"; fi; } || rm -f "$_ftmp"
 done
 # Pin check: "always" pins every modified file; "auto" only pins when the
 # new value would cause the item to leave the current view
@@ -5333,16 +5425,10 @@ nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 # Usage: bulkedit_update.sh <file> field=value [field=value ...]
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
-# mktemp creates the temp 0600; the note's own mode is stamped on the temp
-# before each rename so content and permissions land atomically (-L follows
-# symlinked notes; BSD %Mp%Lp keeps setgid/sticky digits like GNU %a)
-_mode=$(stat -L -c '%a' "$file" 2>/dev/null || stat -L -f '%Mp%Lp' "$file" 2>/dev/null)
-# CRLF/BOM-tolerant fence test; _eol carries the file's EOL style (line 1)
-first_line=$(head -n 1 "$file")
-_eol=""; case "$first_line" in *$'\r') _eol=$'\r' ;; esac
-_fl=${first_line#$'\xef\xbb\xbf'}
-has_fm=1
-[[ "$_fl" =~ ^---[[:space:]]*$ ]] || has_fm=0
+_beu_dir=$(dirname "$0")
+. "$_beu_dir/.fn_note"
+_mode=$(_nn_note_mode "$file")
+_nn_fence_probe "$file"; _eol="$NN_FEOL"; has_fm="$NN_FM"
 # Parse field=value pairs into individual vars
 set_type=""; set_status=""; set_priority=""; set_tags=""
 has_type=0; has_status=0; has_priority=0; has_tags=0
@@ -5363,7 +5449,6 @@ for arg in "$@"; do
   esac
 done
 # Validate values against workflow schema before writing
-_beu_dir=$(dirname "$0")
 nn_gawk=$(cat "$_beu_dir/.gawk" 2>/dev/null || echo awk)
 if [ "$has_type" = 1 ] && [ -n "$set_type" ]; then
   grep -qxF "$set_type" "$_beu_dir/.schema_type_values" || { echo "notenav: refusing to write invalid type: $set_type" >&2; exit 1; }
@@ -5379,7 +5464,7 @@ _ftmp=$(mktemp "$file.XXXXXX") || exit 1
 # (in the file's own EOL style; a leading BOM stays at byte 0)
 if [ "$has_fm" = 0 ]; then
   _bom=""
-  [ "$(dd if="$file" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ] && _bom=1
+  _nn_note_bom "$file" && _bom=1
   if {
     [ -n "$_bom" ] && printf '\357\273\277'
     printf '%s\n' "---$_eol"
@@ -5392,7 +5477,7 @@ if [ "$has_fm" = 0 ]; then
     fi
     printf '%s\n' "---$_eol"
     if [ -n "$_bom" ]; then tail -c +4 "$file"; else cat "$file"; fi
-  } > "$_ftmp" && { [ -z "$_mode" ] || chmod "$_mode" "$_ftmp" 2>/dev/null || true; } && mv "$_ftmp" "$file"; then
+  } > "$_ftmp" && _nn_stamp_mode "$_mode" "$_ftmp" && mv "$_ftmp" "$file"; then
     exit 0
   else
     rm -f "$_ftmp"
@@ -5402,53 +5487,8 @@ fi
 set_type="$set_type" set_status="$set_status" \
     set_priority="$set_priority" set_tags="$set_tags" \
     "$nn_gawk" -v fm_cap=100000 -v has_type="$has_type" -v has_status="$has_status" \
-    -v has_priority="$has_priority" -v has_tags="$has_tags" '
-  function print_tags(   n, i, tl) {
-    print "tags:" eol
-    n = split(set_tags, tl, "\n")
-    for (i = 1; i <= n; i++) print tl[i] eol
-  }
-  BEGIN {
-    set_type=ENVIRON["set_type"]; set_status=ENVIRON["set_status"]; set_priority=ENVIRON["set_priority"]; set_tags=ENVIRON["set_tags"]
-    # Pre-scan (see action.sh): never rewrite unclosed frontmatter; the
-    # close fence is record fm_cap+1 when the frontmatter is exactly at cap
-    _f = ARGV[1]; _n = 0
-    if ((getline _l < _f) > 0 && _l ~ /^(\xEF\xBB\xBF)?---[[:space:]]*$/)
-      while ((getline _l < _f) > 0 && ++_n <= fm_cap + 1)
-        if (_l ~ /^---[[:space:]]*$/) { fm_ok = 1; break }
-    close(_f)
-  }
-  !fm_ok { exit 9 }
-  NR==1 && /^(\xEF\xBB\xBF)?---[[:space:]]*$/ { if (/\r$/) eol="\r"; in_fm=1; fm_lines=0; print; next }
-  in_fm && /^---[[:space:]]*$/ {
-    in_fm=0; skip_cont=0
-    if (has_type && !found_type && set_type != "") print "type: " set_type eol
-    if (has_status && !found_status && set_status != "") print "status: " set_status eol
-    if (has_priority && !found_priority && set_priority != "") print "priority: " set_priority eol
-    if (has_tags && !found_tags && set_tags != "") print_tags()
-    print; next
-  }
-  in_fm && ++fm_lines > fm_cap { in_fm=0; print; next }
-  in_fm && skip_cont && /^[[:blank:]]|^-[ \t]/ { next }
-  in_fm && skip_cont { skip_cont=0 }
-  in_fm && /^type:/ {
-    if (has_type) { if (!found_type && set_type != "") print "type: " set_type eol; found_type=1; skip_cont=1; next }
-    else { found_type=1 }
-  }
-  in_fm && /^status:/ {
-    if (has_status) { if (!found_status && set_status != "") print "status: " set_status eol; found_status=1; skip_cont=1; next }
-    else { found_status=1 }
-  }
-  in_fm && /^priority:/ {
-    if (has_priority) { if (!found_priority && set_priority != "") print "priority: " set_priority eol; found_priority=1; skip_cont=1; next }
-    else { found_priority=1 }
-  }
-  in_fm && /^tags:/ {
-    if (has_tags) { if (!found_tags && set_tags != "") print_tags(); found_tags=1; skip_cont=1; next }
-    else { found_tags=1 }
-  }
-  { print }
-' "$file" > "$_ftmp" && { [ -z "$_mode" ] || chmod "$_mode" "$_ftmp" 2>/dev/null || true; } && mv "$_ftmp" "$file" || { rm -f "$_ftmp"; exit 1; }
+    -v has_priority="$has_priority" -v has_tags="$has_tags" \
+    -f "$_beu_dir/.awk_prescan" -f "$_beu_dir/.awk_bulk_rewrite" "$file" > "$_ftmp" && _nn_stamp_mode "$_mode" "$_ftmp" && mv "$_ftmp" "$file" || { rm -f "$_ftmp"; exit 1; }
 ENDBEU
     chmod +x "$_nn_dir/bulkedit_update.sh"
 
@@ -6140,24 +6180,21 @@ if [ "$_nn_has_zk" = "true" ]; then
 
   # Ensure essential frontmatter fields are present (CRLF/BOM-tolerant fence
   # test; written lines follow the file's own EOL style, detected from line 1)
-  _nn_has_fm=$(head -n 1 "$new_path" 2>/dev/null)
-  _nn_eol=""; case "$_nn_has_fm" in *$'\r') _nn_eol=$'\r' ;; esac
-  _nn_fl=${_nn_has_fm#$'\xef\xbb\xbf'}
-  # mktemp creates the temp 0600; stamp the zk-created note's own mode on it
-  # before the rename (same pattern as action.sh – GUIDELINES I2)
-  _nn_mode=$(stat -L -c '%a' "$new_path" 2>/dev/null || stat -L -f '%Mp%Lp' "$new_path" 2>/dev/null)
-  if [[ "$_nn_fl" =~ ^---[[:space:]]*$ ]]; then
+  . "$dir/.fn_note"
+  _nn_fence_probe "$new_path"; _nn_eol="$NN_FEOL"
+  _nn_mode=$(_nn_note_mode "$new_path")
+  if [ "$NN_FM" = 1 ]; then
     _nntmp=$(mktemp "$new_path.XXXXXX") || exit 1
     nn_type="$selected" nn_status="$_nn_initial_status" nn_created="$_nn_now" \
       $nn_gawk -f "$dir/.awk_fm_backfill" \
       "$new_path" > "$_nntmp" \
-      && { [ -z "$_nn_mode" ] || chmod "$_nn_mode" "$_nntmp" 2>/dev/null || true; } \
+      && _nn_stamp_mode "$_nn_mode" "$_nntmp" \
       && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
   else
     _nntmp=$(mktemp "$new_path.XXXXXX") || exit 1
     {
       _nn_bom=""
-      [ "$(dd if="$new_path" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ] && _nn_bom=1
+      _nn_note_bom "$new_path" && _nn_bom=1
       [ -n "$_nn_bom" ] && printf '\357\273\277'
       printf '%s\n' "---$_nn_eol"
       printf 'type: %s%s\n' "$selected" "$_nn_eol"
@@ -6166,7 +6203,7 @@ if [ "$_nn_has_zk" = "true" ]; then
       printf '%s\n' "---$_nn_eol"
       if [ -n "$_nn_bom" ]; then tail -c +4 "$new_path"; else cat "$new_path"; fi
     } > "$_nntmp" \
-      && { [ -z "$_nn_mode" ] || chmod "$_nn_mode" "$_nntmp" 2>/dev/null || true; } \
+      && _nn_stamp_mode "$_nn_mode" "$_nntmp" \
       && mv "$_nntmp" "$new_path" || rm -f "$_nntmp"
   fi
 else
