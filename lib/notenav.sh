@@ -994,6 +994,16 @@ nn_precompute_workflow() {
     *) echo "notenav: ui.delete_confirm '$NN_UI_DELETE_CONFIRM' invalid (must be 'always' or 'never')" >&2; return 1 ;; esac
   case "$NN_REFRESH_MODE" in watch|poll|manual) ;;
     *) echo "notenav: refresh.mode '$NN_REFRESH_MODE' invalid (must be 'watch', 'poll', or 'manual')" >&2; return 1 ;; esac
+  # Numeric refresh keys: like every enum key above, fail fast rather than
+  # letting a bad value flow into `while sleep "$interval"` (poll loop dies or
+  # spins) or `[[ $limit -gt 0 ]]` (bash arithmetic error at startup).
+  case "$NN_REFRESH_POLL_INTERVAL" in ''|*[!0-9]*)
+    echo "notenav: refresh.poll_interval '$NN_REFRESH_POLL_INTERVAL' invalid (must be a positive integer, in seconds)" >&2; return 1 ;; esac
+  if [[ "$NN_REFRESH_POLL_INTERVAL" -lt 1 ]]; then
+    echo "notenav: refresh.poll_interval must be at least 1 second" >&2; return 1
+  fi
+  case "$NN_REFRESH_MAX_FILES" in ''|*[!0-9]*)
+    echo "notenav: refresh.auto_refresh_note_limit '$NN_REFRESH_MAX_FILES' invalid (must be a non-negative integer; 0 disables the limit)" >&2; return 1 ;; esac
   case "$NN_DEFAULT_SORT" in created|modified|title|priority|"") ;;
     *) echo "notenav: defaults.sort_by '$NN_DEFAULT_SORT' invalid (must be 'created', 'modified', 'title', or 'priority')" >&2; return 1 ;; esac
   # Silently fall back to "created" when priority sorting is requested but

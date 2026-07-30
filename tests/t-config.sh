@@ -44,4 +44,23 @@ if run_nn "$B" type=task >/dev/null 2>&1; then
 fi
 grep -q 'failed to parse .nn/workflow.toml' "$WORK/err" || fail "no parse-error message on malformed workflow.toml"
 
+# ── refresh numerics fail fast on bad values (like every enum key) ───────
+#    user config overlays the notebook workflow; point XDG at a scratch home
+UHOME="$WORK/uhome"; mkdir -p "$UHOME/notenav"
+uconf() { printf '%s\n' "$@" > "$UHOME/notenav/config.toml"; }
+run_nn_u() { (cd "$1" && shift && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" "$@" </dev/null 2>"$WORK/err") ; }
+G="$WORK/good"; nb "$G" 'extends = "zenith"'
+# baseline: a clean notebook + empty user config lists fine
+uconf ''
+run_nn_u "$G" type=task >/dev/null 2>&1 || { fail "baseline query failed with empty user config"; sed 's/^/    /' "$WORK/err" | head -3; }
+for bad in 'poll_interval = "30s"' 'poll_interval = 0' 'auto_refresh_note_limit = "500x"' 'auto_refresh_note_limit = -5'; do
+  uconf '[refresh]' "$bad"
+  if run_nn_u "$G" type=task >/dev/null 2>&1; then
+    fail "nn accepted invalid refresh config: $bad"
+  fi
+done
+# a valid poll config is accepted
+uconf '[refresh]' 'mode = "poll"' 'poll_interval = 15' 'auto_refresh_note_limit = 0'
+run_nn_u "$G" type=task >/dev/null 2>&1 || { fail "nn rejected a valid refresh config"; sed 's/^/    /' "$WORK/err" | head -3; }
+
 finish
