@@ -106,5 +106,12 @@ fi
 grep -q 'contains a tab, newline, or carriage return' "$WORK/err" || fail "no control-char message on tab-containing value"
 (cd "$T" && TERM=xterm NO_COLOR=1 bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/ctl.out"
 grep -q 'contains a tab/newline/CR' "$WORK/ctl.out" || fail "doctor did not warn about the tab-containing value"
+# a value consisting ONLY of a newline must also be rejected: command
+# substitution strips trailing newlines, which used to bypass the guard
+printf '[meta]\nname = "t"\n[type]\nvalues = ["task", "\\n"]\n[type.task]\nicon = "t"\n[status]\nvalues = ["new"]\nfilter_cycle = ["new"]\n' > "$T/.nn/workflow.toml"
+if run_nn "$T" type=task >/dev/null 2>&1; then
+  fail "nn loaded a workflow whose value is a bare newline (trailing-strip bypass)"
+fi
+grep -q 'contains a tab, newline, or carriage return' "$WORK/err" || fail "no control-char message on newline-only value"
 
 finish

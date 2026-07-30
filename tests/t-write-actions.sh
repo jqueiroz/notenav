@@ -436,15 +436,24 @@ _nn_state_lock "$CAP"
 [[ -d "$CAP/.state.lock" ]] || fail "_nn_state_lock did not create the lock dir"
 _nn_state_unlock "$CAP"
 [[ -d "$CAP/.state.lock" ]] && fail "_nn_state_unlock left the lock dir behind"
-# stale-holder steal: a pre-existing lock (dead holder) must be taken over
-# in bounded time, not deadlock
+# stale-holder steal: a pre-existing OLD lock (dead holder) must be taken
+# over in bounded time; a YOUNG lock must NOT be stolen (it may belong to a
+# live slow holder) – the caller proceeds unlocked and the young lock stays
 mkdir "$CAP/.state.lock"
+touch -t 202001010000 "$CAP/.state.lock"   # backdate: provably stale
 _lock_t0=$SECONDS
 _nn_state_lock "$CAP"
 _lock_dt=$((SECONDS - _lock_t0))
 [[ -d "$CAP/.state.lock" ]] || fail "stale-lock steal did not re-acquire the lock"
 [[ "$_lock_dt" -le 5 ]] || fail "stale-lock steal took ${_lock_dt}s (want ~1s)"
 _nn_state_unlock "$CAP"
+mkdir "$CAP/.state.lock"                   # fresh lock: age gate must refuse
+_lk_ino_before=$(stat -c %i "$CAP/.state.lock" 2>/dev/null || stat -f %i "$CAP/.state.lock")
+_nn_state_lock "$CAP"
+_lk_ino_after=$(stat -c %i "$CAP/.state.lock" 2>/dev/null || stat -f %i "$CAP/.state.lock" 2>/dev/null)
+[[ "$_lk_ino_before" == "$_lk_ino_after" ]] \
+  || fail "young lock was stolen (inode changed) – a live slow holder would lose its lock"
+rmdir "$CAP/.state.lock"
 # under the lock, interleaved append/prune rounds must never lose an entry
 : > "$CAP/.pinned"
 for _lk_i in $(seq 1 25); do
@@ -469,11 +478,15 @@ rm -f "$CAP/.pinned"
 for _lk_s in action.sh delete.sh; do
   grep -q '_nn_state_lock' "$CAP/$_lk_s" || fail "$_lk_s does not take the state lock"
 done
-# filter.sh/reload_raw.sh are neutralized post-capture; check their source
-grep -A400 'cat > "\$_nn_dir/filter.sh"' "$REPO/lib/notenav.sh" | grep -q '_nn_state_lock' \
-  || fail "filter.sh emission does not take the state lock"
-grep -A40 'Prune satellite files' "$REPO/lib/notenav.sh" | grep -q '_nn_state_lock' \
-  || fail "reload_raw.sh prune does not take the state lock"
+# filter.sh/reload_raw.sh keep .orig copies; every best-effort script must
+# carry the FULL prologue (source + declare -F fallback), not just a lock
+# call – a stale fallback line alone would satisfy a plain grep while the
+# script degraded to unlocked writes
+for _lk_s in filter.sh.orig reload_raw.sh.orig bulkedit_apply.sh delete.sh; do
+  grep -q '_nn_state_lock' "$CAP/$_lk_s" || fail "$_lk_s does not take the state lock"
+  grep -q 'declare -F _nn_state_lock' "$CAP/$_lk_s" \
+    || fail "$_lk_s lacks the tolerant-source fallback prologue"
+done
 
 # ── killwatcher.sh: identity-checked watcher kill (PID-reuse guard) ──────
 # recycled PID: an alive process whose args lack the session dir (PID 1)
@@ -481,8 +494,9 @@ grep -A40 'Prune satellite files' "$REPO/lib/notenav.sh" | grep -q '_nn_state_lo
 printf '1' > "$CAP/.watcher_pid"
 bash "$CAP/killwatcher.sh" "$CAP" || fail "killwatcher exited non-zero on a recycled PID"
 [[ -f "$CAP/.watcher_pid" ]] && fail "killwatcher left the stale pidfile behind"
-# genuine session process (args contain the session dir) must be killed
-bash -c 'sleep 30 & wait' nn-kw-pin "$CAP" & _kw_p=$!
+# genuine session process (args contain the session dir) must be killed;
+# the wrapper reaps its child on TERM so no sleep is orphaned past the test
+bash -c "trap 'kill \$c 2>/dev/null; exit' TERM; sleep 30 & c=\$!; wait \$c" nn-kw-pin "$CAP" & _kw_p=$!
 sleep 0.2
 printf '%s' "$_kw_p" > "$CAP/.watcher_pid"
 bash "$CAP/killwatcher.sh" "$CAP"
@@ -491,8 +505,11 @@ if kill -0 "$_kw_p" 2>/dev/null; then
   fail "killwatcher did not kill a genuine session process"
   kill "$_kw_p" 2>/dev/null
 fi
-# dead PID: nothing to kill, pidfile removed, exit 0
-printf '999999' > "$CAP/.watcher_pid"
+# dead PID: a real, guaranteed-dead one (a magic number like 999999 can be
+# a live process under pid_max=4194304, silently testing the wrong branch)
+true & _kw_dead=$!
+wait "$_kw_dead" 2>/dev/null
+printf '%s' "$_kw_dead" > "$CAP/.watcher_pid"
 bash "$CAP/killwatcher.sh" "$CAP" && [[ ! -f "$CAP/.watcher_pid" ]] \
   || fail "killwatcher mishandled a dead PID"
 
@@ -509,8 +526,27 @@ for _fc_i in 1 2 3 4 5 6; do
 done
 wait
 assert_bytes "$CAP/.current" "$WORK/current.ref" "concurrent filter runs corrupted .current"
-_fc_stray=$(find "$CAP" -name '.raw.snap.*' -o -name '.current.tmp.*' -o -name '.pin_ghost_count.*' | wc -l)
+# again WITH a title filter active: the .raw_title intermediate was missed
+# by the first suffixing pass, so this path must be exercised explicitly
+printf 'seed' > "$CAP/.f_title"
+bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1
+cp "$CAP/.current" "$WORK/current.title.ref"
+for _fc_i in 1 2 3 4 5 6; do
+  bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1 &
+done
+wait
+assert_bytes "$CAP/.current" "$WORK/current.title.ref" "concurrent title-filtered runs corrupted .current"
+: > "$CAP/.f_title"
+bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1
+_fc_stray=$(find "$CAP" -name '.raw.snap.*' -o -name '.raw_title.*' -o -name '.current.tmp.*' -o -name '.pin_ghost_count.*' | wc -l)
 [[ "$_fc_stray" -eq 0 ]] || fail "filter runs left $_fc_stray stray per-invocation temp files"
+# completeness sweep: every filter.sh intermediate must be $$-suffixed –
+# any .raw_*/snap/tmp/count name inside the heredoc without the suffix is
+# a fresh instance of the .raw_title gap
+_fc_unsuf=$(sed -n '\|cat > "\$_nn_dir/filter.sh"|,/^ENDFILTER$/p' "$REPO/lib/notenav.sh" \
+              | grep -oE '"\$dir/\.(raw[_.][a-z_.]+|current\.tmp|pin_ghost_count|pinned\.snap|marked\.snap)[^"]*"' \
+              | grep -v '\.\$\$"' | sort -u)
+[[ -z "$_fc_unsuf" ]] || fail "unsuffixed filter.sh intermediates: $_fc_unsuf"
 
 # ── writes preserve file permissions (mktemp is 0600; mode must survive) ─
 file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }

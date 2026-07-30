@@ -766,6 +766,16 @@ _nn_gen_awk_bodies() {
   done
 }
 
+# First type/status/priority value containing a tab/newline/CR, printed with
+# the control characters escaped to \t/\n/\r – a value consisting ONLY of
+# newlines would otherwise come back empty (command substitution strips
+# trailing newlines) and bypass the caller's non-empty check.  Empty output
+# means all values are clean.  Shared by the startup fail-fast and nn doctor
+# so the two can never disagree about what is rejected.
+_nn_values_ctl_check() {
+  nn_cfg '[.type.values // [], .status.values // [], .priority.values // []] | flatten | map(select(type == "string" and test("[\\t\\n\\r]"))) | .[0] // empty | gsub("\t"; "\\t") | gsub("\n"; "\\n") | gsub("\r"; "\\r")' 2>/dev/null
+}
+
 # Strip characters from a UI prompt that break the fzf action strings and
 # printf-format transform bodies the prompt is interpolated into:
 #   \ [ ] ( ) ' " %   – backslash (printf escape), brackets (transform[...]
@@ -799,9 +809,9 @@ nn_precompute_workflow() {
   # a newline additionally desyncs the value<->icon/color maps (the mapfile
   # reads below split on it).  Fail fast like every other invalid value.
   local _nn_ctl
-  _nn_ctl=$(nn_cfg '[.type.values // [], .status.values // [], .priority.values // []] | flatten | map(select(type == "string" and test("[\\t\\n\\r]"))) | .[0] // empty' 2>/dev/null)
+  _nn_ctl=$(_nn_values_ctl_check)
   if [[ -n "$_nn_ctl" ]]; then
-    echo "notenav: type/status/priority value '${_nn_ctl//[$'\t\n\r']/ }' contains a tab, newline, or carriage return (unsupported: values are TSV join keys)" >&2
+    echo "notenav: type/status/priority value '$_nn_ctl' contains a tab, newline, or carriage return (unsupported: values are TSV join keys)" >&2
     return 1
   fi
   # Note types
@@ -1670,15 +1680,28 @@ _nn_fence_probe() {
 # proceeds regardless, which is no worse than the unlocked behavior this
 # replaces.
 _nn_state_lock() {
-  local _ld="$1/.state.lock" _i=0
+  local _ld="$1/.state.lock" _i=0 _age _now
   until mkdir "$_ld" 2>/dev/null; do
     _i=$((_i + 1))
     if [[ "$_i" -ge 50 ]]; then
-      rm -rf "$_ld" 2>/dev/null
-      mkdir "$_ld" 2>/dev/null
+      # Patience exhausted (~1s of spinning).  Steal ONLY a lock that is
+      # provably old (holder died mid-section: sections are milliseconds,
+      # so 5s is definitive) – never a live slow holder's, whose eventual
+      # unlock would release OUR stolen lock to a third writer.  A
+      # young-but-held lock after the wait means a busy system: proceed
+      # unlocked, no worse than the pre-lock behavior this replaces (a
+      # dead-but-young lock self-heals: a later contender steals at 5s).
+      _now=$(date +%s)
+      _age=$(stat -c %Y "$_ld" 2>/dev/null || stat -f %m "$_ld" 2>/dev/null)
+      if [[ -n "$_age" && $((_now - _age)) -ge 5 ]]; then
+        rm -rf "$_ld" 2>/dev/null
+        mkdir "$_ld" 2>/dev/null
+      fi
       break
     fi
-    sleep 0.02 2>/dev/null || sleep 1
+    # No fractional sleep on this system → fast-forward the counter rather
+    # than stalling in whole-second sleeps; the age gate still applies
+    sleep 0.02 2>/dev/null || _i=$((_i + 24))
   done
   return 0
 }
@@ -2341,10 +2364,11 @@ EOF
     _typ_dups=$(_dupes "${_typ_values[@]}")
     [[ -n "$_typ_dups" ]] && _warn "type.values has duplicates: $_typ_dups"
     # Control characters in any value break the TSV pipeline; startup
-    # refuses to load such a config (same check, warned here for diagnosis)
+    # refuses to load such a config (the SAME shared helper, warned here
+    # for diagnosis – the two sites cannot drift)
     local _ctl_bad
-    _ctl_bad=$(nn_cfg '[.type.values // [], .status.values // [], .priority.values // []] | flatten | map(select(type == "string" and test("[\\t\\n\\r]"))) | .[0] // empty' 2>/dev/null)
-    [[ -n "$_ctl_bad" ]] && _warn "type/status/priority value '${_ctl_bad//[$'\t\n\r']/ }' contains a tab/newline/CR – notenav will refuse to start (values are TSV join keys)"
+    _ctl_bad=$(_nn_values_ctl_check)
+    [[ -n "$_ctl_bad" ]] && _warn "type/status/priority value '$_ctl_bad' contains a tab/newline/CR – notenav will refuse to start (values are TSV join keys)"
     local _typ_default_color
     _typ_default_color=$(nn_cfg '.type.default_color // empty')
     local _ev
@@ -6945,7 +6969,7 @@ now=$(date +%s)
 # fixed-name temps and install interleaved output as .current.  Each run now
 # works on its own set and the final mv is last-writer-wins with a CONSISTENT
 # file.  Clean up on every exit so the session dir does not accumulate them.
-trap 'rm -f "$dir/.raw.snap.$$" "$dir/.pinned.snap.$$" "$dir/.marked.snap.$$" "$dir/.raw_matched.$$" "$dir/.raw_marked.$$" "$dir/.raw_prefiltered.$$" "$dir/.raw_widened.$$" "$dir/.current.tmp.$$" "$dir/.pin_ghost_count.$$"' EXIT
+trap 'rm -f "$dir/.raw.snap.$$" "$dir/.pinned.snap.$$" "$dir/.marked.snap.$$" "$dir/.raw_matched.$$" "$dir/.raw_marked.$$" "$dir/.raw_prefiltered.$$" "$dir/.raw_widened.$$" "$dir/.raw_title.$$" "$dir/.current.tmp.$$" "$dir/.pin_ghost_count.$$"' EXIT
 cp "$dir/.raw" "$dir/.raw.snap.$$"
 cp "$dir/.pinned" "$dir/.pinned.snap.$$" 2>/dev/null || : > "$dir/.pinned.snap.$$"
 cp "$dir/.marked" "$dir/.marked.snap.$$" 2>/dev/null || : > "$dir/.marked.snap.$$"
@@ -6968,15 +6992,15 @@ if [ -n "$ftitle" ]; then
   case "$ftitle" in
     '~'*)
       _tq="${ftitle#'~'}"
-      q="$_tq" $nn_gawk -F'\t' 'BEGIN{q=tolower(ENVIRON["q"])} tolower($5)~q' "$_raw_input" > "$dir/.raw_title" 2>/dev/null
+      q="$_tq" $nn_gawk -F'\t' 'BEGIN{q=tolower(ENVIRON["q"])} tolower($5)~q' "$_raw_input" > "$dir/.raw_title.$$" 2>/dev/null
       if [ $? -ne 0 ]; then printf '⚠ invalid regex' > "$dir/.last_action"; fi
       ;;
     *)
-      q="$ftitle" $nn_gawk -F'\t' 'BEGIN{q=tolower(ENVIRON["q"])} index(tolower($5),q)' "$_raw_input" > "$dir/.raw_title"
+      q="$ftitle" $nn_gawk -F'\t' 'BEGIN{q=tolower(ENVIRON["q"])} index(tolower($5),q)' "$_raw_input" > "$dir/.raw_title.$$"
       ;;
   esac
-  _raw_input="$dir/.raw_title"
-  _count_input="$dir/.raw_title"
+  _raw_input="$dir/.raw_title.$$"
+  _count_input="$dir/.raw_title.$$"
 fi
 if [ -n "$fmarked" ]; then
   if [ -s "$dir/.marked.snap.$$" ]; then
