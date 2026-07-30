@@ -4616,6 +4616,18 @@ EOF
     printf '%s\n' "$_NN_FM_PRESCAN_AWK" > "$_nn_dir/.awk_prescan"
     printf '%s\n' "$_NN_ACTION_REWRITE_AWK" > "$_nn_dir/.awk_action_rewrite"
     printf '%s\n' "$_NN_BULK_REWRITE_AWK" > "$_nn_dir/.awk_bulk_rewrite"
+    # gawk accepts an empty -f program file as a valid no-rule program and
+    # bash sources an empty .fn_note without error, so a session file left
+    # empty by a failed write (disk full after mktemp -d succeeded) would
+    # truncate notes on the next field edit.  The writer scripts also guard
+    # themselves; abort startup early with a clear message instead.
+    local _nn_sf
+    for _nn_sf in .awk_native_parser .awk_fm_backfill .fn_note .awk_prescan .awk_action_rewrite .awk_bulk_rewrite; do
+      if [[ ! -s "$_nn_dir/$_nn_sf" ]]; then
+        echo "notenav: failed to write session file $_nn_sf (TMPDIR=${TMPDIR:-/tmp} full?)" >&2
+        shopt -u nullglob; return 1
+      fi
+    done
     # Shared find function for native listing – sourced by reload_raw.sh.
     # Requires _prune_args array to be set before sourcing.
     cat > "$_nn_dir/.fn_find_md" << 'ENDFNFIND'
@@ -5225,9 +5237,13 @@ ENDWATCHER
 # Usage: action.sh <dir> <field> <value> <file1> [file2 ...]
 dir="$1"; field="$2"; value="$3"; shift 3
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-# Fail CLOSED if the helpers are missing: running on without them would
-# misclassify frontmatter notes and re-create the duplicate-block damage
+# Fail CLOSED if the session helpers or rewriter programs are missing or
+# empty: sourcing an empty .fn_note succeeds, and gawk treats an empty -f
+# program file as a valid no-rule program (empty output) – running on would
+# misclassify frontmatter notes or truncate them to zero bytes
 . "$dir/.fn_note" || exit 1
+declare -F _nn_fence_probe >/dev/null || exit 1
+[ -s "$dir/.awk_prescan" ] && [ -s "$dir/.awk_action_rewrite" ] || exit 1
 case "$field" in type|status|priority) ;; *) echo "notenav: action.sh: unknown field '$field'" >&2; exit 1 ;; esac
 # Validate value against workflow schema before writing
 if [ -n "$value" ]; then
@@ -5470,7 +5486,11 @@ nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 file="$1"; shift
 [ ! -f "$file" ] && exit 1
 _beu_dir=$(dirname "$0")
+# Fail CLOSED on missing or empty session files (see action.sh: an empty
+# .fn_note sources cleanly and an empty -f program truncates the note)
 . "$_beu_dir/.fn_note" || exit 1
+declare -F _nn_fence_probe >/dev/null || exit 1
+[ -s "$_beu_dir/.awk_prescan" ] && [ -s "$_beu_dir/.awk_bulk_rewrite" ] || exit 1
 _mode=$(_nn_note_mode "$file")
 _nn_fence_probe "$file"; _eol="$NN_FEOL"; has_fm="$NN_FM"
 # Parse field=value pairs into individual vars
@@ -6224,8 +6244,8 @@ if [ "$_nn_has_zk" = "true" ]; then
 
   # Ensure essential frontmatter fields are present (CRLF/BOM-tolerant fence
   # test; written lines follow the file's own EOL style, detected from line 1)
-  . "$dir/.fn_note" || {
-    printf "\n  ${_nn_red}internal error: session helpers missing – note created without metadata${_nn_reset}\n\n" > /dev/tty
+  . "$dir/.fn_note" && declare -F _nn_fence_probe >/dev/null && [ -s "$dir/.awk_fm_backfill" ] || {
+    printf "\n  ${_nn_red}internal error: session files missing – note created without metadata${_nn_reset}\n\n" > /dev/tty
     exit 1
   }
   _nn_fence_probe "$new_path"; _nn_eol="$NN_FEOL"

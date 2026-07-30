@@ -347,6 +347,31 @@ fi
 assert_bytes "$f" "$WORK/fnnote.orig" "bulkedit refuses byte-identically without .fn_note"
 mv "$CAP/.fn_note.hidden" "$CAP/.fn_note"
 
+# ── EMPTY session files: writers fail CLOSED, never truncate ─────────────
+# (sourcing an empty .fn_note succeeds, and gawk treats an empty -f program
+# file as a valid no-rule program printing nothing – without the guards a
+# field edit would replace the note with a zero-byte file)
+mk_note "$f" crlf 0 "${BASE[@]}"
+cp "$f" "$WORK/emptysf.orig"
+for _sf in .fn_note .awk_prescan .awk_action_rewrite; do
+  mv "$CAP/$_sf" "$CAP/$_sf.hidden"
+  : > "$CAP/$_sf"
+  if run_action status active "$f"; then
+    fail "action.sh should exit non-zero with empty $_sf"
+  fi
+  assert_bytes "$f" "$WORK/emptysf.orig" "action.sh refuses byte-identically with empty $_sf"
+  mv "$CAP/$_sf.hidden" "$CAP/$_sf"
+done
+for _sf in .fn_note .awk_prescan .awk_bulk_rewrite; do
+  mv "$CAP/$_sf" "$CAP/$_sf.hidden"
+  : > "$CAP/$_sf"
+  if run_bulk "$f" status=done; then
+    fail "bulkedit should exit non-zero with empty $_sf"
+  fi
+  assert_bytes "$f" "$WORK/emptysf.orig" "bulkedit refuses byte-identically with empty $_sf"
+  mv "$CAP/$_sf.hidden" "$CAP/$_sf"
+done
+
 # ── writes preserve file permissions (mktemp is 0600; mode must survive) ─
 file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }
 mk_note "$f" crlf 0 "${BASE[@]}"
