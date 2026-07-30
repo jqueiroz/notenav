@@ -5229,9 +5229,14 @@ dir="$1"
 printf '%s' $$ > "$dir/.watcher_pid"
 # Remove the pidfile on ANY exit so a died watcher never leaves a stale PID
 # for the session-exit kill to send SIGTERM to (PIDs get recycled).  Signals
-# are trapped too: without that, a TERM before the mode-specific traps are
-# installed would skip the EXIT trap entirely.  Traps are per-signal, so the
-# mode traps below override only the signals they name (each keeps this rm).
+# are trapped explicitly: whether an EXIT-only trap runs on an unhandled
+# fatal signal varies with bash version and timing, and the mode-specific
+# traps below already handle signals – this keeps the pre-mode window
+# deterministic.  Traps are per-signal, so the mode traps override only the
+# signals they name (each keeps this rm).  Note bash defers trap execution
+# until any foreground command finishes, so cleanup after a signal can lag
+# by one poll interval – acceptable: the session dir is removed at teardown
+# anyway, and the hazard is a pidfile that persists indefinitely.
 trap 'rm -f "$dir/.watcher_pid"; exit' EXIT HUP INT TERM QUIT
 
 mode=$(cat "$dir/.refresh_mode" 2>/dev/null)
