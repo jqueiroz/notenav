@@ -96,4 +96,15 @@ grep -q "sort_chain: unrecognized key 'modifed'" "$WORK/sc.out" || fail "doctor 
 # a valid chain key must not be reported
 grep -q "sort_chain: unrecognized key 'priority'" "$WORK/sc.out" && fail "doctor wrongly flagged a valid sort_chain key"
 
+# ── control characters in workflow values: startup refuses, doctor warns ──
+T="$WORK/tabval"; mkdir -p "$T/.nn"
+printf '[meta]\nname = "t"\n[type]\nvalues = ["task", "in\\tprogress"]\n[type.task]\nicon = "t"\n[status]\nvalues = ["new"]\nfilter_cycle = ["new"]\n' > "$T/.nn/workflow.toml"
+printf -- '---\ntype: task\n---\nb\n' > "$T/n.md"
+if run_nn "$T" type=task >/dev/null 2>&1; then
+  fail "nn loaded a workflow whose value contains a tab"
+fi
+grep -q 'contains a tab, newline, or carriage return' "$WORK/err" || fail "no control-char message on tab-containing value"
+(cd "$T" && TERM=xterm NO_COLOR=1 bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/ctl.out"
+grep -q 'contains a tab/newline/CR' "$WORK/ctl.out" || fail "doctor did not warn about the tab-containing value"
+
 finish

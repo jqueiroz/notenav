@@ -794,6 +794,16 @@ nn_precompute_workflow() {
     echo "notenav: please upgrade notenav" >&2
     return 1
   fi
+  # Values are the join keys of a tab-and-line-oriented TSV pipeline: a tab
+  # or newline inside one silently breaks every filter/lifecycle lookup, and
+  # a newline additionally desyncs the value<->icon/color maps (the mapfile
+  # reads below split on it).  Fail fast like every other invalid value.
+  local _nn_ctl
+  _nn_ctl=$(nn_cfg '[.type.values // [], .status.values // [], .priority.values // []] | flatten | map(select(type == "string" and test("[\\t\\n\\r]"))) | .[0] // empty' 2>/dev/null)
+  if [[ -n "$_nn_ctl" ]]; then
+    echo "notenav: type/status/priority value '${_nn_ctl//[$'\t\n\r']/ }' contains a tab, newline, or carriage return (unsupported: values are TSV join keys)" >&2
+    return 1
+  fi
   # Note types
   mapfile -t NN_TYPE_VALUES < <(nn_cfg '.type.values[]')
   if [[ ${#NN_TYPE_VALUES[@]} -eq 0 ]]; then
@@ -2330,6 +2340,11 @@ EOF
     local _typ_dups
     _typ_dups=$(_dupes "${_typ_values[@]}")
     [[ -n "$_typ_dups" ]] && _warn "type.values has duplicates: $_typ_dups"
+    # Control characters in any value break the TSV pipeline; startup
+    # refuses to load such a config (same check, warned here for diagnosis)
+    local _ctl_bad
+    _ctl_bad=$(nn_cfg '[.type.values // [], .status.values // [], .priority.values // []] | flatten | map(select(type == "string" and test("[\\t\\n\\r]"))) | .[0] // empty' 2>/dev/null)
+    [[ -n "$_ctl_bad" ]] && _warn "type/status/priority value '${_ctl_bad//[$'\t\n\r']/ }' contains a tab/newline/CR – notenav will refuse to start (values are TSV join keys)"
     local _typ_default_color
     _typ_default_color=$(nn_cfg '.type.default_color // empty')
     local _ev
