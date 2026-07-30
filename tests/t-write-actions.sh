@@ -27,16 +27,18 @@ capture_nn_dir "$NOTEBOOK" "$CAP" || finish
 _sf_real=$(cd "$CAP" && for _sf in ./*.sh ./.awk_* ./.fn_*; do
              [[ -e "$_sf" ]] && printf '%s\n' "${_sf#./}"; done | sort -u)
 _sf_listed=$(sed -n '\|for _nn_sf in "\$_nn_dir"/\*\.sh|,\|; do$|p' "$REPO/lib/notenav.sh" \
-               | grep -oE '"\$_nn_dir/[A-Za-z0-9_.]+"' | grep -oE '_nn_dir/[A-Za-z0-9_.]+' \
+               | grep -oE '"\$_nn_dir/[A-Za-z0-9_.-]+"' | grep -oE '_nn_dir/[A-Za-z0-9_.-]+' \
                | sed 's|_nn_dir/||' | sort -u)
 # Belt to the capture's braces: a config-guarded emission would not fire in
 # this hermetic capture, but any redirection to a QUOTED literal $_nn_dir
 # path is visible in the source regardless of guards, writer idiom (cat,
-# printf, echo, compound blocks, appends), or spacing – every one of those
-# must be listed too (subset check: helper-mediated emissions are the
-# capture's job; unquoted spellings are outside house style)
-_sf_src=$(grep -oE '>>?[[:space:]]*"\$_nn_dir/[A-Za-z0-9_.]+"' "$REPO/lib/notenav.sh" \
-            | grep -oE '_nn_dir/[A-Za-z0-9_.]+' | sed 's|_nn_dir/||' \
+# printf, echo, compound blocks, appends), spacing, quote placement
+# ("$_nn_dir/x", "$_nn_dir"/x, "${_nn_dir}/x"), or hyphens in the name –
+# every one of those must be listed too (subset check: helper-mediated
+# emissions are the capture's job; fully unquoted spellings are outside
+# house style)
+_sf_src=$(grep -oE '>>?[[:space:]]*"\$\{?_nn_dir\}?"?/[A-Za-z0-9_.-]+' "$REPO/lib/notenav.sh" \
+            | grep -oE '_nn_dir[}"]*/[A-Za-z0-9_.-]+' | sed 's|_nn_dir[}"]*/||' \
             | grep -E '\.sh$|^\.awk_|^\.fn_' | sort -u)
 # The startup check's glob classes and this pin's enumeration are the same
 # three patterns by construction – hold them in sync explicitly
