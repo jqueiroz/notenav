@@ -22,12 +22,12 @@ mk_note "$NOTEBOOK/nl"$'\n'"name.md" crlf 0 '---' 'title: echo-newline-marker' '
 # The stage's BOM-divert regex uses gawk \x escapes, but the extraction and
 # anchor checks here are plain POSIX; they run BEFORE require_gawk so anchor
 # drift still gets its own diagnosis on machines without GNU awk
-_zkanchor='rem { rem -='
+_zkanchor='BEGIN { bomlist = ENVIRON'
 _zkanchors=$(grep -cF "$_zkanchor" "$REPO/lib/notenav.sh")
-# extract from the first latch rule to the program's closing brace+quote line
-_zkstage=$(awk '/rem \{ rem -=/{s=1} s{print} s && /^[[:space:]]*\}.$/{exit}' "$REPO/lib/notenav.sh")
+# extract from the BEGIN line to the program's closing brace+quote line
+_zkstage=$(awk '/BEGIN \{ bomlist = ENVIRON/{s=1} s{print} s && /^[[:space:]]*\}.$/{exit}' "$REPO/lib/notenav.sh")
 _zkstage_ok=1
-if [[ "$_zkanchors" -ne 1 || -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 14 ]]; then
+if [[ "$_zkanchors" -ne 1 || -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 15 ]]; then
   fail "zk stage extraction anchors drifted (found $_zkanchors) – update this test"
   _zkstage_ok=0
 fi
@@ -55,10 +55,12 @@ grep -q '^name.md' "$out" && fail "phantom row leaked from newline-named note"
 # note, for any pure-newline path shape
 if [[ "$_zkstage_ok" -eq 1 ]]; then
   _zkprog="${_zkstage%\'}"
+  # the side-list path rides ENVIRON (never -v: awk -v escape-processes the
+  # value); the optional second arg supplies it, default empty = degraded
   # shellcheck disable=SC2059  # the case strings ARE printf formats (\t/\n escapes)
-  run_zkstage() { printf "$1" | "$NN_TEST_GAWK" -F'\t' -v bomlist= "$_zkprog" 2>/dev/null; }
+  run_zkstage() { printf "$1" | NN_ZK_BOMLIST="${2-}" "$NN_TEST_GAWK" -F'\t' "$_zkprog" 2>/dev/null; }
   # sanity: the extracted program must execute at all (distinct diagnosis)
-  if ! printf 'a\tb\tc\td\te\t/f\tg\th\n' | "$NN_TEST_GAWK" -F'\t' -v bomlist= "$_zkprog" >/dev/null 2>&1; then
+  if ! printf 'a\tb\tc\td\te\t/f\tg\th\n' | NN_ZK_BOMLIST='' "$NN_TEST_GAWK" -F'\t' "$_zkprog" >/dev/null 2>&1; then
     fail "extracted zk stage does not execute – extraction problem, not a latch regression"
   else
     for case_in in \
@@ -78,12 +80,20 @@ if [[ "$_zkstage_ok" -eq 1 ]]; then
     # the garbled row is still printed – never dropped
     _zkbl="$WORK/bomlist"
     : > "$_zkbl"
-    _zkout=$(printf '\t\t\t\t\xef\xbb\xbf---title: x\t/p/b.md\t2026\t2026\n' \
-      | "$NN_TEST_GAWK" -F'\t' -v bomlist="$_zkbl" "$_zkprog" 2>/dev/null)
+    _zkout=$(run_zkstage '\t\t\t\t\xef\xbb\xbf---title: x\t/p/b.md\t2026\t2026\n' "$_zkbl")
     [[ -z "$_zkout" ]] || fail "BOM-titled zk row printed despite an available side list"
     grep -qxF '/p/b.md' "$_zkbl" || fail "BOM-titled zk row's path not diverted to the side list"
     _zkout=$(run_zkstage '\t\t\t\t\xef\xbb\xbf---title: x\t/p/b.md\t2026\t2026\n')
     [[ -n "$_zkout" ]] || fail "degraded mode (no side list) dropped the BOM-titled row"
+    # a side-list path containing a backslash must be used byte-for-byte
+    # (with -v transport, escape processing would mangle the redirect
+    # target: the row vanishes and gawk aborts the whole stage)
+    mkdir -p "$WORK/"'bs\dir'
+    _zkbl2="$WORK/"'bs\dir/bomlist'
+    : > "$_zkbl2"
+    _zkout=$(run_zkstage '\t\t\t\t\xef\xbb\xbf---title: x\t/p/c.md\t2026\t2026\n' "$_zkbl2")
+    [[ -z "$_zkout" ]] || fail "BOM row printed despite a backslash-path side list"
+    grep -qxF '/p/c.md' "$_zkbl2" || fail "backslash side-list path mangled – BOM row not diverted"
   fi
 fi
 

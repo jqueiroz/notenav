@@ -1778,8 +1778,12 @@ _nn_list_notes() {
       # handles BOMs – GUIDELINES I1 must hold on both backends.
       local _zk_bomlist
       _zk_bomlist=$(mktemp "${TMPDIR:-/tmp}/nn-zkbom.XXXXXX") || _zk_bomlist=""
+      # The side-list path travels via ENVIRON, never -v: -v values undergo
+      # awk escape processing, so a backslash-containing TMPDIR would mangle
+      # the redirect target and kill the stage at the first diverted row
       zk list "${_zk_scope[@]}" --format "$fmt" --quiet 2>/dev/null \
-        | "${_NN_GAWK:-awk}" -F'\t' -v bomlist="$_zk_bomlist" '
+        | NN_ZK_BOMLIST="$_zk_bomlist" "${_NN_GAWK:-awk}" -F'\t' '
+            BEGIN { bomlist = ENVIRON["NN_ZK_BOMLIST"] }
             rem { rem -= (NF > 0 ? NF : 1) - 1; if (rem < 1) rem = 0; next }
             NF < 8 { rem = 8 - (NF > 0 ? NF : 1); next }
             NF == 8 && $6 ~ /^\// {
