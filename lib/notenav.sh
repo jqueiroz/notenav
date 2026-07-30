@@ -8035,19 +8035,25 @@ ENDDELETE
     local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
     local _nn_edit; _nn_edit=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
     local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
-    trap 'rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"' EXIT
+    # Interpolate the paths NOW: the trap fires at shell exit, when these
+    # function locals are out of scope – a single-quoted trap body would
+    # expand them to "" and remove nothing (paths are mktemp output in the
+    # unsafe-character-checked TMPDIR, so embedding them is safe)
+    trap 'rm -f "'"$nn_tmp"'" "'"$_nn_prev"'" "'"$_nn_edit"'" "'"$_nn_edit"'.editor" "'"$_nn_edit"'.target" "'"$_nn_sflag"'"' EXIT
     _nn_write_preview "$_nn_prev"
     _nn_shellsplit "$_nn_editor"
     if (( ${#_nn_split_result[@]} )); then
       printf '%s\n' "${_nn_split_result[@]}"
     fi > "$_nn_edit.editor"
-    printf '#!/usr/bin/env bash\nmapfile -t nn_editor_cmd < <(cat "%s" 2>/dev/null)\n[ ${#nn_editor_cmd[@]} -eq 0 ] && nn_editor_cmd=(vi)\ntarget=$(cat "%s" 2>/dev/null)\n[ -f "$target" ] && "${nn_editor_cmd[@]}" "$target"\n' "$_nn_edit.editor" "$_nn_edit.target" > "$_nn_edit"
+    printf '#!/usr/bin/env bash\nmapfile -t nn_editor_cmd < <(cat "%s" 2>/dev/null)\n[ ${#nn_editor_cmd[@]} -eq 0 ] && nn_editor_cmd=(vi)\ntarget=$(cat "%s" 2>/dev/null)\nif [ -f "$target" ]; then "${nn_editor_cmd[@]}" "$target"\nelse printf '\''%%s\\n'\'' "notenav: edit target unavailable (TMPDIR full?)" 2>/dev/null > /dev/tty; fi\n' "$_nn_edit.editor" "$_nn_edit.target" > "$_nn_edit"
     chmod +x "$_nn_edit"
     # An empty helper here (failed write after mktemp succeeded) runs as a
     # valid empty program: blank previews, silently no-op edits – the same
     # class the browser session's startup check aborts on.  (.editor may
-    # be legitimately empty: the wrapper falls back to vi.)
+    # be legitimately empty: the wrapper falls back to vi.)  Explicit rm
+    # like the sibling abort paths; the EXIT trap is only the backstop.
     if [[ ! -s "$_nn_prev" || ! -s "$_nn_edit" ]]; then
+      rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"
       echo "notenav: failed to write helper scripts (TMPDIR=${TMPDIR:-/tmp} full?)" >&2
       shopt -u nullglob; return 1
     fi

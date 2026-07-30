@@ -30,13 +30,13 @@ _sf_listed=$(sed -n '\|for _nn_sf in "\$_nn_dir"/\*\.sh|,\|; do$|p' "$REPO/lib/n
                | grep -oE '"\$_nn_dir/[A-Za-z0-9_.]+"' | grep -oE '_nn_dir/[A-Za-z0-9_.]+' \
                | sed 's|_nn_dir/||' | sort -u)
 # Belt to the capture's braces: a config-guarded emission would not fire in
-# this hermetic capture, but any emission spelled with $_nn_dir is visible
-# in the source regardless of guards – every one of those must be listed
-# too (subset check: helper-mediated emissions are the capture's job)
-_sf_src=$( { grep -oE 'cat >>? "\$_nn_dir/[A-Za-z0-9_.]+"' "$REPO/lib/notenav.sh"
-             grep -oE '(printf|declare -f) [^>|]*> "\$_nn_dir/[A-Za-z0-9_.]+"' "$REPO/lib/notenav.sh"
-           } | grep -oE '_nn_dir/[A-Za-z0-9_.]+' | sed 's|_nn_dir/||' \
-             | grep -E '\.sh$|^\.awk_|^\.fn_' | sort -u)
+# this hermetic capture, but any REDIRECTION to a $_nn_dir path is visible
+# in the source regardless of guards or writer idiom (cat, printf, echo,
+# compound blocks, appends) – every one of those must be listed too
+# (subset check: helper-mediated emissions are the capture's job)
+_sf_src=$(grep -oE '>>? "\$_nn_dir/[A-Za-z0-9_.]+"' "$REPO/lib/notenav.sh" \
+            | grep -oE '_nn_dir/[A-Za-z0-9_.]+' | sed 's|_nn_dir/||' \
+            | grep -E '\.sh$|^\.awk_|^\.fn_' | sort -u)
 # The startup check's glob classes and this pin's enumeration are the same
 # three patterns by construction – hold them in sync explicitly
 _sf_globs=$(sed -n '\|for _nn_sf in "\$_nn_dir"/\*\.sh|p' "$REPO/lib/notenav.sh" \
@@ -50,7 +50,8 @@ else
   fi
   _sf_unlisted=$(comm -23 <(printf '%s\n' "$_sf_src") <(printf '%s\n' "$_sf_listed"))
   if [[ -n "$_sf_unlisted" ]]; then
-    fail "source-visible emissions missing from the startup list: $_sf_unlisted"
+    fail "source-visible emissions missing from the startup list:"
+    printf '%s\n' "$_sf_unlisted" | sed 's/^/    /'
   fi
   if [[ "$_sf_globs" != '"$_nn_dir"/*.sh "$_nn_dir"/.awk_* "$_nn_dir"/.fn_* ' ]]; then
     fail "startup check glob classes changed – update this pin's enumeration to match"
