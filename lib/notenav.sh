@@ -1278,7 +1278,10 @@ _nn_mtime_rows() {
 }
 
 # _nn_find_md_with_mtime <dir> – emit "absPath\tmtime" rows for every .md
-# file under <dir>, honoring the standard prune list and .nnignore.
+# file under <dir>, pruning the standard metadata dirs and .nnignore
+# DIRECTORY patterns only; file-level ignores (.nnignore name/glob/path
+# patterns and the default exclusions) are applied downstream by
+# _nn_ignore_pipe – pipe through it before showing these rows to a user.
 _nn_find_md_with_mtime() {
   local dir="$1"
   # Prune standard metadata/dependency dirs + any custom dirs from .nnignore
@@ -7635,18 +7638,29 @@ ENDDELETE
     # (zero-byte note truncation), bash sources an empty .fn_note without
     # error (frontmatter misclassification), and an empty helper script
     # exits 0 (edits no-op while the TUI reports success).  Abort startup
-    # with a clear message instead.  The globs cover every emitted program
-    # including future ones, but under nullglob a NEVER-created file
-    # matches no glob – the literal names after them catch the critical
-    # files even when absent (a name may repeat; the recheck is harmless).
-    # The write-path scripts also guard themselves at run time.
+    # with a clear message instead.  Under nullglob a NEVER-created file
+    # matches no glob, so every emitted program is also listed by literal
+    # name – the COMPLETE list; t-write-actions.sh diffs it against the
+    # emissions in this file, so a new script cannot be forgotten here.
+    # A name matched twice is rechecked harmlessly.  The write-path
+    # scripts also guard themselves at run time.
     local _nn_sf
     for _nn_sf in "$_nn_dir"/*.sh "$_nn_dir"/.awk_* "$_nn_dir"/.fn_* \
-        "$_nn_dir/action.sh" "$_nn_dir/bulkedit_update.sh" \
-        "$_nn_dir/newnote.sh" "$_nn_dir/reload_raw.sh" "$_nn_dir/filter.sh" \
-        "$_nn_dir/.fn_note" "$_nn_dir/.fn_find_md" "$_nn_dir/.awk_prescan" \
+        "$_nn_dir/action.sh" "$_nn_dir/archivepick.sh" \
+        "$_nn_dir/bulkedit.sh" "$_nn_dir/bulkedit_apply.sh" \
+        "$_nn_dir/bulkedit_update.sh" "$_nn_dir/bulkset.sh" \
+        "$_nn_dir/bumppri.sh" "$_nn_dir/cprompt.sh" "$_nn_dir/csearch.sh" \
+        "$_nn_dir/csearch_persist.sh" "$_nn_dir/cyclestatus.sh" \
+        "$_nn_dir/delete.sh" "$_nn_dir/edit.sh" "$_nn_dir/fieldpick.sh" \
+        "$_nn_dir/filter.sh" "$_nn_dir/filterpick.sh" \
+        "$_nn_dir/grouppick.sh" "$_nn_dir/newnote.sh" \
+        "$_nn_dir/querypick.sh" "$_nn_dir/reload_at.sh" \
+        "$_nn_dir/reload_raw.sh" "$_nn_dir/sortpick.sh" \
+        "$_nn_dir/tags.sh" "$_nn_dir/watcher.sh" "$_nn_dir/wrapkey.sh" \
         "$_nn_dir/.awk_action_rewrite" "$_nn_dir/.awk_bulk_rewrite" \
-        "$_nn_dir/.awk_fm_backfill" "$_nn_dir/.awk_native_parser"; do
+        "$_nn_dir/.awk_fm_backfill" "$_nn_dir/.awk_native_parser" \
+        "$_nn_dir/.awk_prescan" "$_nn_dir/.fn_find_md" \
+        "$_nn_dir/.fn_note"; do
       if [[ ! -s "$_nn_sf" ]]; then
         echo "notenav: failed to write session file ${_nn_sf##*/} (TMPDIR=${TMPDIR:-/tmp} full?)" >&2
         shopt -u nullglob; return 1
