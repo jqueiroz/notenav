@@ -1591,21 +1591,6 @@ _nn_stamp_mode() { [ -z "$1" ] || chmod "$1" "$2" 2>/dev/null || true; }
 # (dd, not head -c: OpenBSD head has no -c)
 _nn_note_bom() { [ "$(dd if="$1" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ]; }
 
-# _nn_file_mtime <file> – echo the file's modification time as UTC
-# "YYYY-MM-DD HH:MM:SS" (zk emits {{modified}} in UTC, so re-listed rows
-# must match or they sort hours out of place).  GNU stat -c first, BSD
-# stat -f fallback chained on emptiness (a pipeline exit status would be
-# cut's, never stat's).
-_nn_file_mtime() {
-  local _mt
-  _mt=$(TZ=UTC0 stat -c '%y' "$1" 2>/dev/null)
-  if [[ -n "$_mt" ]]; then
-    printf '%s' "${_mt:0:19}"
-  else
-    TZ=UTC0 stat -f '%Sm' -t '%Y-%m-%d %H:%M:%S' "$1" 2>/dev/null
-  fi
-}
-
 # _nn_fence_probe <file> – CRLF/BOM-tolerant frontmatter test on line 1.
 # Sets NN_FM (1 when line 1 is a fence after BOM strip, else 0) and NN_FEOL
 # (carriage return when the file's line-1 style is CRLF, else empty).
@@ -1795,13 +1780,27 @@ _nn_list_notes() {
             }'
       local _zk_rc="${PIPESTATUS[0]}"
       if [[ -n "$_zk_bomlist" && -s "$_zk_bomlist" ]]; then
-        # Re-list the diverted notes natively.  One-off mtime per file via
-        # the documented stat fallback chain (GUIDELINES portability).
-        local _zk_bp
-        while IFS= read -r _zk_bp; do
-          [[ -f "$_zk_bp" ]] || continue
-          printf '%s\t%s\n' "$_zk_bp" "$(_nn_file_mtime "$_zk_bp")"
-        done < "$_zk_bomlist" | _nn_list_notes_native
+        # Re-list the diverted notes natively, mtimes batched through find
+        # (a per-file stat forks 2-3 processes per note, and a Windows-
+        # authored notebook can be nearly all BOM'd – thousands of forks
+        # per listing).  TZ=UTC0 matches zk's {{modified}} so mixed rows
+        # sort consistently.  Chunks of 200 stay clear of ARG_MAX; every
+        # diverted path starts with /, so none reads as a find option.
+        local -a _zk_bpaths=()
+        local _zk_i _zk_mtstyle=bsd
+        mapfile -t _zk_bpaths < "$_zk_bomlist"
+        if find /dev/null -maxdepth 0 -printf '' 2>/dev/null; then
+          _zk_mtstyle=gnufind
+        elif stat -c '%n' /dev/null >/dev/null 2>&1; then
+          _zk_mtstyle=gnustat
+        fi
+        for ((_zk_i = 0; _zk_i < ${#_zk_bpaths[@]}; _zk_i += 200)); do
+          case "$_zk_mtstyle" in
+            gnufind) TZ=UTC0 find "${_zk_bpaths[@]:_zk_i:200}" -maxdepth 0 -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n' 2>/dev/null ;;
+            gnustat) TZ=UTC0 find "${_zk_bpaths[@]:_zk_i:200}" -maxdepth 0 -type f -exec stat -c '%n	%y' {} + 2>/dev/null ;;
+            *)       TZ=UTC0 find "${_zk_bpaths[@]:_zk_i:200}" -maxdepth 0 -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} + 2>/dev/null ;;
+          esac
+        done | _nn_list_notes_native
       fi
       [[ -n "$_zk_bomlist" ]] && rm -f "$_zk_bomlist"
       if [[ $_zk_rc -gt 1 ]]; then
