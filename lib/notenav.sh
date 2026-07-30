@@ -4620,18 +4620,6 @@ EOF
     printf '%s\n' "$_NN_FM_PRESCAN_AWK" > "$_nn_dir/.awk_prescan"
     printf '%s\n' "$_NN_ACTION_REWRITE_AWK" > "$_nn_dir/.awk_action_rewrite"
     printf '%s\n' "$_NN_BULK_REWRITE_AWK" > "$_nn_dir/.awk_bulk_rewrite"
-    # gawk accepts an empty -f program file as a valid no-rule program and
-    # bash sources an empty .fn_note without error, so a session file left
-    # empty by a failed write (disk full after mktemp -d succeeded) would
-    # truncate notes on the next field edit.  The writer scripts also guard
-    # themselves; abort startup early with a clear message instead.
-    local _nn_sf
-    for _nn_sf in .awk_native_parser .awk_fm_backfill .fn_note .awk_prescan .awk_action_rewrite .awk_bulk_rewrite; do
-      if [[ ! -s "$_nn_dir/$_nn_sf" ]]; then
-        echo "notenav: failed to write session file $_nn_sf (TMPDIR=${TMPDIR:-/tmp} full?)" >&2
-        shopt -u nullglob; return 1
-      fi
-    done
     # Shared find functions for native listing – sourced by reload_raw.sh.
     # _nn_mtime_rows is emitted via declare -f so the three mtime format
     # strings keep their single source in the lib definition; the session
@@ -7635,6 +7623,22 @@ if [ $_del_ok -gt 0 ]; then
 fi
 ENDDELETE
     chmod +x "$_nn_dir/delete.sh"
+
+    # All session programs are emitted; verify each landed with content.
+    # An empty file here means a failed write (disk full after mktemp -d
+    # succeeded) and silent misbehavior later: gawk accepts an empty -f
+    # program file as a valid no-rule program (zero-byte note truncation),
+    # bash sources an empty .fn_note without error (frontmatter
+    # misclassification), and an empty helper script exits 0 (edits no-op
+    # while the TUI reports success).  Abort startup with a clear message
+    # instead.  The write-path scripts also guard themselves at run time.
+    local _nn_sf
+    for _nn_sf in "$_nn_dir"/*.sh "$_nn_dir"/.awk_* "$_nn_dir"/.fn_*; do
+      if [[ ! -s "$_nn_sf" ]]; then
+        echo "notenav: failed to write session file ${_nn_sf##*/} (TMPDIR=${TMPDIR:-/tmp} full?)" >&2
+        shopt -u nullglob; return 1
+      fi
+    done
 
     local _nn_fzf_wrap=()
     [[ "$NN_DEFAULT_WRAP" == "true" ]] && _nn_fzf_wrap=(--wrap)
