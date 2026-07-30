@@ -39,8 +39,9 @@ mkdir -p "$B/.nn"
 # unterminated basic string – yq rejects it
 printf 'extends = "zenith\n[queries.x]\nargs = "type=task"\n' > "$B/.nn/workflow.toml"
 printf -- '---\ntype: task\nstatus: todo\ntitle: n\n---\nb\n' > "$B/only.md"
-run_nn "$B" type=task >/dev/null 2>&1
-[[ $? -ne 0 ]] || fail "nn ran with an unparseable .nn/workflow.toml (should hard-fail)"
+if run_nn "$B" type=task >/dev/null 2>&1; then
+  fail "nn ran with an unparseable .nn/workflow.toml (should hard-fail)"
+fi
 grep -q 'failed to parse .nn/workflow.toml' "$WORK/err" || fail "no parse-error message on malformed workflow.toml"
 
 finish
