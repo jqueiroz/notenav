@@ -63,4 +63,19 @@ done
 uconf '[refresh]' 'mode = "poll"' 'poll_interval = 15' 'auto_refresh_note_limit = 0'
 run_nn_u "$G" type=task >/dev/null 2>&1 || { fail "nn rejected a valid refresh config"; sed 's/^/    /' "$WORK/err" | head -3; }
 
+# ── prompt sanitizer: %/backslash (printf-format hazards) and [ " must be
+#    stripped at runtime AND flagged by doctor via the same helper ────────
+# a prompt with % previously broke the R/reset transform's printf; now it is
+# stripped, so launch must stay clean
+uconf '[ui]' 'command_prompt = "100% "' 'search_prompt = "[go] "'
+run_nn_u "$G" type=task >/dev/null 2>&1 || { fail "a %-containing prompt broke launch (not stripped)"; sed 's/^/    /' "$WORK/err" | head -3; }
+# doctor must warn about the stripped characters for both prompts
+(cd "$G" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/doc.out"
+grep -q "command_prompt contains characters stripped at runtime" "$WORK/doc.out" || fail "doctor did not warn about the %-stripped command_prompt"
+grep -q "search_prompt contains characters stripped at runtime" "$WORK/doc.out" || fail "doctor did not warn about the [-stripped search_prompt"
+# a backslash prompt is also caught (printf escape injection)
+uconf '[ui]' 'command_prompt = "a\\b "'
+(cd "$G" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/doc2.out"
+grep -q "command_prompt contains characters stripped at runtime" "$WORK/doc2.out" || fail "doctor did not warn about a backslash in command_prompt"
+
 finish

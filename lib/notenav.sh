@@ -766,6 +766,20 @@ _nn_gen_awk_bodies() {
   done
 }
 
+# Strip characters from a UI prompt that break the fzf action strings and
+# printf-format transform bodies the prompt is interpolated into:
+#   \ [ ] ( ) ' " %   – backslash (printf escape), brackets (transform[...]
+#   depth), parens (action-arg syntax), quotes (shell), and % (printf
+#   directive: change-prompt is emitted through printf).  Runtime and
+#   nn doctor call this same helper so their notion of "unsafe" cannot drift.
+_nn_sanitize_prompt() {
+  local _p="$1"
+  _p="${_p//\\/}"; _p="${_p//\[/}"; _p="${_p//]/}"
+  _p="${_p//(/}"; _p="${_p//)/}"
+  _p="${_p//\'/}"; _p="${_p//\"/}"; _p="${_p//%/}"
+  printf '%s' "$_p"
+}
+
 nn_precompute_workflow() {
   local _v _jv _fwd _rev _label _up _down
   # Schema version check (absent = 1, future versions rejected)
@@ -945,20 +959,11 @@ nn_precompute_workflow() {
   NN_UI_EDITOR=$(nn_cfg '.ui.editor // empty')
   NN_UI_COMMAND_PROMPT=$(nn_cfg '.ui.command_prompt // " "')
   NN_UI_SEARCH_PROMPT=$(nn_cfg '.ui.search_prompt // "/ "')
-  # Sanitize prompts: strip chars that break fzf action syntax in change-prompt()
-  # [ ] break transform[...] bracket depth; ( ) break action syntax; ' " break shell quoting
-  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//\[/}"
-  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//(/}"
-  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//)/}"
-  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//]/}"
-  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//\'/}"
-  NN_UI_COMMAND_PROMPT="${NN_UI_COMMAND_PROMPT//\"/}"
-  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//\[/}"
-  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//(/}"
-  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//)/}"
-  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//]/}"
-  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//\'/}"
-  NN_UI_SEARCH_PROMPT="${NN_UI_SEARCH_PROMPT//\"/}"
+  # Sanitize prompts: strip chars that break fzf action syntax / printf
+  # transform bodies (see _nn_sanitize_prompt; nn doctor warns via the same
+  # helper so the two never disagree about what is unsafe).
+  NN_UI_COMMAND_PROMPT=$(_nn_sanitize_prompt "$NN_UI_COMMAND_PROMPT")
+  NN_UI_SEARCH_PROMPT=$(_nn_sanitize_prompt "$NN_UI_SEARCH_PROMPT")
   NN_UI_EXIT_MESSAGE=$(nn_cfg '.ui.exit_message // "none"')
   NN_UI_PRIORITY_PLUS=$(nn_cfg '.ui.priority_plus // "demote"')
   NN_UI_AFTER_CREATE=$(nn_cfg '.ui.after_create // "edit"')
@@ -2847,10 +2852,10 @@ EOF
       local _pname; [[ "$_pvar" == "_ui_cp" ]] && _pname="ui.command_prompt" || _pname="ui.search_prompt"
       local _pval="${!_pvar}"
       [[ -z "$_pval" ]] && continue
-      [[ "$_pval" == *"("* ]] && _warn "$_pname contains '(' which will be stripped (breaks fzf prompt syntax)"
-      [[ "$_pval" == *")"* ]] && _warn "$_pname contains ')' which will be stripped (breaks fzf prompt syntax)"
-      [[ "$_pval" == *"]"* ]] && _warn "$_pname contains ']' which will be stripped (breaks fzf prompt syntax)"
-      [[ "$_pval" == *"'"* ]] && _warn "$_pname contains \"'\" which will be stripped (breaks fzf prompt syntax)"
+      # Warn via the same helper the runtime strips with, so doctor reports
+      # exactly the characters that would actually be removed (no drift).
+      local _psan; _psan=$(_nn_sanitize_prompt "$_pval")
+      [[ "$_psan" != "$_pval" ]] && _warn "$_pname contains characters stripped at runtime (break fzf prompt/action syntax): '$_pval' becomes '$_psan'"
     done
     local _ui_exit
     _ui_exit=$(nn_cfg '.ui.exit_message // empty')
