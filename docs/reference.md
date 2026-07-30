@@ -87,7 +87,7 @@ nn type=task tag=backend tag=api    # tasks tagged "backend" OR "api"
 | `-i`, `--interactive` | Open results in an interactive fzf picker instead of plain output |
 | `-l`, `--long` | Plain output as TSV: `type<TAB>status<TAB>priority<TAB>title<TAB>path` (one note per line, all five columns always present, empty fields render as empty strings) |
 | `-0`, `--print0` | Plain output as NUL-separated absolute paths, suitable for `xargs -0` and similar tools |
-| `--` | Stop filter parsing; remaining arguments are passed through to `zk list` (ignored without zk) |
+| `--` | Stop filter parsing; remaining arguments are passed through to `zk list`. On the native backend (no zk, or a notebook zk can't index) they are ignored with a notice on stderr, since they are `zk list` flags |
 
 `-l`, `-0`, and `-i` are mutually exclusive.
 

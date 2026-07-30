@@ -7880,7 +7880,7 @@ ENDDELETE
   # ---- AD-HOC QUERY ----
   declare -A filters
   local -a filter_tags=()
-  local interactive=false long_output=false null_output=false zk_args=() parsing_filters=true
+  local interactive=false long_output=false null_output=false zk_args=() zk_passthrough=() parsing_filters=true after_dd=false
 
   while [[ $# -gt 0 ]]; do
     if $parsing_filters; then
@@ -7888,7 +7888,7 @@ ENDDELETE
         -i|--interactive) interactive=true; shift ;;
         -l|--long) long_output=true; shift ;;
         -0|--print0) null_output=true; shift ;;
-        --) parsing_filters=false; shift ;;
+        --) parsing_filters=false; after_dd=true; shift ;;
         --*) echo "notenav: unknown flag: $1" >&2; echo "notenav: run 'nn --help' for usage" >&2; shopt -u nullglob; return 1 ;;
         -?*) echo "notenav: unknown flag: $1" >&2; echo "notenav: run 'nn --help' for usage" >&2; shopt -u nullglob; return 1 ;;
         *=*)
@@ -7904,10 +7904,24 @@ ENDDELETE
           shift ;;
         *) parsing_filters=false; zk_args+=("$1"); shift ;;
       esac
+    elif $after_dd; then
+      # Args after `--` are zk-list flags; keep them separate from positional
+      # scope paths so the native backend can ignore them (see below).
+      zk_passthrough+=("$1"); shift
     else
       zk_args+=("$1"); shift
     fi
   done
+
+  # `--` passthrough is meaningful only for `zk list`.  On the zk backend,
+  # append it (preserving the old behavior exactly); on the native backend
+  # drop it – feeding '--limit'/etc. to find(1) breaks the whole listing, so
+  # honor the documented contract ("ignored without zk") and say so.
+  if [[ "$_NN_HAS_ZK" == "true" ]]; then
+    zk_args+=("${zk_passthrough[@]}")
+  elif [[ ${#zk_passthrough[@]} -gt 0 ]]; then
+    echo "notenav: '--' passthrough args are ignored on the native backend (no zk): ${zk_passthrough[*]}" >&2
+  fi
 
   if [[ ${#zk_args[@]} -eq 0 ]]; then
     zk_args=("$_scope_path")

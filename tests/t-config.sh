@@ -78,4 +78,14 @@ uconf '[ui]' 'command_prompt = "a\\b "'
 (cd "$G" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/doc2.out"
 grep -q "command_prompt contains characters stripped at runtime" "$WORK/doc2.out" || fail "doctor did not warn about a backslash in command_prompt"
 
+# ── `--` passthrough on the NATIVE backend must be ignored, not fed to
+#    find(1) (where '--limit'/etc. break the whole listing) ───────────────
+# D is a plain notebook with no .zk index → native backend even if zk exists
+D="$WORK/native"; nb "$D" 'extends = "zenith"'
+dout=$(run_nn "$D" type=task -- --limit 10); drc=$?
+[[ "$drc" -eq 0 ]] || { fail "-- passthrough broke the native listing (exit $drc)"; sed 's/^/    /' "$WORK/err" | head -3; }
+printf '%s\n' "$dout" | grep -q 'only-note' || fail "native listing lost its note when -- passthrough args were present"
+grep -qiE 'find: (unknown predicate|.*No such file)' "$WORK/err" && fail "-- passthrough args reached find(1) on the native backend"
+grep -q "passthrough args are ignored on the native backend" "$WORK/err" || fail "no native-backend passthrough notice emitted"
+
 finish
