@@ -386,7 +386,11 @@ nn_cfg() {
 
 # Escape a string for safe interpolation into an AWK double-quoted literal.
 # Handles backslash, dollar, double-quote, and newline (the characters that break AWK strings).
-_nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/\$/\\$/g; s/"/\\"/g' | tr '\n' ' '; }
+# Escape a string for interpolation into an AWK double-quoted string literal.
+# Only backslash and double-quote are special inside AWK strings; '$' is NOT
+# (it is a field operator only OUTSIDE strings), so escaping it would emit the
+# undefined sequence \$ – gawk warns and other awks may drop the match.
+_nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' '; }
 # Build AWK condition for type/status/priority/tags field filtering.
 # Arguments: type status priority tags_string
 # tags_string is newline-delimited (or empty for no tag filter).
@@ -6631,8 +6635,11 @@ printf '%s\n' "$farchive" > "$dir/.f_archive"
 printf '%s\n' "$fmatch" > "$dir/.f_match"
 printf '%s\n' "$fmarked" > "$dir/.f_marked"
 # Build awk condition
-# Sanitize values for safe interpolation into awk expressions
-awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/\$/\\$/g; s/"/\\"/g' | tr '\n' ' '; }
+# Sanitize values for safe interpolation into awk expressions.  '$' is NOT
+# special inside an AWK string literal, so it must NOT be escaped (\$ is an
+# undefined sequence: gawk warns, other awks may drop the match).  Keep in
+# sync with _nn_awk_esc() in lib.
+awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' '; }
 # Build AWK condition for type/status/priority/tags field filtering.
 # Arguments: type status priority tags_string
 # tags_string is newline-delimited (or empty for no tag filter).

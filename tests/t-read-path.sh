@@ -57,6 +57,17 @@ out="$WORK/out.txt"
 rc=$?
 [[ "$rc" -eq 0 ]] || { fail "ad-hoc query exited $rc"; sed 's/^/    /' "$WORK/stderr" | head -5; }
 
+# A field value containing an AWK metacharacter ('$') must be matched
+# literally, with no interpreter warning: '$' is not special inside an AWK
+# string literal, so the value escaper must NOT emit the undefined '\$'
+mk_note "$NOTEBOOK/dollar.md" lf 0 '---' 'title: dollar-tag-marker' 'type: task' 'status: new' 'tags: q4$budget' '---' 'body'
+dout="$WORK/dollar.txt"
+(cd "$NOTEBOOK" && TERM=xterm bash "$REPO/bin/nn" 'tag=q4$budget' </dev/null 2>"$WORK/dstderr") > "$dout"
+grep -q 'dollar-tag-marker' "$dout" || fail "\$-containing tag value not matched"
+grep -qi 'escape sequence' "$WORK/dstderr" && fail "awk warned on \$ in a tag value (undefined \\\$ escape emitted)"
+[[ -s "$WORK/dstderr" ]] && { fail "unexpected stderr on \$-tag query:"; sed 's/^/    /' "$WORK/dstderr" | head -3; }
+rm -f "$NOTEBOOK/dollar.md"
+
 for m in alpha-lf-marker bravo-crlf-marker charlie-bomcrlf-marker delta-bomlf-marker; do
   grep -q "$m" "$out" || fail "missing note in query output: $m"
 done
