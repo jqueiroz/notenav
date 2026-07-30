@@ -1585,19 +1585,20 @@ _nn_note_mode() { stat -L -c '%a' "$1" 2>/dev/null || stat -L -f '%Mp%Lp' "$1" 2
 
 # _nn_stamp_mode <mode> <tmpfile> – best-effort chmod that never fails the
 # caller's && chain (an empty mode degrades safely to mktemp's 0600)
-_nn_stamp_mode() { [ -z "$1" ] || chmod "$1" "$2" 2>/dev/null || true; }
+_nn_stamp_mode() { [[ -z "$1" ]] || chmod "$1" "$2" 2>/dev/null || true; }
 
 # _nn_note_bom <file> – succeed when the file starts with a UTF-8 BOM
 # (dd, not head -c: OpenBSD head has no -c)
-_nn_note_bom() { [ "$(dd if="$1" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ]; }
+_nn_note_bom() { [[ "$(dd if="$1" bs=3 count=1 2>/dev/null)" = $'\xef\xbb\xbf' ]]; }
 
 # _nn_fence_probe <file> – CRLF/BOM-tolerant frontmatter test on line 1.
 # Sets NN_FM (1 when line 1 is a fence after BOM strip, else 0) and NN_FEOL
 # (carriage return when the file's line-1 style is CRLF, else empty).
+# shellcheck disable=SC2034  # NN_FM/NN_FEOL are read by the emitted writer scripts
 _nn_fence_probe() {
   local _fp
   _fp=$(head -n 1 "$1" 2>/dev/null)
-  NN_FEOL=""; case "$_fp" in *$'\r') NN_FEOL=$'\r' ;; esac
+  NN_FEOL=""; case "$_fp" in *$'\r') NN_FEOL=$'\r' ;; *) ;; esac
   _fp=${_fp#$'\xef\xbb\xbf'}
   NN_FM=0
   [[ "$_fp" =~ ^---[[:space:]]*$ ]] && NN_FM=1
