@@ -496,6 +496,22 @@ printf '999999' > "$CAP/.watcher_pid"
 bash "$CAP/killwatcher.sh" "$CAP" && [[ ! -f "$CAP/.watcher_pid" ]] \
   || fail "killwatcher mishandled a dead PID"
 
+# ── concurrent filter.sh runs: consistent .current, no stray temps ───────
+# Per-invocation $$-suffixed intermediates mean every installed .current is
+# one run's complete output – interleaved/garbled rows are impossible, so
+# six concurrent runs over identical state must land byte-identical to a
+# sequential reference run.  (filter.sh.orig is the pre-neutralization copy
+# the harness keeps.)
+bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1
+cp "$CAP/.current" "$WORK/current.ref"
+for _fc_i in 1 2 3 4 5 6; do
+  bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1 &
+done
+wait
+assert_bytes "$CAP/.current" "$WORK/current.ref" "concurrent filter runs corrupted .current"
+_fc_stray=$(find "$CAP" -name '.raw.snap.*' -o -name '.current.tmp.*' -o -name '.pin_ghost_count.*' | wc -l)
+[[ "$_fc_stray" -eq 0 ]] || fail "filter runs left $_fc_stray stray per-invocation temp files"
+
 # ── writes preserve file permissions (mktemp is 0600; mode must survive) ─
 file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }
 mk_note "$f" crlf 0 "${BASE[@]}"

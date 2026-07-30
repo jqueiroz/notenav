@@ -6932,23 +6932,29 @@ do_chain_sort() {
   rm -f "$_tmpf"
 }
 now=$(date +%s)
-# Snapshot .raw, .pinned, .marked so concurrent actions cannot modify them mid-filter
-cp "$dir/.raw" "$dir/.raw.snap"
-cp "$dir/.pinned" "$dir/.pinned.snap" 2>/dev/null || : > "$dir/.pinned.snap"
-cp "$dir/.marked" "$dir/.marked.snap" 2>/dev/null || : > "$dir/.marked.snap"
+# Snapshot .raw, .pinned, .marked so concurrent actions cannot modify them
+# mid-filter.  All intermediates are $$-suffixed: concurrent filter.sh runs
+# (watcher POST racing a direct execute() call) used to clobber each other's
+# fixed-name temps and install interleaved output as .current.  Each run now
+# works on its own set and the final mv is last-writer-wins with a CONSISTENT
+# file.  Clean up on every exit so the session dir does not accumulate them.
+trap 'rm -f "$dir/.raw.snap.$$" "$dir/.pinned.snap.$$" "$dir/.marked.snap.$$" "$dir/.raw_matched.$$" "$dir/.raw_marked.$$" "$dir/.raw_prefiltered.$$" "$dir/.raw_widened.$$" "$dir/.current.tmp.$$" "$dir/.pin_ghost_count.$$"' EXIT
+cp "$dir/.raw" "$dir/.raw.snap.$$"
+cp "$dir/.pinned" "$dir/.pinned.snap.$$" 2>/dev/null || : > "$dir/.pinned.snap.$$"
+cp "$dir/.marked" "$dir/.marked.snap.$$" 2>/dev/null || : > "$dir/.marked.snap.$$"
 # Pre-filter by body match if active
-_raw_input="$dir/.raw.snap"
-_count_input="$dir/.raw.snap"
+_raw_input="$dir/.raw.snap.$$"
+_count_input="$dir/.raw.snap.$$"
 # Pre-filter: body match narrows to matched paths, mark filter narrows to marked paths
 # Widen with pinned so ghost rows survive narrowing (marks are badges, not ghost rows)
 if [ -n "$fmatch" ]; then
   if [ -s "$dir/.f_match_paths" ]; then
-    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw.snap" > "$dir/.raw_matched"
+    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.f_match_paths" "$dir/.raw.snap.$$" > "$dir/.raw_matched.$$"
   else
-    : > "$dir/.raw_matched"
+    : > "$dir/.raw_matched.$$"
   fi
-  _raw_input="$dir/.raw_matched"
-  _count_input="$dir/.raw_matched"
+  _raw_input="$dir/.raw_matched.$$"
+  _count_input="$dir/.raw_matched.$$"
 fi
 if [ -n "$ftitle" ]; then
   # Literal substring match by default; ~ prefix opts in to AWK ERE regex.
@@ -6966,28 +6972,28 @@ if [ -n "$ftitle" ]; then
   _count_input="$dir/.raw_title"
 fi
 if [ -n "$fmarked" ]; then
-  if [ -s "$dir/.marked.snap" ]; then
-    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.marked.snap" "$_raw_input" > "$dir/.raw_marked"
+  if [ -s "$dir/.marked.snap.$$" ]; then
+    awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.marked.snap.$$" "$_raw_input" > "$dir/.raw_marked.$$"
   else
-    : > "$dir/.raw_marked"
+    : > "$dir/.raw_marked.$$"
   fi
-  _raw_input="$dir/.raw_marked"
-  _count_input="$dir/.raw_marked"
+  _raw_input="$dir/.raw_marked.$$"
+  _count_input="$dir/.raw_marked.$$"
 fi
 # Widen _raw_input with pinned paths so ghost rows survive pre-filtering
-if [ -s "$dir/.pinned.snap" ] && { [ -n "$fmatch" ] || [ -n "$ftitle" ] || { [ -n "$fmarked" ] && [ -s "$dir/.marked.snap" ]; }; }; then
-  cat "$_raw_input" > "$dir/.raw_prefiltered"
-  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.pinned.snap" "$dir/.raw.snap" >> "$dir/.raw_prefiltered"
-  awk -F'\t' '!seen[$6]++' "$dir/.raw_prefiltered" > "$dir/.raw_widened"
-  _raw_input="$dir/.raw_widened"
+if [ -s "$dir/.pinned.snap.$$" ] && { [ -n "$fmatch" ] || [ -n "$ftitle" ] || { [ -n "$fmarked" ] && [ -s "$dir/.marked.snap.$$" ]; }; }; then
+  cat "$_raw_input" > "$dir/.raw_prefiltered.$$"
+  awk -F'\t' 'NR==FNR{paths[$0]=1;next} ($6 in paths)' "$dir/.pinned.snap.$$" "$dir/.raw.snap.$$" >> "$dir/.raw_prefiltered.$$"
+  awk -F'\t' '!seen[$6]++' "$dir/.raw_prefiltered.$$" > "$dir/.raw_widened.$$"
+  _raw_input="$dir/.raw_widened.$$"
 fi
 awk_body=$(cat "$dir/.awk_color_body")
 pinned_awk=$(cat "$dir/.awk_color_pinned")
 marked_awk=$(cat "$dir/.awk_color_marked")
-if [ -s "$dir/.pinned.snap" ] || [ -s "$dir/.marked.snap" ]; then
+if [ -s "$dir/.pinned.snap.$$" ] || [ -s "$dir/.marked.snap.$$" ]; then
   do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" \
-    -v marked_file="$dir/.marked.snap" -v pinned_file="$dir/.pinned.snap" -v mfilt="$fmarked" \
-    -v ghost_file="$dir/.pin_ghost_count" '
+    -v marked_file="$dir/.marked.snap.$$" -v pinned_file="$dir/.pinned.snap.$$" -v mfilt="$fmarked" \
+    -v ghost_file="$dir/.pin_ghost_count.$$" '
     BEGIN {
       while ((getline line < marked_file) > 0) if (line != "") is_marked[line]=1
       close(marked_file)
@@ -7000,10 +7006,10 @@ if [ -s "$dir/.pinned.snap" ] || [ -s "$dir/.marked.snap" ]; then
     !('"${cond}"') && ($6 in is_pinned) && ($6 in is_marked) { gc++; '"${marked_awk}"' }
     !('"${cond}"') && ($6 in is_pinned) && !($6 in is_marked) { gc++; '"${pinned_awk}"' }
     END { printf "%d", gc+0 > ghost_file }
-  ' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current" || rm -f "$dir/.current.tmp"
+  ' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$dir/.current" || rm -f "$dir/.current.tmp.$$"
 else
-  do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current" || rm -f "$dir/.current.tmp"
-  printf '0' > "$dir/.pin_ghost_count"
+  do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$dir/.current" || rm -f "$dir/.current.tmp.$$"
+  printf '0' > "$dir/.pin_ghost_count.$$"
 fi
 # Pipeline: AWK filter → count → grouping → empty-view → border/output
 # Ghost rows (pinned items failing filters) are already in .current from the multi-rule AWK above.
@@ -7014,7 +7020,7 @@ if [ -n "$fgroup" ]; then
   awk -F'\t' -v gcol="$gcol" '
     NR==FNR { key[$6] = $gcol; next }
     { path=$1; gk=key[path]; print gk "\t" $0 }
-  ' "$dir/.raw.snap" "$dir/.current" \
+  ' "$dir/.raw.snap.$$" "$dir/.current" \
   | sort -t'	' -k1,1 -s \
   | awk -F'\t' -v gmode="$fgroup" \
     -v type_order="$(cat "$dir/.schema_type_order")" \
@@ -7044,7 +7050,7 @@ if [ -n "$fgroup" ]; then
         printf "\t%s── %s (%d) ──%s\n", pre, label, counts[g], suf
         printf "%s", lines[g]
       }
-    }' > "$dir/.current.tmp" && mv "$dir/.current.tmp" "$dir/.current" || rm -f "$dir/.current.tmp"
+    }' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$dir/.current" || rm -f "$dir/.current.tmp.$$"
 fi
 # Compute inline stats from filtered set
 awk_stats=$(cat "$dir/.awk_color_stats")
@@ -7104,7 +7110,7 @@ case "$farchive" in
   "")   all_cond="$all_cond$archive_cond" ;;
   only) all_cond="$all_cond$archive_only_cond" ;;
 esac
-all_count=$(awk -F'\t' "$all_cond"'{n++} END{print n+0}' "$dir/.raw.snap")
+all_count=$(awk -F'\t' "$all_cond"'{n++} END{print n+0}' "$dir/.raw.snap.$$")
 # 0:all highlights only when no filters, no tags, no query preset, defaults
 has_tags=false; [ -s "$dir/.f_tags" ] && has_tags=true
 if [ -z "$active_sq" ] && [ -z "$ft" ] && [ -z "$fs" ] && [ -z "$fp" ] && ! $has_tags; then
@@ -7136,7 +7142,7 @@ if [ -f "$dir/.queries" ]; then
     done
     _sq_field_cond=$(build_field_cond "$_sq_type" "$_sq_status" "$_sq_priority" "$_sq_tags")
     [ -n "$_sq_field_cond" ] && sq_cond="$sq_cond && $_sq_field_cond"
-    sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw.snap")
+    sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw.snap.$$")
     label=$(printf '%d:%s(%d)' "$n" "$qname" "$sq_count")
     # visible length: " label " (spaces + content)
     item_len=$(( ${#label} + 2 ))
@@ -7208,7 +7214,7 @@ fi
 display_lbl_z=$(printf '\033[1;90m Display:\033[0m\n%s\n%s\n%s\n%s\n%s' "$zorder_s_active" "$zrev_s_active" "$zgroup_s_active" "$zarchive_s_active" "$zwrap_s_active")
 queries_lbl=$(printf '\033[1;90m Query presets:\033[0m %s' "$sq_lines")
 change_lbl_active=$(printf '\033[1;90m Change:\033[0m \033[1;33m[c]\033[0m \033[1;37mthen \033[1;36m[s]\033[1;37mtatus%s \033[90m·\033[0m \033[1;36m[t]\033[1;37mype\033[0m' "$_pri_change_chunk")
-mark_count=0; [ -s "$dir/.marked.snap" ] && mark_count=$(awk 'NF{n++} END{print n+0}' "$dir/.marked.snap")
+mark_count=0; [ -s "$dir/.marked.snap.$$" ] && mark_count=$(awk 'NF{n++} END{print n+0}' "$dir/.marked.snap.$$")
 _mcount_s=""; [ "$mark_count" -gt 0 ] && _mcount_s="${mark_count} marked \033[90m·\033[0m "
 if [ -n "$fmarked" ]; then
   _mfilt_s_active='\033[1;36m[f]\033[1;37m filter: \033[1mon\033[0m'
@@ -7367,7 +7373,7 @@ printf '%s\n%s\n%s\n%s\n%s' "$help_filters_lbl" "$help_display_lbl" "$help_actio
 [ -f "$dir/.empty_easteregg_override" ] && cat "$dir/.empty_easteregg_override" > "$dir/.empty_placeholder"
 # Show Adams placeholder + dummy entry when view is truly empty (skip if ghost rows present)
 if [ "$count" -eq 0 ] && ! [ -s "$dir/.current" ]; then
-  raw_total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap" | wc -l)
+  raw_total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap.$$" | wc -l)
   if [ "$raw_total" -eq 0 ]; then
     _has_wf=""; [ -s "$dir/.has_project_config" ] && _has_wf=1
     if [ -n "$_has_wf" ]; then
@@ -7466,8 +7472,8 @@ if [ "$count" -eq 0 ] && ! [ -s "$dir/.current" ]; then
 fi
 # Measure placeholder visible width (strip ANSI, find longest line) for preview.sh centering
 awk 'BEGIN{esc=sprintf("%c",27)} {gsub(esc"\\[[0-9;]*m",""); if(length>m) m=length} END{print m+0}' "$dir/.empty_placeholder" > "$dir/.empty_placeholder_width"
-total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap" | wc -l)
-pin_count=$(cat "$dir/.pin_ghost_count" 2>/dev/null || echo 0)
+total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap.$$" | wc -l)
+pin_count=$(cat "$dir/.pin_ghost_count.$$" 2>/dev/null || echo 0)
 pin_s=""; [ "$pin_count" -gt 0 ] && pin_s=" · ${pin_count} pinned"
 mark_s=""; [ "$mark_count" -gt 0 ] && mark_s=" · ${mark_count} marked"
 _wf_name=$(cat "$dir/.schema_workflow_name" 2>/dev/null)

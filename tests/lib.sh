@@ -101,7 +101,10 @@ ENDSHIM
       sed 's/^/    /' "$tmp/synerr" | head -5
     fi
   done
-  # Neutralize post-action reload/filter so byte assertions stay deterministic
+  # Neutralize post-action reload/filter so byte assertions stay
+  # deterministic; keep the originals for tests that exercise them directly
+  cp "$dest/reload_raw.sh" "$dest/reload_raw.sh.orig"
+  cp "$dest/filter.sh" "$dest/filter.sh.orig"
   printf '#!/bin/sh\nexit 0\n' > "$dest/reload_raw.sh"
   printf '#!/bin/sh\nexit 0\n' > "$dest/filter.sh"
   chmod +x "$dest/reload_raw.sh" "$dest/filter.sh"
