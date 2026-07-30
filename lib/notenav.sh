@@ -1257,8 +1257,6 @@ nn_write_workflow_files() {
 #   type \t status \t priority \t tags \t title \t absPath \t modified \t created
 # Uses find + awk to parse YAML frontmatter from each markdown file.
 
-# Portable mtime: emits "absPath\tmtime" for all .md files under $1.
-# GNU find uses -printf; BusyBox/GNU stat -c for Alpine; BSD stat -f for macOS.
 # _nn_mtime_rows [find-args...] – run find(1) with the given arguments and
 # append "path<TAB>mtime" formatting in the best available flavor: GNU find
 # -printf, GNU/BusyBox stat -c, BSD stat -f.  Single source of the three
@@ -1279,6 +1277,8 @@ _nn_mtime_rows() {
   fi
 }
 
+# _nn_find_md_with_mtime <dir> – emit "absPath\tmtime" rows for every .md
+# file under <dir>, honoring the standard prune list and .nnignore.
 _nn_find_md_with_mtime() {
   local dir="$1"
   # Prune standard metadata/dependency dirs + any custom dirs from .nnignore
@@ -7629,15 +7629,24 @@ ENDDELETE
     chmod +x "$_nn_dir/delete.sh"
 
     # All session programs are emitted; verify each landed with content.
-    # An empty file here means a failed write (disk full after mktemp -d
-    # succeeded) and silent misbehavior later: gawk accepts an empty -f
-    # program file as a valid no-rule program (zero-byte note truncation),
-    # bash sources an empty .fn_note without error (frontmatter
-    # misclassification), and an empty helper script exits 0 (edits no-op
-    # while the TUI reports success).  Abort startup with a clear message
-    # instead.  The write-path scripts also guard themselves at run time.
+    # An empty or missing file here means a failed write (disk or inodes
+    # exhausted after mktemp -d succeeded) and silent misbehavior later:
+    # gawk accepts an empty -f program file as a valid no-rule program
+    # (zero-byte note truncation), bash sources an empty .fn_note without
+    # error (frontmatter misclassification), and an empty helper script
+    # exits 0 (edits no-op while the TUI reports success).  Abort startup
+    # with a clear message instead.  The globs cover every emitted program
+    # including future ones, but under nullglob a NEVER-created file
+    # matches no glob – the literal names after them catch the critical
+    # files even when absent (a name may repeat; the recheck is harmless).
+    # The write-path scripts also guard themselves at run time.
     local _nn_sf
-    for _nn_sf in "$_nn_dir"/*.sh "$_nn_dir"/.awk_* "$_nn_dir"/.fn_*; do
+    for _nn_sf in "$_nn_dir"/*.sh "$_nn_dir"/.awk_* "$_nn_dir"/.fn_* \
+        "$_nn_dir/action.sh" "$_nn_dir/bulkedit_update.sh" \
+        "$_nn_dir/newnote.sh" "$_nn_dir/reload_raw.sh" "$_nn_dir/filter.sh" \
+        "$_nn_dir/.fn_note" "$_nn_dir/.fn_find_md" "$_nn_dir/.awk_prescan" \
+        "$_nn_dir/.awk_action_rewrite" "$_nn_dir/.awk_bulk_rewrite" \
+        "$_nn_dir/.awk_fm_backfill" "$_nn_dir/.awk_native_parser"; do
       if [[ ! -s "$_nn_sf" ]]; then
         echo "notenav: failed to write session file ${_nn_sf##*/} (TMPDIR=${TMPDIR:-/tmp} full?)" >&2
         shopt -u nullglob; return 1
