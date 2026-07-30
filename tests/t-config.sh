@@ -88,4 +88,12 @@ printf '%s\n' "$dout" | grep -q 'only-note' || fail "native listing lost its not
 grep -qiE 'find: (unknown predicate|.*No such file)' "$WORK/err" && fail "-- passthrough args reached find(1) on the native backend"
 grep -q "passthrough args are ignored on the native backend" "$WORK/err" || fail "no native-backend passthrough notice emitted"
 
+# ── doctor flags an unrecognized [defaults.sort_chain] key (typo) like it
+#    does for every sibling table ────────────────────────────────────────
+uconf '[defaults.sort_chain]' 'modifed = ["title"]' 'priority = ["status"]'
+(cd "$G" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/sc.out"
+grep -q "sort_chain: unrecognized key 'modifed'" "$WORK/sc.out" || fail "doctor did not flag a typo'd sort_chain key"
+# a valid chain key must not be reported
+grep -q "sort_chain: unrecognized key 'priority'" "$WORK/sc.out" && fail "doctor wrongly flagged a valid sort_chain key"
+
 finish

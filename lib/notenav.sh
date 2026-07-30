@@ -2819,6 +2819,16 @@ EOF
         fi
       done <<< "$_sc_arr_str"
     done
+    # Unrecognized [defaults.sort_chain] keys: the loader reads only these
+    # five, so any other key (e.g. a typo like 'modifed') is silently
+    # ignored.  Every sibling table gets this check – sort_chain was the gap.
+    local _sc_uk
+    while IFS= read -r _sc_uk; do
+      [[ -z "$_sc_uk" ]] && continue
+      case "$_sc_uk" in priority|status|created|modified|title) ;;
+        *) _warn "defaults.sort_chain: unrecognized key '$_sc_uk' (valid: priority, status, created, modified, title)" ;;
+      esac
+    done < <(nn_cfg '.defaults.sort_chain // {} | keys[]' 2>/dev/null)
     # Check for unrecognized keys in [defaults]
     if [[ -n "$_known_defaults" ]]; then
       local _dk
