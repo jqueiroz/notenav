@@ -1259,6 +1259,26 @@ nn_write_workflow_files() {
 
 # Portable mtime: emits "absPath\tmtime" for all .md files under $1.
 # GNU find uses -printf; BusyBox/GNU stat -c for Alpine; BSD stat -f for macOS.
+# _nn_mtime_rows [find-args...] – run find(1) with the given arguments and
+# append "path<TAB>mtime" formatting in the best available flavor: GNU find
+# -printf, GNU/BusyBox stat -c, BSD stat -f.  Single source of the three
+# format strings – zk-backend re-lists and native listings must emit rows
+# the native parser accepts and that sort consistently.  stat -L: only
+# -L'd command-line args can reach -exec as symlinks; report the note's
+# own mtime, not the link's.  Emitted into .fn_find_md via declare -f.
+_nn_mtime_rows() {
+  if find /dev/null -maxdepth 0 -printf '' 2>/dev/null; then
+    # GNU find – space-separated date to match zk's {{modified}} format
+    find "$@" -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
+  elif stat -c '%n' /dev/null >/dev/null 2>&1; then
+    # BusyBox / GNU stat -c (Alpine, other minimal Linux)
+    find "$@" -exec stat -L -c '%n	%y' {} +
+  else
+    # BSD find + stat (macOS)
+    find "$@" -exec stat -L -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
+  fi
+}
+
 _nn_find_md_with_mtime() {
   local dir="$1"
   # Prune standard metadata/dependency dirs + any custom dirs from .nnignore
@@ -1271,16 +1291,7 @@ _nn_find_md_with_mtime() {
   # line-oriented consumer (.raw, fzf, doctor) and could misdirect writes –
   # such names are unsupported and excluded (nn doctor warns about them)
   local _nl=$'\n'
-  if find "$dir" -maxdepth 0 -printf '' 2>/dev/null; then
-    # GNU find – space-separated date to match zk's {{modified}} format
-    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' ! -path "*${_nl}*" -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
-  elif stat -c '%n' /dev/null >/dev/null 2>&1; then
-    # BusyBox / GNU stat -c (Alpine, other minimal Linux)
-    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' ! -path "*${_nl}*" -type f -exec stat -c '%n	%y' {} +
-  else
-    # BSD find + stat (macOS)
-    find "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' ! -path "*${_nl}*" -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
-  fi
+  _nn_mtime_rows "$dir" \( "${prune[@]}" \) -prune -o -name '*.md' ! -path "*${_nl}*" -type f
 }
 
 # Parses .nnignore and sets globals for ignore filtering.
@@ -1784,23 +1795,16 @@ _nn_list_notes() {
         # Re-list the diverted notes natively, mtimes batched through find
         # (a per-file stat forks 2-3 processes per note, and a Windows-
         # authored notebook can be nearly all BOM'd – thousands of forks
-        # per listing).  TZ=UTC0 matches zk's {{modified}} so mixed rows
-        # sort consistently.  Chunks of 200 stay clear of ARG_MAX; every
+        # per listing).  find -L: a diverted note may be a symlink and must
+        # be listed exactly as the [[ -f ]] loop it replaces listed it.
+        # TZ=UTC0 matches zk's {{modified}} so mixed rows sort
+        # consistently.  Chunks of 200 stay clear of ARG_MAX; every
         # diverted path starts with /, so none reads as a find option.
         local -a _zk_bpaths=()
-        local _zk_i _zk_mtstyle=bsd
+        local _zk_i
         mapfile -t _zk_bpaths < "$_zk_bomlist"
-        if find /dev/null -maxdepth 0 -printf '' 2>/dev/null; then
-          _zk_mtstyle=gnufind
-        elif stat -c '%n' /dev/null >/dev/null 2>&1; then
-          _zk_mtstyle=gnustat
-        fi
         for ((_zk_i = 0; _zk_i < ${#_zk_bpaths[@]}; _zk_i += 200)); do
-          case "$_zk_mtstyle" in
-            gnufind) TZ=UTC0 find "${_zk_bpaths[@]:_zk_i:200}" -maxdepth 0 -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n' 2>/dev/null ;;
-            gnustat) TZ=UTC0 find "${_zk_bpaths[@]:_zk_i:200}" -maxdepth 0 -type f -exec stat -c '%n	%y' {} + 2>/dev/null ;;
-            *)       TZ=UTC0 find "${_zk_bpaths[@]:_zk_i:200}" -maxdepth 0 -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} + 2>/dev/null ;;
-          esac
+          TZ=UTC0 _nn_mtime_rows -L "${_zk_bpaths[@]:_zk_i:200}" -maxdepth 0 -type f 2>/dev/null
         done | _nn_list_notes_native
       fi
       [[ -n "$_zk_bomlist" ]] && rm -f "$_zk_bomlist"
@@ -4628,23 +4632,17 @@ EOF
         shopt -u nullglob; return 1
       fi
     done
-    # Shared find function for native listing – sourced by reload_raw.sh.
-    # Requires _prune_args array to be set before sourcing.
-    cat > "$_nn_dir/.fn_find_md" << 'ENDFNFIND'
+    # Shared find functions for native listing – sourced by reload_raw.sh.
+    # _nn_mtime_rows is emitted via declare -f so the three mtime format
+    # strings keep their single source in the lib definition; the session
+    # walker requires _prune_args to be set before calling.
+    declare -f _nn_mtime_rows > "$_nn_dir/.fn_find_md"
+    cat >> "$_nn_dir/.fn_find_md" << 'ENDFNFIND'
 _nn_find_md_with_mtime() {
   local d="$1"
   # Newline-named files are unsupported – they would split into phantom rows
   local _nl=$'\n'
-  if find "$d" -maxdepth 0 -printf '' 2>/dev/null; then
-    find "$d" \( "${_prune_args[@]}" \) \
-      -prune -o -name '*.md' ! -path "*${_nl}*" -type f -printf '%p\t%TY-%Tm-%Td %TH:%TM:%TS\n'
-  elif stat -c '%n' /dev/null >/dev/null 2>&1; then
-    find "$d" \( "${_prune_args[@]}" \) \
-      -prune -o -name '*.md' ! -path "*${_nl}*" -type f -exec stat -c '%n	%y' {} +
-  else
-    find "$d" \( "${_prune_args[@]}" \) \
-      -prune -o -name '*.md' ! -path "*${_nl}*" -type f -exec stat -f '%N	%Sm' -t '%Y-%m-%d %H:%M:%S' {} +
-  fi
+  _nn_mtime_rows "$d" \( "${_prune_args[@]}" \) -prune -o -name '*.md' ! -path "*${_nl}*" -type f
 }
 ENDFNFIND
 

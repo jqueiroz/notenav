@@ -32,6 +32,22 @@ if [[ "$_zkanchors" -ne 1 || -z "$_zkstage" || $(wc -l <<< "$_zkstage") -gt 15 ]
   _zkstage_ok=0
 fi
 
+# ── _nn_mtime_rows: symlinked notes must be listed (find -L, stat -L) ────
+# The zk-backend BOM re-list feeds explicit paths through this helper; a
+# plain find -type f drops symlink arguments, whereas the [[ -f ]] loop it
+# replaced followed them.  Pure find/stat – gawk-independent.
+NOTENAV_ROOT="$REPO" . "$REPO/lib/notenav.sh" 2>/dev/null || fail "sourcing lib/notenav.sh failed"
+mkdir -p "$WORK/mt"
+printf 'x\n' > "$WORK/mt/real.md"
+ln -s "$WORK/mt/real.md" "$WORK/mt/link.md"
+_mtout=$(_nn_mtime_rows -L "$WORK/mt/real.md" "$WORK/mt/link.md" -maxdepth 0 -type f 2>/dev/null)
+printf '%s\n' "$_mtout" | cut -f1 | grep -qxF "$WORK/mt/real.md" \
+  || fail "_nn_mtime_rows missing the regular file"
+printf '%s\n' "$_mtout" | cut -f1 | grep -qxF "$WORK/mt/link.md" \
+  || fail "_nn_mtime_rows dropped the symlinked note"
+_mtcnt=$(printf '%s\n' "$_mtout" | grep -c .)
+[[ "$_mtcnt" -eq 2 ]] || fail "_nn_mtime_rows emitted $_mtcnt rows (want 2)"
+
 # after ALL gawk-independent checks (per the require_gawk contract): from
 # here on bin/nn and the extracted stage run, both of which need GNU awk
 require_gawk
