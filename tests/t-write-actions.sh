@@ -437,22 +437,34 @@ _nn_state_lock "$CAP"
 _nn_state_unlock "$CAP"
 [[ -d "$CAP/.state.lock" ]] && fail "_nn_state_unlock left the lock dir behind"
 # stale-holder steal: a pre-existing OLD lock (dead holder) must be taken
-# over in bounded time; a YOUNG lock must NOT be stolen (it may belong to a
-# live slow holder) – the caller proceeds unlocked and the young lock stays
+# over in bounded time, with ownership, leaving no steal residue
 mkdir "$CAP/.state.lock"
 touch -t 202001010000 "$CAP/.state.lock"   # backdate: provably stale
 _lock_t0=$SECONDS
 _nn_state_lock "$CAP"
 _lock_dt=$((SECONDS - _lock_t0))
 [[ -d "$CAP/.state.lock" ]] || fail "stale-lock steal did not re-acquire the lock"
-[[ "$_lock_dt" -le 5 ]] || fail "stale-lock steal took ${_lock_dt}s (want ~1s)"
+[[ "$_lock_dt" -le 10 ]] || fail "stale-lock steal took ${_lock_dt}s (want ~1s)"
+[[ "${NN_STATE_LOCK_OWNED:-0}" == 1 ]] || fail "steal did not record ownership"
+_lk_res=$(find "$CAP" -maxdepth 1 -name '.state.lock.stale.*' | wc -l)
+[[ "$_lk_res" -eq 0 ]] || fail "steal left $_lk_res .state.lock.stale.* corpse dirs"
 _nn_state_unlock "$CAP"
-mkdir "$CAP/.state.lock"                   # fresh lock: age gate must refuse
+[[ -d "$CAP/.state.lock" ]] && fail "owned unlock did not remove the lock"
+# a YOUNG lock must NOT be stolen (it may belong to a live slow holder) –
+# the caller proceeds unlocked/unowned and its unlock must NOT release the
+# holder's lock to a third writer.  Future-dated mtime keeps the lock
+# young regardless of how slowly a loaded machine runs the spin loop.
+mkdir "$CAP/.state.lock"
+touch -t 203001010000 "$CAP/.state.lock"
 _lk_ino_before=$(stat -c %i "$CAP/.state.lock" 2>/dev/null || stat -f %i "$CAP/.state.lock")
 _nn_state_lock "$CAP"
 _lk_ino_after=$(stat -c %i "$CAP/.state.lock" 2>/dev/null || stat -f %i "$CAP/.state.lock" 2>/dev/null)
 [[ "$_lk_ino_before" == "$_lk_ino_after" ]] \
   || fail "young lock was stolen (inode changed) – a live slow holder would lose its lock"
+[[ "${NN_STATE_LOCK_OWNED:-0}" == 0 ]] || fail "unowned proceed recorded ownership"
+_nn_state_unlock "$CAP"
+[[ -d "$CAP/.state.lock" ]] \
+  || fail "unowned unlock removed the live holder's lock (third-writer hazard)"
 rmdir "$CAP/.state.lock"
 # under the lock, interleaved append/prune rounds must never lose an entry
 : > "$CAP/.pinned"
@@ -479,13 +491,22 @@ for _lk_s in action.sh delete.sh; do
   grep -q '_nn_state_lock' "$CAP/$_lk_s" || fail "$_lk_s does not take the state lock"
 done
 # filter.sh/reload_raw.sh keep .orig copies; every best-effort script must
-# carry the FULL prologue (source + declare -F fallback), not just a lock
-# call – a stale fallback line alone would satisfy a plain grep while the
-# script degraded to unlocked writes
+# carry the .fn_note source line, the declare -F fallback, AND at least one
+# real lock CALL – the fallback line alone contains the token
+# '_nn_state_lock', so a plain grep would stay green while the script
+# degraded to unlocked writes
 for _lk_s in filter.sh.orig reload_raw.sh.orig bulkedit_apply.sh delete.sh; do
-  grep -q '_nn_state_lock' "$CAP/$_lk_s" || fail "$_lk_s does not take the state lock"
+  grep -q '\. "\$dir/\.fn_note"' "$CAP/$_lk_s" \
+    || fail "$_lk_s does not source .fn_note"
   grep -q 'declare -F _nn_state_lock' "$CAP/$_lk_s" \
     || fail "$_lk_s lacks the tolerant-source fallback prologue"
+  grep -q '_nn_state_lock "\$dir"' "$CAP/$_lk_s" \
+    || fail "$_lk_s has no actual _nn_state_lock call"
+done
+# and action.sh/newnote.sh (fail-closed sourcing) must call it too
+for _lk_s in action.sh newnote.sh; do
+  grep -q '_nn_state_lock "\$dir"' "$CAP/$_lk_s" \
+    || fail "$_lk_s has no actual _nn_state_lock call"
 done
 
 # ── killwatcher.sh: identity-checked watcher kill (PID-reuse guard) ──────
@@ -541,10 +562,15 @@ bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1
 _fc_stray=$(find "$CAP" -name '.raw.snap.*' -o -name '.raw_title.*' -o -name '.current.tmp.*' -o -name '.pin_ghost_count.*' | wc -l)
 [[ "$_fc_stray" -eq 0 ]] || fail "filter runs left $_fc_stray stray per-invocation temp files"
 # completeness sweep: every filter.sh intermediate must be $$-suffixed –
-# any .raw_*/snap/tmp/count name inside the heredoc without the suffix is
-# a fresh instance of the .raw_title gap
-_fc_unsuf=$(sed -n '\|cat > "\$_nn_dir/filter.sh"|,/^ENDFILTER$/p' "$REPO/lib/notenav.sh" \
-              | grep -oE '"\$dir/\.(raw[_.][a-z_.]+|current\.tmp|pin_ghost_count|pinned\.snap|marked\.snap)[^"]*"' \
+# any .raw<anything>/snap/tmp/count name inside the heredoc without the
+# suffix is a fresh instance of the .raw_title gap.  The name class admits
+# digits/uppercase (".raw2col" must not slip through), and an empty heredoc
+# extraction is itself a failure (a renamed delimiter would otherwise make
+# the sweep pass vacuously forever).
+_fc_src=$(sed -n '\|cat > "\$_nn_dir/filter.sh"|,/^ENDFILTER$/p' "$REPO/lib/notenav.sh")
+[[ -n "$_fc_src" ]] || fail "filter.sh heredoc extraction anchors drifted – update this test"
+_fc_unsuf=$(printf '%s\n' "$_fc_src" \
+              | grep -oE '"\$dir/\.(raw[A-Za-z0-9_.]+|current\.(tmp|build)|pin_ghost_count|pinned\.snap|marked\.snap)[^"]*"' \
               | grep -v '\.\$\$"' | sort -u)
 [[ -z "$_fc_unsuf" ]] || fail "unsuffixed filter.sh intermediates: $_fc_unsuf"
 

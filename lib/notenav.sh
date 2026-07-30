@@ -1673,39 +1673,52 @@ _nn_fence_probe() {
 # pin/mark state files (.pinned/.marked/.f_match_paths).  Without it, a
 # watcher-triggered reload's satellite prune racing an action's pin append
 # silently drops the just-added entry (the note vanishes from the filtered
-# view instead of staying as a pinned ghost row).  mkdir is the portable
-# atomic test-and-set; spin in ~20ms steps and steal a stale lock after ~1s
-# (critical sections are milliseconds, so a second-old lock means its holder
-# died).  Never blocks an action forever: after the steal attempt the caller
-# proceeds regardless, which is no worse than the unlocked behavior this
-# replaces.
+# view instead of staying as a pinned ghost row).
+#
+# Contract: mkdir is the portable atomic test-and-set; spin ~1s in 20ms
+# steps.  A lock whose dir mtime is >=5s old (or of unknowable age) is a
+# dead holder's – critical sections are milliseconds – and is stolen BY
+# ATOMIC RENAME, so of several starved contenders exactly one wins the mv
+# and the corpse is exclusively the winner's to remove (an unconditional
+# rm -rf would race a rival's fresh re-acquire).  A young-but-held lock
+# after the wait means a busy system: proceed UNLOCKED and unowned – no
+# worse than the pre-lock behavior.  NN_STATE_LOCK_OWNED records whether
+# we own the lock; _nn_state_unlock removes it ONLY when owned, so a
+# contender that proceeded unlocked can never release a live holder's
+# lock to a third writer.  Never fails: callers always proceed.
 _nn_state_lock() {
   local _ld="$1/.state.lock" _i=0 _age _now
+  NN_STATE_LOCK_OWNED=0
   until mkdir "$_ld" 2>/dev/null; do
     _i=$((_i + 1))
     if [[ "$_i" -ge 50 ]]; then
-      # Patience exhausted (~1s of spinning).  Steal ONLY a lock that is
-      # provably old (holder died mid-section: sections are milliseconds,
-      # so 5s is definitive) – never a live slow holder's, whose eventual
-      # unlock would release OUR stolen lock to a third writer.  A
-      # young-but-held lock after the wait means a busy system: proceed
-      # unlocked, no worse than the pre-lock behavior this replaces (a
-      # dead-but-young lock self-heals: a later contender steals at 5s).
       _now=$(date +%s)
       _age=$(stat -c %Y "$_ld" 2>/dev/null || stat -f %m "$_ld" 2>/dev/null)
-      if [[ -n "$_age" && $((_now - _age)) -ge 5 ]]; then
-        rm -rf "$_ld" 2>/dev/null
-        mkdir "$_ld" 2>/dev/null
+      if [[ -z "$_age" || $((_now - _age)) -ge 5 ]]; then
+        # unknown age (exotic stat) falls back to the old unconditional
+        # steal – but by rename, so a rival's fresh lock is never destroyed
+        if mv "$_ld" "$_ld.stale.$$" 2>/dev/null; then
+          rm -rf "$_ld.stale.$$" 2>/dev/null
+          mkdir "$_ld" 2>/dev/null && NN_STATE_LOCK_OWNED=1
+        fi
       fi
-      break
+      return 0
     fi
-    # No fractional sleep on this system → fast-forward the counter rather
-    # than stalling in whole-second sleeps; the age gate still applies
-    sleep 0.02 2>/dev/null || _i=$((_i + 24))
+    # No fractional sleep on this system → whole-second step advancing the
+    # counter proportionally: patience stays ~2s instead of collapsing to
+    # a microsecond busy-spin or stretching to 50s
+    sleep 0.02 2>/dev/null || { sleep 1; _i=$((_i + 24)); }
   done
+  NN_STATE_LOCK_OWNED=1
   return 0
 }
-_nn_state_unlock() { rmdir "$1/.state.lock" 2>/dev/null || true; }
+_nn_state_unlock() {
+  if [[ "${NN_STATE_LOCK_OWNED:-0}" == 1 ]]; then
+    rmdir "$1/.state.lock" 2>/dev/null
+  fi
+  NN_STATE_LOCK_OWNED=0
+  return 0
+}
 
 # Repair for the duplicated-frontmatter corruption written by pre-0.2.0
 # versions when editing CRLF/BOM notes (run via `nn doctor --fix-frontmatter`).
@@ -6797,12 +6810,17 @@ esac
 if [ "$action" != "refresh" ]; then
   : > "$dir/.last_action"
 fi
-printf '%s\n' "$ft" > "$dir/.f_type"; printf '%s\n' "$fs" > "$dir/.f_status"
-printf '%s\n' "$fp" > "$dir/.f_priority"
-printf '%s\n' "$fsort" > "$dir/.f_sort"; printf '%s\n' "$fsort_rev" > "$dir/.f_sort_rev"; printf '%s\n' "$fgroup" > "$dir/.f_group"
-printf '%s\n' "$farchive" > "$dir/.f_archive"
-printf '%s\n' "$fmatch" > "$dir/.f_match"
-printf '%s\n' "$fmarked" > "$dir/.f_marked"
+# Persist filter state ATOMICALLY (tmp+mv): these nine files are re-read at
+# the top of every concurrent invocation, and a bare truncate-then-write
+# here let a racing run read an empty value mid-truncation and render the
+# wrong view (e.g. ungrouped/unfiltered) as .current until the next refresh
+persist_f() { printf '%s\n' "$2" > "$dir/$1.$$" && mv "$dir/$1.$$" "$dir/$1"; }
+persist_f .f_type "$ft"; persist_f .f_status "$fs"
+persist_f .f_priority "$fp"
+persist_f .f_sort "$fsort"; persist_f .f_sort_rev "$fsort_rev"; persist_f .f_group "$fgroup"
+persist_f .f_archive "$farchive"
+persist_f .f_match "$fmatch"
+persist_f .f_marked "$fmarked"
 # Build awk condition
 # Sanitize values for safe interpolation into awk expressions.  '$' is NOT
 # special inside an AWK string literal, so it must NOT be escaped (\$ is an
@@ -6969,10 +6987,15 @@ now=$(date +%s)
 # fixed-name temps and install interleaved output as .current.  Each run now
 # works on its own set and the final mv is last-writer-wins with a CONSISTENT
 # file.  Clean up on every exit so the session dir does not accumulate them.
-trap 'rm -f "$dir/.raw.snap.$$" "$dir/.pinned.snap.$$" "$dir/.marked.snap.$$" "$dir/.raw_matched.$$" "$dir/.raw_marked.$$" "$dir/.raw_prefiltered.$$" "$dir/.raw_widened.$$" "$dir/.raw_title.$$" "$dir/.current.tmp.$$" "$dir/.pin_ghost_count.$$"' EXIT
+trap 'rm -f "$dir/.raw.snap.$$" "$dir/.pinned.snap.$$" "$dir/.marked.snap.$$" "$dir/.raw_matched.$$" "$dir/.raw_marked.$$" "$dir/.raw_prefiltered.$$" "$dir/.raw_widened.$$" "$dir/.raw_title.$$" "$dir/.current.tmp.$$" "$dir/.current.build.$$" "$dir/.pin_ghost_count.$$" "$dir"/.f_*.$$' EXIT
 cp "$dir/.raw" "$dir/.raw.snap.$$"
 cp "$dir/.pinned" "$dir/.pinned.snap.$$" 2>/dev/null || : > "$dir/.pinned.snap.$$"
 cp "$dir/.marked" "$dir/.marked.snap.$$" 2>/dev/null || : > "$dir/.marked.snap.$$"
+# This run's PRIVATE view-under-construction, published to .current in one
+# mv at the end.  Seeded from the published view so a failed rebuild keeps
+# showing the previous list (the pre-private behavior on awk failure).
+_cur="$dir/.current.build.$$"
+cp "$dir/.current" "$_cur" 2>/dev/null || : > "$_cur"
 # Pre-filter by body match if active
 _raw_input="$dir/.raw.snap.$$"
 _count_input="$dir/.raw.snap.$$"
@@ -7037,9 +7060,9 @@ if [ -s "$dir/.pinned.snap.$$" ] || [ -s "$dir/.marked.snap.$$" ]; then
     !('"${cond}"') && ($6 in is_pinned) && ($6 in is_marked) { gc++; '"${marked_awk}"' }
     !('"${cond}"') && ($6 in is_pinned) && !($6 in is_marked) { gc++; '"${pinned_awk}"' }
     END { printf "%d", gc+0 > ghost_file }
-  ' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$dir/.current" || rm -f "$dir/.current.tmp.$$"
+  ' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" || rm -f "$dir/.current.tmp.$$"
 else
-  do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$dir/.current" || rm -f "$dir/.current.tmp.$$"
+  do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" || rm -f "$dir/.current.tmp.$$"
   printf '0' > "$dir/.pin_ghost_count.$$"
 fi
 # Pipeline: AWK filter → count → grouping → empty-view → border/output
@@ -7051,7 +7074,7 @@ if [ -n "$fgroup" ]; then
   awk -F'\t' -v gcol="$gcol" '
     NR==FNR { key[$6] = $gcol; next }
     { path=$1; gk=key[path]; print gk "\t" $0 }
-  ' "$dir/.raw.snap.$$" "$dir/.current" \
+  ' "$dir/.raw.snap.$$" "$_cur" \
   | sort -t'	' -k1,1 -s \
   | awk -F'\t' -v gmode="$fgroup" \
     -v type_order="$(cat "$dir/.schema_type_order")" \
@@ -7081,7 +7104,7 @@ if [ -n "$fgroup" ]; then
         printf "\t%s── %s (%d) ──%s\n", pre, label, counts[g], suf
         printf "%s", lines[g]
       }
-    }' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$dir/.current" || rm -f "$dir/.current.tmp.$$"
+    }' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" || rm -f "$dir/.current.tmp.$$"
 fi
 # Compute inline stats from filtered set
 awk_stats=$(cat "$dir/.awk_color_stats")
@@ -7403,7 +7426,7 @@ printf '%s\n%s\n%s\n%s\n%s' "$help_filters_lbl" "$help_display_lbl" "$help_actio
     printf '\n  [34m╭─────────────────────────────────────────────────╮[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                [35m♩[0m [1;36m♪[0m [32m♫[0m [36m♩[0m [35m♪[0m [31m♫[0m [32m♩[0m [1;36m♪[0m [35m♩[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    ───────────────────────────────────────────  [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore vim comes to a crawl?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore they turn to a scrawl?[0m                [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, can save us all.[0m      [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore we call vim unprepared?[0m               [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many thoughts can a man jot down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore adrift he'\''s declared?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is simply [1;31mn²[0m[1;33m.[0m         [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [3;37mHow many notes must a man write down,[0m        [34m│[0m\n  [34m│[0m    [3;37mbefore dear vim hits a wall?[0m                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m    [1;33mThe answer, my friend, is [1;31mnn[0m[1;33m, after all.[0m     [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m            [35m♩[0m                                    [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                      [36m♪[0m                          [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m         [35m♫[0m                                       [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m│[0m                   [32m♩[0m                             [34m│[0m\n  [34m│[0m                                                 [34m│[0m\n  [34m╰─────────────────────────────────────────────────╯[0m\n' > "$dir/.empty_placeholder"
 [ -f "$dir/.empty_easteregg_override" ] && cat "$dir/.empty_easteregg_override" > "$dir/.empty_placeholder"
 # Show Adams placeholder + dummy entry when view is truly empty (skip if ghost rows present)
-if [ "$count" -eq 0 ] && ! [ -s "$dir/.current" ]; then
+if [ "$count" -eq 0 ] && ! [ -s "$_cur" ]; then
   raw_total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap.$$" | wc -l)
   if [ "$raw_total" -eq 0 ]; then
     _has_wf=""; [ -s "$dir/.has_project_config" ] && _has_wf=1
@@ -7494,13 +7517,18 @@ if [ "$count" -eq 0 ] && ! [ -s "$dir/.current" ]; then
         printf '%s\t \n' "$dir/.empty_placeholder"
         _i=$((_i + 1))
       done
-    } > "$dir/.current"
+    } > "$_cur"
   elif [ -n "${NO_COLOR+x}" ]; then
-    printf '%s\t  ~\n' "$dir/.empty_placeholder" > "$dir/.current"
+    printf '%s\t  ~\n' "$dir/.empty_placeholder" > "$_cur"
   else
-    printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$dir/.current"
+    printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$_cur"
   fi
 fi
+# Publish the finished view atomically: everything above worked on this
+# run's private build file, so concurrent runs can never re-process each
+# other's half-published output (the grouping pass used to re-read the
+# SHARED .current and could double-group a rival's already-grouped view)
+[ -f "$_cur" ] && mv "$_cur" "$dir/.current"
 # Measure placeholder visible width (strip ANSI, find longest line) for preview.sh centering
 awk 'BEGIN{esc=sprintf("%c",27)} {gsub(esc"\\[[0-9;]*m",""); if(length>m) m=length} END{print m+0}' "$dir/.empty_placeholder" > "$dir/.empty_placeholder_width"
 total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap.$$" | wc -l)
