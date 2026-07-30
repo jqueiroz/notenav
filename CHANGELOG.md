@@ -28,4 +28,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Notes with long frontmatter (over ~200 lines) are editable again; the unclosed-frontmatter safety check and the rewriters share a single 100000-line cap.
 - `nn doctor --fix-frontmatter` raises the scan cap from 2000 to 200000 files (and says so when even that is exceeded), streams large notes instead of buffering them in memory, claims its `.bak` backups atomically (concurrent runs can no longer clobber each other's backup), and reports honestly when a merge leaves an unverifiable fenced block behind.
 - Filenames containing a newline are excluded from indexing with a doctor warning (their phantom rows could previously misdirect an edit onto an innocent file); concurrent list reloads no longer garble the internal index (per-invocation temp files).
+- zk backend: notes with a UTF-8 BOM now appear with correct metadata in listings and filtered views (zk itself cannot parse BOM'd frontmatter; notenav detects such rows and re-lists those notes natively).
 - Clearing the search query and pressing Esc no longer restores the previous search; it clears the search filter as expected.
