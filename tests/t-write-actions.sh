@@ -428,6 +428,53 @@ grep -q 'session files missing' "$WORK/nn.err" \
   || fail "newnote.sh guard did not report missing session files"
 mv "$CAP/.awk_fm_backfill.hidden" "$CAP/.awk_fm_backfill"
 
+# ── state lock: helpers emitted, semantics correct, writers wired ────────
+grep -q '_nn_state_lock' "$CAP/.fn_note" || fail ".fn_note does not carry the state-lock helpers"
+# shellcheck source=/dev/null
+. "$CAP/.fn_note" || fail "sourcing captured .fn_note failed"
+_nn_state_lock "$CAP"
+[[ -d "$CAP/.state.lock" ]] || fail "_nn_state_lock did not create the lock dir"
+_nn_state_unlock "$CAP"
+[[ -d "$CAP/.state.lock" ]] && fail "_nn_state_unlock left the lock dir behind"
+# stale-holder steal: a pre-existing lock (dead holder) must be taken over
+# in bounded time, not deadlock
+mkdir "$CAP/.state.lock"
+_lock_t0=$SECONDS
+_nn_state_lock "$CAP"
+_lock_dt=$((SECONDS - _lock_t0))
+[[ -d "$CAP/.state.lock" ]] || fail "stale-lock steal did not re-acquire the lock"
+[[ "$_lock_dt" -le 5 ]] || fail "stale-lock steal took ${_lock_dt}s (want ~1s)"
+_nn_state_unlock "$CAP"
+# under the lock, interleaved append/prune rounds must never lose an entry
+: > "$CAP/.pinned"
+for _lk_i in $(seq 1 25); do
+  (
+    _nn_state_lock "$CAP"
+    { cat "$CAP/.pinned" 2>/dev/null; printf '/nb/pin-%s.md\n' "$_lk_i"; } | awk '!seen[$0]++' > "$CAP/.pinned.tmp.$$"
+    mv "$CAP/.pinned.tmp.$$" "$CAP/.pinned"
+    _nn_state_unlock "$CAP"
+  ) &
+  (
+    _nn_state_lock "$CAP"
+    # prune that keeps everything (models reload_raw when no notes vanished)
+    cat "$CAP/.pinned" 2>/dev/null > "$CAP/.pinned.tmp.p$$" && mv "$CAP/.pinned.tmp.p$$" "$CAP/.pinned"
+    _nn_state_unlock "$CAP"
+  ) &
+done
+wait
+_lk_n=$(grep -c . "$CAP/.pinned")
+[[ "$_lk_n" -eq 25 ]] || fail "locked append/prune interleave lost pins: $_lk_n/25 survived"
+rm -f "$CAP/.pinned"
+# the real writers must actually take the lock (wiring, not just helpers)
+for _lk_s in action.sh delete.sh; do
+  grep -q '_nn_state_lock' "$CAP/$_lk_s" || fail "$_lk_s does not take the state lock"
+done
+# filter.sh/reload_raw.sh are neutralized post-capture; check their source
+grep -A400 'cat > "\$_nn_dir/filter.sh"' "$REPO/lib/notenav.sh" | grep -q '_nn_state_lock' \
+  || fail "filter.sh emission does not take the state lock"
+grep -A40 'Prune satellite files' "$REPO/lib/notenav.sh" | grep -q '_nn_state_lock' \
+  || fail "reload_raw.sh prune does not take the state lock"
+
 # ── writes preserve file permissions (mktemp is 0600; mode must survive) ─
 file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }
 mk_note "$f" crlf 0 "${BASE[@]}"

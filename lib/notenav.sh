@@ -1649,6 +1649,31 @@ _nn_fence_probe() {
   return 0
 }
 
+# _nn_state_lock <session-dir> – serialize read-modify-write updates of the
+# pin/mark state files (.pinned/.marked/.f_match_paths).  Without it, a
+# watcher-triggered reload's satellite prune racing an action's pin append
+# silently drops the just-added entry (the note vanishes from the filtered
+# view instead of staying as a pinned ghost row).  mkdir is the portable
+# atomic test-and-set; spin in ~20ms steps and steal a stale lock after ~1s
+# (critical sections are milliseconds, so a second-old lock means its holder
+# died).  Never blocks an action forever: after the steal attempt the caller
+# proceeds regardless, which is no worse than the unlocked behavior this
+# replaces.
+_nn_state_lock() {
+  local _ld="$1/.state.lock" _i=0
+  until mkdir "$_ld" 2>/dev/null; do
+    _i=$((_i + 1))
+    if [[ "$_i" -ge 50 ]]; then
+      rm -rf "$_ld" 2>/dev/null
+      mkdir "$_ld" 2>/dev/null
+      break
+    fi
+    sleep 0.02 2>/dev/null || sleep 1
+  done
+  return 0
+}
+_nn_state_unlock() { rmdir "$1/.state.lock" 2>/dev/null || true; }
+
 # Repair for the duplicated-frontmatter corruption written by pre-0.2.0
 # versions when editing CRLF/BOM notes (run via `nn doctor --fix-frontmatter`).
 # Matches ONLY the known damage shape: a leading fence block containing
@@ -4658,7 +4683,7 @@ EOF
     # Frontmatter backfill for zk-created notes – run by newnote.sh.
     printf '%s\n' "$_NN_FM_BACKFILL_AWK" > "$_nn_dir/.awk_fm_backfill"
     # Shared write-path helpers – sourced by action.sh/bulkedit_update.sh/newnote.sh
-    declare -f _nn_note_mode _nn_stamp_mode _nn_note_bom _nn_fence_probe > "$_nn_dir/.fn_note"
+    declare -f _nn_note_mode _nn_stamp_mode _nn_note_bom _nn_fence_probe _nn_state_lock _nn_state_unlock > "$_nn_dir/.fn_note"
     # Field rewriters + shared unclosed-frontmatter pre-scan (gawk -f -f)
     printf '%s\n' "$_NN_FM_PRESCAN_AWK" > "$_nn_dir/.awk_prescan"
     printf '%s\n' "$_NN_ACTION_REWRITE_AWK" > "$_nn_dir/.awk_action_rewrite"
@@ -5165,13 +5190,20 @@ else
   printf 'scan error – press r to retry' > "$dir/.last_action"
 fi
 
-# Prune satellite files: remove paths that no longer exist in .raw
+# Prune satellite files: remove paths that no longer exist in .raw.
+# Under the state lock: this read-filter-rewrite racing an action's pin/mark
+# append would silently drop the just-added entry (best effort – missing
+# helpers degrade to the unlocked prune this script always used).
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_state_lock >/dev/null 2>&1 || { _nn_state_lock() { :; }; _nn_state_unlock() { :; }; }
 if [ -s "$dir/.raw" ]; then
+  _nn_state_lock "$dir"
   for _sat in "$dir/.pinned" "$dir/.marked" "$dir/.f_match_paths"; do
     [ -s "$_sat" ] || continue
     awk -F'\t' 'NR==FNR{paths[$6]=1;next} ($0 in paths)' "$dir/.raw" "$_sat" > "$_sat.tmp.$$" \
       && mv "$_sat.tmp.$$" "$_sat" || rm -f "$_sat.tmp.$$"
   done
+  _nn_state_unlock "$dir"
 fi
 ENDRELOAD
     chmod +x "$_nn_dir/reload_raw.sh"
@@ -5348,8 +5380,10 @@ else
   esac
 fi
 if $_need_pin && [ ${#ok_files[@]} -gt 0 ]; then
+  _nn_state_lock "$dir"
   { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${ok_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp.$$"
   mv "$dir/.pinned.tmp.$$" "$dir/.pinned"
+  _nn_state_unlock "$dir"
   rm -f "$dir/.pinned.bak"  # invalidate restore-pins backup; new pins supersede old set
 fi
 if [ "$count" -eq 0 ]; then
@@ -5589,6 +5623,11 @@ ENDBEU
     cat > "$_nn_dir/bulkedit_apply.sh" << 'ENDBA'
 #!/usr/bin/env bash
 dir="$1"; orig="$2"; edited="$3"
+# State-lock helpers (best effort: missing helpers degrade to the unlocked
+# pin update this script always used; note writes go via bulkedit_update.sh
+# which fails closed on its own)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_state_lock >/dev/null 2>&1 || { _nn_state_lock() { :; }; _nn_state_unlock() { :; }; }
 
 # Colors
 if [ -n "${NO_COLOR+x}" ]; then
@@ -5788,8 +5827,10 @@ if [ "$count" -gt 0 ]; then
   printf "${_c_green}Updated %d note(s)${_c_reset}\n" "$count" > /dev/tty
   # Pin files whose changes would cause them to leave the current view
   if [ ${#pin_files[@]} -gt 0 ]; then
+    _nn_state_lock "$dir"
     { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "${pin_files[@]}"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp.$$"
     mv "$dir/.pinned.tmp.$$" "$dir/.pinned"
+    _nn_state_unlock "$dir"
     rm -f "$dir/.pinned.bak"
   fi
 fi
@@ -6395,8 +6436,10 @@ else
   if ! $_need_pin && [ -s "$dir/.f_tags" ]; then _need_pin=true; fi
 fi
 if $_need_pin; then
+  _nn_state_lock "$dir"
   { cat "$dir/.pinned" 2>/dev/null; printf '%s\n' "$new_path"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp.$$"
   mv "$dir/.pinned.tmp.$$" "$dir/.pinned"
+  _nn_state_unlock "$dir"
   rm -f "$dir/.pinned.bak"
 fi
 # Regenerate raw
@@ -6515,6 +6558,10 @@ ENDQP
 #!/usr/bin/env bash
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"; action="$2"
+# State-lock helpers for pin/mark mutations (best effort: missing helpers
+# degrade to the unlocked updates this script always used)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_state_lock >/dev/null 2>&1 || { _nn_state_lock() { :; }; _nn_state_unlock() { :; }; }
 # Clear placeholder-active flag; re-set later if the empty-narrowed branch fires
 rm -f "$dir/.empty_narrowed_active"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
@@ -6551,11 +6598,15 @@ fwrap_was="$fwrap"
 # sticky (survive filter changes). Only reset and clear-pins clear them.
 case "$action" in
   clear-pins)
+    _nn_state_lock "$dir"
     if [ -s "$dir/.pinned" ]; then cp "$dir/.pinned" "$dir/.pinned.bak"; fi
-    : > "$dir/.pinned" ;;
+    : > "$dir/.pinned"
+    _nn_state_unlock "$dir" ;;
   reset)
+    _nn_state_lock "$dir"
     : > "$dir/.pinned"
     : > "$dir/.marked"
+    _nn_state_unlock "$dir"
     : > "$dir/.f_marked" ;;
 esac
 case "$action" in
@@ -6609,13 +6660,16 @@ case "$action" in
   clear-group) fgroup="" ;;
   clear-pins) ;;  # pins already cleared above; just re-render
   restore-pins)  # one-shot undo of last clear-pins
+    _nn_state_lock "$dir"
     if [ -s "$dir/.pinned.bak" ]; then
       mv "$dir/.pinned.bak" "$dir/.pinned"
-    fi ;;
+    fi
+    _nn_state_unlock "$dir" ;;
   mark-toggle)
     path="$3"
     case "$path" in *.empty_placeholder) path="" ;; esac
     if [ -n "$path" ]; then
+      _nn_state_lock "$dir"
       if grep -qxF "$path" "$dir/.marked" 2>/dev/null; then
         { grep -vxF "$path" "$dir/.marked" || [ $? -eq 1 ]; } > "$dir/.marked.tmp.$$"
         mv "$dir/.marked.tmp.$$" "$dir/.marked"
@@ -6628,18 +6682,22 @@ case "$action" in
       else
         printf '%s\n' "$path" >> "$dir/.marked"
       fi
+      _nn_state_unlock "$dir"
     fi ;;
   mark-add)
     if [ -s "$dir/.m_sel" ]; then
       { grep -v '\.empty_placeholder$' "$dir/.m_sel" || [ $? -eq 1 ]; } > "$dir/.m_sel.tmp"
       mv "$dir/.m_sel.tmp" "$dir/.m_sel"
+      _nn_state_lock "$dir"
       { cat "$dir/.marked" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.marked.tmp.$$"
       mv "$dir/.marked.tmp.$$" "$dir/.marked"
+      _nn_state_unlock "$dir"
     fi ;;
   mark-remove)
     if [ -s "$dir/.m_sel" ]; then
       { grep -v '\.empty_placeholder$' "$dir/.m_sel" || [ $? -eq 1 ]; } > "$dir/.m_sel.tmp"
       mv "$dir/.m_sel.tmp" "$dir/.m_sel"
+      _nn_state_lock "$dir"
       # Pin the unmarked items when mark filter is on so they don't vanish
       if [ -n "$fmarked" ]; then
         { cat "$dir/.pinned" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.pinned.tmp.$$" \
@@ -6648,8 +6706,12 @@ case "$action" in
       fi
       awk 'NR==FNR{del[$0]=1;next} !($0 in del)' "$dir/.m_sel" "$dir/.marked" > "$dir/.marked.tmp.$$" \
         && mv "$dir/.marked.tmp.$$" "$dir/.marked"
+      _nn_state_unlock "$dir"
     fi ;;
-  mark-clear) : > "$dir/.marked" ;;
+  mark-clear)
+    _nn_state_lock "$dir"
+    : > "$dir/.marked"
+    _nn_state_unlock "$dir" ;;
   mark-filter)
     if [ -n "$fmarked" ]; then fmarked=""; else fmarked="on"; fi ;;
   refresh) ;;  # just re-apply filters (after tag picker / action scripts)
@@ -7501,6 +7563,10 @@ ENDEDIT
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir=$(dirname "$0")
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
+# State-lock helpers for pin/mark cleanup (best effort: missing helpers
+# degrade to the unlocked updates this script always used)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_state_lock >/dev/null 2>&1 || { _nn_state_lock() { :; }; _nn_state_unlock() { :; }; }
 
 # Read targets (one path per line)
 targets=()
@@ -7625,16 +7691,17 @@ for f in "${targets[@]}"; do
   [ ! -f "$f" ] && continue
   if _do_delete "$f"; then
     _del_ok=$((_del_ok + 1))
-    # Clean up .pinned
+    # Clean up .pinned/.marked under the state lock (see .fn_note helpers)
+    _nn_state_lock "$dir"
     if [ -s "$dir/.pinned" ]; then
       { grep -vxF "$f" "$dir/.pinned" || [ $? -eq 1 ]; } > "$dir/.pinned.tmp.$$"
       mv "$dir/.pinned.tmp.$$" "$dir/.pinned"
     fi
-    # Clean up .marked
     if [ -s "$dir/.marked" ]; then
       { grep -vxF "$f" "$dir/.marked" || [ $? -eq 1 ]; } > "$dir/.marked.tmp.$$"
       mv "$dir/.marked.tmp.$$" "$dir/.marked"
     fi
+    _nn_state_unlock "$dir"
   else
     _del_fail=$((_del_fail + 1))
   fi

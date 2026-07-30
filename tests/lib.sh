@@ -91,6 +91,16 @@ ENDSHIM
     rm -rf "$tmp"
     return 1
   fi
+  # Syntax-gate every generated script BEFORE any are neutralized: heredoc
+  # bodies are invisible to shellcheck, so a paren/;; slip in an emitted
+  # script would otherwise surface only when that keybinding fires.
+  local _cs
+  for _cs in "$dest"/*.sh; do
+    if ! bash -n "$_cs" 2>"$tmp/synerr"; then
+      fail "generated ${_cs##*/} has a syntax error:"
+      sed 's/^/    /' "$tmp/synerr" | head -5
+    fi
+  done
   # Neutralize post-action reload/filter so byte assertions stay deterministic
   printf '#!/bin/sh\nexit 0\n' > "$dest/reload_raw.sh"
   printf '#!/bin/sh\nexit 0\n' > "$dest/filter.sh"
