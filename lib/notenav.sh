@@ -4661,7 +4661,7 @@ EOF
       shopt -u nullglob; return 1
     fi
     chmod 700 "$_nn_dir"
-    trap '_p=$(cat "'"$_nn_dir"'/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null; rm -rf "'"$_nn_dir"'"' EXIT
+    trap '"'"$_nn_dir"'/killwatcher.sh" "'"$_nn_dir"'" 2>/dev/null; rm -rf "'"$_nn_dir"'"' EXIT
     trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 131' QUIT
     nn_write_workflow_files "$_nn_dir"
 
@@ -5214,6 +5214,10 @@ ENDRELOAD
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"
 printf '%s' $$ > "$dir/.watcher_pid"
+# Remove the pidfile on ANY exit so a died watcher never leaves a stale PID
+# for the session-exit kill to send SIGTERM to (PIDs get recycled).  The
+# mode-specific traps below re-trap and must each keep this rm.
+trap 'rm -f "$dir/.watcher_pid"' EXIT
 
 mode=$(cat "$dir/.refresh_mode" 2>/dev/null)
 [[ -z "$mode" || "$mode" = "manual" ]] && exit 0
@@ -5224,8 +5228,11 @@ post_reload() {
   if command -v curl >/dev/null 2>&1; then
     curl -s --connect-timeout 2 --max-time 5 -X POST -d "$action" "http://127.0.0.1:$FZF_PORT" >/dev/null 2>&1
   else
+    # Content-Length is BYTES; ${#action} counts characters, so a multibyte
+    # TMPDIR path would understate the length and truncate the POSTed action
+    local _blen; _blen=$(( $(printf '%s' "$action" | wc -c) ))
     printf 'POST / HTTP/1.0\r\nHost: localhost\r\nContent-Length: %d\r\n\r\n%s' \
-      "${#action}" "$action" > /dev/tcp/127.0.0.1/"$FZF_PORT" 2>/dev/null
+      "$_blen" "$action" > /dev/tcp/127.0.0.1/"$FZF_PORT" 2>/dev/null
   fi
 }
 
@@ -5248,13 +5255,13 @@ if [[ "$mode" = "watch" ]]; then
     rm -f "$_fifo"
     exit 0
   fi
-  trap 'kill $_watch_child 2>/dev/null; rm -f "$_fifo"; exit' EXIT HUP INT TERM QUIT
+  trap 'kill $_watch_child 2>/dev/null; rm -f "$_fifo" "$dir/.watcher_pid"; exit' EXIT HUP INT TERM QUIT
   while IFS= read -r _; do
     while IFS= read -r -t 1 _; do :; done
     post_reload
   done < "$_fifo"
 elif [[ "$mode" = "poll" ]]; then
-  trap 'exit' EXIT TERM
+  trap 'rm -f "$dir/.watcher_pid"; exit' EXIT TERM
   interval=$(cat "$dir/.refresh_interval" 2>/dev/null)
   interval=${interval:-30}
   # Build prune args for find (standard dirs + custom .nnignore dirs)
@@ -5291,6 +5298,29 @@ else
 fi
 ENDWATCHER
     chmod +x "$_nn_dir/watcher.sh"
+
+    # Kill the session watcher, verifying the recorded PID still belongs to
+    # THIS session (its args contain the unique session dir).  A watcher
+    # that died leaves a stale pidfile and the kernel recycles PIDs, so a
+    # blind kill could TERM an unrelated same-user process hours later.
+    cat > "$_nn_dir/killwatcher.sh" << 'ENDKW'
+#!/usr/bin/env bash
+dir="$1"
+_p=$(cat "$dir/.watcher_pid" 2>/dev/null)
+[ -n "$_p" ] || exit 0
+if _args=$(ps -o args= -p "$_p" 2>/dev/null) && [ -n "$_args" ]; then
+  case "$_args" in
+    *"$dir"*) kill "$_p" 2>/dev/null ;;
+    *) ;;  # PID recycled to some other process – do NOT kill it
+  esac
+elif kill -0 "$_p" 2>/dev/null; then
+  # ps cannot report args here (exotic ps) – preserve the old plain kill
+  kill "$_p" 2>/dev/null
+fi
+rm -f "$dir/.watcher_pid"
+exit 0
+ENDKW
+    chmod +x "$_nn_dir/killwatcher.sh"
 
     # Bulk action script: update frontmatter field on selected files, then reload
     cat > "$_nn_dir/action.sh" << 'ENDACTION'
@@ -7765,7 +7795,8 @@ ENDDELETE
         "$_nn_dir/csearch_persist.sh" "$_nn_dir/cyclestatus.sh" \
         "$_nn_dir/delete.sh" "$_nn_dir/edit.sh" "$_nn_dir/fieldpick.sh" \
         "$_nn_dir/filter.sh" "$_nn_dir/filterpick.sh" \
-        "$_nn_dir/grouppick.sh" "$_nn_dir/newnote.sh" \
+        "$_nn_dir/grouppick.sh" "$_nn_dir/killwatcher.sh" \
+        "$_nn_dir/newnote.sh" \
         "$_nn_dir/preview.sh" "$_nn_dir/querypick.sh" \
         "$_nn_dir/reload_at.sh" "$_nn_dir/reload_raw.sh" \
         "$_nn_dir/sortpick.sh" "$_nn_dir/tags.sh" "$_nn_dir/watcher.sh" \
@@ -7896,7 +7927,7 @@ ENDDELETE
       --bind 'J:preview-page-down,K:preview-page-up' \
       --bind "enter:transform[case {1} in *.empty_placeholder) ;; *) if test -f $_nn_dir/.nn-csearch; then rm $_nn_dir/.nn-csearch; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; printf '%s' {1} > $_nn_dir/.reload_at_path; echo 'rebind($_nn_search_unbind)+enable-search+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+reload(cat $_nn_dir/.current)+execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh > /dev/null; $_nn_dir/reload_at.sh $_nn_dir)+refresh-preview'; elif test -f $_nn_dir/.nn-search; then rm $_nn_dir/.nn-search; printf '%s' '$NN_UI_COMMAND_PROMPT' > $_nn_dir/.nn-prompt; printf '%s' {1} > $_nn_dir/.edit_target; printf '%s' {1} > $_nn_dir/.reload_at_path; echo 'rebind($_nn_search_unbind)+clear-query+change-prompt($NN_UI_COMMAND_PROMPT)+transform-header(cat $_nn_dir/.header)+execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh > /dev/null; $_nn_dir/reload_at.sh $_nn_dir)+refresh-preview'; else m=\$(cat $_nn_dir/.nn-mode); if test -z \"\$m\"; then printf '%s' {1} > $_nn_dir/.edit_target; printf '%s' {1} > $_nn_dir/.reload_at_path; echo 'execute($_nn_dir/edit.sh)+transform($_nn_dir/filter.sh $_nn_dir refresh > /dev/null; $_nn_dir/reload_at.sh $_nn_dir)+refresh-preview'; fi; fi;; esac]"
     local _fzf_rc=$?
-    _p=$(cat "$_nn_dir/.watcher_pid" 2>/dev/null) && kill "$_p" 2>/dev/null
+    "$_nn_dir/killwatcher.sh" "$_nn_dir" 2>/dev/null
     trap - EXIT HUP INT TERM QUIT
     rm -rf "$_nn_dir"
     shopt -u nullglob

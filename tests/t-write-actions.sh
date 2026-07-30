@@ -475,6 +475,27 @@ grep -A400 'cat > "\$_nn_dir/filter.sh"' "$REPO/lib/notenav.sh" | grep -q '_nn_s
 grep -A40 'Prune satellite files' "$REPO/lib/notenav.sh" | grep -q '_nn_state_lock' \
   || fail "reload_raw.sh prune does not take the state lock"
 
+# ── killwatcher.sh: identity-checked watcher kill (PID-reuse guard) ──────
+# recycled PID: an alive process whose args lack the session dir (PID 1)
+# must NOT be signaled; the stale pidfile is still cleaned up
+printf '1' > "$CAP/.watcher_pid"
+bash "$CAP/killwatcher.sh" "$CAP" || fail "killwatcher exited non-zero on a recycled PID"
+[[ -f "$CAP/.watcher_pid" ]] && fail "killwatcher left the stale pidfile behind"
+# genuine session process (args contain the session dir) must be killed
+bash -c 'sleep 30 & wait' nn-kw-pin "$CAP" & _kw_p=$!
+sleep 0.2
+printf '%s' "$_kw_p" > "$CAP/.watcher_pid"
+bash "$CAP/killwatcher.sh" "$CAP"
+sleep 0.3
+if kill -0 "$_kw_p" 2>/dev/null; then
+  fail "killwatcher did not kill a genuine session process"
+  kill "$_kw_p" 2>/dev/null
+fi
+# dead PID: nothing to kill, pidfile removed, exit 0
+printf '999999' > "$CAP/.watcher_pid"
+bash "$CAP/killwatcher.sh" "$CAP" && [[ ! -f "$CAP/.watcher_pid" ]] \
+  || fail "killwatcher mishandled a dead PID"
+
 # ── writes preserve file permissions (mktemp is 0600; mode must survive) ─
 file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }
 mk_note "$f" crlf 0 "${BASE[@]}"
