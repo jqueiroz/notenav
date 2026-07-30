@@ -4504,7 +4504,7 @@ EOF
     [[ -z "$_qname" ]] && continue
     saved_queries[$_qname]="$_qargs"
     saved_query_order[$_qname]="$_qorder"
-  done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | "\(.key)\t\(.value.order // 100)\t\(.value.args // "")"')
+  done < <(nn_cfg '.queries // {} | to_entries[] | select(.key != "inherit") | select(.value | type == "object") | "\(.key)\t\(.value.order // 100)\t\(.value.args // "")"')
 
   # Validate query preset args against known workflow values
   local _vq_name _vq_arg _vq_key _vq_val _vq_err=0
