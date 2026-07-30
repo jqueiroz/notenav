@@ -29,11 +29,32 @@ _sf_real=$(cd "$CAP" && for _sf in ./*.sh ./.awk_* ./.fn_*; do
 _sf_listed=$(sed -n '\|for _nn_sf in "\$_nn_dir"/\*\.sh|,\|; do$|p' "$REPO/lib/notenav.sh" \
                | grep -oE '"\$_nn_dir/[A-Za-z0-9_.]+"' | grep -oE '_nn_dir/[A-Za-z0-9_.]+' \
                | sed 's|_nn_dir/||' | sort -u)
-if [[ -z "$_sf_real" || -z "$_sf_listed" ]]; then
+# Belt to the capture's braces: a config-guarded emission would not fire in
+# this hermetic capture, but any emission spelled with $_nn_dir is visible
+# in the source regardless of guards – every one of those must be listed
+# too (subset check: helper-mediated emissions are the capture's job)
+_sf_src=$( { grep -oE 'cat >>? "\$_nn_dir/[A-Za-z0-9_.]+"' "$REPO/lib/notenav.sh"
+             grep -oE '(printf|declare -f) [^>|]*> "\$_nn_dir/[A-Za-z0-9_.]+"' "$REPO/lib/notenav.sh"
+           } | grep -oE '_nn_dir/[A-Za-z0-9_.]+' | sed 's|_nn_dir/||' \
+             | grep -E '\.sh$|^\.awk_|^\.fn_' | sort -u)
+# The startup check's glob classes and this pin's enumeration are the same
+# three patterns by construction – hold them in sync explicitly
+_sf_globs=$(sed -n '\|for _nn_sf in "\$_nn_dir"/\*\.sh|p' "$REPO/lib/notenav.sh" \
+              | grep -oE '"\$_nn_dir"/[^ ]+' | tr '\n' ' ')
+if [[ -z "$_sf_real" || -z "$_sf_listed" || -z "$_sf_src" ]]; then
   fail "session-file list extraction anchors drifted – update this test"
-elif [[ "$_sf_real" != "$_sf_listed" ]]; then
-  fail "startup integrity list out of sync with the emitted session files:"
-  diff <(printf '%s\n' "$_sf_real") <(printf '%s\n' "$_sf_listed") | sed 's/^/    /'
+else
+  if [[ "$_sf_real" != "$_sf_listed" ]]; then
+    fail "startup integrity list out of sync with the emitted session files:"
+    diff <(printf '%s\n' "$_sf_real") <(printf '%s\n' "$_sf_listed") | sed 's/^/    /'
+  fi
+  _sf_unlisted=$(comm -23 <(printf '%s\n' "$_sf_src") <(printf '%s\n' "$_sf_listed"))
+  if [[ -n "$_sf_unlisted" ]]; then
+    fail "source-visible emissions missing from the startup list: $_sf_unlisted"
+  fi
+  if [[ "$_sf_globs" != '"$_nn_dir"/*.sh "$_nn_dir"/.awk_* "$_nn_dir"/.fn_* ' ]]; then
+    fail "startup check glob classes changed – update this pin's enumeration to match"
+  fi
 fi
 
 run_action() { bash "$CAP/action.sh" "$CAP" "$@" >/dev/null 2>&1; }

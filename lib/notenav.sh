@@ -7645,8 +7645,10 @@ ENDDELETE
     # matches no glob, so every emitted program is also listed by literal
     # name – the COMPLETE list; t-write-actions.sh diffs it against a
     # live captured session dir, so a new script cannot be forgotten here.
-    # A name matched twice is rechecked harmlessly.  The write-path
-    # scripts also guard themselves at run time.
+    # A name matched twice is rechecked harmlessly.  Session program files
+    # follow these three name classes BY CONVENTION – a new class must be
+    # added to the globs, the literal list, and the test pin together.
+    # The write-path scripts also guard themselves at run time.
     local _nn_sf
     for _nn_sf in "$_nn_dir"/*.sh "$_nn_dir"/.awk_* "$_nn_dir"/.fn_* \
         "$_nn_dir/action.sh" "$_nn_dir/archivepick.sh" \
@@ -8041,6 +8043,14 @@ ENDDELETE
     fi > "$_nn_edit.editor"
     printf '#!/usr/bin/env bash\nmapfile -t nn_editor_cmd < <(cat "%s" 2>/dev/null)\n[ ${#nn_editor_cmd[@]} -eq 0 ] && nn_editor_cmd=(vi)\ntarget=$(cat "%s" 2>/dev/null)\n[ -f "$target" ] && "${nn_editor_cmd[@]}" "$target"\n' "$_nn_edit.editor" "$_nn_edit.target" > "$_nn_edit"
     chmod +x "$_nn_edit"
+    # An empty helper here (failed write after mktemp succeeded) runs as a
+    # valid empty program: blank previews, silently no-op edits – the same
+    # class the browser session's startup check aborts on.  (.editor may
+    # be legitimately empty: the wrapper falls back to vi.)
+    if [[ ! -s "$_nn_prev" || ! -s "$_nn_edit" ]]; then
+      echo "notenav: failed to write helper scripts (TMPDIR=${TMPDIR:-/tmp} full?)" >&2
+      shopt -u nullglob; return 1
+    fi
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND$_adhoc_archive" \
       | _nn_adhoc_chain_sort | _nn_adhoc_sort \
