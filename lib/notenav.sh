@@ -222,10 +222,16 @@ nn_load_config() {
   local _has_project_wf=false
   if [[ -n "$project_wf_file" && -f "$project_wf_file" ]]; then
     project_wf_json=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>/dev/null) || {
+      # A malformed project workflow must hard-fail, not silently fall back
+      # to the default workflow: continuing would run the notebook under the
+      # wrong type/status vocabulary, so inline actions would write foreign
+      # values into notes (matches the hard-fail for a bare .nn/ above and a
+      # broken built-in workflow below).
       echo "notenav: failed to parse .nn/workflow.toml" >&2
       local _yq_err; _yq_err=$(yq -p=toml -o=json -I=0 '.' "$project_wf_file" 2>&1 >/dev/null | head -2)
       [[ -n "$_yq_err" ]] && echo "$_yq_err" | sed 's/^/  /' >&2
-      project_wf_json="{}"
+      echo "notenav: fix the syntax error or remove .nn/workflow.toml" >&2
+      return 1
     }
     [[ "$project_wf_json" != "{}" ]] && _has_project_wf=true
   fi

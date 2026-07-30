@@ -32,4 +32,15 @@ printf '%s\n' "$out" | grep -q 'only-note' || fail "valid preset myq did not res
 # and the invalid sibling itself is not usable as a preset
 run_nn "$P" aaa >/dev/null 2>&1 && fail "string-valued 'aaa' should not resolve as a preset"
 
+# ── malformed project workflow must hard-fail, not silently run the
+#    default workflow (which would write foreign statuses into notes) ─────
+B="$WORK/badwf"
+mkdir -p "$B/.nn"
+# unterminated basic string – yq rejects it
+printf 'extends = "zenith\n[queries.x]\nargs = "type=task"\n' > "$B/.nn/workflow.toml"
+printf -- '---\ntype: task\nstatus: todo\ntitle: n\n---\nb\n' > "$B/only.md"
+run_nn "$B" type=task >/dev/null 2>&1
+[[ $? -ne 0 ]] || fail "nn ran with an unparseable .nn/workflow.toml (should hard-fail)"
+grep -q 'failed to parse .nn/workflow.toml' "$WORK/err" || fail "no parse-error message on malformed workflow.toml"
+
 finish
