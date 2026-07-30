@@ -371,6 +371,17 @@ for _sf in .fn_note .awk_prescan .awk_bulk_rewrite; do
   assert_bytes "$f" "$WORK/emptysf.orig" "bulkedit refuses byte-identically with empty $_sf"
   mv "$CAP/$_sf.hidden" "$CAP/$_sf"
 done
+# newnote guards at the top of the script, before any tty interaction or
+# note creation – so the refusal is observable headlessly via its stderr
+# marker (an empty backfill program would truncate the just-created note)
+mv "$CAP/.awk_fm_backfill" "$CAP/.awk_fm_backfill.hidden"
+: > "$CAP/.awk_fm_backfill"
+if bash "$CAP/newnote.sh" "$CAP" </dev/null >/dev/null 2>"$WORK/nn.err"; then
+  fail "newnote.sh should exit non-zero with empty .awk_fm_backfill"
+fi
+grep -q 'session files missing' "$WORK/nn.err" \
+  || fail "newnote.sh guard did not report missing session files"
+mv "$CAP/.awk_fm_backfill.hidden" "$CAP/.awk_fm_backfill"
 
 # ── writes preserve file permissions (mktemp is 0600; mode must survive) ─
 file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }

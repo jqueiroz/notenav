@@ -5857,6 +5857,14 @@ ENDBE
 nn_assert() { echo "notenav: internal error: $1" >&2; exit 2; }
 dir="$1"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
+# Fail CLOSED before creating anything if the session helpers or the
+# backfill program are missing or empty: an empty .fn_note sources
+# cleanly and an empty -f program would truncate the just-created note
+. "$dir/.fn_note" && declare -F _nn_fence_probe >/dev/null && [ -s "$dir/.awk_fm_backfill" ] || {
+  echo "notenav: newnote: session files missing – not creating a note" >&2
+  printf '\n  session files missing – not creating a note\n\n' 2>/dev/null > /dev/tty
+  exit 1
+}
 cols=$(tput cols 2>/dev/null || printf '80')
 inner=$(( cols - 6 ))
 [ "$inner" -gt 112 ] && inner=112
@@ -6230,10 +6238,6 @@ if [ "$_nn_has_zk" = "true" ]; then
 
   # Ensure essential frontmatter fields are present (CRLF/BOM-tolerant fence
   # test; written lines follow the file's own EOL style, detected from line 1)
-  . "$dir/.fn_note" && declare -F _nn_fence_probe >/dev/null && [ -s "$dir/.awk_fm_backfill" ] || {
-    printf "\n  ${_nn_red}internal error: session files missing – note created without metadata${_nn_reset}\n\n" > /dev/tty
-    exit 1
-  }
   _nn_fence_probe "$new_path"; _nn_eol="$NN_FEOL"
   _nn_mode=$(_nn_note_mode "$new_path")
   if [ "$NN_FM" = 1 ]; then
