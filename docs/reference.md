@@ -322,5 +322,9 @@ patterns it contains.
 | 2 | `nn init` | Invalid arguments (unknown flag, bad workflow name) |
 | 1 | `nn <query>` | Query preset recursion too deep |
 | 1 | `nn <query>` | Invalid arguments (unknown flag, filter key, or preset; incompatible output flags) |
+| 1 | `nn <query>` (`-l`/`-0`/plain) | No notes matched the query (a message is printed to stderr) |
+| 130 | `nn <query> -i` | User quit the interactive picker with `q`/`esc`/`ctrl-c` (fzf's own exit code passes through) |
 | 1 | `nn` (TUI) | Terminal not available (`$TERM` is `dumb` or unset) |
 | 130 | `nn` (TUI) | User quit with `q` or `ctrl-c` (normal fzf exit) |
+
+Note the zero-match case: a plain, `-l`, or `-0` query that matches no notes exits **1**, so `set -e` scripts and `if nn …; then` guards treat "no results" as a failure. Test explicitly (`nn … || [ $? -eq 1 ]`) if an empty result is acceptable.
