@@ -6,26 +6,6 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 
-# ── startup integrity list must cover every emitted session program ──────
-# Under nullglob a never-created file matches no glob, so the startup check
-# lists each emitted program literally; a name missing from that list means
-# a failed write passes the check and its keybinding silently no-ops (the
-# delete.sh class).  Derive both sets from the source and diff them.
-# Gawk-independent (grep/sed only), so it runs before the require_gawk gate.
-_sf_emitted=$( { grep -oE 'cat >>? "\$_nn_dir/[A-Za-z_.]+"' "$REPO/lib/notenav.sh"
-                 grep -oE '(printf|declare -f) [^>|]*> "\$_nn_dir/\.[a-z_]+"' "$REPO/lib/notenav.sh"
-               } | grep -oE '_nn_dir/[A-Za-z_.]+' | sed 's|_nn_dir/||' \
-                 | grep -E '\.sh$|^\.awk_|^\.fn_' | sort -u)
-_sf_listed=$(sed -n '\|for _nn_sf in "\$_nn_dir"/\*\.sh|,\|; do$|p' "$REPO/lib/notenav.sh" \
-               | grep -oE '"\$_nn_dir/[A-Za-z_.]+"' | grep -oE '_nn_dir/[A-Za-z_.]+' \
-               | sed 's|_nn_dir/||' | sort -u)
-if [[ -z "$_sf_emitted" || -z "$_sf_listed" ]]; then
-  fail "session-file list extraction anchors drifted – update this test"
-elif [[ "$_sf_emitted" != "$_sf_listed" ]]; then
-  fail "startup integrity list out of sync with emitted session files:"
-  diff <(printf '%s\n' "$_sf_emitted") <(printf '%s\n' "$_sf_listed") | sed 's/^/    /'
-fi
-
 require_gawk
 WORK=$(mktemp -d /tmp/nn-t-write.XXXXXX) || exit 2
 trap 'rm -rf "$WORK"' EXIT
@@ -35,6 +15,26 @@ mkdir -p "$NOTEBOOK"
 mk_note "$NOTEBOOK/seed.md" lf 0 '---' 'type: task' 'status: new' '---' '# Seed'
 
 capture_nn_dir "$NOTEBOOK" "$CAP" || finish
+
+# ── startup integrity list must cover every emitted session program ──────
+# Under nullglob a never-created file matches no glob, so the startup check
+# lists each emitted program literally; a name missing from that list means
+# a failed write passes the check and its keybinding silently no-ops (the
+# delete.sh class).  Diff the list against REALITY: the captured session
+# dir holds exactly what a live startup emitted, whatever idiom or
+# variable each emission used – source-regex derivations missed files
+# written through helper-local paths.
+_sf_real=$(cd "$CAP" && for _sf in ./*.sh ./.awk_* ./.fn_*; do
+             [[ -e "$_sf" ]] && printf '%s\n' "${_sf#./}"; done | sort -u)
+_sf_listed=$(sed -n '\|for _nn_sf in "\$_nn_dir"/\*\.sh|,\|; do$|p' "$REPO/lib/notenav.sh" \
+               | grep -oE '"\$_nn_dir/[A-Za-z0-9_.]+"' | grep -oE '_nn_dir/[A-Za-z0-9_.]+' \
+               | sed 's|_nn_dir/||' | sort -u)
+if [[ -z "$_sf_real" || -z "$_sf_listed" ]]; then
+  fail "session-file list extraction anchors drifted – update this test"
+elif [[ "$_sf_real" != "$_sf_listed" ]]; then
+  fail "startup integrity list out of sync with the emitted session files:"
+  diff <(printf '%s\n' "$_sf_real") <(printf '%s\n' "$_sf_listed") | sed 's/^/    /'
+fi
 
 run_action() { bash "$CAP/action.sh" "$CAP" "$@" >/dev/null 2>&1; }
 run_bulk() { bash "$CAP/bulkedit_update.sh" "$@" >/dev/null 2>&1; }

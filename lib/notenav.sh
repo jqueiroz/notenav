@@ -1279,9 +1279,12 @@ _nn_mtime_rows() {
 
 # _nn_find_md_with_mtime <dir> – emit "absPath\tmtime" rows for every .md
 # file under <dir>, pruning the standard metadata dirs and .nnignore
-# DIRECTORY patterns only; file-level ignores (.nnignore name/glob/path
+# DIRECTORY patterns only.  File-level ignores (.nnignore name/glob/path
 # patterns and the default exclusions) are applied downstream by
-# _nn_ignore_pipe – pipe through it before showing these rows to a user.
+# _nn_ignore_pipe, which matches the path in field 6 of the parsed
+# 8-column TSV – so parse these 2-column rows first (native parser), or
+# pad the path into $6 the way doctor does; piping them in directly is a
+# silent no-op filter.
 _nn_find_md_with_mtime() {
   local dir="$1"
   # Prune standard metadata/dependency dirs + any custom dirs from .nnignore
@@ -7640,8 +7643,8 @@ ENDDELETE
     # exits 0 (edits no-op while the TUI reports success).  Abort startup
     # with a clear message instead.  Under nullglob a NEVER-created file
     # matches no glob, so every emitted program is also listed by literal
-    # name – the COMPLETE list; t-write-actions.sh diffs it against the
-    # emissions in this file, so a new script cannot be forgotten here.
+    # name – the COMPLETE list; t-write-actions.sh diffs it against a
+    # live captured session dir, so a new script cannot be forgotten here.
     # A name matched twice is rechecked harmlessly.  The write-path
     # scripts also guard themselves at run time.
     local _nn_sf
@@ -7654,10 +7657,13 @@ ENDDELETE
         "$_nn_dir/delete.sh" "$_nn_dir/edit.sh" "$_nn_dir/fieldpick.sh" \
         "$_nn_dir/filter.sh" "$_nn_dir/filterpick.sh" \
         "$_nn_dir/grouppick.sh" "$_nn_dir/newnote.sh" \
-        "$_nn_dir/querypick.sh" "$_nn_dir/reload_at.sh" \
-        "$_nn_dir/reload_raw.sh" "$_nn_dir/sortpick.sh" \
-        "$_nn_dir/tags.sh" "$_nn_dir/watcher.sh" "$_nn_dir/wrapkey.sh" \
+        "$_nn_dir/preview.sh" "$_nn_dir/querypick.sh" \
+        "$_nn_dir/reload_at.sh" "$_nn_dir/reload_raw.sh" \
+        "$_nn_dir/sortpick.sh" "$_nn_dir/tags.sh" "$_nn_dir/watcher.sh" \
+        "$_nn_dir/wrapkey.sh" \
         "$_nn_dir/.awk_action_rewrite" "$_nn_dir/.awk_bulk_rewrite" \
+        "$_nn_dir/.awk_color_body" "$_nn_dir/.awk_color_marked" \
+        "$_nn_dir/.awk_color_pinned" "$_nn_dir/.awk_color_stats" \
         "$_nn_dir/.awk_fm_backfill" "$_nn_dir/.awk_native_parser" \
         "$_nn_dir/.awk_prescan" "$_nn_dir/.fn_find_md" \
         "$_nn_dir/.fn_note"; do
