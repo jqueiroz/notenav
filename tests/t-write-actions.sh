@@ -466,7 +466,17 @@ rm -rf "$CAP/.state.lock"
 # regardless of how slowly a loaded machine runs the spin loop; computed
 # relative to now (an absolute timestamp would be a date bomb).
 mkdir "$CAP/.state.lock"
-_lk_fut=$(date -d '+1 day' +%Y%m%d%H%M 2>/dev/null || date -v+1d +%Y%m%d%H%M 2>/dev/null)
+# GNU, BSD, then busybox spellings; validate the result is a 12-digit
+# timestamp strictly in the future (a BSD date -d that "succeeds" prints
+# the CURRENT time – that must not silently reintroduce load sensitivity)
+_lk_fut=$(date -d '+1 day' +%Y%m%d%H%M 2>/dev/null \
+  || date -v+1d +%Y%m%d%H%M 2>/dev/null \
+  || date -D '%s' -d "$(( $(date +%s) + 86400 ))" +%Y%m%d%H%M 2>/dev/null)
+case "$_lk_fut" in
+  [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+  *) _lk_fut="" ;;
+esac
+[[ -n "$_lk_fut" && "$_lk_fut" -gt "$(date +%Y%m%d%H%M)" ]] || _lk_fut=""
 if [[ -n "$_lk_fut" ]]; then touch -t "$_lk_fut" "$CAP/.state.lock"; else touch "$CAP/.state.lock"; fi
 _lk_ino_before=$(stat -c %i "$CAP/.state.lock" 2>/dev/null || stat -f %i "$CAP/.state.lock")
 _nn_state_lock "$CAP"

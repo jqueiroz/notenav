@@ -1698,7 +1698,8 @@ _nn_fence_probe() {
 # stolen during a stall can release someone else's lock to a third writer.
 # Never fails: callers always proceed.
 _nn_state_lock() {
-  local _ld="$1/.state.lock" _i=0 _age _now
+  local _ld="$1/.state.lock" _i=0 _age _now _me="${BASHPID:-$$}" _corpse
+  _corpse="$_ld.stale.$_me"
   NN_STATE_LOCK_OWNED=0
   until mkdir "$_ld" 2>/dev/null; do
     _i=$((_i + 1))
@@ -1706,20 +1707,30 @@ _nn_state_lock() {
       _now=$(date +%s)
       _age=$(stat -c %Y "$_ld" 2>/dev/null || stat -f %m "$_ld" 2>/dev/null)
       if [[ -z "$_age" || $((_now - _age)) -ge 5 ]]; then
-        if mv "$_ld" "$_ld.stale.$$" 2>/dev/null; then
+        if mv "$_ld" "$_corpse" 2>/dev/null; then
           # Re-verify age on the corpse we now own exclusively: between our
           # stat and our mv, a rival stealer may have completed its own
           # steal + re-acquire, making the path a FRESH live lock – if the
           # corpse is young, we renamed a live lock and must restore it.
           # (Unknown corpse age – exotic stat – falls through to the steal,
           # the old unconditional semantics.)
-          _age=$(stat -c %Y "$_ld.stale.$$" 2>/dev/null || stat -f %m "$_ld.stale.$$" 2>/dev/null)
+          _age=$(stat -c %Y "$_corpse" 2>/dev/null || stat -f %m "$_corpse" 2>/dev/null)
           if [[ -n "$_age" && $(($(date +%s) - _age)) -lt 5 ]]; then
-            mv "$_ld.stale.$$" "$_ld" 2>/dev/null || rm -rf "$_ld.stale.$$" 2>/dev/null
+            if mv "$_corpse" "$_ld" 2>/dev/null; then
+              # mv into an EXISTING dir NESTS instead of failing: if a
+              # third contender re-created the lock during the restore
+              # window, extract the nested corpse so the live lock is not
+              # left carrying a foreign directory (its owner file stays
+              # intact; the displaced holder is contained by the identity
+              # check in unlock)
+              rm -rf "${_ld:?}/${_corpse##*/}" 2>/dev/null
+            else
+              rm -rf "$_corpse" 2>/dev/null
+            fi
           else
-            rm -rf "$_ld.stale.$$" 2>/dev/null
+            rm -rf "$_corpse" 2>/dev/null
             if mkdir "$_ld" 2>/dev/null; then
-              printf '%s' "${BASHPID:-$$}" > "$_ld/owner" 2>/dev/null
+              printf '%s' "$_me" > "$_ld/owner" 2>/dev/null
               NN_STATE_LOCK_OWNED=1
             fi
           fi
@@ -1732,17 +1743,21 @@ _nn_state_lock() {
     # a microsecond busy-spin or stretching to 50s
     sleep 0.02 2>/dev/null || { sleep 1; _i=$((_i + 24)); }
   done
-  printf '%s' "${BASHPID:-$$}" > "$_ld/owner" 2>/dev/null
+  printf '%s' "$_me" > "$_ld/owner" 2>/dev/null
   NN_STATE_LOCK_OWNED=1
   return 0
 }
 _nn_state_unlock() {
-  local _ld="$1/.state.lock"
+  local _ld="$1/.state.lock" _o
   if [[ "${NN_STATE_LOCK_OWNED:-0}" == 1 ]]; then
-    # Identity check: release only a lock that is still OURS.  If ours was
-    # stolen while we were suspended/stalled (>=5s), the lock at this path
-    # now belongs to the thief – removing it would admit a third writer.
-    if [[ "$(cat "$_ld/owner" 2>/dev/null)" == "${BASHPID:-$$}" ]]; then
+    # Identity check: release only a lock that is still OURS (stolen locks
+    # belong to the thief – removing one would admit a third writer).  An
+    # EMPTY owner means our own owner write failed (ENOSPC): remove anyway,
+    # or the unreleasable lock would stall every later action ~1s until
+    # the 5s steal – availability over a theoretical thief-with-failed-
+    # write collision.
+    _o=$(cat "$_ld/owner" 2>/dev/null)
+    if [[ -z "$_o" || "$_o" == "${BASHPID:-$$}" ]]; then
       rm -rf "$_ld" 2>/dev/null
     fi
   fi
@@ -6699,7 +6714,7 @@ rm -f "$dir/.empty_narrowed_active"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 # Per-invocation temp cleanup, installed BEFORE any temp is created (the
 # persist_f writes below run long before the pipeline section)
-trap 'rm -f "$dir/.raw.snap.$$" "$dir/.pinned.snap.$$" "$dir/.marked.snap.$$" "$dir/.raw_matched.$$" "$dir/.raw_marked.$$" "$dir/.raw_prefiltered.$$" "$dir/.raw_widened.$$" "$dir/.raw_title.$$" "$dir/.current.tmp.$$" "$dir/.current.build.$$" "$dir/.pin_ghost_count.$$" "$dir"/.f_*.$$' EXIT
+trap 'rm -f "$dir/.raw.snap.$$" "$dir/.pinned.snap.$$" "$dir/.marked.snap.$$" "$dir/.raw_matched.$$" "$dir/.raw_marked.$$" "$dir/.raw_prefiltered.$$" "$dir/.raw_widened.$$" "$dir/.raw_title.$$" "$dir/.current.tmp.$$" "$dir/.current.build.$$" "$dir/.pin_ghost_count.$$" "$dir/.pinned.tmp.$$" "$dir/.marked.tmp.$$" "$dir/.m_sel.tmp.$$" "$dir"/.f_*.$$' EXIT
 # Atomic state write (tmp+mv): shared .f_* files are re-read at the top of
 # every concurrent invocation; a bare truncate-then-write lets a racing run
 # read an empty value mid-truncation and render the wrong view
@@ -6726,7 +6741,10 @@ apply_sq() {
       *) nn_assert "apply_sq: unknown arg '${a%%=*}'" ;;
     esac
   done
-  mv "$dir/.f_tags.$$" "$dir/.f_tags"
+  # Atomic swap when the temp build worked; if it failed (ENOSPC), fall
+  # back to a plain truncate so the OLD preset'"'"'s tag filter cannot
+  # silently survive into the new one (truncation succeeds on a full disk)
+  mv "$dir/.f_tags.$$" "$dir/.f_tags" 2>/dev/null || : > "$dir/.f_tags"
   persist_f .f_sq "$name"
 }
 ft=$(cat "$dir/.f_type"); fs=$(cat "$dir/.f_status")
@@ -6828,8 +6846,8 @@ case "$action" in
     fi ;;
   mark-add)
     if [ -s "$dir/.m_sel" ]; then
-      { grep -v '\.empty_placeholder$' "$dir/.m_sel" || [ $? -eq 1 ]; } > "$dir/.m_sel.tmp"
-      mv "$dir/.m_sel.tmp" "$dir/.m_sel"
+      { grep -v '\.empty_placeholder$' "$dir/.m_sel" || [ $? -eq 1 ]; } > "$dir/.m_sel.tmp.$$"
+      mv "$dir/.m_sel.tmp.$$" "$dir/.m_sel"
       _nn_state_lock "$dir"
       { cat "$dir/.marked" 2>/dev/null; cat "$dir/.m_sel"; } | awk '!seen[$0]++' > "$dir/.marked.tmp.$$"
       mv "$dir/.marked.tmp.$$" "$dir/.marked"
@@ -6837,8 +6855,8 @@ case "$action" in
     fi ;;
   mark-remove)
     if [ -s "$dir/.m_sel" ]; then
-      { grep -v '\.empty_placeholder$' "$dir/.m_sel" || [ $? -eq 1 ]; } > "$dir/.m_sel.tmp"
-      mv "$dir/.m_sel.tmp" "$dir/.m_sel"
+      { grep -v '\.empty_placeholder$' "$dir/.m_sel" || [ $? -eq 1 ]; } > "$dir/.m_sel.tmp.$$"
+      mv "$dir/.m_sel.tmp.$$" "$dir/.m_sel"
       _nn_state_lock "$dir"
       # Pin the unmarked items when mark filter is on so they don't vanish
       if [ -n "$fmarked" ]; then
@@ -7077,7 +7095,16 @@ if [ -s "$dir/.pinned.snap.$$" ] || [ -s "$dir/.marked.snap.$$" ]; then
     END { printf "%d", gc+0 > ghost_file }
   ' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" && _cur_built=1 || rm -f "$dir/.current.tmp.$$"
 else
-  do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" && _cur_built=1 || rm -f "$dir/.current.tmp.$$"
+  do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp.$$"
+  # every pipeline segment must succeed: sort dying mid-stream (ENOSPC,
+  # OOM-kill) leaves gawk exiting 0 over truncated input, and a truncated
+  # view must never arm the publish gate
+  _st=("${PIPESTATUS[@]}")
+  if [ "${_st[0]}" = 0 ] && [ "${_st[1]}" = 0 ] && [ "${_st[2]}" = 0 ]; then
+    mv "$dir/.current.tmp.$$" "$_cur" && _cur_built=1
+  else
+    rm -f "$dir/.current.tmp.$$"
+  fi
   printf '0' > "$dir/.pin_ghost_count.$$"
 fi
 # Pipeline: AWK filter → count → grouping → empty-view → border/output
@@ -7119,7 +7146,14 @@ if [ -n "$fgroup" ]; then
         printf "\t%s── %s (%d) ──%s\n", pre, label, counts[g], suf
         printf "%s", lines[g]
       }
-    }' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" || rm -f "$dir/.current.tmp.$$"
+    }' > "$dir/.current.tmp.$$"
+  _st=("${PIPESTATUS[@]}")
+  if [ "${_st[0]}" = 0 ] && [ "${_st[1]}" = 0 ] && [ "${_st[2]}" = 0 ]; then
+    mv "$dir/.current.tmp.$$" "$_cur"
+  else
+    # keep the ungrouped stage-1 view rather than a truncated grouped one
+    rm -f "$dir/.current.tmp.$$"
+  fi
 fi
 # Compute inline stats from filtered set
 awk_stats=$(cat "$dir/.awk_color_stats")
@@ -7532,8 +7566,7 @@ if [ "$count" -eq 0 ] && ! [ -s "$_cur" ]; then
         printf '%s\t \n' "$dir/.empty_placeholder"
         _i=$((_i + 1))
       done
-    } > "$_cur"
-    _cur_built=1
+    } > "$_cur" && _cur_built=1
   elif [ -n "${NO_COLOR+x}" ]; then
     printf '%s\t  ~\n' "$dir/.empty_placeholder" > "$_cur" && _cur_built=1
   else
