@@ -3212,7 +3212,12 @@ EOF
         [[ -z "$_uk" ]] && continue
         # shellcheck disable=SC2086  # intentional word-splitting of known-key list
         if ! _in_array "$_uk" $_known_ui; then
-          _warn "ui: unrecognized key '$_uk'"
+          # Keys that existed in old releases get a rename hint instead of
+          # a bare "unrecognized" – stale configs are the common cause
+          case "$_uk" in
+            header) _warn "ui: 'header' was renamed – use initial_header_mode = \"clean\" or \"guided\"" ;;
+            *) _warn "ui: unrecognized key '$_uk'" ;;
+          esac
         fi
       done < <(nn_cfg '.ui // {} | keys[]' 2>/dev/null)
     fi
