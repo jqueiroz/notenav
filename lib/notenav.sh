@@ -135,6 +135,19 @@ _nn_resolve_editor() {
 # Parses TOML workflow/config files via yq (TOML→JSON), merges with jq.
 # Result stored in NN_CFG_JSON for consumption by nn_cfg().
 
+# User-scope whitelist: the jq shape applied to the user config (and the
+# base defaults) during the merge.  Shared by nn_load_config and nn doctor,
+# which diffs a user config against this shape to report dead keys.
+_NN_USER_PREFS_SHAPE='{
+    default_workflow,
+    defaults,
+    ui,
+    refresh,
+    type:     (.type // {} | to_entries | map(select(.value | type == "object")) | map({key, value: {color: .value.color}}) | map(select(.value.color != null)) | from_entries),
+    status:   {colors: .status.colors},
+    priority: {colors: .priority.colors}
+  } | del(.. | nulls)'
+
 nn_load_config() {
   local notenav_root="$1"
 
@@ -196,18 +209,11 @@ nn_load_config() {
   # owns them. Workflows are a separate scope (filtered below) and
   # cannot set preferences. The only cross-scope keys are color
   # sub-keys, so a user can personalize a workflow's palette without
-  # forking it. Anything outside this whitelist is silently dropped.
-  local _user_prefs_shape='{
-    default_workflow,
-    defaults,
-    ui,
-    refresh,
-    type:     (.type // {} | to_entries | map(select(.value | type == "object")) | map({key, value: {color: .value.color}}) | map(select(.value.color != null)) | from_entries),
-    status:   {colors: .status.colors},
-    priority: {colors: .priority.colors}
-  } | del(.. | nulls)'
-  base_json=$(printf '%s' "$base_json" | jq "$_user_prefs_shape" 2>/dev/null) || base_json="{}"
-  user_json=$(printf '%s' "$user_json" | jq "$_user_prefs_shape" 2>/dev/null) || user_json="{}"
+  # forking it. Anything outside this whitelist is silently dropped –
+  # nn doctor reports the dropped paths via the SAME shape (see
+  # _NN_USER_PREFS_SHAPE, defined once so the two cannot drift).
+  base_json=$(printf '%s' "$base_json" | jq "$_NN_USER_PREFS_SHAPE" 2>/dev/null) || base_json="{}"
+  user_json=$(printf '%s' "$user_json" | jq "$_NN_USER_PREFS_SHAPE" 2>/dev/null) || user_json="{}"
   if [[ -z "$user_json" && -f "$user_cfg" ]]; then
     echo "notenav: user config may be invalid – check ${XDG_CONFIG_HOME:-$HOME/.config}/notenav/config.toml" >&2
     echo "notenav: run 'nn doctor' for details" >&2
@@ -2319,6 +2325,31 @@ EOF
         _warn "Unrecognized keys in $_short: $_unknown"
       fi
     done
+
+    # Dead user-config keys: sub-keys the user-scope whitelist silently
+    # drops at load (e.g. [type.task] icon, [status] values – schema keys
+    # belong to the workflow, only colors cross scopes).  The top-level
+    # check above cannot see these ('type'/'status'/'priority' are known
+    # keys wholesale), and the merged config no longer contains them, so
+    # diff the user file against the SAME jq shape the loader applies.
+    if [[ -f "$user_cfg" ]]; then
+      local _uc_raw _uc_dropped
+      _uc_raw=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null)
+      if [[ -n "$_uc_raw" && "$_uc_raw" != "null" ]]; then
+        _uc_dropped=$(printf '%s' "$_uc_raw" | jq -r --argjson kept \
+          "$(printf '%s' "$_uc_raw" | jq "$_NN_USER_PREFS_SHAPE" 2>/dev/null || printf '{}')" '
+            def leafpaths: [paths(type != "object" and type != "null")
+              | map(tostring)
+              | if (.[-1] | test("^[0-9]+$")) then .[:-1] else . end
+              | join(".")] | unique;
+            leafpaths - ($kept | leafpaths) | .[]' 2>/dev/null | head -8)
+        local _uc_d
+        while IFS= read -r _uc_d; do
+          [[ -z "$_uc_d" ]] && continue
+          _warn "user config: '$_uc_d' has no effect (outside the user-preference scope – workflow schema keys live in .nn/workflow.toml; only colors cross scopes)"
+        done <<< "$_uc_dropped"
+      fi
+    fi
 
     # Full config merge check
     # Run in current shell (not command substitution) so NN_CFG_JSON survives.

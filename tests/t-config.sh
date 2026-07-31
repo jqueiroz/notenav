@@ -114,4 +114,18 @@ if run_nn "$T" type=task >/dev/null 2>&1; then
 fi
 grep -q 'contains a tab, newline, or carriage return' "$WORK/err" || fail "no control-char message on newline-only value"
 
+# ── doctor reports user-config keys the load-time whitelist drops ────────
+# schema sub-keys (icon, values) are silently dead in user config; only
+# colors cross scopes – doctor must name the dead keys and stay silent on
+# a config using only legitimate user-scope keys (incl. array values)
+uconf '[ui]' 'command_prompt = "ok "' '[defaults.sort_chain]' 'priority = ["status"]' \
+      '[type.task]' 'icon = "X"' 'color = "red"' '[status.colors]' 'todo = "yellow"'
+(cd "$G" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/drop.out"
+grep -q "'type.task.icon' has no effect" "$WORK/drop.out" || fail "doctor did not flag the dropped type.task.icon"
+grep -q "'type.task.color' has no effect" "$WORK/drop.out" && fail "doctor wrongly flagged the color carve-out"
+uconf '[ui]' 'command_prompt = "ok "' '[defaults.sort_chain]' 'priority = ["status"]' \
+      '[type.task]' 'color = "red"' '[status.colors]' 'todo = "yellow"'
+(cd "$G" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/drop2.out"
+grep -c "has no effect" "$WORK/drop2.out" | grep -qx 0 || fail "doctor flagged a clean user-scope config"
+
 finish
