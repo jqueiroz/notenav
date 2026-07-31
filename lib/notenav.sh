@@ -401,7 +401,8 @@ _nn_awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' '; }
 # Arguments: type status priority tags_string
 # tags_string is newline-delimited (or empty for no tag filter).
 # Returns the condition fragment via stdout; empty if no filters active.
-# NOTE: keep in sync with build_field_cond() in the filter.sh heredoc.
+# Emitted into .fn_note via declare -f – filter.sh sources the SAME
+# function, so the TUI and the ad-hoc path can never filter differently.
 _nn_build_field_cond() {
   local _fc="" _t="$1" _s="$2" _p="$3" _tags="$4"
   [[ -n "$_t" ]] && _fc="\$1==\"$(_nn_awk_esc "$_t")\""
@@ -1126,7 +1127,7 @@ nn_precompute_workflow() {
 
 # Split a string into tokens respecting single/double quotes and backslash
 # escapes, without interpreting shell metacharacters.  Result in _nn_split_result.
-# (Also defined inside the preview script heredoc for use in that subprocess.)
+# (Emitted into preview.sh via declare -f – single source.)
 _nn_shellsplit() {
   local s="$1" i=0 c tok=""
   _nn_split_result=()
@@ -2023,8 +2024,10 @@ EOF
   _info() { echo "${_dim}[-]${_reset} $*"; }
   _warn() { echo "${_yellow}[!]${_reset} $*"; (( warns++ )) || true; }
   _fail() { echo "${_red}[✗]${_reset} $*"; (( fails++ )) || true; }
-  _valid_color() { local _r; _r=$(_nn_resolve_color "$1"); [[ -z "$_r" || "$_r" =~ ^[0-9]+(;[0-9]+)*$ ]]; }
-  _in_array() { local v="$1"; shift; local e; for e; do [[ "$v" == "$e" ]] && return 0; done; return 1; }
+  # Resolve-then-validate via the SAME predicates the runtime uses, so
+  # doctor can never accept a color the loader rejects (or vice versa)
+  _valid_color() { _nn_valid_color "$(_nn_resolve_color "$1")"; }
+  _in_array() { _nn_in_array "$@"; }
   _dupes() { local -A _seen; local _d="" _v; for _v; do if [[ -n "${_seen[$_v]+x}" ]]; then [[ "${_seen[$_v]}" == d ]] || { _d+="$_v, "; _seen[$_v]=d; }; else _seen[$_v]=1; fi; done; printf '%s' "${_d%, }"; }
   _is_array() { local _t; _t=$(nn_cfg "$1 // null | type" 2>/dev/null); [[ "$_t" == "array" ]]; }
   _all_strings() { local _bad; _bad=$(nn_cfg "$1 // {} | to_entries[] | select(.value | type != \"string\") | .key" 2>/dev/null); [[ -z "$_bad" ]] && return 0; printf '%s' "$_bad"; return 1; }
@@ -4346,46 +4349,12 @@ fi
 # Placeholder file: show content only, no links
 case "$file" in *.empty_placeholder) _nn_show_centered "$file"; exit 0 ;; esac
 
-# Split a string into tokens respecting single/double quotes and backslash
-# escapes, without interpreting shell metacharacters.  Result in _nn_split_result.
-# (Also defined at top level for use by the main shell.)
-_nn_shellsplit() {
-  local s="$1" i=0 c tok=""
-  _nn_split_result=()
-  while (( i < ${#s} )); do
-    c="${s:i:1}"
-    case "$c" in
-      \') (( i++ ))
-          while (( i < ${#s} )) && [[ "${s:i:1}" != "'" ]]; do
-            tok+="${s:i:1}"; (( i++ ))
-          done
-          (( i++ )) ;;
-      \") (( i++ ))
-          while (( i < ${#s} )) && [[ "${s:i:1}" != '"' ]]; do
-            c2="${s:i:1}"
-            if [[ "$c2" = \\ ]] && (( i+1 < ${#s} )) && [[ "${s:i+1:1}" = [\"\\] ]]; then
-              tok+="${s:i+1:1}"; (( i += 2 ))
-            else
-              tok+="$c2"; (( i++ ))
-            fi
-          done
-          (( i++ )) ;;
-      \\) (( i++ ))
-          (( i < ${#s} )) && tok+="${s:i:1}"
-          (( i++ )) ;;
-      ' '|$'\t')
-          [[ -n "$tok" ]] && _nn_split_result+=("$tok")
-          tok=""; (( i++ )) ;;
-      *)  tok+="$c"; (( i++ )) ;;
-    esac
-  done
-  [[ -n "$tok" ]] && _nn_split_result+=("$tok")
-  # Expand leading ~ on the command name
-  case "${_nn_split_result[0]:-}" in
-    "~/"*) _nn_split_result[0]="$HOME/${_nn_split_result[0]:2}" ;;
-    "~")   _nn_split_result[0]="$HOME" ;;
-  esac
-}
+ENDPREVIEW
+  # Single source: emit the SAME tokenizer the main shell validates
+  # editor/previewer commands with (a drifted copy here would parse
+  # ui.previewer_custom_command differently in the preview subprocess)
+  declare -f _nn_shellsplit >> "$target"
+  cat >> "$target" << 'ENDPREVIEW2'
 
 # Show file content using configured previewer (fallback list)
 _rendered=false
@@ -4468,7 +4437,7 @@ if [ "$_nn_has_zk" = "true" ]; then
     cat "$tmp_back"
   fi
 fi
-ENDPREVIEW
+ENDPREVIEW2
   chmod +x "$target"
 }
 
@@ -4756,7 +4725,16 @@ EOF
     # Frontmatter backfill for zk-created notes – run by newnote.sh.
     printf '%s\n' "$_NN_FM_BACKFILL_AWK" > "$_nn_dir/.awk_fm_backfill"
     # Shared write-path helpers – sourced by action.sh/bulkedit_update.sh/newnote.sh
-    declare -f _nn_note_mode _nn_stamp_mode _nn_note_bom _nn_fence_probe _nn_state_lock _nn_state_unlock > "$_nn_dir/.fn_note"
+    declare -f _nn_note_mode _nn_stamp_mode _nn_note_bom _nn_fence_probe _nn_state_lock _nn_state_unlock _nn_awk_esc _nn_build_field_cond > "$_nn_dir/.fn_note"
+    # BOM/CRLF-tolerant frontmatter single-field getter, shared by
+    # cyclestatus.sh and bumppri.sh (run with -v f=status|priority) – one
+    # copy of the tolerant-read rules both keys depend on
+    cat > "$_nn_dir/.awk_fm_get" << 'ENDFMGET'
+FNR==1{sub(/^\xEF\xBB\xBF/,"")}
+FNR==1&&!/^---[[:space:]]*$/{exit}
+/^---[[:space:]]*$/{if(++n==2)exit;next}
+n==1&&$0~("^" f ":"){gsub(/\r/,"");sub("^" f ":[ \t]*","");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}
+ENDFMGET
     # Field rewriters + shared unclosed-frontmatter pre-scan (gawk -f -f)
     printf '%s\n' "$_NN_FM_PRESCAN_AWK" > "$_nn_dir/.awk_prescan"
     printf '%s\n' "$_NN_ACTION_REWRITE_AWK" > "$_nn_dir/.awk_action_rewrite"
@@ -6569,7 +6547,7 @@ dir="$1"; file="$2"; direction="${3:-fwd}"
 case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-cur=$($nn_gawk 'FNR==1{sub(/^\xEF\xBB\xBF/,"")} FNR==1&&!/^---[[:space:]]*$/{exit} /^---[[:space:]]*$/{if(++n==2)exit;next} n==1&&/^status:/{gsub(/\r/,"");sub(/^status:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
+cur=$($nn_gawk -v f=status -f "$dir/.awk_fm_get" "$file")
 if [ -z "$cur" ]; then
   # No status set – assign the workflow's initial status
   next=$(cat "$dir/.schema_status_initial" 2>/dev/null)
@@ -6599,7 +6577,7 @@ case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-cur=$($nn_gawk 'FNR==1{sub(/^\xEF\xBB\xBF/,"")} FNR==1&&!/^---[[:space:]]*$/{exit} /^---[[:space:]]*$/{if(++n==2)exit;next} n==1&&/^priority:/{gsub(/\r/,"");sub(/^priority:[ \t]*/,"");gsub(/[ \t]+$/,"");gsub(/^["\047]|["\047]$/,"");print;exit}' "$file")
+cur=$($nn_gawk -v f=priority -f "$dir/.awk_fm_get" "$file")
 if [ -z "$cur" ]; then
   # No priority set – enter at lowest priority
   next=$(tail -1 "$dir/.schema_priority_values")
@@ -6672,6 +6650,9 @@ dir="$1"; action="$2"
 # degrade to the unlocked updates this script always used)
 . "$dir/.fn_note" 2>/dev/null || true
 declare -F _nn_state_lock >/dev/null 2>&1 || { _nn_state_lock() { :; }; _nn_state_unlock() { :; }; }
+# The condition builder is load-bearing: with .fn_note unreadable this
+# script cannot filter correctly – fail loud (stale view) rather than wrong
+declare -F _nn_build_field_cond >/dev/null 2>&1 || exit 1
 # Clear placeholder-active flag; re-set later if the empty-narrowed branch fires
 rm -f "$dir/.empty_narrowed_active"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
@@ -6853,48 +6834,9 @@ persist_f .f_sort "$fsort"; persist_f .f_sort_rev "$fsort_rev"; persist_f .f_gro
 persist_f .f_archive "$farchive"
 persist_f .f_match "$fmatch"
 persist_f .f_marked "$fmarked"
-# Build awk condition
-# Sanitize values for safe interpolation into awk expressions.  '$' is NOT
-# special inside an AWK string literal, so it must NOT be escaped (\$ is an
-# undefined sequence: gawk warns, other awks may drop the match).  Keep in
-# sync with _nn_awk_esc() in lib.
-awk_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' '; }
-# Build AWK condition for type/status/priority/tags field filtering.
-# Arguments: type status priority tags_string
-# tags_string is newline-delimited (or empty for no tag filter).
-# NOTE: keep in sync with _nn_build_field_cond() in the main library.
-build_field_cond() {
-  local _fc="" _t="$1" _s="$2" _p="$3" _tags="$4"
-  [ -n "$_t" ] && _fc="\$1==\"$(awk_esc "$_t")\""
-  if [ -n "$_s" ]; then
-    [ -n "$_fc" ] && _fc="$_fc && "
-    _fc="$_fc\$2==\"$(awk_esc "$_s")\""
-  fi
-  if [ "$_p" = "none" ]; then
-    [ -n "$_fc" ] && _fc="$_fc && "
-    _fc="$_fc\$3==\"\""
-  elif [ -n "$_p" ]; then
-    [ -n "$_fc" ] && _fc="$_fc && "
-    _fc="$_fc\$3==\"$(awk_esc "$_p")\""
-  fi
-  if [ -n "$_tags" ]; then
-    local _tc="" _tag
-    while IFS= read -r _tag || [ -n "$_tag" ]; do
-      [ -z "$_tag" ] && continue
-      local _etag; _etag=$(awk_esc "$_tag")
-      if [ -n "$_tc" ]; then
-        _tc="$_tc || index(\" \" \$4 \" \", \" $_etag \")"
-      else
-        _tc="index(\" \" \$4 \" \", \" $_etag \")"
-      fi
-    done <<< "$_tags"
-    if [ -n "$_tc" ]; then
-      [ -n "$_fc" ] && _fc="$_fc && "
-      _fc="$_fc($_tc)"
-    fi
-  fi
-  printf '%s' "$_fc"
-}
+# Field condition + value escaper come from .fn_note (declare -f emission
+# of _nn_awk_esc/_nn_build_field_cond) – one source shared with the ad-hoc
+# path, so the TUI can never filter differently for the same query
 vis_cond=$(cat "$dir/.schema_type_vis_cond")
 archive_cond=$(cat "$dir/.schema_archive_cond")
 archive_only_cond=$(cat "$dir/.schema_archive_only_cond")
@@ -6910,7 +6852,7 @@ case "$farchive" in
   only) [ -z "$fs" ] && cond="$cond$archive_only_cond" ;;
 esac
 _tags=""; [ -s "$dir/.f_tags" ] && _tags=$(cat "$dir/.f_tags")
-_field_cond=$(build_field_cond "$ft" "$fs" "$fp" "$_tags")
+_field_cond=$(_nn_build_field_cond "$ft" "$fs" "$fp" "$_tags")
 [ -n "$_field_cond" ] && cond="$cond && $_field_cond"
 # Sort .raw before filtering
 # NOTE: must stay in sync with _nn_adhoc_sort() in notenav_main (ad-hoc query path).
@@ -7226,7 +7168,7 @@ if [ -f "$dir/.queries" ]; then
         *) nn_assert "query stats: unknown arg '${a%%=*}'" ;;
       esac
     done
-    _sq_field_cond=$(build_field_cond "$_sq_type" "$_sq_status" "$_sq_priority" "$_sq_tags")
+    _sq_field_cond=$(_nn_build_field_cond "$_sq_type" "$_sq_status" "$_sq_priority" "$_sq_tags")
     [ -n "$_sq_field_cond" ] && sq_cond="$sq_cond && $_sq_field_cond"
     sq_count=$(awk -F'\t' "$sq_cond"'{n++} END{print n+0}' "$dir/.raw.snap.$$")
     label=$(printf '%d:%s(%d)' "$n" "$qname" "$sq_count")
@@ -7917,7 +7859,8 @@ ENDDELETE
         "$_nn_dir/.awk_action_rewrite" "$_nn_dir/.awk_bulk_rewrite" \
         "$_nn_dir/.awk_color_body" "$_nn_dir/.awk_color_marked" \
         "$_nn_dir/.awk_color_pinned" "$_nn_dir/.awk_color_stats" \
-        "$_nn_dir/.awk_fm_backfill" "$_nn_dir/.awk_native_parser" \
+        "$_nn_dir/.awk_fm_backfill" "$_nn_dir/.awk_fm_get" \
+        "$_nn_dir/.awk_native_parser" \
         "$_nn_dir/.awk_prescan" "$_nn_dir/.fn_find_md" \
         "$_nn_dir/.fn_note"; do
       if [[ ! -s "$_nn_sf" ]]; then
