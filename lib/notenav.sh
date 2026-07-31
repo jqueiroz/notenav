@@ -1680,12 +1680,16 @@ _nn_fence_probe() {
 # dead holder's – critical sections are milliseconds – and is stolen BY
 # ATOMIC RENAME, so of several starved contenders exactly one wins the mv
 # and the corpse is exclusively the winner's to remove (an unconditional
-# rm -rf would race a rival's fresh re-acquire).  A young-but-held lock
-# after the wait means a busy system: proceed UNLOCKED and unowned – no
-# worse than the pre-lock behavior.  NN_STATE_LOCK_OWNED records whether
-# we own the lock; _nn_state_unlock removes it ONLY when owned, so a
-# contender that proceeded unlocked can never release a live holder's
-# lock to a third writer.  Never fails: callers always proceed.
+# rm -rf would race a rival's fresh re-acquire), and the corpse's age is
+# re-verified after the rename: a young corpse means the stat-to-mv window
+# raced a rival's re-acquire, and the live lock is restored.  A
+# young-but-held lock after the wait means a busy system: proceed UNLOCKED
+# and unowned – no worse than the pre-lock behavior.  NN_STATE_LOCK_OWNED
+# records whether we own the lock, and the owner's PID is stored inside it;
+# _nn_state_unlock removes the lock ONLY when owned AND still ours, so
+# neither a contender that proceeded unlocked nor a holder whose lock was
+# stolen during a stall can release someone else's lock to a third writer.
+# Never fails: callers always proceed.
 _nn_state_lock() {
   local _ld="$1/.state.lock" _i=0 _age _now
   NN_STATE_LOCK_OWNED=0
@@ -1695,11 +1699,23 @@ _nn_state_lock() {
       _now=$(date +%s)
       _age=$(stat -c %Y "$_ld" 2>/dev/null || stat -f %m "$_ld" 2>/dev/null)
       if [[ -z "$_age" || $((_now - _age)) -ge 5 ]]; then
-        # unknown age (exotic stat) falls back to the old unconditional
-        # steal – but by rename, so a rival's fresh lock is never destroyed
         if mv "$_ld" "$_ld.stale.$$" 2>/dev/null; then
-          rm -rf "$_ld.stale.$$" 2>/dev/null
-          mkdir "$_ld" 2>/dev/null && NN_STATE_LOCK_OWNED=1
+          # Re-verify age on the corpse we now own exclusively: between our
+          # stat and our mv, a rival stealer may have completed its own
+          # steal + re-acquire, making the path a FRESH live lock – if the
+          # corpse is young, we renamed a live lock and must restore it.
+          # (Unknown corpse age – exotic stat – falls through to the steal,
+          # the old unconditional semantics.)
+          _age=$(stat -c %Y "$_ld.stale.$$" 2>/dev/null || stat -f %m "$_ld.stale.$$" 2>/dev/null)
+          if [[ -n "$_age" && $(($(date +%s) - _age)) -lt 5 ]]; then
+            mv "$_ld.stale.$$" "$_ld" 2>/dev/null || rm -rf "$_ld.stale.$$" 2>/dev/null
+          else
+            rm -rf "$_ld.stale.$$" 2>/dev/null
+            if mkdir "$_ld" 2>/dev/null; then
+              printf '%s' "${BASHPID:-$$}" > "$_ld/owner" 2>/dev/null
+              NN_STATE_LOCK_OWNED=1
+            fi
+          fi
         fi
       fi
       return 0
@@ -1709,12 +1725,19 @@ _nn_state_lock() {
     # a microsecond busy-spin or stretching to 50s
     sleep 0.02 2>/dev/null || { sleep 1; _i=$((_i + 24)); }
   done
+  printf '%s' "${BASHPID:-$$}" > "$_ld/owner" 2>/dev/null
   NN_STATE_LOCK_OWNED=1
   return 0
 }
 _nn_state_unlock() {
+  local _ld="$1/.state.lock"
   if [[ "${NN_STATE_LOCK_OWNED:-0}" == 1 ]]; then
-    rmdir "$1/.state.lock" 2>/dev/null
+    # Identity check: release only a lock that is still OURS.  If ours was
+    # stolen while we were suspended/stalled (>=5s), the lock at this path
+    # now belongs to the thief – removing it would admit a third writer.
+    if [[ "$(cat "$_ld/owner" 2>/dev/null)" == "${BASHPID:-$$}" ]]; then
+      rm -rf "$_ld" 2>/dev/null
+    fi
   fi
   NN_STATE_LOCK_OWNED=0
   return 0
@@ -6652,6 +6675,13 @@ declare -F _nn_state_lock >/dev/null 2>&1 || { _nn_state_lock() { :; }; _nn_stat
 # Clear placeholder-active flag; re-set later if the empty-narrowed branch fires
 rm -f "$dir/.empty_narrowed_active"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
+# Per-invocation temp cleanup, installed BEFORE any temp is created (the
+# persist_f writes below run long before the pipeline section)
+trap 'rm -f "$dir/.raw.snap.$$" "$dir/.pinned.snap.$$" "$dir/.marked.snap.$$" "$dir/.raw_matched.$$" "$dir/.raw_marked.$$" "$dir/.raw_prefiltered.$$" "$dir/.raw_widened.$$" "$dir/.raw_title.$$" "$dir/.current.tmp.$$" "$dir/.current.build.$$" "$dir/.pin_ghost_count.$$" "$dir"/.f_*.$$' EXIT
+# Atomic state write (tmp+mv): shared .f_* files are re-read at the top of
+# every concurrent invocation; a bare truncate-then-write lets a racing run
+# read an empty value mid-truncation and render the wrong view
+persist_f() { printf '%s\n' "$2" > "$dir/$1.$$" && mv "$dir/$1.$$" "$dir/$1"; }
 apply_sq() {
   local num="$1" line name args
   [ ! -f "$dir/.queries" ] && return
@@ -6660,17 +6690,22 @@ apply_sq() {
   name="${line%%	*}"; args="${line#*	}"
   [ "$args" = "$name" ] && args=""  # no tab found – name-only preset
   # Reset filters then apply query preset's key=value pairs
-  ft=""; fs=""; fp=""; fmatch=""; ftitle=""; fmarked=""; : > "$dir/.f_tags"; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_title"
+  ft=""; fs=""; fp=""; fmatch=""; ftitle=""; fmarked=""; : > "$dir/.f_match"; : > "$dir/.f_match_paths"; : > "$dir/.f_title"
+  # Rebuild .f_tags in a private temp and install in one mv – a concurrent
+  # run reading during a clear-then-append rebuild would filter on a
+  # partial tag set (same for the non-empty .f_sq write)
+  : > "$dir/.f_tags.$$"
   local -a _sq_arr
   read -ra _sq_arr <<< "$args"
   for a in "${_sq_arr[@]}"; do
     case "$a" in
       type=*) ft="${a#*=}";; status=*) fs="${a#*=}";;
-      priority=*) fp="${a#*=}";; tag=*) printf '%s\n' "${a#*=}" >> "$dir/.f_tags";;
+      priority=*) fp="${a#*=}";; tag=*) printf '%s\n' "${a#*=}" >> "$dir/.f_tags.$$";;
       *) nn_assert "apply_sq: unknown arg '${a%%=*}'" ;;
     esac
   done
-  printf '%s\n' "$name" > "$dir/.f_sq"
+  mv "$dir/.f_tags.$$" "$dir/.f_tags"
+  persist_f .f_sq "$name"
 }
 ft=$(cat "$dir/.f_type"); fs=$(cat "$dir/.f_status")
 fp=$(cat "$dir/.f_priority")
@@ -6699,8 +6734,7 @@ esac
 case "$action" in
   sort-reverse) [ -n "$fsort_rev" ] && fsort_rev="" || fsort_rev="rev" ;;
   clear-sort) { IFS= read -r fsort; IFS= read -r _; IFS= read -r _; IFS= read -r _sr; } < "$dir/.schema_defaults"
-    [ "$_sr" = "true" ] && fsort_rev="rev" || fsort_rev=""
-    echo "$fsort_rev" > "$dir/.f_sort_rev" ;;
+    [ "$_sr" = "true" ] && fsort_rev="rev" || fsort_rev="" ;;
   next|prev)  # [/]: cycle through query presets
     if [ -f "$dir/.queries" ]; then
       total=$(wc -l < "$dir/.queries")
@@ -6740,9 +6774,8 @@ case "$action" in
       *) nn_assert "reset: unknown archive_visibility '$_a'" ;;
     esac
     [ "$_sr" = "true" ] && fsort_rev="rev" || fsort_rev=""
-    echo "$fsort_rev" > "$dir/.f_sort_rev"
     [ "$_w" = "true" ] && fwrap="on" || fwrap=""
-    echo "$fwrap" > "$dir/.f_wrap" ;;
+    persist_f .f_wrap "$fwrap" ;;
   clear-tags) : > "$dir/.f_tags" ;;
   clear-group) fgroup="" ;;
   clear-pins) ;;  # pins already cleared above; just re-render
@@ -6814,7 +6847,6 @@ fi
 # the top of every concurrent invocation, and a bare truncate-then-write
 # here let a racing run read an empty value mid-truncation and render the
 # wrong view (e.g. ungrouped/unfiltered) as .current until the next refresh
-persist_f() { printf '%s\n' "$2" > "$dir/$1.$$" && mv "$dir/$1.$$" "$dir/$1"; }
 persist_f .f_type "$ft"; persist_f .f_status "$fs"
 persist_f .f_priority "$fp"
 persist_f .f_sort "$fsort"; persist_f .f_sort_rev "$fsort_rev"; persist_f .f_group "$fgroup"
@@ -6987,7 +7019,6 @@ now=$(date +%s)
 # fixed-name temps and install interleaved output as .current.  Each run now
 # works on its own set and the final mv is last-writer-wins with a CONSISTENT
 # file.  Clean up on every exit so the session dir does not accumulate them.
-trap 'rm -f "$dir/.raw.snap.$$" "$dir/.pinned.snap.$$" "$dir/.marked.snap.$$" "$dir/.raw_matched.$$" "$dir/.raw_marked.$$" "$dir/.raw_prefiltered.$$" "$dir/.raw_widened.$$" "$dir/.raw_title.$$" "$dir/.current.tmp.$$" "$dir/.current.build.$$" "$dir/.pin_ghost_count.$$" "$dir"/.f_*.$$' EXIT
 cp "$dir/.raw" "$dir/.raw.snap.$$"
 cp "$dir/.pinned" "$dir/.pinned.snap.$$" 2>/dev/null || : > "$dir/.pinned.snap.$$"
 cp "$dir/.marked" "$dir/.marked.snap.$$" 2>/dev/null || : > "$dir/.marked.snap.$$"
@@ -6996,6 +7027,7 @@ cp "$dir/.marked" "$dir/.marked.snap.$$" 2>/dev/null || : > "$dir/.marked.snap.$
 # showing the previous list (the pre-private behavior on awk failure).
 _cur="$dir/.current.build.$$"
 cp "$dir/.current" "$_cur" 2>/dev/null || : > "$_cur"
+_cur_built=0
 # Pre-filter by body match if active
 _raw_input="$dir/.raw.snap.$$"
 _count_input="$dir/.raw.snap.$$"
@@ -7060,9 +7092,9 @@ if [ -s "$dir/.pinned.snap.$$" ] || [ -s "$dir/.marked.snap.$$" ]; then
     !('"${cond}"') && ($6 in is_pinned) && ($6 in is_marked) { gc++; '"${marked_awk}"' }
     !('"${cond}"') && ($6 in is_pinned) && !($6 in is_marked) { gc++; '"${pinned_awk}"' }
     END { printf "%d", gc+0 > ghost_file }
-  ' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" || rm -f "$dir/.current.tmp.$$"
+  ' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" && _cur_built=1 || rm -f "$dir/.current.tmp.$$"
 else
-  do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" || rm -f "$dir/.current.tmp.$$"
+  do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" && _cur_built=1 || rm -f "$dir/.current.tmp.$$"
   printf '0' > "$dir/.pin_ghost_count.$$"
 fi
 # Pipeline: AWK filter → count → grouping → empty-view → border/output
@@ -7518,17 +7550,20 @@ if [ "$count" -eq 0 ] && ! [ -s "$_cur" ]; then
         _i=$((_i + 1))
       done
     } > "$_cur"
+    _cur_built=1
   elif [ -n "${NO_COLOR+x}" ]; then
-    printf '%s\t  ~\n' "$dir/.empty_placeholder" > "$_cur"
+    printf '%s\t  ~\n' "$dir/.empty_placeholder" > "$_cur" && _cur_built=1
   else
-    printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$_cur"
+    printf '%s\t\033[90m  ~\033[0m\n' "$dir/.empty_placeholder" > "$_cur" && _cur_built=1
   fi
 fi
 # Publish the finished view atomically: everything above worked on this
 # run's private build file, so concurrent runs can never re-process each
 # other's half-published output (the grouping pass used to re-read the
 # SHARED .current and could double-group a rival's already-grouped view)
-[ -f "$_cur" ] && mv "$_cur" "$dir/.current"
+# Publish ONLY a view this run actually rebuilt: a failed rebuild must not
+# re-install its stale seed over a concurrent run's newer published view
+[ "$_cur_built" = 1 ] && [ -f "$_cur" ] && mv "$_cur" "$dir/.current"
 # Measure placeholder visible width (strip ANSI, find longest line) for preview.sh centering
 awk 'BEGIN{esc=sprintf("%c",27)} {gsub(esc"\\[[0-9;]*m",""); if(length>m) m=length} END{print m+0}' "$dir/.empty_placeholder" > "$dir/.empty_placeholder_width"
 total=$(awk -F'\t' "$vis_cond" "$dir/.raw.snap.$$" | wc -l)

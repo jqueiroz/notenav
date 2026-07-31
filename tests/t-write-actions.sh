@@ -446,16 +446,28 @@ _lock_dt=$((SECONDS - _lock_t0))
 [[ -d "$CAP/.state.lock" ]] || fail "stale-lock steal did not re-acquire the lock"
 [[ "$_lock_dt" -le 10 ]] || fail "stale-lock steal took ${_lock_dt}s (want ~1s)"
 [[ "${NN_STATE_LOCK_OWNED:-0}" == 1 ]] || fail "steal did not record ownership"
+[[ "$(cat "$CAP/.state.lock/owner" 2>/dev/null)" == "$$" ]] \
+  || fail "acquired lock does not carry our PID as owner"
 _lk_res=$(find "$CAP" -maxdepth 1 -name '.state.lock.stale.*' | wc -l)
 [[ "$_lk_res" -eq 0 ]] || fail "steal left $_lk_res .state.lock.stale.* corpse dirs"
 _nn_state_unlock "$CAP"
 [[ -d "$CAP/.state.lock" ]] && fail "owned unlock did not remove the lock"
+# a foreign-owned lock must survive an unlock even when OWNED misreports 1
+# (the stall-then-stolen scenario: our lock was stolen and re-acquired)
+mkdir "$CAP/.state.lock"; printf '99' > "$CAP/.state.lock/owner"
+NN_STATE_LOCK_OWNED=1
+_nn_state_unlock "$CAP"
+[[ -d "$CAP/.state.lock" ]] \
+  || fail "unlock removed a lock owned by another process (identity check failed)"
+rm -rf "$CAP/.state.lock"
 # a YOUNG lock must NOT be stolen (it may belong to a live slow holder) –
 # the caller proceeds unlocked/unowned and its unlock must NOT release the
-# holder's lock to a third writer.  Future-dated mtime keeps the lock
-# young regardless of how slowly a loaded machine runs the spin loop.
+# holder's lock to a third writer.  Future-dated mtime keeps the lock young
+# regardless of how slowly a loaded machine runs the spin loop; computed
+# relative to now (an absolute timestamp would be a date bomb).
 mkdir "$CAP/.state.lock"
-touch -t 203001010000 "$CAP/.state.lock"
+_lk_fut=$(date -d '+1 day' +%Y%m%d%H%M 2>/dev/null || date -v+1d +%Y%m%d%H%M 2>/dev/null)
+if [[ -n "$_lk_fut" ]]; then touch -t "$_lk_fut" "$CAP/.state.lock"; else touch "$CAP/.state.lock"; fi
 _lk_ino_before=$(stat -c %i "$CAP/.state.lock" 2>/dev/null || stat -f %i "$CAP/.state.lock")
 _nn_state_lock "$CAP"
 _lk_ino_after=$(stat -c %i "$CAP/.state.lock" 2>/dev/null || stat -f %i "$CAP/.state.lock" 2>/dev/null)
@@ -468,17 +480,23 @@ _nn_state_unlock "$CAP"
 rmdir "$CAP/.state.lock"
 # under the lock, interleaved append/prune rounds must never lose an entry
 : > "$CAP/.pinned"
+# Unique temp per contender: $$ inside ( ) & stays the parent's PID (all
+# contenders would share one name, making the test load-sensitive), and a
+# bare $BASHPID inside a pipeline REDIRECT expands in the pipeline child,
+# not this subshell – so capture the subshell's PID into a variable first
 for _lk_i in $(seq 1 25); do
   (
+    _lk_me=$BASHPID
     _nn_state_lock "$CAP"
-    { cat "$CAP/.pinned" 2>/dev/null; printf '/nb/pin-%s.md\n' "$_lk_i"; } | awk '!seen[$0]++' > "$CAP/.pinned.tmp.$$"
-    mv "$CAP/.pinned.tmp.$$" "$CAP/.pinned"
+    { cat "$CAP/.pinned" 2>/dev/null; printf '/nb/pin-%s.md\n' "$_lk_i"; } | awk '!seen[$0]++' > "$CAP/.pinned.tmp.$_lk_me"
+    mv "$CAP/.pinned.tmp.$_lk_me" "$CAP/.pinned"
     _nn_state_unlock "$CAP"
   ) &
   (
+    _lk_me=$BASHPID
     _nn_state_lock "$CAP"
     # prune that keeps everything (models reload_raw when no notes vanished)
-    cat "$CAP/.pinned" 2>/dev/null > "$CAP/.pinned.tmp.p$$" && mv "$CAP/.pinned.tmp.p$$" "$CAP/.pinned"
+    cat "$CAP/.pinned" 2>/dev/null > "$CAP/.pinned.tmp.p$_lk_me" && mv "$CAP/.pinned.tmp.p$_lk_me" "$CAP/.pinned"
     _nn_state_unlock "$CAP"
   ) &
 done
