@@ -785,14 +785,18 @@ _nn_values_ctl_check() {
 
 # Strip characters from a UI prompt that break the fzf action strings and
 # printf-format transform bodies the prompt is interpolated into:
-#   \ [ ] ( ) ' " %   – backslash (printf escape), brackets (transform[...]
-#   depth), parens (action-arg syntax), quotes (shell), and % (printf
-#   directive: change-prompt is emitted through printf).  Runtime and
-#   nn doctor call this same helper so their notion of "unsafe" cannot drift.
+#   \ [ ] ( ) ' " % { }   – backslash (printf escape), brackets
+#   (transform[...] depth), parens (action-arg syntax), quotes (shell),
+#   % (printf directive: change-prompt is emitted through printf), and
+#   braces (fzf expands {} / {q} / {1} placeholders INSIDE transform
+#   bodies before the shell runs them – a brace prompt would splice the
+#   current row into the command).  Runtime and nn doctor call this same
+#   helper so their notion of "unsafe" cannot drift.
 _nn_sanitize_prompt() {
   local _p="$1"
   _p="${_p//\\/}"; _p="${_p//\[/}"; _p="${_p//]/}"
   _p="${_p//(/}"; _p="${_p//)/}"
+  _p="${_p//\{/}"; _p="${_p//\}/}"
   _p="${_p//\'/}"; _p="${_p//\"/}"; _p="${_p//%/}"
   printf '%s' "$_p"
 }
@@ -1032,12 +1036,16 @@ nn_precompute_workflow() {
   case "$NN_REFRESH_POLL_INTERVAL" in
     ''|*[!0-9]*) echo "notenav: refresh.poll_interval '$NN_REFRESH_POLL_INTERVAL' invalid (must be a positive integer, in seconds)" >&2; return 1 ;;
     *) ;; esac
+  # Base-10 normalize: bash arithmetic reads leading-zero digits as OCTAL
+  # ("08" errors, "010" means 8) – the user plainly meant decimal
+  NN_REFRESH_POLL_INTERVAL=$((10#$NN_REFRESH_POLL_INTERVAL))
   if [[ "$NN_REFRESH_POLL_INTERVAL" -lt 1 ]]; then
     echo "notenav: refresh.poll_interval must be at least 1 second" >&2; return 1
   fi
   case "$NN_REFRESH_MAX_FILES" in
     ''|*[!0-9]*) echo "notenav: refresh.auto_refresh_note_limit '$NN_REFRESH_MAX_FILES' invalid (must be a non-negative integer; 0 disables the limit)" >&2; return 1 ;;
     *) ;; esac
+  NN_REFRESH_MAX_FILES=$((10#$NN_REFRESH_MAX_FILES))
   case "$NN_DEFAULT_SORT" in created|modified|title|priority|"") ;;
     *) echo "notenav: defaults.sort_by '$NN_DEFAULT_SORT' invalid (must be 'created', 'modified', 'title', or 'priority')" >&2; return 1 ;; esac
   # Silently fall back to "created" when priority sorting is requested but
@@ -5299,13 +5307,23 @@ source "$dir/.fn_find_md"
 # Per-invocation tmp name: concurrent reloads (watcher + binds) sharing one
 # fixed tmp used to garble .raw transiently with interleaved/truncated rows
 _raw_tmp=$(mktemp "$dir/.raw.XXXXXX") || _raw_tmp="$dir/.raw.tmp.$$"
-if _nn_find_md_with_mtime "$search_dir" \
-  | "$nn_gawk" -F'\t' -f "$dir/.awk_native_parser" > "$_raw_tmp" \
+_nn_find_md_with_mtime "$search_dir" \
+  | "$nn_gawk" -F'\t' -f "$dir/.awk_native_parser" > "$_raw_tmp"
+# BOTH segments matter: a find that dies mid-walk (OOM-kill, transiently
+# unreadable dir) with gawk exiting 0 yields a TRUNCATED listing.  Still
+# install it (a best-effort view beats a stale one, the old behavior) but
+# remember the walk was incomplete – the satellite prune below must never
+# delete pins/marks based on a listing that is missing half the notebook.
+_raw_st=("${PIPESTATUS[@]}")
+_raw_complete=1
+[ "${_raw_st[0]}" = 0 ] || _raw_complete=0
+if [ "${_raw_st[1]}" = 0 ] \
   && _nn_apply_ignore "$dir" "$_raw_tmp" \
   && mv "$_raw_tmp" "$dir/.raw"; then
-  :
+  [ "$_raw_complete" = 1 ] || printf 'partial scan – press r to retry' > "$dir/.last_action"
 else
   rm -f "$_raw_tmp"
+  _raw_complete=0
   printf 'scan error – press r to retry' > "$dir/.last_action"
 fi
 
@@ -5315,7 +5333,7 @@ fi
 # helpers degrade to the unlocked prune this script always used).
 . "$dir/.fn_note" 2>/dev/null || true
 declare -F _nn_state_lock >/dev/null 2>&1 || { _nn_state_lock() { :; }; _nn_state_unlock() { :; }; }
-if [ -s "$dir/.raw" ]; then
+if [ "$_raw_complete" = 1 ] && [ -s "$dir/.raw" ]; then
   _nn_state_lock "$dir"
   for _sat in "$dir/.pinned" "$dir/.marked" "$dir/.f_match_paths"; do
     [ -s "$_sat" ] || continue
@@ -8190,7 +8208,13 @@ ENDDELETE
       # scope paths so the native backend can ignore them (see below).
       zk_passthrough+=("$1"); shift
     else
-      zk_args+=("$1"); shift
+      # scope-arg collection: a later -- still switches to passthrough
+      # (zk-list flags), otherwise they would be fed to find(1) as paths
+      case "$1" in
+        --) after_dd=true ;;
+        *) zk_args+=("$1") ;;
+      esac
+      shift
     fi
   done
 

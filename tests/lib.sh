@@ -12,15 +12,21 @@ export XDG_CONFIG_HOME="${TMPDIR:-/tmp}/nn-test-no-user-config.$$.$RANDOM"
 fail() { printf '  FAIL: %s\n' "$*"; FAILS=$((FAILS + 1)); }
 finish() { exit $((FAILS > 0 ? 1 : 0)); }
 
-# GNU awk resolution, mirroring lib's _nn_resolve_gawk: plain awk counts
-# when it IS gawk (Debian ships gawk as awk); empty when no GNU awk exists.
-if awk --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk'; then
-  NN_TEST_GAWK="awk"
-elif command -v gawk >/dev/null 2>&1; then
-  NN_TEST_GAWK="gawk"
+# GNU awk resolution DERIVED from the lib's own _nn_resolve_gawk (sourcing
+# the lib is cheap – top level only defines functions and constants), so
+# the suite always tests the same interpreter the product resolves.  The
+# lib returns a best-effort 'awk' even with no GNU awk installed (runtime
+# surfaces a doctor message); the suite additionally verifies GNU-ness so
+# require_gawk can detect true absence and SKIP with a clear message.
+# shellcheck source=lib/notenav.sh
+NOTENAV_ROOT="$REPO" . "$REPO/lib/notenav.sh" 2>/dev/null
+if declare -F _nn_resolve_gawk >/dev/null 2>&1; then
+  NN_TEST_GAWK=$(_nn_resolve_gawk)
 else
-  NN_TEST_GAWK=""
+  NN_TEST_GAWK="awk"
 fi
+"$NN_TEST_GAWK" --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk' \
+  || NN_TEST_GAWK=""
 
 # require_gawk – fail the current test file with a clear dependency message
 # instead of letting gawk-only constructs (\x regexes, 3-arg match) surface

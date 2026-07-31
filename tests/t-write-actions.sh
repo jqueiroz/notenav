@@ -506,11 +506,16 @@ rmdir "$CAP/.state.lock"
 # Unique temp per contender: $$ inside ( ) & stays the parent's PID (all
 # contenders would share one name, making the test load-sensitive), and a
 # bare $BASHPID inside a pipeline REDIRECT expands in the pipeline child,
-# not this subshell – so capture the subshell's PID into a variable first
+# not this subshell – so capture the subshell's PID into a variable first.
+# Contenders retry until OWNED: this asserts the lock's mutual-exclusion
+# guarantee deterministically at any machine load.  (Production callers
+# deliberately proceed unlocked after ~1s – an availability policy, not a
+# correctness guarantee, and not what this test measures.)
 for _lk_i in $(seq 1 25); do
   (
     _lk_me=$BASHPID
     _nn_state_lock "$CAP"
+    while [[ "${NN_STATE_LOCK_OWNED:-0}" != 1 ]]; do sleep 0.05; _nn_state_lock "$CAP"; done
     { cat "$CAP/.pinned" 2>/dev/null; printf '/nb/pin-%s.md\n' "$_lk_i"; } | awk '!seen[$0]++' > "$CAP/.pinned.tmp.$_lk_me"
     mv "$CAP/.pinned.tmp.$_lk_me" "$CAP/.pinned"
     _nn_state_unlock "$CAP"
@@ -518,6 +523,7 @@ for _lk_i in $(seq 1 25); do
   (
     _lk_me=$BASHPID
     _nn_state_lock "$CAP"
+    while [[ "${NN_STATE_LOCK_OWNED:-0}" != 1 ]]; do sleep 0.05; _nn_state_lock "$CAP"; done
     # prune that keeps everything (models reload_raw when no notes vanished)
     cat "$CAP/.pinned" 2>/dev/null > "$CAP/.pinned.tmp.p$_lk_me" && mv "$CAP/.pinned.tmp.p$_lk_me" "$CAP/.pinned"
     _nn_state_unlock "$CAP"
@@ -602,6 +608,26 @@ assert_bytes "$CAP/.current" "$WORK/current.title.ref" "concurrent title-filtere
 bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1
 _fc_stray=$(find "$CAP" -name '.raw.snap.*' -o -name '.raw_title.*' -o -name '.current.tmp.*' -o -name '.pin_ghost_count.*' | wc -l)
 [[ "$_fc_stray" -eq 0 ]] || fail "filter runs left $_fc_stray stray per-invocation temp files"
+# a find that dies MID-WALK (partial listing, non-zero exit) must still
+# install the best-effort view but NEVER let the satellite prune delete
+# pins for notes missing from the truncated listing
+_fw="$WORK/badfind"; mkdir -p "$_fw"
+cat > "$_fw/find" <<EOF
+#!/bin/sh
+case "\$*" in *"/dev/null"*) exit 1 ;; esac
+printf '%s\t2026-01-01 01:01:01\n' "$NOTEBOOK/seed.md"
+exit 1
+EOF
+chmod +x "$_fw/find"
+printf '%s\n' "$NOTEBOOK/ghost-of-missing-note.md" > "$CAP/.pinned"
+: > "$CAP/.last_action"
+PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
+grep -qxF "$NOTEBOOK/ghost-of-missing-note.md" "$CAP/.pinned" \
+  || fail "partial-walk prune deleted a pin for a note missing from the truncated listing"
+grep -q 'partial scan' "$CAP/.last_action" || fail "no partial-scan hint after a mid-walk find death"
+grep -q 'seed.md' "$CAP/.raw" || fail "best-effort partial listing was not installed"
+rm -f "$CAP/.pinned"; bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1  # restore real .raw
+
 # a sort dying MID-PIPELINE (inside do_chain_sort/do_sort's nested
 # pipelines, where a last-segment-only status check cannot see it) must
 # never publish a truncated view – .current stays byte-identical
@@ -611,6 +637,26 @@ bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1   # known-good baselin
 cp "$CAP/.current" "$WORK/cur.keep"
 PATH="$_bs:$PATH" bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1
 assert_bytes "$CAP/.current" "$WORK/cur.keep" "a mid-pipeline sort death published a truncated view"
+
+# ── sort parity: the TUI (filter.sh) and the ad-hoc path must order the
+#    same notebook identically – the chain-sort implementations are twins
+#    held together by comments, so pin their BEHAVIOR together ──────────
+NB2="$WORK/nb2"; CAP2="$WORK/cap2"; mkdir -p "$NB2"
+mk_note "$NB2/p1.md" lf 0 '---' 'title: Cc' 'type: task' 'status: new' 'priority: p1' '---' 'x'
+mk_note "$NB2/p3.md" crlf 0 '---' 'title: Aa' 'type: task' 'status: active' 'priority: p3' '---' 'x'
+mk_note "$NB2/px.md" lf 1 '---' 'title: Bb' 'type: task' 'status: new' '---' 'x'
+mk_note "$NB2/p2.md" crlf 1 '---' 'title: Dd' 'type: task' 'status: done' 'priority: p2' '---' 'x'
+if capture_nn_dir "$NB2" "$CAP2"; then
+  bash "$CAP2/filter.sh.orig" "$CAP2" refresh >/dev/null 2>&1
+  _sp_tui=$(awk -F'\t' 'NF>1 && $1 != "" {print $1}' "$CAP2/.current" | xargs -n1 basename 2>/dev/null)
+  _sp_adhoc=$(cd "$NB2" && TERM=xterm bash "$REPO/bin/nn" type=task -l </dev/null 2>/dev/null | awk -F'\t' '{print $5}' | xargs -n1 basename 2>/dev/null)
+  if [[ -z "$_sp_tui" || -z "$_sp_adhoc" ]]; then
+    fail "sort-parity fixture produced empty output (tui=[$_sp_tui] adhoc=[$_sp_adhoc])"
+  elif [[ "$_sp_tui" != "$_sp_adhoc" ]]; then
+    fail "TUI and ad-hoc order the same notebook differently:"
+    printf '    tui:   %s\n    adhoc: %s\n' "${_sp_tui//$'\n'/ }" "${_sp_adhoc//$'\n'/ }"
+  fi
+fi
 
 # completeness sweep: every filter.sh intermediate must be $$-suffixed –
 # any .raw<anything>/snap/tmp/count name inside the heredoc without the

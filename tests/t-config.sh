@@ -62,6 +62,11 @@ done
 # a valid poll config is accepted
 uconf '[refresh]' 'mode = "poll"' 'poll_interval = 15' 'auto_refresh_note_limit = 0'
 run_nn_u "$G" type=task >/dev/null 2>&1 || { fail "nn rejected a valid refresh config"; sed 's/^/    /' "$WORK/err" | head -3; }
+# leading-zero digits are DECIMAL, not octal: "08" used to raise a bash
+# 'value too great for base' error and "010" silently meant 8
+uconf '[refresh]' 'mode = "poll"' 'poll_interval = "08"' 'auto_refresh_note_limit = "010"'
+run_nn_u "$G" type=task >/dev/null 2>&1 || { fail "leading-zero refresh numerics rejected"; sed 's/^/    /' "$WORK/err" | head -3; }
+grep -qi 'value too great' "$WORK/err" && fail "octal parse error leaked on leading-zero numerics"
 
 # ── prompt sanitizer: %/backslash (printf-format hazards) and [ " must be
 #    stripped at runtime AND flagged by doctor via the same helper ────────
@@ -77,6 +82,12 @@ grep -q "search_prompt contains characters stripped at runtime" "$WORK/doc.out" 
 uconf '[ui]' 'command_prompt = "a\\b "'
 (cd "$G" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/doc2.out"
 grep -q "command_prompt contains characters stripped at runtime" "$WORK/doc2.out" || fail "doctor did not warn about a backslash in command_prompt"
+# fzf placeholder braces are stripped too ({q}/{} would be expanded by fzf
+# INSIDE transform bodies, splicing the current row into the command)
+uconf '[ui]' 'command_prompt = "{q} "'
+run_nn_u "$G" type=task >/dev/null 2>&1 || { fail "a brace-containing prompt broke launch (not stripped)"; sed 's/^/    /' "$WORK/err" | head -3; }
+(cd "$G" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/doc3.out"
+grep -q "command_prompt contains characters stripped at runtime" "$WORK/doc3.out" || fail "doctor did not warn about braces in command_prompt"
 
 # ── `--` passthrough on the NATIVE backend must be ignored, not fed to
 #    find(1) (where '--limit'/etc. break the whole listing) ───────────────
@@ -87,6 +98,14 @@ dout=$(run_nn "$D" type=task -- --limit 10); drc=$?
 printf '%s\n' "$dout" | grep -q 'only-note' || fail "native listing lost its note when -- passthrough args were present"
 grep -qiE 'find: (unknown predicate|.*No such file)' "$WORK/err" && fail "-- passthrough args reached find(1) on the native backend"
 grep -q "passthrough args are ignored on the native backend" "$WORK/err" || fail "no native-backend passthrough notice emitted"
+# `--` AFTER a positional scope arg must also switch to passthrough (it
+# used to fall into the scope list and reach find as a literal path)
+mkdir -p "$D/sub"; printf -- '---\ntype: task\nstatus: todo\ntitle: subnote\n---\nb\n' > "$D/sub/s.md"
+dout=$(run_nn "$D" sub -- --limit 5); drc=$?
+[[ "$drc" -eq 0 ]] || { fail "late -- broke the native scoped listing (exit $drc)"; sed 's/^/    /' "$WORK/err" | head -3; }
+printf '%s\n' "$dout" | grep -q 'subnote' || fail "scoped listing lost its note with a late --"
+grep -qiE 'find: (unknown predicate|.*No such file)' "$WORK/err" && fail "late -- passthrough args reached find(1)"
+grep -q "passthrough args are ignored on the native backend" "$WORK/err" || fail "no notice for late -- passthrough"
 
 # ── doctor flags an unrecognized [defaults.sort_chain] key (typo) like it
 #    does for every sibling table ────────────────────────────────────────
