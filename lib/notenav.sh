@@ -1752,11 +1752,18 @@ _nn_state_unlock() {
   if [[ "${NN_STATE_LOCK_OWNED:-0}" == 1 ]]; then
     # Identity check: release only a lock that is still OURS (stolen locks
     # belong to the thief – removing one would admit a third writer).  An
-    # EMPTY owner means our own owner write failed (ENOSPC): remove anyway,
-    # or the unreleasable lock would stall every later action ~1s until
-    # the 5s steal – availability over a theoretical thief-with-failed-
-    # write collision.
+    # EMPTY owner usually means our own owner write failed (ENOSPC) and
+    # must still be removable, or the unreleasable lock would stall every
+    # later action ~1s until the 5s steal.  But a stealer also has a
+    # microsecond mkdir-to-owner-write gap in which its fresh lock is
+    # momentarily ownerless – re-check after a short grace so a stalled
+    # former holder resuming in exactly that gap does not delete the
+    # thief'"'"'s live lock (the ENOSPC case stays empty and is removed).
     _o=$(cat "$_ld/owner" 2>/dev/null)
+    if [[ -z "$_o" ]]; then
+      sleep 0.05 2>/dev/null || sleep 1
+      _o=$(cat "$_ld/owner" 2>/dev/null)
+    fi
     if [[ -z "$_o" || "$_o" == "${BASHPID:-$$}" ]]; then
       rm -rf "$_ld" 2>/dev/null
     fi
@@ -2272,10 +2279,15 @@ EOF
       fi
     fi
 
+    # Parse the user config ONCE; the default_workflow check, the
+    # top-level key check, and the dead-key diff below all reuse it
+    local _uc_json=""
+    [[ -f "$user_cfg" ]] && _uc_json=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null)
+
     # Check default_workflow resolves (from user config)
-    if [[ -f "$user_cfg" ]]; then
+    if [[ -n "$_uc_json" ]]; then
       local _dw
-      _dw=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null | jq -r '.default_workflow // empty' 2>/dev/null)
+      _dw=$(printf '%s' "$_uc_json" | jq -r '.default_workflow // empty' 2>/dev/null)
       if [[ -n "$_dw" ]] && ! _nn_resolve_workflow_file "$notenav_root" "$_dw" >/dev/null; then
         if [[ "$_dw" == https://* ]]; then
           _warn "default_workflow '$_dw' – not yet downloaded (run 'nn init $_dw' to fetch)"
@@ -2334,7 +2346,13 @@ EOF
           [[ -n "$_unknown" ]] && _unknown+=", "
           _unknown+="$_key"
         fi
-      done < <(yq -p=toml -o=json '.' "$_cfg_file" 2>/dev/null | jq -r 'keys[]' 2>/dev/null)
+      done < <(
+        if [[ "$_cfg_file" == "$user_cfg" && -n "$_uc_json" ]]; then
+          printf '%s' "$_uc_json" | jq -r 'keys[]' 2>/dev/null
+        else
+          yq -p=toml -o=json '.' "$_cfg_file" 2>/dev/null | jq -r 'keys[]' 2>/dev/null
+        fi
+      )
       if [[ -n "$_unknown" ]]; then
         local _short="${_cfg_file##*/}"
         _warn "Unrecognized keys in $_short: $_unknown"
@@ -2347,15 +2365,15 @@ EOF
     # check above cannot see these ('type'/'status'/'priority' are known
     # keys wholesale), and the merged config no longer contains them, so
     # diff the user file against the SAME jq shape the loader applies.
-    if [[ -f "$user_cfg" ]]; then
-      local _uc_raw _uc_dropped
-      _uc_raw=$(yq -p=toml -o=json -I=0 '.' "$user_cfg" 2>/dev/null)
-      if [[ -n "$_uc_raw" && "$_uc_raw" != "null" ]]; then
+    if [[ -n "$_uc_json" && "$_uc_json" != "null" ]]; then
+      local _uc_raw="$_uc_json" _uc_dropped
+      if [[ -n "$_uc_raw" ]]; then
         _uc_dropped=$(printf '%s' "$_uc_raw" | jq -r --argjson kept \
           "$(printf '%s' "$_uc_raw" | jq "$_NN_USER_PREFS_SHAPE" 2>/dev/null || printf '{}')" '
             def leafpaths: [paths(type != "object" and type != "null")
               | map(tostring)
-              | if (.[-1] | test("^[0-9]+$")) then .[:-1] else . end
+              | select(.[0] == "type" or .[0] == "status" or .[0] == "priority")
+              | (map(select(test("^[0-9]+$") | not)))
               | join(".")] | unique;
             leafpaths - ($kept | leafpaths) | .[]' 2>/dev/null | head -8)
         local _uc_d
@@ -6598,10 +6616,12 @@ dir="$1"; file="$2"; direction="${3:-fwd}"
 case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-# Fail CLOSED if the shared getter is missing/empty: an unreadable current
-# value would be treated as "no status set" and WRITE the initial status
+# Fail CLOSED if the shared getter is missing/empty/broken: an unreadable
+# current value would be treated as "no status set" and WRITE the initial
+# status.  The rc check also catches a truncated-but-non-empty program
+# (gawk syntax error) that the -s check alone would let through.
 [ -s "$dir/.awk_fm_get" ] || exit 1
-cur=$($nn_gawk -v f=status -f "$dir/.awk_fm_get" "$file")
+cur=$($nn_gawk -v f=status -f "$dir/.awk_fm_get" "$file") || exit 1
 if [ -z "$cur" ]; then
   # No status set – assign the workflow's initial status
   next=$(cat "$dir/.schema_status_initial" 2>/dev/null)
@@ -6631,9 +6651,9 @@ case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
-# Fail CLOSED if the shared getter is missing/empty (see cyclestatus.sh)
+# Fail CLOSED if the shared getter is missing/empty/broken (see cyclestatus.sh)
 [ -s "$dir/.awk_fm_get" ] || exit 1
-cur=$($nn_gawk -v f=priority -f "$dir/.awk_fm_get" "$file")
+cur=$($nn_gawk -v f=priority -f "$dir/.awk_fm_get" "$file") || exit 1
 if [ -z "$cur" ]; then
   # No priority set – enter at lowest priority
   next=$(tail -1 "$dir/.schema_priority_values")
@@ -6752,7 +6772,7 @@ apply_sq() {
     esac
   done
   # Atomic swap when the temp build worked; if it failed (ENOSPC), fall
-  # back to a plain truncate so the OLD preset'"'"'s tag filter cannot
+  # back to a plain truncate so the OLD preset's tag filter cannot
   # silently survive into the new one (truncation succeeds on a full disk)
   mv "$dir/.f_tags.$$" "$dir/.f_tags" 2>/dev/null || : > "$dir/.f_tags"
   persist_f .f_sq "$name"
@@ -7013,15 +7033,21 @@ do_chain_sort() {
   [ ${#_chain[@]} -eq 0 ] && { cat; return; }
   # Apply in reverse order: last chain entry first, so the first entry
   # ends up as the strongest tie-breaker after the primary sort.
-  local _tmpf; _tmpf=$(mktemp)
-  cat > "$_tmpf"
+  # Every stage's failure must PROPAGATE as this function's status: the
+  # publish gate keys off the whole pipeline, and a swallowed inner
+  # failure (partial cat under ENOSPC, an OOM-killed sort) would let a
+  # truncated view be published as complete.
+  local _tmpf; _tmpf=$(mktemp) || { cat; return 0; }   # no temp: unsorted passthrough beats data loss
+  cat > "$_tmpf" || { rm -f "$_tmpf"; return 1; }
   local _i
   for ((_i=${#_chain[@]}-1; _i>=0; _i--)); do
-    do_chain_field_sort "${_chain[$_i]}" < "$_tmpf" > "$_tmpf.out"
-    mv "$_tmpf.out" "$_tmpf"
+    do_chain_field_sort "${_chain[$_i]}" < "$_tmpf" > "$_tmpf.out"       || { rm -f "$_tmpf" "$_tmpf.out"; return 1; }
+    mv "$_tmpf.out" "$_tmpf" || { rm -f "$_tmpf" "$_tmpf.out"; return 1; }
   done
-  cat "$_tmpf"
+  local _rc
+  cat "$_tmpf"; _rc=$?
   rm -f "$_tmpf"
+  return "$_rc"
 }
 now=$(date +%s)
 # Snapshot .raw, .pinned, .marked so concurrent actions cannot modify them
@@ -7087,6 +7113,13 @@ fi
 awk_body=$(cat "$dir/.awk_color_body")
 pinned_awk=$(cat "$dir/.awk_color_pinned")
 marked_awk=$(cat "$dir/.awk_color_marked")
+# pipefail for the view-building pipelines: a plain PIPESTATUS check sees
+# only the top-level segments, but do_chain_sort/do_sort contain NESTED
+# pipelines (awk|sort|awk) whose mid-stream deaths (ENOSPC, OOM-kill)
+# would otherwise be invisible – gawk exits 0 over truncated input and a
+# partial view would be published as complete.  Restored to default right
+# after the grouping pass; nothing between relies on last-segment-only.
+set -o pipefail
 if [ -s "$dir/.pinned.snap.$$" ] || [ -s "$dir/.marked.snap.$$" ]; then
   do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" \
     -v marked_file="$dir/.marked.snap.$$" -v pinned_file="$dir/.pinned.snap.$$" -v mfilt="$fmarked" \
@@ -7103,14 +7136,17 @@ if [ -s "$dir/.pinned.snap.$$" ] || [ -s "$dir/.marked.snap.$$" ]; then
     !('"${cond}"') && ($6 in is_pinned) && ($6 in is_marked) { gc++; '"${marked_awk}"' }
     !('"${cond}"') && ($6 in is_pinned) && !($6 in is_marked) { gc++; '"${pinned_awk}"' }
     END { printf "%d", gc+0 > ghost_file }
-  ' > "$dir/.current.tmp.$$" && mv "$dir/.current.tmp.$$" "$_cur" && _cur_built=1 || rm -f "$dir/.current.tmp.$$"
+  ' > "$dir/.current.tmp.$$"
+  _rc=$?
+  if [ "$_rc" = 0 ]; then
+    mv "$dir/.current.tmp.$$" "$_cur" && _cur_built=1
+  else
+    rm -f "$dir/.current.tmp.$$"
+  fi
 else
   do_chain_sort "$fsort" < "$_raw_input" | do_sort "$fsort" | "$nn_gawk" -F'\t' -v now="$now" "${cond} { ${awk_body} }" > "$dir/.current.tmp.$$"
-  # every pipeline segment must succeed: sort dying mid-stream (ENOSPC,
-  # OOM-kill) leaves gawk exiting 0 over truncated input, and a truncated
-  # view must never arm the publish gate
-  _st=("${PIPESTATUS[@]}")
-  if [ "${_st[0]}" = 0 ] && [ "${_st[1]}" = 0 ] && [ "${_st[2]}" = 0 ]; then
+  _rc=$?
+  if [ "$_rc" = 0 ]; then
     mv "$dir/.current.tmp.$$" "$_cur" && _cur_built=1
   else
     rm -f "$dir/.current.tmp.$$"
@@ -7157,14 +7193,15 @@ if [ -n "$fgroup" ]; then
         printf "%s", lines[g]
       }
     }' > "$dir/.current.tmp.$$"
-  _st=("${PIPESTATUS[@]}")
-  if [ "${_st[0]}" = 0 ] && [ "${_st[1]}" = 0 ] && [ "${_st[2]}" = 0 ]; then
+  _rc=$?
+  if [ "$_rc" = 0 ]; then
     mv "$dir/.current.tmp.$$" "$_cur"
   else
     # keep the ungrouped stage-1 view rather than a truncated grouped one
     rm -f "$dir/.current.tmp.$$"
   fi
 fi
+set +o pipefail
 # Compute inline stats from filtered set
 awk_stats=$(cat "$dir/.awk_color_stats")
 stats_s=$(awk -F'\t' "${cond}${awk_stats}" "$_count_input")
@@ -8301,15 +8338,21 @@ ENDDELETE
     local -a _chain
     IFS=$'\t' read -ra _chain <<< "$_chain_str"
     [[ ${#_chain[@]} -eq 0 ]] && { cat; return; }
-    local _tmpf; _tmpf=$(mktemp)
-    cat > "$_tmpf"
+    # Failure propagation mirrors do_chain_sort() in filter.sh: inner-stage
+    # deaths must surface as this function's status, not be swallowed by
+    # the trailing cleanup commands
+    local _tmpf; _tmpf=$(mktemp) || { cat; return 0; }
+    cat > "$_tmpf" || { rm -f "$_tmpf"; return 1; }
     local _i
     for ((_i=${#_chain[@]}-1; _i>=0; _i--)); do
-      _nn_adhoc_chain_field_sort "${_chain[$_i]}" < "$_tmpf" > "$_tmpf.out"
-      mv "$_tmpf.out" "$_tmpf"
+      _nn_adhoc_chain_field_sort "${_chain[$_i]}" < "$_tmpf" > "$_tmpf.out" \
+        || { rm -f "$_tmpf" "$_tmpf.out"; return 1; }
+      mv "$_tmpf.out" "$_tmpf" || { rm -f "$_tmpf" "$_tmpf.out"; return 1; }
     done
-    cat "$_tmpf"
+    local _rc
+    cat "$_tmpf"; _rc=$?
     rm -f "$_tmpf"
+    return "$_rc"
   }
 
   if $interactive; then

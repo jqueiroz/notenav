@@ -602,6 +602,16 @@ assert_bytes "$CAP/.current" "$WORK/current.title.ref" "concurrent title-filtere
 bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1
 _fc_stray=$(find "$CAP" -name '.raw.snap.*' -o -name '.raw_title.*' -o -name '.current.tmp.*' -o -name '.pin_ghost_count.*' | wc -l)
 [[ "$_fc_stray" -eq 0 ]] || fail "filter runs left $_fc_stray stray per-invocation temp files"
+# a sort dying MID-PIPELINE (inside do_chain_sort/do_sort's nested
+# pipelines, where a last-segment-only status check cannot see it) must
+# never publish a truncated view – .current stays byte-identical
+_bs="$WORK/badsort"; mkdir -p "$_bs"
+printf '#!/bin/sh\nhead -c 20 >/dev/null\nexit 1\n' > "$_bs/sort"; chmod +x "$_bs/sort"
+bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1   # known-good baseline
+cp "$CAP/.current" "$WORK/cur.keep"
+PATH="$_bs:$PATH" bash "$CAP/filter.sh.orig" "$CAP" refresh >/dev/null 2>&1
+assert_bytes "$CAP/.current" "$WORK/cur.keep" "a mid-pipeline sort death published a truncated view"
+
 # completeness sweep: every filter.sh intermediate must be $$-suffixed –
 # any .raw<anything>/snap/tmp/count name inside the heredoc without the
 # suffix is a fresh instance of the .raw_title gap.  The name class admits
