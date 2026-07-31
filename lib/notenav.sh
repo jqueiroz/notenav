@@ -6659,9 +6659,19 @@ while IFS='	' read -r qname qargs || [ -n "$qname" ]; do
   list="$list$(printf '%d\t%s\t%s\n' "$n" "$qname" "$qargs")"$'\n'
 done < "$dir/.queries"
 [ -z "$list" ] && exit 0
-selected=$(printf '%s' "$list" | fzf --reverse --prompt 'query: ' \
+# Styling matches the other sub-pickers (sortpick/grouppick/...): NO_COLOR
+# handling, bordered box, colored header hint
+_fzf_ansi=(--ansi)
+[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+if [ -n "${NO_COLOR+x}" ]; then
+  _hdr='Enter apply · Esc cancel'
+else
+  _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
+fi
+selected=$(printf '%s' "$list" | fzf "${_fzf_ansi[@]}" --reverse --prompt 'query: ' \
+  --border --border-label " Query presets " \
   --delimiter '\t' --with-nth '1,2' \
-  --header 'Enter apply · Esc cancel' \
+  --header "$_hdr" \
   --bind 'j:down,k:up,ctrl-j:page-down,ctrl-k:page-up')
 [ -z "$selected" ] && exit 0
 num=$(echo "$selected" | cut -f1)
