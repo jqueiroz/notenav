@@ -416,6 +416,19 @@ for _sf in .fn_note .awk_prescan .awk_bulk_rewrite; do
   assert_bytes "$f" "$WORK/emptysf.orig" "bulkedit refuses byte-identically with empty $_sf"
   mv "$CAP/$_sf.hidden" "$CAP/$_sf"
 done
+# cyclestatus/bumppri with an empty shared getter: an unreadable current
+# value must NOT be treated as "no status set" (which would WRITE)
+mv "$CAP/.awk_fm_get" "$CAP/.awk_fm_get.hidden"
+: > "$CAP/.awk_fm_get"
+if bash "$CAP/cyclestatus.sh" "$CAP" "$f" fwd >/dev/null 2>&1; then
+  fail "cyclestatus should exit non-zero with empty .awk_fm_get"
+fi
+assert_bytes "$f" "$WORK/emptysf.orig" "cyclestatus refuses byte-identically with empty .awk_fm_get"
+if bash "$CAP/bumppri.sh" "$CAP" "$f" up >/dev/null 2>&1; then
+  fail "bumppri should exit non-zero with empty .awk_fm_get"
+fi
+assert_bytes "$f" "$WORK/emptysf.orig" "bumppri refuses byte-identically with empty .awk_fm_get"
+mv "$CAP/.awk_fm_get.hidden" "$CAP/.awk_fm_get"
 # newnote guards at the top of the script, before any tty interaction or
 # note creation – so the refusal is observable headlessly via its stderr
 # marker (an empty backfill program would truncate the just-created note)

@@ -6593,6 +6593,9 @@ dir="$1"; file="$2"; direction="${3:-fwd}"
 case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
+# Fail CLOSED if the shared getter is missing/empty: an unreadable current
+# value would be treated as "no status set" and WRITE the initial status
+[ -s "$dir/.awk_fm_get" ] || exit 1
 cur=$($nn_gawk -v f=status -f "$dir/.awk_fm_get" "$file")
 if [ -z "$cur" ]; then
   # No status set – assign the workflow's initial status
@@ -6623,6 +6626,8 @@ case "$file" in *.empty_placeholder) exit 0 ;; esac
 [ ! -f "$file" ] && exit 0
 [ "$(cat "$dir/.schema_priority_enabled")" = "false" ] && exit 0
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
+# Fail CLOSED if the shared getter is missing/empty (see cyclestatus.sh)
+[ -s "$dir/.awk_fm_get" ] || exit 1
 cur=$($nn_gawk -v f=priority -f "$dir/.awk_fm_get" "$file")
 if [ -z "$cur" ]; then
   # No priority set – enter at lowest priority
