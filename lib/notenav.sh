@@ -1676,6 +1676,20 @@ _nn_fence_probe() {
   return 0
 }
 
+# Shared sub-picker styling: sets _fzf_ansi (--ansi unless NO_COLOR) and
+# _hdr (colored or plain "Enter apply · Esc cancel") in the caller.  One
+# source for the popup look – emitted via .fn_note; pickers with custom
+# hints call it for _fzf_ansi and override _hdr afterwards.
+_nn_picker_style() {
+  _fzf_ansi=(--ansi)
+  [[ -n "${NO_COLOR+x}" ]] && _fzf_ansi=()
+  if [[ -n "${NO_COLOR+x}" ]]; then
+    _hdr='Enter apply · Esc cancel'
+  else
+    _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
+  fi
+}
+
 # _nn_state_lock <session-dir> – serialize read-modify-write updates of the
 # pin/mark state files (.pinned/.marked/.f_match_paths).  Without it, a
 # watcher-triggered reload's satellite prune racing an action's pin append
@@ -4794,7 +4808,7 @@ EOF
     # Frontmatter backfill for zk-created notes – run by newnote.sh.
     printf '%s\n' "$_NN_FM_BACKFILL_AWK" > "$_nn_dir/.awk_fm_backfill"
     # Shared write-path helpers – sourced by action.sh/bulkedit_update.sh/newnote.sh
-    declare -f _nn_note_mode _nn_stamp_mode _nn_note_bom _nn_fence_probe _nn_state_lock _nn_state_unlock _nn_awk_esc _nn_build_field_cond > "$_nn_dir/.fn_note"
+    declare -f _nn_note_mode _nn_stamp_mode _nn_note_bom _nn_fence_probe _nn_state_lock _nn_state_unlock _nn_awk_esc _nn_build_field_cond _nn_picker_style > "$_nn_dir/.fn_note"
     # BOM/CRLF-tolerant frontmatter single-field getter, shared by
     # cyclestatus.sh and bumppri.sh (run with -v f=status|priority) – one
     # copy of the tolerant-read rules both keys depend on
@@ -4923,8 +4937,9 @@ else
   ordered="$tags"
   start_bind=""
 fi
-_fzf_ansi=(--ansi)
-[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+# Shared popup styling from .fn_note (fallback: plain, uncolored)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
 if [ -n "${NO_COLOR+x}" ]; then
   _hdr='Filter the view to only include notes matching the selected tags.
 Space/Tab toggle · Enter apply · Esc cancel'
@@ -5017,17 +5032,13 @@ case "$field" in
     else cur_pos=1; fi ;;
   *) echo "notenav: filterpick: unknown field '$field'" >&2; exit 2 ;;
 esac
-_fzf_ansi=(--ansi)
-[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+# Shared popup styling from .fn_note (fallback: plain, uncolored)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
 pos_bind=()
 [ -n "$cur_pos" ] && pos_bind=(--bind "load:pos($cur_pos)")
 _tsv_args=()
 [ -n "${_use_tsv:-}" ] && _tsv_args=(--delimiter $'\t' --with-nth 2)
-if [ -n "${NO_COLOR+x}" ]; then
-  _hdr='Enter apply · Esc cancel'
-else
-  _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
-fi
 selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "filter $field: " \
   --border --border-label " Filter $field " \
   --header "$_hdr" \
@@ -5074,13 +5085,9 @@ while IFS= read -r v || [ -n "$v" ]; do
   [ "$v" = "$cur_sort" ] && pos=$n
   n=$((n + 1))
 done < "$dir/.schema_sort_options"
-_fzf_ansi=(--ansi)
-[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
-if [ -n "${NO_COLOR+x}" ]; then
-  _hdr='Enter apply · Esc cancel'
-else
-  _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
-fi
+# Shared popup styling from .fn_note (fallback: plain, uncolored)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
 selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "sort by: " \
   --border --border-label " Sort order " \
   --header "$_hdr" \
@@ -5112,13 +5119,9 @@ while IFS= read -r v || [ -n "$v" ]; do
   fi
   n=$((n + 1))
 done < "$dir/.schema_group_options"
-_fzf_ansi=(--ansi)
-[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
-if [ -n "${NO_COLOR+x}" ]; then
-  _hdr='Enter apply · Esc cancel'
-else
-  _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
-fi
+# Shared popup styling from .fn_note (fallback: plain, uncolored)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
 selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "group by: " \
   --border --border-label " Group by " \
   --header "$_hdr" \
@@ -5167,13 +5170,9 @@ add_row "show" "show $archive_label alongside everything else"
 if [ -s "$dir/.schema_archive" ]; then
   add_row "only" "show only $archive_label – useful for review"
 fi
-_fzf_ansi=(--ansi)
-[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
-if [ -n "${NO_COLOR+x}" ]; then
-  _hdr='Enter apply · Esc cancel'
-else
-  _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
-fi
+# Shared popup styling from .fn_note (fallback: plain, uncolored)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
 selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "archive: " \
   --border --border-label " Archive visibility " \
   --header "$_hdr" \
@@ -5655,8 +5654,9 @@ hdr="Enter apply · Esc cancel"
 [ -n "$ctx" ] && hdr=$(printf '%s\n%s' "$ctx" "$hdr")
 pos_bind=()
 [ -n "$cur_pos" ] && pos_bind=(--bind "load:pos($cur_pos)")
-_fzf_ansi=(--ansi)
-[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
+# Shared popup styling from .fn_note (fallback: plain, uncolored)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
 _tsv_args=()
 [ -n "${_use_tsv:-}" ] && _tsv_args=(--delimiter $'\t' --with-nth 2)
 selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $field: " \
@@ -6706,13 +6706,9 @@ done < "$dir/.queries"
 [ -z "$list" ] && exit 0
 # Styling matches the other sub-pickers (sortpick/grouppick/...): NO_COLOR
 # handling, bordered box, colored header hint
-_fzf_ansi=(--ansi)
-[ -n "${NO_COLOR+x}" ] && _fzf_ansi=()
-if [ -n "${NO_COLOR+x}" ]; then
-  _hdr='Enter apply · Esc cancel'
-else
-  _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
-fi
+# Shared popup styling from .fn_note (fallback: plain, uncolored)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
 selected=$(printf '%s' "$list" | fzf "${_fzf_ansi[@]}" --reverse --prompt 'query: ' \
   --border --border-label " Query presets " \
   --delimiter '\t' --with-nth '1,2' \
