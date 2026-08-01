@@ -628,6 +628,51 @@ grep -q 'partial scan' "$CAP/.last_action" || fail "no partial-scan hint after a
 grep -q 'seed.md' "$CAP/.raw" || fail "best-effort partial listing was not installed"
 rm -f "$CAP/.pinned"; bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1  # restore real .raw
 
+# ── .scan_degraded lifecycle: hint-once must never become hint-NEVER ─────
+# (a) fresh action feedback on the FIRST degraded reload of a streak is
+#     preserved, and the streak flag must NOT latch – a flag set on a
+#     suppressed round would skip the hint for the entire streak
+rm -f "$CAP/.scan_degraded"
+printf 'status set' > "$CAP/.last_action"
+PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
+grep -q 'status set' "$CAP/.last_action" || fail "degraded reload clobbered fresh action feedback"
+[[ -f "$CAP/.scan_degraded" ]] && fail "streak flag latched on a feedback-suppressed round (hint-never)"
+# (b) once the feedback ages out, the hint appears and the flag latches
+touch -d '30 seconds ago' "$CAP/.last_action" 2>/dev/null || touch -t 202601010101 "$CAP/.last_action"
+PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
+grep -q 'partial scan' "$CAP/.last_action" || fail "aged-out feedback did not yield the partial-scan hint"
+[[ -f "$CAP/.scan_degraded" ]] || fail "hint written but streak flag not latched"
+# (c) explicit r retry (the binding truncates .last_action first) on a
+#     still-degraded walk must REWRITE the hint despite the latched flag,
+#     or the binding's `test -s || printf refreshed` asserts false success
+: > "$CAP/.last_action"
+PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
+grep -q 'partial scan' "$CAP/.last_action" \
+  || fail "r-retry on a still-degraded notebook left .last_action empty ('refreshed' lie)"
+# (d) stale non-hint content mid-streak stays put: hint-once holds
+printf 'old news' > "$CAP/.last_action"
+touch -d '30 seconds ago' "$CAP/.last_action" 2>/dev/null || touch -t 202601010101 "$CAP/.last_action"
+PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
+grep -q 'old news' "$CAP/.last_action" || fail "hint-once broke: stale content rewritten mid-streak"
+# (e) the KILLED-walk (scan error) path honors the same freshness window …
+_kf9="$WORK/killfind9"; mkdir -p "$_kf9"
+cat > "$_kf9/find" <<EOF
+#!/bin/sh
+case "\$*" in *"/dev/null"*) exit 1 ;; esac
+printf '%s\t2026-01-01 01:01:01\n' "$NOTEBOOK/seed.md"
+exit 137
+EOF
+chmod +x "$_kf9/find"
+printf 'priority set' > "$CAP/.last_action"
+PATH="$_kf9:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
+grep -q 'priority set' "$CAP/.last_action" || fail "scan-error path clobbered fresh action feedback"
+# … but still reports into an empty/aged feedback slot
+: > "$CAP/.last_action"
+PATH="$_kf9:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
+grep -q 'scan error' "$CAP/.last_action" || fail "killed walk reported nothing in an empty feedback slot"
+rm -f "$CAP/.scan_degraded"
+bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1  # restore real .raw, clear flag
+
 # a sort dying MID-PIPELINE (inside do_chain_sort/do_sort's nested
 # pipelines, where a last-segment-only status check cannot see it) must
 # never publish a truncated view – .current stays byte-identical

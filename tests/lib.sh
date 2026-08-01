@@ -12,6 +12,11 @@ export XDG_CONFIG_HOME="${TMPDIR:-/tmp}/nn-test-no-user-config.$$.$RANDOM"
 fail() { printf '  FAIL: %s\n' "$*"; FAILS=$((FAILS + 1)); }
 finish() { exit $((FAILS > 0 ? 1 : 0)); }
 
+# Pin the gawk diagnosis to THIS run: a stale exported value from the
+# calling environment must not masquerade as a resolver regression when
+# gawk is genuinely absent
+NN_TEST_GAWK_WHY=""
+
 # GNU awk resolution DERIVED from the lib's own _nn_resolve_gawk (sourcing
 # the lib is cheap – top level only defines functions and constants), so
 # the suite always tests the same interpreter the product resolves.  The

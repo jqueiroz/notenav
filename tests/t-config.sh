@@ -172,6 +172,25 @@ if (cd "$W" && TERM=xterm NO_COLOR=1 PATH="$KSH:$PATH" bash "$REPO/bin/nn" type=
   fail "a KILLED walker (exit 137) still exited 0 (truncated listing read as complete)"
 fi
 [[ -s "$WORK/kf.out" ]] && fail "partial rows printed despite the killed walker"
+# an EMPTY scope argument (reachable via `nn -l type=task ""`; a first-arg
+# empty string takes the preset-lookup path instead) must not silently
+# widen the listing to the whole current directory – "${@:-.}" substitutes
+# "." for a single null positional, not just for zero args.  It must reach
+# find as-is, fail, and land in the degraded band like any unwalkable path
+eout=$(run_nn "$W" -l type=task ""); erc=$?
+[[ "$erc" -eq 0 ]] && fail "empty scope arg exited 0 (no-match failure expected)"
+printf '%s\n' "$eout" | grep -q 'band-open' \
+  && fail "empty scope arg silently widened to the current directory"
+grep -q 'listing may be incomplete' "$WORK/err" \
+  || fail "empty scope walk emitted no incomplete-listing note"
+# a FIRST-position empty arg is preset lookup: it must fail with the clean
+# not-a-preset message, not a "bad array subscript" bash error (empty
+# subscript on the saved_queries associative array)
+run_nn "$W" "" >/dev/null 2>&1 && fail "lone empty arg exited 0"
+grep -q 'bad array subscript' "$WORK/err" \
+  && fail "empty first arg crashed the preset lookup (bad array subscript)"
+grep -q 'is not a query preset' "$WORK/err" \
+  || fail "empty first arg lost the not-a-preset diagnostic"
 
 # ── doctor reports user-config keys the load-time whitelist drops ────────
 # schema sub-keys (icon, values) are silently dead in user config; only
