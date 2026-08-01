@@ -783,6 +783,16 @@ _nn_values_ctl_check() {
   nn_cfg '[.type.values // [], .status.values // [], .priority.values // []] | flatten | map(select(type == "string" and test("[\\t\\n\\r]"))) | .[0] // empty | gsub("\t"; "\\t") | gsub("\n"; "\\n") | gsub("\r"; "\\r")' 2>/dev/null
 }
 
+# Companion check: an EMPTY string in a values list is equally unusable –
+# it becomes an empty TSV join key and an empty associative-array
+# subscript, which bash rejects as a raw "bad array subscript" error at
+# the icon/color map builds.  Prints the owning section name ("type",
+# "status" or "priority") of the first empty value, or nothing.  Runtime
+# and nn doctor share this helper so their notion of invalid cannot drift.
+_nn_values_empty_check() {
+  nn_cfg '{type: (.type.values // []), status: (.status.values // []), priority: (.priority.values // [])} | to_entries | map(select((.value | type) == "array" and (.value | index("")))) | .[0].key // empty' 2>/dev/null
+}
+
 # Strip characters from a UI prompt that break the fzf action strings and
 # printf-format transform bodies the prompt is interpolated into:
 #   \ [ ] ( ) ' " % { }   – backslash (printf escape), brackets
@@ -823,6 +833,12 @@ nn_precompute_workflow() {
   _nn_ctl=$(_nn_values_ctl_check)
   if [[ -n "$_nn_ctl" ]]; then
     echo "notenav: type/status/priority value '$_nn_ctl' contains a tab, newline, or carriage return (unsupported: values are TSV join keys)" >&2
+    return 1
+  fi
+  local _nn_emptyv
+  _nn_emptyv=$(_nn_values_empty_check)
+  if [[ -n "$_nn_emptyv" ]]; then
+    echo "notenav: ${_nn_emptyv}.values contains an empty string (unsupported: values are join keys and lookup subscripts)" >&2
     return 1
   fi
   # Note types
@@ -2151,7 +2167,9 @@ EOF
   # doctor can never accept a color the loader rejects (or vice versa)
   _valid_color() { _nn_valid_color "$(_nn_resolve_color "$1")"; }
   _in_array() { _nn_in_array "$@"; }
-  _dupes() { local -A _seen; local _d="" _v; for _v; do if [[ -n "${_seen[$_v]+x}" ]]; then [[ "${_seen[$_v]}" == d ]] || { _d+="$_v, "; _seen[$_v]=d; }; else _seen[$_v]=1; fi; done; printf '%s' "${_d%, }"; }
+  # keys are "k"-prefixed: a bare empty string is a bash "bad array
+  # subscript" error, and doctor must not crash on the configs it diagnoses
+  _dupes() { local -A _seen; local _d="" _v; for _v; do if [[ -n "${_seen[k$_v]+x}" ]]; then [[ "${_seen[k$_v]}" == d ]] || { _d+="$_v, "; _seen[k$_v]=d; }; else _seen[k$_v]=1; fi; done; printf '%s' "${_d%, }"; }
   _is_array() { local _t; _t=$(nn_cfg "$1 // null | type" 2>/dev/null); [[ "$_t" == "array" ]]; }
   _all_strings() { local _bad; _bad=$(nn_cfg "$1 // {} | to_entries[] | select(.value | type != \"string\") | .key" 2>/dev/null); [[ -z "$_bad" ]] && return 0; printf '%s' "$_bad"; return 1; }
   # Doctor-specific wrappers: indent output for aligned display under [✓]/[✗] markers
@@ -2557,9 +2575,11 @@ EOF
       mapfile -t _typ_values < <(nn_cfg '.type.values // [] | .[]')
     fi
     _typ_count=${#_typ_values[@]}
-    if [[ ${#_typ_values[@]} -gt 0 ]] && _in_array "" "${_typ_values[@]}"; then
-      _warn "type.values contains an empty string"
-    fi
+    # Shared helper covers all three sections (the old inline check saw
+    # only type.values) and matches the startup refusal exactly
+    local _empty_bad
+    _empty_bad=$(_nn_values_empty_check)
+    [[ -n "$_empty_bad" ]] && _warn "${_empty_bad}.values contains an empty string – notenav will refuse to start (values are join keys and lookup subscripts)"
     local _typ_dups
     _typ_dups=$(_dupes "${_typ_values[@]}")
     [[ -n "$_typ_dups" ]] && _warn "type.values has duplicates: $_typ_dups"

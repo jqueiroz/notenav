@@ -118,6 +118,13 @@ grep -q "sort_chain: unrecognized key 'priority'" "$WORK/sc.out" && fail "doctor
 # ── defaults.sort_by = "" (the documented no-sort setting) must not
 #    subscript NN_SORT_CHAINS with an empty key – bash prints a raw
 #    "bad array subscript" error on every ad-hoc query ──────────────────
+# self-validation first: a BOGUS sort_by must fail through run_nn_u,
+# proving the user config reaches the validator at all – without this a
+# plumbing regression would leave the "" pin below vacuously green
+uconf '[defaults]' 'sort_by = "bogus"'
+run_nn_u "$G" type=task -l >/dev/null 2>&1 \
+  && fail "invalid sort_by passed (user-config plumbing broken – the \"\" pin is vacuous)"
+grep -q "sort_by 'bogus' invalid" "$WORK/err" || fail "invalid sort_by lost its validator message"
 uconf '[defaults]' 'sort_by = ""'
 sbout=$(run_nn_u "$G" type=task -l); sbrc=$?
 [[ "$sbrc" -eq 0 ]] || { fail "sort_by=\"\" broke the ad-hoc listing (exit $sbrc)"; sed 's/^/    /' "$WORK/err" | head -3; }
@@ -142,6 +149,25 @@ if run_nn "$T" type=task >/dev/null 2>&1; then
   fail "nn loaded a workflow whose value is a bare newline (trailing-strip bypass)"
 fi
 grep -q 'contains a tab, newline, or carriage return' "$WORK/err" || fail "no control-char message on newline-only value"
+# an EMPTY STRING in a values list is equally unusable: it becomes an empty
+# TSV join key and an empty associative-array subscript – bash aborts the
+# icon/color map builds with a raw "bad array subscript" error instead of
+# any diagnostic naming the offending key
+printf '[meta]\nname = "t"\n[type]\nvalues = ["task", ""]\n[type.task]\nicon = "t"\n[status]\nvalues = ["new"]\nfilter_cycle = ["new"]\n' > "$T/.nn/workflow.toml"
+if run_nn "$T" type=task >/dev/null 2>&1; then
+  fail "nn loaded a workflow whose type.values contains an empty string"
+fi
+grep -q 'bad array subscript' "$WORK/err" && fail "empty type value crashed with a raw bash error"
+grep -q 'type.values contains an empty string' "$WORK/err" || fail "no clean diagnostic for an empty type value"
+(cd "$T" && TERM=xterm NO_COLOR=1 bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/emptyv.out"
+grep -q 'type.values contains an empty string' "$WORK/emptyv.out" || fail "doctor did not warn about the empty type value"
+grep -q 'bad array subscript' "$WORK/emptyv.out" && fail "doctor crashed on the empty type value"
+# same guard for the status section (the shared helper's other branch)
+printf '[meta]\nname = "t"\n[type]\nvalues = ["task"]\n[type.task]\nicon = "t"\n[status]\nvalues = ["new", ""]\nfilter_cycle = ["new"]\n' > "$T/.nn/workflow.toml"
+if run_nn "$T" type=task >/dev/null 2>&1; then
+  fail "nn loaded a workflow whose status.values contains an empty string"
+fi
+grep -q 'status.values contains an empty string' "$WORK/err" || fail "no clean diagnostic for an empty status value"
 
 # ── a NESTED sort stage dying mid-stream must fail the ad-hoc listing ────
 # (the failure lives inside _nn_adhoc_sort's awk|sort|awk – only pipefail
