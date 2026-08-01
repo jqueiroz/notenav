@@ -145,6 +145,31 @@ fi
 [[ -s "$WORK/trunc.out" ]] && fail "partial rows were printed despite the failed listing"
 grep -q 'listing failed part-way' "$WORK/err" || fail "no listing-failure message on nested sort death"
 
+# ── walker severity bands: an unreadable subdir DEGRADES (readable rows
+#    still listed, exit 0); a KILLED walker is FATAL (no partial rows) ────
+W="$WORK/bands"; mkdir -p "$W/.nn" "$W/locked"
+printf 'extends = "zenith"\n' > "$W/.nn/workflow.toml"
+printf -- '---\ntype: task\nstatus: new\ntitle: band-open\n---\nb\n' > "$W/open.md"
+printf -- '---\ntype: task\nstatus: new\ntitle: band-hidden\n---\nb\n' > "$W/locked/h.md"
+if chmod 000 "$W/locked" 2>/dev/null && [[ "$(id -u)" != 0 ]]; then
+  bout=$(run_nn "$W" type=task -l); brc=$?
+  [[ "$brc" -eq 0 ]] || fail "unreadable subdir hard-failed the listing (exit $brc) – availability regression"
+  printf '%s\n' "$bout" | grep -q 'band-open' || fail "readable note missing when a sibling dir is unreadable"
+  chmod 755 "$W/locked"
+fi
+KSH="$WORK/killfind"; mkdir -p "$KSH"
+cat > "$KSH/find" <<EOF
+#!/bin/sh
+case "\$*" in *"/dev/null"*) exit 1 ;; esac
+printf '%s\t2026-01-01 01:01:01\n' "$W/open.md"
+exit 137
+EOF
+chmod +x "$KSH/find"
+if (cd "$W" && TERM=xterm NO_COLOR=1 PATH="$KSH:$PATH" bash "$REPO/bin/nn" type=task -l </dev/null >"$WORK/kf.out" 2>"$WORK/err"); then
+  fail "a KILLED walker (exit 137) still exited 0 (truncated listing read as complete)"
+fi
+[[ -s "$WORK/kf.out" ]] && fail "partial rows printed despite the killed walker"
+
 # ── doctor reports user-config keys the load-time whitelist drops ────────
 # schema sub-keys (icon, values) are silently dead in user config; only
 # colors cross scopes – doctor must name the dead keys and stay silent on

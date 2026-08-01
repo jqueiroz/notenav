@@ -1699,6 +1699,11 @@ _nn_picker_style() {
   fi
 }
 
+# _nn_mtime_of <path> – epoch mtime via the portable GNU/BSD stat chain
+# (single copy: the state lock, unlock, and reload freshness checks all
+# depend on it).  Empty output when stat fails.
+_nn_mtime_of() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
+
 # _nn_state_lock <session-dir> – serialize read-modify-write updates of the
 # pin/mark state files (.pinned/.marked/.f_match_paths).  Without it, a
 # watcher-triggered reload's satellite prune racing an action's pin append
@@ -1728,7 +1733,7 @@ _nn_state_lock() {
     _i=$((_i + 1))
     if [[ "$_i" -ge 50 ]]; then
       _now=$(date +%s)
-      _age=$(stat -c %Y "$_ld" 2>/dev/null || stat -f %m "$_ld" 2>/dev/null)
+      _age=$(_nn_mtime_of "$_ld")
       if [[ -z "$_age" || $((_now - _age)) -ge 5 ]]; then
         if mv "$_ld" "$_corpse" 2>/dev/null; then
           # Re-verify age on the corpse we now own exclusively: between our
@@ -1737,7 +1742,7 @@ _nn_state_lock() {
           # corpse is young, we renamed a live lock and must restore it.
           # (Unknown corpse age – exotic stat – falls through to the steal,
           # the old unconditional semantics.)
-          _age=$(stat -c %Y "$_corpse" 2>/dev/null || stat -f %m "$_corpse" 2>/dev/null)
+          _age=$(_nn_mtime_of "$_corpse")
           if [[ -n "$_age" && $(($(date +%s) - _age)) -lt 5 ]]; then
             if mv "$_corpse" "$_ld" 2>/dev/null; then
               # mv into an EXISTING dir NESTS instead of failing: if a
@@ -1995,9 +2000,22 @@ _nn_list_notes() {
         local -a _zk_bpaths=()
         local _zk_i
         mapfile -t _zk_bpaths < "$_zk_bomlist"
-        for ((_zk_i = 0; _zk_i < ${#_zk_bpaths[@]}; _zk_i += 200)); do
-          TZ=UTC0 _nn_mtime_rows -L "${_zk_bpaths[@]:_zk_i:200}" -maxdepth 0 -type f 2>/dev/null
-        done | _nn_list_notes_native || _lst_ok=0
+        {
+          _worst=0
+          for ((_zk_i = 0; _zk_i < ${#_zk_bpaths[@]}; _zk_i += 200)); do
+            TZ=UTC0 _nn_mtime_rows -L "${_zk_bpaths[@]:_zk_i:200}" -maxdepth 0 -type f 2>/dev/null
+            _wk=$?
+            [[ "$_wk" -gt "$_worst" ]] && _worst=$_wk
+          done
+          [[ "$_worst" -gt 128 ]] && exit 99
+          exit 0
+        } | _nn_list_notes_native
+        # a diverted note deleted between the zk listing and this re-list
+        # (find exit 1..128) is a skip, not a truncation – stay healthy;
+        # only a KILLED walk or a dying parser marks failure
+        local _zk_relist=("${PIPESTATUS[@]}")
+        [[ "${_zk_relist[0]}" == 99 ]] && _lst_ok=0
+        [[ "${_zk_relist[1]}" == 0 ]] || _lst_ok=0
       fi
       [[ -n "$_zk_bomlist" ]] && rm -f "$_zk_bomlist"
       if [[ $_zk_rc -gt 1 ]]; then
@@ -2005,14 +2023,48 @@ _nn_list_notes() {
         _lst_ok=0
       fi
     else
+      # Severity bands for find(1): exit >128 means the walk was KILLED
+      # (OOM, signal) – the listing is truncated and must hard-fail.  Exit
+      # 1..128 means completed-with-skips (permission-denied subdirs, a
+      # note deleted mid-walk) – list what was readable, note it on
+      # stderr, and stay healthy: a chronic unreadable directory must not
+      # permanently zero out every query.  Per-iteration statuses travel
+      # out of the pipeline-segment subshell as marker exit codes.
+      local _wk_seg
+      local -a _wk_st
       if [[ $# -eq 0 ]]; then
-        _nn_find_md_with_mtime "." | _nn_list_notes_native || _lst_ok=0
+        {
+          _nn_find_md_with_mtime "."
+          _wk=$?
+          [[ "$_wk" -gt 128 ]] && exit 99
+          [[ "$_wk" -ne 0 ]] && exit 98
+          exit 0
+        } | _nn_list_notes_native
+        _wk_st=("${PIPESTATUS[@]}")   # capture WHOLE array: any command resets it
+        _wk_seg="${_wk_st[0]}"
+        [[ "${_wk_st[1]}" == 0 ]] || _lst_ok=0
       else
         local _d
-        for _d in "$@"; do
-          _nn_find_md_with_mtime "$_d"
-        done | _nn_list_notes_native || _lst_ok=0
+        {
+          _worst=0
+          for _d in "$@"; do
+            _nn_find_md_with_mtime "$_d"
+            _wk=$?
+            [[ "$_wk" -gt "$_worst" ]] && _worst=$_wk
+          done
+          [[ "$_worst" -gt 128 ]] && exit 99
+          [[ "$_worst" -ne 0 ]] && exit 98
+          exit 0
+        } | _nn_list_notes_native
+        _wk_st=("${PIPESTATUS[@]}")
+        _wk_seg="${_wk_st[0]}"
+        [[ "${_wk_st[1]}" == 0 ]] || _lst_ok=0
       fi
+      case "$_wk_seg" in
+        99) _lst_ok=0 ;;
+        98) echo "notenav: listing may be incomplete (some paths were unreadable or vanished mid-scan)" >&2 ;;
+        *) ;;
+      esac
     fi
     [[ "$_lst_ok" == 1 ]]
   } | _nn_ignore_pipe
@@ -2408,10 +2460,14 @@ EOF
       local _uc_dropped
       _uc_dropped=$(printf '%s' "$_uc_json" | jq -r --argjson kept \
         "$(printf '%s' "$_uc_json" | jq "$_NN_USER_PREFS_SHAPE" 2>/dev/null || printf '{}')" '
-          def leafpaths: [paths(type != "object" and type != "null")
+          def leafpaths: . as $doc
+            | def arstrip($d): . as $p
+                | if ($p | length) > 0 and (($d | getpath($p[:-1]) | type) == "array")
+                  then $p[:-1] | arstrip($d) else $p end;
+            [paths(type != "object" and type != "null")
+            | select((.[0] | tostring) == "type" or (.[0] | tostring) == "status" or (.[0] | tostring) == "priority")
+            | arstrip($doc)
             | map(tostring)
-            | select(.[0] == "type" or .[0] == "status" or .[0] == "priority")
-            | (def rstrip: if length > 0 and (.[-1] | test("^[0-9]+$")) then .[:-1] | rstrip else . end; rstrip)
             | join(".")] | unique;
           leafpaths - ($kept | leafpaths) | .[]' 2>/dev/null | head -8)
       local _uc_d
@@ -4833,7 +4889,7 @@ EOF
     # Frontmatter backfill for zk-created notes – run by newnote.sh.
     printf '%s\n' "$_NN_FM_BACKFILL_AWK" > "$_nn_dir/.awk_fm_backfill"
     # Shared write-path helpers – sourced by action.sh/bulkedit_update.sh/newnote.sh
-    declare -f _nn_note_mode _nn_stamp_mode _nn_note_bom _nn_fence_probe _nn_state_lock _nn_state_unlock _nn_awk_esc _nn_build_field_cond _nn_picker_style > "$_nn_dir/.fn_note"
+    declare -f _nn_note_mode _nn_stamp_mode _nn_note_bom _nn_fence_probe _nn_mtime_of _nn_state_lock _nn_state_unlock _nn_awk_esc _nn_build_field_cond _nn_picker_style > "$_nn_dir/.fn_note"
     # BOM/CRLF-tolerant frontmatter single-field getter, shared by
     # cyclestatus.sh and bumppri.sh (run with -v f=status|priority) – one
     # copy of the tolerant-read rules both keys depend on
@@ -5346,6 +5402,10 @@ search_dir="$scope_path"
 source "$dir/.fn_find_md"
 # Per-invocation tmp name: concurrent reloads (watcher + binds) sharing one
 # fixed tmp used to garble .raw transiently with interleaved/truncated rows
+# Reload start time: .last_action freshness must be judged against when
+# this reload BEGAN – on a slow notebook the walk itself can exceed the
+# freshness window and would wrongly age out feedback written just before
+_reload_t0=$(date +%s)
 _raw_tmp=$(mktemp "$dir/.raw.XXXXXX") || _raw_tmp="$dir/.raw.tmp.$$"
 _nn_find_md_with_mtime "$search_dir" \
   | "$nn_gawk" -F'\t' -f "$dir/.awk_native_parser" > "$_raw_tmp"
@@ -5368,8 +5428,12 @@ if [ "${_raw_st[1]}" = 0 ] \
   if [ "$_raw_complete" != 1 ]; then
     _la_fresh=0
     if [ -s "$dir/.last_action" ]; then
-      _la_m=$(stat -c %Y "$dir/.last_action" 2>/dev/null || stat -f %m "$dir/.last_action" 2>/dev/null)
-      [ -n "$_la_m" ] && [ $(( $(date +%s) - _la_m )) -lt 5 ] && _la_fresh=1
+      _la_m=$(_nn_mtime_of "$dir/.last_action")
+      if [ -z "$_la_m" ] || [ -z "$_reload_t0" ]; then
+        _la_fresh=1   # unknown timing: preserve the existing message
+      elif [ "$_la_m" -ge $((_reload_t0 - 5)) ]; then
+        _la_fresh=1   # written within 5s of this reload STARTING
+      fi
     fi
     [ "$_la_fresh" = 1 ] || printf 'partial scan – press r to retry' > "$dir/.last_action"
   fi
@@ -5384,6 +5448,7 @@ fi
 # append would silently drop the just-added entry (best effort – missing
 # helpers degrade to the unlocked prune this script always used).
 . "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_mtime_of >/dev/null 2>&1 || _nn_mtime_of() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 declare -F _nn_state_lock >/dev/null 2>&1 || { _nn_state_lock() { :; }; _nn_state_unlock() { :; }; }
 if [ "$_raw_complete" = 1 ] && [ -s "$dir/.raw" ]; then
   _nn_state_lock "$dir"
@@ -8435,6 +8500,14 @@ ENDDELETE
     return "$_rc"
   }
 
+  # Shared failure epilogue for both listing pipelines (interactive and
+  # plain/-l/-0): one copy of the message + teardown
+  _nn_adhoc_fail() {
+    echo "notenav: listing failed part-way (exit $1) – run 'nn doctor' or retry" >&2
+    unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail
+    shopt -u nullglob
+  }
+
   if $interactive; then
     if [[ "${TERM:-dumb}" == "dumb" ]]; then
       echo "notenav: interactive mode requires a terminal (TERM is 'dumb')" >&2
@@ -8484,10 +8557,8 @@ ENDDELETE
     local _al_rc=$?
     set +o pipefail
     if [[ "$_al_rc" != 0 ]]; then
-      echo "notenav: listing failed part-way (exit $_al_rc) – run 'nn doctor' or retry" >&2
       rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"
-      unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort
-      shopt -u nullglob; return 1
+      _nn_adhoc_fail "$_al_rc"; return 1
     fi
     local _nn_adhoc_fzf_ansi=(--ansi)
     [[ -n "${NO_COLOR+x}" ]] && _nn_adhoc_fzf_ansi=()
@@ -8506,7 +8577,7 @@ ENDDELETE
     local _adhoc_fzf_rc=$?
     rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"
     trap - EXIT
-    unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort
+    unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail
     shopt -u nullglob
     return "$_adhoc_fzf_rc"
   else
@@ -8554,9 +8625,7 @@ ENDDELETE
     set +o pipefail
     if [[ "$_al_rc" != 0 ]]; then
       rm -f "$_adhoc_tmp"
-      echo "notenav: listing failed part-way (exit $_al_rc) – run 'nn doctor' or retry" >&2
-      unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort
-      shopt -u nullglob; return 1
+      _nn_adhoc_fail "$_al_rc"; return 1
     fi
     if [[ -s "$_adhoc_tmp" ]]; then
       cat "$_adhoc_tmp"
@@ -8578,11 +8647,11 @@ ENDDELETE
       if [[ -t 2 ]] && ! $long_output && ! $null_output; then
         echo "notenav: (try -i for an interactive picker)" >&2
       fi
-      unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort
+      unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail
       shopt -u nullglob
       return 1
     fi
   fi
-  unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort
+  unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail
   shopt -u nullglob
 }

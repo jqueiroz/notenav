@@ -20,20 +20,23 @@ finish() { exit $((FAILS > 0 ? 1 : 0)); }
 # require_gawk can detect true absence and SKIP with a clear message.
 # shellcheck source=lib/notenav.sh
 NOTENAV_ROOT="$REPO" . "$REPO/lib/notenav.sh" 2>/dev/null
+_is_gnu_awk() { "$1" --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk'; }
 if declare -F _nn_resolve_gawk >/dev/null 2>&1; then
+  # The suite tests EXACTLY the interpreter the product resolves: if the
+  # resolver regresses and returns a non-GNU awk, NN_TEST_GAWK empties and
+  # require_gawk fails LOUDLY – silently substituting system gawk here
+  # would decouple the tests from what the shipped code actually runs.
   NN_TEST_GAWK=$(_nn_resolve_gawk)
+  _is_gnu_awk "$NN_TEST_GAWK" || NN_TEST_GAWK=""
 else
-  # Sourcing the lib failed (e.g. a syntax error under test) – fall back to
-  # 'awk' but note it, so a broken LIB is not misreported as a missing gawk
-  # DEPENDENCY; the single GNU-ness probe below then prefers gawk if the
-  # fallback awk is not GNU (one copy of the probe expression)
+  # Sourcing the lib failed (e.g. a syntax error under test): resolve
+  # independently so a broken LIB is not misreported as a missing gawk
+  # DEPENDENCY, and say so.
   echo "  note: could not source lib/notenav.sh for gawk resolution" >&2
-  NN_TEST_GAWK="awk"
-fi
-if ! "$NN_TEST_GAWK" --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk'; then
-  if command -v gawk >/dev/null 2>&1; then
+  if _is_gnu_awk awk; then
+    NN_TEST_GAWK="awk"
+  elif command -v gawk >/dev/null 2>&1 && _is_gnu_awk gawk; then
     NN_TEST_GAWK="gawk"
-    gawk --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk' || NN_TEST_GAWK=""
   else
     NN_TEST_GAWK=""
   fi
