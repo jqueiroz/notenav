@@ -23,7 +23,18 @@ NOTENAV_ROOT="$REPO" . "$REPO/lib/notenav.sh" 2>/dev/null
 if declare -F _nn_resolve_gawk >/dev/null 2>&1; then
   NN_TEST_GAWK=$(_nn_resolve_gawk)
 else
-  NN_TEST_GAWK="awk"
+  # Sourcing the lib failed (e.g. a syntax error under test) – fall back to
+  # independent detection so a broken LIB is not misreported as a missing
+  # gawk DEPENDENCY (on mawk-as-awk systems the plain 'awk' fallback would
+  # empty out below and require_gawk would blame the wrong thing)
+  echo "  note: could not source lib/notenav.sh for gawk resolution" >&2
+  if awk --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk'; then
+    NN_TEST_GAWK="awk"
+  elif command -v gawk >/dev/null 2>&1; then
+    NN_TEST_GAWK="gawk"
+  else
+    NN_TEST_GAWK="awk"
+  fi
 fi
 "$NN_TEST_GAWK" --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk' \
   || NN_TEST_GAWK=""

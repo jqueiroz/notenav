@@ -1687,13 +1687,14 @@ _nn_fence_probe() {
 # Shared sub-picker styling: sets _fzf_ansi (--ansi unless NO_COLOR) and
 # _hdr (colored or plain "Enter apply · Esc cancel") in the caller.  One
 # source for the popup look – emitted via .fn_note; pickers with custom
-# hints call it for _fzf_ansi and override _hdr afterwards.
+# hints key their own text off NN_PK_COLOR and override _hdr afterwards.
+# shellcheck disable=SC2034  # _fzf_ansi/_hdr/NN_PK_COLOR are read by the emitted pickers
 _nn_picker_style() {
-  _fzf_ansi=(--ansi)
-  [[ -n "${NO_COLOR+x}" ]] && _fzf_ansi=()
   if [[ -n "${NO_COLOR+x}" ]]; then
+    _fzf_ansi=(); NN_PK_COLOR=""
     _hdr='Enter apply · Esc cancel'
   else
+    _fzf_ansi=(--ansi); NN_PK_COLOR=1
     _hdr=$(printf '\033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel')
   fi
 }
@@ -2388,22 +2389,20 @@ EOF
     # keys wholesale), and the merged config no longer contains them, so
     # diff the user file against the SAME jq shape the loader applies.
     if [[ -n "$_uc_json" && "$_uc_json" != "null" ]]; then
-      local _uc_raw="$_uc_json" _uc_dropped
-      if [[ -n "$_uc_raw" ]]; then
-        _uc_dropped=$(printf '%s' "$_uc_raw" | jq -r --argjson kept \
-          "$(printf '%s' "$_uc_raw" | jq "$_NN_USER_PREFS_SHAPE" 2>/dev/null || printf '{}')" '
-            def leafpaths: [paths(type != "object" and type != "null")
-              | map(tostring)
-              | select(.[0] == "type" or .[0] == "status" or .[0] == "priority")
-              | (map(select(test("^[0-9]+$") | not)))
-              | join(".")] | unique;
-            leafpaths - ($kept | leafpaths) | .[]' 2>/dev/null | head -8)
-        local _uc_d
-        while IFS= read -r _uc_d; do
-          [[ -z "$_uc_d" ]] && continue
-          _warn "user config: '$_uc_d' has no effect (outside the user-preference scope – workflow schema keys live in .nn/workflow.toml; only colors cross scopes)"
-        done <<< "$_uc_dropped"
-      fi
+      local _uc_dropped
+      _uc_dropped=$(printf '%s' "$_uc_json" | jq -r --argjson kept \
+        "$(printf '%s' "$_uc_json" | jq "$_NN_USER_PREFS_SHAPE" 2>/dev/null || printf '{}')" '
+          def leafpaths: [paths(type != "object" and type != "null")
+            | map(tostring)
+            | select(.[0] == "type" or .[0] == "status" or .[0] == "priority")
+            | if (.[-1] | test("^[0-9]+$")) then .[:-1] else . end
+            | join(".")] | unique;
+          leafpaths - ($kept | leafpaths) | .[]' 2>/dev/null | head -8)
+      local _uc_d
+      while IFS= read -r _uc_d; do
+        [[ -z "$_uc_d" ]] && continue
+        _warn "user config: '$_uc_d' has no effect (outside the user-preference scope – workflow schema keys live in .nn/workflow.toml; only colors cross scopes)"
+      done <<< "$_uc_dropped"
     fi
 
     # Full config merge check
@@ -3299,7 +3298,8 @@ EOF
     if [[ -n "$_rf_interval" ]]; then
       if ! [[ "$_rf_interval" =~ ^[0-9]+$ ]]; then
         _warn "refresh.poll_interval '$_rf_interval' is not a valid integer"
-      elif [[ "$_rf_interval" -lt 5 ]]; then
+      elif [[ "$((10#$_rf_interval))" -lt 5 ]]; then
+        # 10#: leading-zero digits would otherwise parse as octal here
         _warn "refresh.poll_interval is $_rf_interval (< 5 seconds may be too aggressive)"
       fi
     fi
@@ -3525,6 +3525,7 @@ EOF
   if [[ -n "${NN_CFG_JSON:-}" && "$_note_count" -gt 0 ]] 2>/dev/null; then
     local _rf_max_files
     _rf_max_files=$(nn_cfg '.refresh.auto_refresh_note_limit // 0')
+    [[ "$_rf_max_files" =~ ^[0-9]+$ ]] && _rf_max_files=$((10#$_rf_max_files))
     if [[ "$_rf_max_files" -gt 0 && "$_note_count" -gt "$_rf_max_files" ]] 2>/dev/null; then
       _info "Auto-refresh disabled ($_note_count notes > auto_refresh_note_limit $_rf_max_files) ${_dim}– press r to refresh manually${_reset}"
     fi
@@ -4945,14 +4946,20 @@ else
   ordered="$tags"
   start_bind=""
 fi
-# Shared popup styling from .fn_note (fallback: plain, uncolored)
+# Shared popup styling from .fn_note (fallback mirrors it: rows embed ANSI
+# codes, so --ansi must stay on unless NO_COLOR asked for plain output)
 . "$dir/.fn_note" 2>/dev/null || true
-declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
-if [ -n "${NO_COLOR+x}" ]; then
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || {
+  _fzf_ansi=(--ansi); NN_PK_COLOR=1; _hdr='Enter apply · Esc cancel'
+  [ -n "${NO_COLOR+x}" ] && { _fzf_ansi=(); NN_PK_COLOR=""; }
+}
+# Custom hint, colored per the shared NN_PK_COLOR flag (single NO_COLOR
+# decision lives in _nn_picker_style)
+if [ -n "$NN_PK_COLOR" ]; then
+  _hdr=$'Filter the view to only include notes matching the selected tags.\n\033[36mSpace\033[0m/\033[36mTab\033[0m toggle \033[90m·\033[0m \033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel'
+else
   _hdr='Filter the view to only include notes matching the selected tags.
 Space/Tab toggle · Enter apply · Esc cancel'
-else
-  _hdr=$'Filter the view to only include notes matching the selected tags.\n\033[36mSpace\033[0m/\033[36mTab\033[0m toggle \033[90m·\033[0m \033[36mEnter\033[0m apply \033[90m·\033[0m \033[36mEsc\033[0m cancel'
 fi
 selected=$(printf '%s\n' "$ordered" | fzf --multi --reverse --prompt 'tags: ' \
   "${_fzf_ansi[@]}" --header "$_hdr" \
@@ -5040,9 +5047,13 @@ case "$field" in
     else cur_pos=1; fi ;;
   *) echo "notenav: filterpick: unknown field '$field'" >&2; exit 2 ;;
 esac
-# Shared popup styling from .fn_note (fallback: plain, uncolored)
+# Shared popup styling from .fn_note (fallback mirrors it: rows embed ANSI
+# codes, so --ansi must stay on unless NO_COLOR asked for plain output)
 . "$dir/.fn_note" 2>/dev/null || true
-declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || {
+  _fzf_ansi=(--ansi); NN_PK_COLOR=1; _hdr='Enter apply · Esc cancel'
+  [ -n "${NO_COLOR+x}" ] && { _fzf_ansi=(); NN_PK_COLOR=""; }
+}
 pos_bind=()
 [ -n "$cur_pos" ] && pos_bind=(--bind "load:pos($cur_pos)")
 _tsv_args=()
@@ -5093,9 +5104,13 @@ while IFS= read -r v || [ -n "$v" ]; do
   [ "$v" = "$cur_sort" ] && pos=$n
   n=$((n + 1))
 done < "$dir/.schema_sort_options"
-# Shared popup styling from .fn_note (fallback: plain, uncolored)
+# Shared popup styling from .fn_note (fallback mirrors it: rows embed ANSI
+# codes, so --ansi must stay on unless NO_COLOR asked for plain output)
 . "$dir/.fn_note" 2>/dev/null || true
-declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || {
+  _fzf_ansi=(--ansi); NN_PK_COLOR=1; _hdr='Enter apply · Esc cancel'
+  [ -n "${NO_COLOR+x}" ] && { _fzf_ansi=(); NN_PK_COLOR=""; }
+}
 selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "sort by: " \
   --border --border-label " Sort order " \
   --header "$_hdr" \
@@ -5127,9 +5142,13 @@ while IFS= read -r v || [ -n "$v" ]; do
   fi
   n=$((n + 1))
 done < "$dir/.schema_group_options"
-# Shared popup styling from .fn_note (fallback: plain, uncolored)
+# Shared popup styling from .fn_note (fallback mirrors it: rows embed ANSI
+# codes, so --ansi must stay on unless NO_COLOR asked for plain output)
 . "$dir/.fn_note" 2>/dev/null || true
-declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || {
+  _fzf_ansi=(--ansi); NN_PK_COLOR=1; _hdr='Enter apply · Esc cancel'
+  [ -n "${NO_COLOR+x}" ] && { _fzf_ansi=(); NN_PK_COLOR=""; }
+}
 selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "group by: " \
   --border --border-label " Group by " \
   --header "$_hdr" \
@@ -5178,9 +5197,13 @@ add_row "show" "show $archive_label alongside everything else"
 if [ -s "$dir/.schema_archive" ]; then
   add_row "only" "show only $archive_label – useful for review"
 fi
-# Shared popup styling from .fn_note (fallback: plain, uncolored)
+# Shared popup styling from .fn_note (fallback mirrors it: rows embed ANSI
+# codes, so --ansi must stay on unless NO_COLOR asked for plain output)
 . "$dir/.fn_note" 2>/dev/null || true
-declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || {
+  _fzf_ansi=(--ansi); NN_PK_COLOR=1; _hdr='Enter apply · Esc cancel'
+  [ -n "${NO_COLOR+x}" ] && { _fzf_ansi=(); NN_PK_COLOR=""; }
+}
 selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "archive: " \
   --border --border-label " Archive visibility " \
   --header "$_hdr" \
@@ -5320,7 +5343,9 @@ _raw_complete=1
 if [ "${_raw_st[1]}" = 0 ] \
   && _nn_apply_ignore "$dir" "$_raw_tmp" \
   && mv "$_raw_tmp" "$dir/.raw"; then
-  [ "$_raw_complete" = 1 ] || printf 'partial scan – press r to retry' > "$dir/.last_action"
+  # only hint when nothing more important is pending: action scripts write
+  # their feedback to .last_action right before triggering this reload
+  [ "$_raw_complete" = 1 ] || [ -s "$dir/.last_action" ] || printf 'partial scan – press r to retry' > "$dir/.last_action"
 else
   rm -f "$_raw_tmp"
   _raw_complete=0
@@ -5668,13 +5693,17 @@ case "$field" in
     done < "$dir/.schema_types" ;;
   *) nn_assert "set_field: unknown field '$field'" ;;
 esac
-hdr="Enter apply · Esc cancel"
+# Shared popup styling from .fn_note (fallback mirrors it: rows embed ANSI
+# codes, so --ansi must stay on unless NO_COLOR asked for plain output)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || {
+  _fzf_ansi=(--ansi); NN_PK_COLOR=1; _hdr='Enter apply · Esc cancel'
+  [ -n "${NO_COLOR+x}" ] && { _fzf_ansi=(); NN_PK_COLOR=""; }
+}
+hdr="$_hdr"
 [ -n "$ctx" ] && hdr=$(printf '%s\n%s' "$ctx" "$hdr")
 pos_bind=()
 [ -n "$cur_pos" ] && pos_bind=(--bind "load:pos($cur_pos)")
-# Shared popup styling from .fn_note (fallback: plain, uncolored)
-. "$dir/.fn_note" 2>/dev/null || true
-declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
 _tsv_args=()
 [ -n "${_use_tsv:-}" ] && _tsv_args=(--delimiter $'\t' --with-nth 2)
 selected=$(printf '%s' "$vals" | fzf "${_fzf_ansi[@]}" --reverse --prompt "set $field: " \
@@ -6724,9 +6753,13 @@ done < "$dir/.queries"
 [ -z "$list" ] && exit 0
 # Styling matches the other sub-pickers (sortpick/grouppick/...): NO_COLOR
 # handling, bordered box, colored header hint
-# Shared popup styling from .fn_note (fallback: plain, uncolored)
+# Shared popup styling from .fn_note (fallback mirrors it: rows embed ANSI
+# codes, so --ansi must stay on unless NO_COLOR asked for plain output)
 . "$dir/.fn_note" 2>/dev/null || true
-declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || { _fzf_ansi=(); _hdr='Enter apply · Esc cancel'; }
+declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || {
+  _fzf_ansi=(--ansi); NN_PK_COLOR=1; _hdr='Enter apply · Esc cancel'
+  [ -n "${NO_COLOR+x}" ] && { _fzf_ansi=(); NN_PK_COLOR=""; }
+}
 selected=$(printf '%s' "$list" | fzf "${_fzf_ansi[@]}" --reverse --prompt 'query: ' \
   --border --border-label " Query presets " \
   --delimiter '\t' --with-nth '1,2' \
@@ -8416,6 +8449,14 @@ ENDDELETE
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND$_adhoc_archive" \
       | _nn_adhoc_chain_sort | _nn_adhoc_sort \
       | awk -F'\t' "$_awk_color" > "$nn_tmp"
+    # A mid-stream death in any segment (an OOM-killed inner sort, ENOSPC)
+    # leaves the trailing awk exiting 0 over truncated input – a partial
+    # listing must be an ERROR, not a silently short picker
+    local _al_st=("${PIPESTATUS[@]}")
+    if [[ "${_al_st[0]}" != 0 || "${_al_st[1]}" != 0 || "${_al_st[2]}" != 0 || "${_al_st[3]}" != 0 || "${_al_st[4]}" != 0 ]]; then
+      echo "notenav: listing failed part-way (${_al_st[*]}) – run 'nn doctor' or retry" >&2
+      shopt -u nullglob; return 1
+    fi
     local _nn_adhoc_fzf_ansi=(--ansi)
     [[ -n "${NO_COLOR+x}" ]] && _nn_adhoc_fzf_ansi=()
     fzf "${_nn_adhoc_fzf_ansi[@]}" --delimiter $'\t' --with-nth 2.. < "$nn_tmp" \
@@ -8472,6 +8513,15 @@ ENDDELETE
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND$_adhoc_archive" \
       | _nn_adhoc_chain_sort | _nn_adhoc_sort \
       | awk -F'\t' "$_adhoc_fmt" > "$_adhoc_tmp"
+    # Scripted consumers (-l/-0 | xargs) must never act on a silently
+    # truncated listing – any failed segment is a hard error, and an
+    # empty result from a crashed stage must not read as "no matches"
+    local _al_st=("${PIPESTATUS[@]}")
+    if [[ "${_al_st[0]}" != 0 || "${_al_st[1]}" != 0 || "${_al_st[2]}" != 0 || "${_al_st[3]}" != 0 || "${_al_st[4]}" != 0 ]]; then
+      rm -f "$_adhoc_tmp"
+      echo "notenav: listing failed part-way (${_al_st[*]}) – run 'nn doctor' or retry" >&2
+      shopt -u nullglob; return 1
+    fi
     if [[ -s "$_adhoc_tmp" ]]; then
       cat "$_adhoc_tmp"
       rm -f "$_adhoc_tmp"

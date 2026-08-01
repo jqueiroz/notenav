@@ -641,11 +641,17 @@ assert_bytes "$CAP/.current" "$WORK/cur.keep" "a mid-pipeline sort death publish
 # ── sort parity: the TUI (filter.sh) and the ad-hoc path must order the
 #    same notebook identically – the chain-sort implementations are twins
 #    held together by comments, so pin their BEHAVIOR together ──────────
+# zenith priorities are "1"-"4"; every chain branch must be OBSERVABLE:
+# a/b tie through priority+status+created (title breaks), c ties through
+# priority+status (created breaks), d ties on priority (status breaks),
+# e exercises the primary sort, f the unset-priority placeholder
 NB2="$WORK/nb2"; CAP2="$WORK/cap2"; mkdir -p "$NB2"
-mk_note "$NB2/p1.md" lf 0 '---' 'title: Cc' 'type: task' 'status: new' 'priority: p1' '---' 'x'
-mk_note "$NB2/p3.md" crlf 0 '---' 'title: Aa' 'type: task' 'status: active' 'priority: p3' '---' 'x'
-mk_note "$NB2/px.md" lf 1 '---' 'title: Bb' 'type: task' 'status: new' '---' 'x'
-mk_note "$NB2/p2.md" crlf 1 '---' 'title: Dd' 'type: task' 'status: done' 'priority: p2' '---' 'x'
+mk_note "$NB2/a.md" lf 0 '---' 'title: Cc' 'type: task' 'status: new' 'priority: 1' 'created: 2026-01-03' '---' 'x'
+mk_note "$NB2/b.md" crlf 0 '---' 'title: Aa' 'type: task' 'status: new' 'priority: 1' 'created: 2026-01-03' '---' 'x'
+mk_note "$NB2/c.md" lf 1 '---' 'title: Bb' 'type: task' 'status: new' 'priority: 1' 'created: 2026-01-01' '---' 'x'
+mk_note "$NB2/d.md" crlf 1 '---' 'title: Dd' 'type: task' 'status: active' 'priority: 1' 'created: 2026-01-02' '---' 'x'
+mk_note "$NB2/e.md" lf 0 '---' 'title: Ee' 'type: task' 'status: new' 'priority: 2' 'created: 2026-01-02' '---' 'x'
+mk_note "$NB2/f.md" crlf 0 '---' 'title: Ff' 'type: task' 'status: new' 'created: 2026-01-02' '---' 'x'
 if capture_nn_dir "$NB2" "$CAP2"; then
   bash "$CAP2/filter.sh.orig" "$CAP2" refresh >/dev/null 2>&1
   _sp_tui=$(awk -F'\t' 'NF>1 && $1 != "" {print $1}' "$CAP2/.current" | xargs -n1 basename 2>/dev/null)
