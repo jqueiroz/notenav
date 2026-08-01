@@ -155,6 +155,9 @@ if chmod 000 "$W/locked" 2>/dev/null && [[ "$(id -u)" != 0 ]]; then
   bout=$(run_nn "$W" type=task -l); brc=$?
   [[ "$brc" -eq 0 ]] || fail "unreadable subdir hard-failed the listing (exit $brc) – availability regression"
   printf '%s\n' "$bout" | grep -q 'band-open' || fail "readable note missing when a sibling dir is unreadable"
+  printf '%s\n' "$bout" | grep -q 'band-hidden' && fail "unreadable-dir note leaked into the listing"
+  grep -q 'listing may be incomplete' "$WORK/err" \
+    || fail "degraded walk emitted no incomplete-listing note (the warning half of the contract)"
   chmod 755 "$W/locked"
 fi
 KSH="$WORK/killfind"; mkdir -p "$KSH"

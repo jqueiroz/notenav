@@ -27,7 +27,14 @@ if declare -F _nn_resolve_gawk >/dev/null 2>&1; then
   # require_gawk fails LOUDLY – silently substituting system gawk here
   # would decouple the tests from what the shipped code actually runs.
   NN_TEST_GAWK=$(_nn_resolve_gawk)
-  _is_gnu_awk "$NN_TEST_GAWK" || NN_TEST_GAWK=""
+  if ! _is_gnu_awk "$NN_TEST_GAWK"; then
+    # Loud AND correctly diagnosed: if gawk exists but the resolver picked
+    # a non-GNU awk, the bug is the RESOLVER, not a missing dependency
+    if command -v gawk >/dev/null 2>&1 && _is_gnu_awk gawk; then
+      NN_TEST_GAWK_WHY="_nn_resolve_gawk returned non-GNU '$NN_TEST_GAWK' although gawk is installed – resolver regression?"
+    fi
+    NN_TEST_GAWK=""
+  fi
 else
   # Sourcing the lib failed (e.g. a syntax error under test): resolve
   # independently so a broken LIB is not misreported as a missing gawk
@@ -47,7 +54,7 @@ fi
 # as phantom lib regressions. Call after any gawk-independent diagnostics.
 require_gawk() {
   if [[ -z "$NN_TEST_GAWK" ]]; then
-    fail "GNU awk not installed – required by this test file"
+    fail "${NN_TEST_GAWK_WHY:-GNU awk not installed – required by this test file}"
     finish
   fi
 }

@@ -1326,6 +1326,10 @@ nn_write_workflow_files() {
 # the native parser accepts and that sort consistently.  stat -L: only
 # -L'd command-line args can reach -exec as symlinks; report the note's
 # own mtime, not the link's.  Emitted into .fn_find_md via declare -f.
+# Residual on the -exec branches: find reports a KILLED stat child as a
+# plain exit 1, indistinguishable from a single skipped file – callers
+# band exit 1 as "degraded with a stderr note", which is the best an
+# -exec backend can honestly claim.
 _nn_mtime_rows() {
   if find /dev/null -maxdepth 0 -printf '' 2>/dev/null; then
     # GNU find – space-separated date to match zk's {{modified}} format
@@ -2008,13 +2012,20 @@ _nn_list_notes() {
             [[ "$_wk" -gt "$_worst" ]] && _worst=$_wk
           done
           [[ "$_worst" -gt 128 ]] && exit 99
+          [[ "$_worst" -ne 0 ]] && exit 98
           exit 0
         } | _nn_list_notes_native
         # a diverted note deleted between the zk listing and this re-list
-        # (find exit 1..128) is a skip, not a truncation – stay healthy;
-        # only a KILLED walk or a dying parser marks failure
+        # (find exit 1..128) is a skip, not a truncation – stay healthy
+        # but SAY so (on -exec stat platforms a killed stat batch also
+        # lands here; silence would hide a mass skip).  Any unexpected
+        # segment status (99, or the subshell itself killed) hard-fails.
         local _zk_relist=("${PIPESTATUS[@]}")
-        [[ "${_zk_relist[0]}" == 99 ]] && _lst_ok=0
+        case "${_zk_relist[0]}" in
+          0)  : ;;
+          98) echo "notenav: some BOM-titled notes could not be re-listed (deleted mid-scan?)" >&2 ;;
+          *)  _lst_ok=0 ;;
+        esac
         [[ "${_zk_relist[1]}" == 0 ]] || _lst_ok=0
       fi
       [[ -n "$_zk_bomlist" ]] && rm -f "$_zk_bomlist"
@@ -2028,42 +2039,30 @@ _nn_list_notes() {
       # 1..128 means completed-with-skips (permission-denied subdirs, a
       # note deleted mid-walk) – list what was readable, note it on
       # stderr, and stay healthy: a chronic unreadable directory must not
-      # permanently zero out every query.  Per-iteration statuses travel
-      # out of the pipeline-segment subshell as marker exit codes.
-      local _wk_seg
+      # permanently zero out every query.  Per-iteration worst statuses
+      # travel out of the pipeline-segment subshell as marker exit codes
+      # 98/99; the ONLY clean segment value is 0, so an unexpected status
+      # (the group subshell itself signal-killed) also hard-fails.
+      local _wk_seg _d
       local -a _wk_st
-      if [[ $# -eq 0 ]]; then
-        {
-          _nn_find_md_with_mtime "."
+      {
+        _worst=0
+        for _d in "${@:-.}"; do
+          _nn_find_md_with_mtime "$_d"
           _wk=$?
-          [[ "$_wk" -gt 128 ]] && exit 99
-          [[ "$_wk" -ne 0 ]] && exit 98
-          exit 0
-        } | _nn_list_notes_native
-        _wk_st=("${PIPESTATUS[@]}")   # capture WHOLE array: any command resets it
-        _wk_seg="${_wk_st[0]}"
-        [[ "${_wk_st[1]}" == 0 ]] || _lst_ok=0
-      else
-        local _d
-        {
-          _worst=0
-          for _d in "$@"; do
-            _nn_find_md_with_mtime "$_d"
-            _wk=$?
-            [[ "$_wk" -gt "$_worst" ]] && _worst=$_wk
-          done
-          [[ "$_worst" -gt 128 ]] && exit 99
-          [[ "$_worst" -ne 0 ]] && exit 98
-          exit 0
-        } | _nn_list_notes_native
-        _wk_st=("${PIPESTATUS[@]}")
-        _wk_seg="${_wk_st[0]}"
-        [[ "${_wk_st[1]}" == 0 ]] || _lst_ok=0
-      fi
+          [[ "$_wk" -gt "$_worst" ]] && _worst=$_wk
+        done
+        [[ "$_worst" -gt 128 ]] && exit 99
+        [[ "$_worst" -ne 0 ]] && exit 98
+        exit 0
+      } | _nn_list_notes_native
+      _wk_st=("${PIPESTATUS[@]}")   # capture WHOLE array: any command resets it
+      _wk_seg="${_wk_st[0]}"
+      [[ "${_wk_st[1]}" == 0 ]] || _lst_ok=0
       case "$_wk_seg" in
-        99) _lst_ok=0 ;;
+        0)  : ;;
         98) echo "notenav: listing may be incomplete (some paths were unreadable or vanished mid-scan)" >&2 ;;
-        *) ;;
+        *)  _lst_ok=0 ;;
       esac
     fi
     [[ "$_lst_ok" == 1 ]]
@@ -5370,6 +5369,12 @@ ENDCSPERSIST
 dir="$1"
 nn_gawk=$(cat "$dir/.gawk" 2>/dev/null || echo awk)
 scope_path=$(cat "$dir/.scope_path")
+# Helpers up-front: the freshness check and the satellite prune both need
+# them BEFORE the walk (a later source left _nn_mtime_of undefined at its
+# first call – dead freshness logic plus command-not-found noise)
+. "$dir/.fn_note" 2>/dev/null || true
+declare -F _nn_mtime_of >/dev/null 2>&1 || _nn_mtime_of() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
+declare -F _nn_state_lock >/dev/null 2>&1 || { _nn_state_lock() { :; }; _nn_state_unlock() { :; }; }
 
 # Apply .nnignore filter to the given tmp file (non-fatal: falls back to
 # unfiltered data)
@@ -5416,7 +5421,17 @@ _nn_find_md_with_mtime "$search_dir" \
 # delete pins/marks based on a listing that is missing half the notebook.
 _raw_st=("${PIPESTATUS[@]}")
 _raw_complete=1
-[ "${_raw_st[0]}" = 0 ] || _raw_complete=0
+case "${_raw_st[0]}" in
+  0) : ;;
+  *) if [ "${_raw_st[0]}" -gt 128 ] 2>/dev/null; then
+       # KILLED mid-walk: the listing is truncated – do not install it
+       _raw_st[1]=1
+     else
+       # completed with skips (unreadable subdir, vanished note): install
+       # the readable rows, but the prune must not act on partial data
+       _raw_complete=0
+     fi ;;
+esac
 if [ "${_raw_st[1]}" = 0 ] \
   && _nn_apply_ignore "$dir" "$_raw_tmp" \
   && mv "$_raw_tmp" "$dir/.raw"; then
@@ -5426,16 +5441,23 @@ if [ "${_raw_st[1]}" = 0 ] \
   # forever: auto-refresh polls clear nothing, so freshness is judged by
   # the file's mtime (anything older than a few seconds is old news).
   if [ "$_raw_complete" != 1 ]; then
-    _la_fresh=0
-    if [ -s "$dir/.last_action" ]; then
-      _la_m=$(_nn_mtime_of "$dir/.last_action")
-      if [ -z "$_la_m" ] || [ -z "$_reload_t0" ]; then
-        _la_fresh=1   # unknown timing: preserve the existing message
-      elif [ "$_la_m" -ge $((_reload_t0 - 5)) ]; then
-        _la_fresh=1   # written within 5s of this reload STARTING
+    # once per degraded STREAK: a chronically unreadable subdir would
+    # otherwise rewrite the hint on every watcher reload forever
+    if [ ! -f "$dir/.scan_degraded" ]; then
+      : > "$dir/.scan_degraded"
+      _la_fresh=0
+      if [ -s "$dir/.last_action" ]; then
+        _la_m=$(_nn_mtime_of "$dir/.last_action")
+        if [ -z "$_la_m" ] || [ -z "$_reload_t0" ]; then
+          _la_fresh=1   # unknown timing: preserve the existing message
+        elif [ "$_la_m" -ge $((_reload_t0 - 5)) ]; then
+          _la_fresh=1   # written within 5s of this reload STARTING
+        fi
       fi
+      [ "$_la_fresh" = 1 ] || printf 'partial scan – press r to retry' > "$dir/.last_action"
     fi
-    [ "$_la_fresh" = 1 ] || printf 'partial scan – press r to retry' > "$dir/.last_action"
+  else
+    rm -f "$dir/.scan_degraded"
   fi
 else
   rm -f "$_raw_tmp"
@@ -5444,12 +5466,12 @@ else
 fi
 
 # Prune satellite files: remove paths that no longer exist in .raw.
-# Under the state lock: this read-filter-rewrite racing an action's pin/mark
-# append would silently drop the just-added entry (best effort – missing
-# helpers degrade to the unlocked prune this script always used).
-. "$dir/.fn_note" 2>/dev/null || true
-declare -F _nn_mtime_of >/dev/null 2>&1 || _nn_mtime_of() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
-declare -F _nn_state_lock >/dev/null 2>&1 || { _nn_state_lock() { :; }; _nn_state_unlock() { :; }; }
+# Under the state lock (helpers sourced at the top of this script): this
+# read-filter-rewrite racing an action's pin/mark append would silently
+# drop the just-added entry.  On DEGRADED walks the prune is skipped by
+# design: deleting a pin for a note that merely sits in an unreadable
+# subdirectory is worse than letting deleted-note pins linger until the
+# next complete scan (safety over cleanup).
 if [ "$_raw_complete" = 1 ] && [ -s "$dir/.raw" ]; then
   _nn_state_lock "$dir"
   for _sat in "$dir/.pinned" "$dir/.marked" "$dir/.f_match_paths"; do
@@ -8511,18 +8533,19 @@ ENDDELETE
   if $interactive; then
     if [[ "${TERM:-dumb}" == "dumb" ]]; then
       echo "notenav: interactive mode requires a terminal (TERM is 'dumb')" >&2
+      unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail
       shopt -u nullglob; return 1
     fi
-    local nn_tmp; nn_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
+    local nn_tmp; nn_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail; shopt -u nullglob; return 1; }
     if [[ "$nn_tmp" == *[[:space:]\"\'\$\`\\]* || "$nn_tmp" == *\[* || "$nn_tmp" == *\]* || "$nn_tmp" == *\(* || "$nn_tmp" == *\)* ]]; then
       rm -f "$nn_tmp"
       echo "notenav: TMPDIR path contains characters unsafe for shell interpolation." >&2
       echo "notenav: set TMPDIR to a simple path (e.g. /tmp) and try again." >&2
-      shopt -u nullglob; return 1
+      unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail; shopt -u nullglob; return 1
     fi
-    local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
-    local _nn_edit; _nn_edit=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
-    local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
+    local _nn_prev; _nn_prev=$(mktemp) || { rm -f "$nn_tmp"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail; shopt -u nullglob; return 1; }
+    local _nn_edit; _nn_edit=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail; shopt -u nullglob; return 1; }
+    local _nn_sflag; _nn_sflag=$(mktemp) || { rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit"; echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail; shopt -u nullglob; return 1; }
     # Interpolate the paths NOW: the trap fires at shell exit, when these
     # function locals are out of scope – a single-quoted trap body would
     # expand them to "" and remove nothing (paths are mktemp output in the
@@ -8543,7 +8566,7 @@ ENDDELETE
     if [[ ! -s "$_nn_prev" || ! -s "$_nn_edit" ]]; then
       rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"
       echo "notenav: failed to write helper scripts (TMPDIR=${TMPDIR:-/tmp} full?)" >&2
-      shopt -u nullglob; return 1
+      unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail; shopt -u nullglob; return 1
     fi
     # pipefail: a mid-stream death ANYWHERE – including the nested
     # awk|sort|awk pipelines inside _nn_adhoc_sort/_nn_adhoc_chain_sort
@@ -8611,7 +8634,7 @@ ENDDELETE
     # substitution strips them. Tempfile also avoids loading the whole list
     # into memory for very large notebooks.
     local _adhoc_tmp
-    _adhoc_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
+    _adhoc_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort _nn_adhoc_fail; shopt -u nullglob; return 1; }
     # pipefail: scripted consumers (-l/-0 | xargs) must never act on a
     # silently truncated listing – a death anywhere, including the nested
     # sort pipelines and the lister itself, is a hard error, and an empty
