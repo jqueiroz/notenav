@@ -87,6 +87,25 @@ assert_bytes() {
   return 1
 }
 
+# mk_find_shim <dir> <exit-status> <note-path...>
+# PATH shim for find(1): emits one walker row (path\tmtime) per note path,
+# then exits with the given status – the walker's /dev/null capability
+# probe still fails like real find on a bogus path.  One copy of the row
+# format and probe convention; the shim tests both severity bands (1..128
+# = completed-with-skips, >128 = killed mid-walk).
+mk_find_shim() {
+  local dir=$1 st=$2
+  shift 2
+  mkdir -p "$dir"
+  printf '#!/bin/sh\ncase "$*" in *"/dev/null"*) exit 1 ;; esac\n' > "$dir/find"
+  local p
+  for p in "$@"; do
+    printf 'printf "%%s\\t2026-01-01 01:01:01\\n" "%s"\n' "$p" >> "$dir/find"
+  done
+  printf 'exit %s\n' "$st" >> "$dir/find"
+  chmod +x "$dir/find"
+}
+
 # capture_nn_dir <notebook> <dest>
 # Launches the real TUI startup with a PATH-shimmed fzf that copies the
 # generated runtime dir ($_nn_dir) to <dest> and exits 130 (normal cancel).

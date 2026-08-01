@@ -115,6 +115,16 @@ grep -q "sort_chain: unrecognized key 'modifed'" "$WORK/sc.out" || fail "doctor 
 # a valid chain key must not be reported
 grep -q "sort_chain: unrecognized key 'priority'" "$WORK/sc.out" && fail "doctor wrongly flagged a valid sort_chain key"
 
+# ── defaults.sort_by = "" (the documented no-sort setting) must not
+#    subscript NN_SORT_CHAINS with an empty key – bash prints a raw
+#    "bad array subscript" error on every ad-hoc query ──────────────────
+uconf '[defaults]' 'sort_by = ""'
+sbout=$(run_nn_u "$G" type=task -l); sbrc=$?
+[[ "$sbrc" -eq 0 ]] || { fail "sort_by=\"\" broke the ad-hoc listing (exit $sbrc)"; sed 's/^/    /' "$WORK/err" | head -3; }
+[[ -n "$sbout" ]] || fail "sort_by=\"\" produced an empty listing"
+grep -q 'bad array subscript' "$WORK/err" \
+  && fail "sort_by=\"\" hit the NN_SORT_CHAINS empty-subscript error"
+
 # ── control characters in workflow values: startup refuses, doctor warns ──
 T="$WORK/tabval"; mkdir -p "$T/.nn"
 printf '[meta]\nname = "t"\n[type]\nvalues = ["task", "in\\tprogress"]\n[type.task]\nicon = "t"\n[status]\nvalues = ["new"]\nfilter_cycle = ["new"]\n' > "$T/.nn/workflow.toml"
@@ -160,14 +170,8 @@ if chmod 000 "$W/locked" 2>/dev/null && [[ "$(id -u)" != 0 ]]; then
     || fail "degraded walk emitted no incomplete-listing note (the warning half of the contract)"
   chmod 755 "$W/locked"
 fi
-KSH="$WORK/killfind"; mkdir -p "$KSH"
-cat > "$KSH/find" <<EOF
-#!/bin/sh
-case "\$*" in *"/dev/null"*) exit 1 ;; esac
-printf '%s\t2026-01-01 01:01:01\n' "$W/open.md"
-exit 137
-EOF
-chmod +x "$KSH/find"
+KSH="$WORK/killfind"
+mk_find_shim "$KSH" 137 "$W/open.md"
 if (cd "$W" && TERM=xterm NO_COLOR=1 PATH="$KSH:$PATH" bash "$REPO/bin/nn" type=task -l </dev/null >"$WORK/kf.out" 2>"$WORK/err"); then
   fail "a KILLED walker (exit 137) still exited 0 (truncated listing read as complete)"
 fi

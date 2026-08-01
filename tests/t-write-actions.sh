@@ -611,14 +611,8 @@ _fc_stray=$(find "$CAP" -name '.raw.snap.*' -o -name '.raw_title.*' -o -name '.c
 # a find that dies MID-WALK (partial listing, non-zero exit) must still
 # install the best-effort view but NEVER let the satellite prune delete
 # pins for notes missing from the truncated listing
-_fw="$WORK/badfind"; mkdir -p "$_fw"
-cat > "$_fw/find" <<EOF
-#!/bin/sh
-case "\$*" in *"/dev/null"*) exit 1 ;; esac
-printf '%s\t2026-01-01 01:01:01\n' "$NOTEBOOK/seed.md"
-exit 1
-EOF
-chmod +x "$_fw/find"
+_fw="$WORK/badfind"
+mk_find_shim "$_fw" 1 "$NOTEBOOK/seed.md"
 printf '%s\n' "$NOTEBOOK/ghost-of-missing-note.md" > "$CAP/.pinned"
 : > "$CAP/.last_action"
 PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
@@ -655,14 +649,8 @@ touch -d '30 seconds ago' "$CAP/.last_action" 2>/dev/null || touch -t 2026010101
 PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
 grep -q 'old news' "$CAP/.last_action" || fail "hint-once broke: stale content rewritten mid-streak"
 # (e) the KILLED-walk (scan error) path honors the same freshness window …
-_kf9="$WORK/killfind9"; mkdir -p "$_kf9"
-cat > "$_kf9/find" <<EOF
-#!/bin/sh
-case "\$*" in *"/dev/null"*) exit 1 ;; esac
-printf '%s\t2026-01-01 01:01:01\n' "$NOTEBOOK/seed.md"
-exit 137
-EOF
-chmod +x "$_kf9/find"
+_kf9="$WORK/killfind9"
+mk_find_shim "$_kf9" 137 "$NOTEBOOK/seed.md"
 printf 'priority set' > "$CAP/.last_action"
 PATH="$_kf9:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
 grep -q 'priority set' "$CAP/.last_action" || fail "scan-error path clobbered fresh action feedback"

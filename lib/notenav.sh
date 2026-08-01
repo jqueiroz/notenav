@@ -8517,6 +8517,9 @@ ENDDELETE
   # Apply tie-breaking chain for ad-hoc sort.
   # NOTE: must stay in sync with do_chain_sort() in filter.sh.
   _nn_adhoc_chain_sort() {
+    # sort_by = "" (no sort) is a valid setting: an empty subscript on the
+    # associative array is a bash error, not an empty lookup
+    [[ -z "$NN_DEFAULT_SORT" ]] && { cat; return; }
     local _chain_str="${NN_SORT_CHAINS[$NN_DEFAULT_SORT]:-}"
     [[ -z "$_chain_str" ]] && { cat; return; }
     local -a _chain
