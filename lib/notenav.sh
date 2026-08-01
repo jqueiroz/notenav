@@ -1923,6 +1923,16 @@ ENDREPAIR
 _nn_list_notes() {
   local has_zk="$1" fmt="$2"
   shift 2
+  # The whole body runs in a pipefail SUBSHELL so the function's return
+  # value is honest: a lister that dies mid-stream (find OOM-killed, zk
+  # crashing with exit >1, a parser stage failing) must surface as a
+  # non-zero return, or downstream gates read a truncated listing as
+  # complete.  The subshell scopes pipefail away from callers; the group's
+  # last statement reports tracked health, and legitimate non-zero inner
+  # statuses (zk exit 1 = no notes) are consumed before it.
+  (
+  set -o pipefail
+  _lst_ok=1
   {
     if [[ "$has_zk" == "true" ]]; then
       # Workaround: zk list <path> returns only direct children (non-recursive)
@@ -1969,7 +1979,10 @@ _nn_list_notes() {
               if (bomlist != "" && $5 ~ /^\xEF\xBB\xBF/) { print $6 > bomlist; next }
               print
             }'
-      local _zk_rc="${PIPESTATUS[0]}"
+      local _zk_st=("${PIPESTATUS[@]}")
+      local _zk_rc="${_zk_st[0]}"
+      # the normalizer stage dying is a truncation, not a zk quirk
+      [[ "${_zk_st[1]}" == 0 ]] || _lst_ok=0
       if [[ -n "$_zk_bomlist" && -s "$_zk_bomlist" ]]; then
         # Re-list the diverted notes natively, mtimes batched through find
         # (a per-file stat forks 2-3 processes per note, and a Windows-
@@ -1984,23 +1997,26 @@ _nn_list_notes() {
         mapfile -t _zk_bpaths < "$_zk_bomlist"
         for ((_zk_i = 0; _zk_i < ${#_zk_bpaths[@]}; _zk_i += 200)); do
           TZ=UTC0 _nn_mtime_rows -L "${_zk_bpaths[@]:_zk_i:200}" -maxdepth 0 -type f 2>/dev/null
-        done | _nn_list_notes_native
+        done | _nn_list_notes_native || _lst_ok=0
       fi
       [[ -n "$_zk_bomlist" ]] && rm -f "$_zk_bomlist"
       if [[ $_zk_rc -gt 1 ]]; then
         echo "notenav: zk list failed (exit $_zk_rc) – run 'nn doctor' or try without zk" >&2
+        _lst_ok=0
       fi
     else
       if [[ $# -eq 0 ]]; then
-        _nn_find_md_with_mtime "." | _nn_list_notes_native
+        _nn_find_md_with_mtime "." | _nn_list_notes_native || _lst_ok=0
       else
         local _d
         for _d in "$@"; do
           _nn_find_md_with_mtime "$_d"
-        done | _nn_list_notes_native
+        done | _nn_list_notes_native || _lst_ok=0
       fi
     fi
+    [[ "$_lst_ok" == 1 ]]
   } | _nn_ignore_pipe
+  )
 }
 
 # --- Doctor ---
@@ -2395,7 +2411,7 @@ EOF
           def leafpaths: [paths(type != "object" and type != "null")
             | map(tostring)
             | select(.[0] == "type" or .[0] == "status" or .[0] == "priority")
-            | if (.[-1] | test("^[0-9]+$")) then .[:-1] else . end
+            | (def rstrip: if length > 0 and (.[-1] | test("^[0-9]+$")) then .[:-1] | rstrip else . end; rstrip)
             | join(".")] | unique;
           leafpaths - ($kept | leafpaths) | .[]' 2>/dev/null | head -8)
       local _uc_d
@@ -4846,7 +4862,8 @@ _nn_find_md_with_mtime() {
 ENDFNFIND
 
     # Get all notes
-    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "$_scope_path" > "$_nn_dir/.raw"
+    _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "$_scope_path" > "$_nn_dir/.raw" \
+      || echo "notenav: initial scan may be incomplete – press r in the TUI to rescan" >&2
 
     # Pre-flight: warn if any indexed notes have unrecognized type/status/
     # priority values. Cheap awk pass over data we just indexed; doctor has
@@ -5343,9 +5360,19 @@ _raw_complete=1
 if [ "${_raw_st[1]}" = 0 ] \
   && _nn_apply_ignore "$dir" "$_raw_tmp" \
   && mv "$_raw_tmp" "$dir/.raw"; then
-  # only hint when nothing more important is pending: action scripts write
-  # their feedback to .last_action right before triggering this reload
-  [ "$_raw_complete" = 1 ] || [ -s "$dir/.last_action" ] || printf 'partial scan – press r to retry' > "$dir/.last_action"
+  # hint on a partial walk – but never clobber FRESH action feedback
+  # (action/delete/bulk scripts write their message moments before
+  # triggering this reload).  Stale content must not suppress the hint
+  # forever: auto-refresh polls clear nothing, so freshness is judged by
+  # the file's mtime (anything older than a few seconds is old news).
+  if [ "$_raw_complete" != 1 ]; then
+    _la_fresh=0
+    if [ -s "$dir/.last_action" ]; then
+      _la_m=$(stat -c %Y "$dir/.last_action" 2>/dev/null || stat -f %m "$dir/.last_action" 2>/dev/null)
+      [ -n "$_la_m" ] && [ $(( $(date +%s) - _la_m )) -lt 5 ] && _la_fresh=1
+    fi
+    [ "$_la_fresh" = 1 ] || printf 'partial scan – press r to retry' > "$dir/.last_action"
+  fi
 else
   rm -f "$_raw_tmp"
   _raw_complete=0
@@ -8445,16 +8472,21 @@ ENDDELETE
       echo "notenav: failed to write helper scripts (TMPDIR=${TMPDIR:-/tmp} full?)" >&2
       shopt -u nullglob; return 1
     fi
+    # pipefail: a mid-stream death ANYWHERE – including the nested
+    # awk|sort|awk pipelines inside _nn_adhoc_sort/_nn_adhoc_chain_sort
+    # and the lister itself – must be an ERROR, not a silently short
+    # picker (a plain PIPESTATUS check sees only top-level segments)
+    set -o pipefail
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND$_adhoc_archive" \
       | _nn_adhoc_chain_sort | _nn_adhoc_sort \
       | awk -F'\t' "$_awk_color" > "$nn_tmp"
-    # A mid-stream death in any segment (an OOM-killed inner sort, ENOSPC)
-    # leaves the trailing awk exiting 0 over truncated input – a partial
-    # listing must be an ERROR, not a silently short picker
-    local _al_st=("${PIPESTATUS[@]}")
-    if [[ "${_al_st[0]}" != 0 || "${_al_st[1]}" != 0 || "${_al_st[2]}" != 0 || "${_al_st[3]}" != 0 || "${_al_st[4]}" != 0 ]]; then
-      echo "notenav: listing failed part-way (${_al_st[*]}) – run 'nn doctor' or retry" >&2
+    local _al_rc=$?
+    set +o pipefail
+    if [[ "$_al_rc" != 0 ]]; then
+      echo "notenav: listing failed part-way (exit $_al_rc) – run 'nn doctor' or retry" >&2
+      rm -f "$nn_tmp" "$_nn_prev" "$_nn_edit" "$_nn_edit.editor" "$_nn_edit.target" "$_nn_sflag"
+      unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort
       shopt -u nullglob; return 1
     fi
     local _nn_adhoc_fzf_ansi=(--ansi)
@@ -8509,17 +8541,21 @@ ENDDELETE
     # into memory for very large notebooks.
     local _adhoc_tmp
     _adhoc_tmp=$(mktemp) || { echo "notenav: mktemp failed (TMPDIR=${TMPDIR:-/tmp})" >&2; shopt -u nullglob; return 1; }
+    # pipefail: scripted consumers (-l/-0 | xargs) must never act on a
+    # silently truncated listing – a death anywhere, including the nested
+    # sort pipelines and the lister itself, is a hard error, and an empty
+    # result from a crashed stage must not read as "no matches"
+    set -o pipefail
     _nn_list_notes "$_NN_HAS_ZK" "$_fmt" "${zk_args[@]}" \
       | awk -F'\t' "$awk_cond && $NN_TYPE_VIS_COND$_adhoc_archive" \
       | _nn_adhoc_chain_sort | _nn_adhoc_sort \
       | awk -F'\t' "$_adhoc_fmt" > "$_adhoc_tmp"
-    # Scripted consumers (-l/-0 | xargs) must never act on a silently
-    # truncated listing – any failed segment is a hard error, and an
-    # empty result from a crashed stage must not read as "no matches"
-    local _al_st=("${PIPESTATUS[@]}")
-    if [[ "${_al_st[0]}" != 0 || "${_al_st[1]}" != 0 || "${_al_st[2]}" != 0 || "${_al_st[3]}" != 0 || "${_al_st[4]}" != 0 ]]; then
+    local _al_rc=$?
+    set +o pipefail
+    if [[ "$_al_rc" != 0 ]]; then
       rm -f "$_adhoc_tmp"
-      echo "notenav: listing failed part-way (${_al_st[*]}) – run 'nn doctor' or retry" >&2
+      echo "notenav: listing failed part-way (exit $_al_rc) – run 'nn doctor' or retry" >&2
+      unset -f _nn_adhoc_sort _nn_adhoc_chain_sort _nn_adhoc_chain_field_sort
       shopt -u nullglob; return 1
     fi
     if [[ -s "$_adhoc_tmp" ]]; then

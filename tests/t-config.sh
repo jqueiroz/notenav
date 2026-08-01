@@ -133,6 +133,18 @@ if run_nn "$T" type=task >/dev/null 2>&1; then
 fi
 grep -q 'contains a tab, newline, or carriage return' "$WORK/err" || fail "no control-char message on newline-only value"
 
+# ── a NESTED sort stage dying mid-stream must fail the ad-hoc listing ────
+# (the failure lives inside _nn_adhoc_sort's awk|sort|awk – only pipefail
+# at the call site can see it; a partial listing with exit 0 would let
+# `nn -l | xargs` consumers act on a truncated notebook)
+SHIM="$WORK/shim"; mkdir -p "$SHIM"
+printf '#!/bin/sh\nhead -n 1\nexit 1\n' > "$SHIM/sort"; chmod +x "$SHIM/sort"
+if (cd "$G" && TERM=xterm NO_COLOR=1 PATH="$SHIM:$PATH" bash "$REPO/bin/nn" type=task -l </dev/null >"$WORK/trunc.out" 2>"$WORK/err"); then
+  fail "a mid-stream sort death exited 0 (truncated listing read as complete)"
+fi
+[[ -s "$WORK/trunc.out" ]] && fail "partial rows were printed despite the failed listing"
+grep -q 'listing failed part-way' "$WORK/err" || fail "no listing-failure message on nested sort death"
+
 # ── doctor reports user-config keys the load-time whitelist drops ────────
 # schema sub-keys (icon, values) are silently dead in user config; only
 # colors cross scopes – doctor must name the dead keys and stay silent on

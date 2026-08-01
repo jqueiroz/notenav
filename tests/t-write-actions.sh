@@ -652,6 +652,9 @@ mk_note "$NB2/c.md" lf 1 '---' 'title: Bb' 'type: task' 'status: new' 'priority:
 mk_note "$NB2/d.md" crlf 1 '---' 'title: Dd' 'type: task' 'status: active' 'priority: 1' 'created: 2026-01-02' '---' 'x'
 mk_note "$NB2/e.md" lf 0 '---' 'title: Ee' 'type: task' 'status: new' 'priority: 2' 'created: 2026-01-02' '---' 'x'
 mk_note "$NB2/f.md" crlf 0 '---' 'title: Ff' 'type: task' 'status: new' 'created: 2026-01-02' '---' 'x'
+# g is ARCHIVED (done is in zenith's status.archive): both paths must hide
+# it identically – archive-visibility parity, which the old fixture had
+mk_note "$NB2/g.md" lf 0 '---' 'title: Gg' 'type: task' 'status: done' 'priority: 1' 'created: 2026-01-04' '---' 'x'
 if capture_nn_dir "$NB2" "$CAP2"; then
   bash "$CAP2/filter.sh.orig" "$CAP2" refresh >/dev/null 2>&1
   _sp_tui=$(awk -F'\t' 'NF>1 && $1 != "" {print $1}' "$CAP2/.current" | xargs -n1 basename 2>/dev/null)

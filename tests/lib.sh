@@ -24,20 +24,20 @@ if declare -F _nn_resolve_gawk >/dev/null 2>&1; then
   NN_TEST_GAWK=$(_nn_resolve_gawk)
 else
   # Sourcing the lib failed (e.g. a syntax error under test) – fall back to
-  # independent detection so a broken LIB is not misreported as a missing
-  # gawk DEPENDENCY (on mawk-as-awk systems the plain 'awk' fallback would
-  # empty out below and require_gawk would blame the wrong thing)
+  # 'awk' but note it, so a broken LIB is not misreported as a missing gawk
+  # DEPENDENCY; the single GNU-ness probe below then prefers gawk if the
+  # fallback awk is not GNU (one copy of the probe expression)
   echo "  note: could not source lib/notenav.sh for gawk resolution" >&2
-  if awk --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk'; then
-    NN_TEST_GAWK="awk"
-  elif command -v gawk >/dev/null 2>&1; then
+  NN_TEST_GAWK="awk"
+fi
+if ! "$NN_TEST_GAWK" --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk'; then
+  if command -v gawk >/dev/null 2>&1; then
     NN_TEST_GAWK="gawk"
+    gawk --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk' || NN_TEST_GAWK=""
   else
-    NN_TEST_GAWK="awk"
+    NN_TEST_GAWK=""
   fi
 fi
-"$NN_TEST_GAWK" --version </dev/null 2>/dev/null | head -n 1 | grep -qiE 'GNU|gawk' \
-  || NN_TEST_GAWK=""
 
 # require_gawk – fail the current test file with a clear dependency message
 # instead of letting gawk-only constructs (\x regexes, 3-arg match) surface
