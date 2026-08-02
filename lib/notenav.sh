@@ -391,22 +391,29 @@ nn_cfg() {
   printf '%s' "$NN_CFG_JSON" | jq -r "$1"
 }
 
-# Batch per-value config extraction: ONE jq fork emitting, for each value in
-# "$@" (in order), the fields of the given jq array expression, each field
-# NUL-terminated.  Replaces a per-value fork loop (each nn_cfg call spawns a
-# jq that re-parses the whole config – ~100 forks per launch became a
-# handful).  The program sees the config as `.`, each value as `$v`, and the
-# section default colour as `$dc`; it must produce an ARRAY of field
-# expressions.  NUL separation is binary-safe for values/icons/descriptions
-# that may legitimately contain tabs or newlines (which @tsv would escape and
-# a line reader would mis-split); values are already rejected if they contain
-# control characters, but descriptions are not.  Consume with a matching run
-# of `IFS= read -r -d '' field` calls per value.
+# Batch per-value config extraction: ONE jq fork emitting, for each value
+# produced by the given value-stream expression (in order), the fields of the
+# given field-array expression, each field NUL-terminated.  Replaces a
+# per-value fork loop (each nn_cfg call spawns a jq that re-parses the whole
+# config – ~100 forks per launch became a handful).  The program binds each
+# value to `$v` and the section default colour to `$dc`.
+#   $1 = default colour (bound as $dc; "" if unused)
+#   $2 = jq value-stream expression, e.g. '.type.values[]'
+#   $3 = jq field-array expression (sees $v, $dc)
+# The value stream is read from the config itself (the NN_*_VALUES bash arrays
+# were mapfile'd from the same `.section.values[]`), so this needs no --args
+# (a jq 1.6+ feature; the rest of notenav targets jq 1.5) and cannot mis-read
+# a value beginning with '-' as a flag.  Values are `tostring`-coerced so a
+# numeric priority value (values = [1,2,3] rather than ["1","2","3"]) indexes
+# the string-keyed colour/label objects and keys the maps exactly as the old
+# mapfile+`jq -r` path did.  NUL separation is binary-safe for
+# icons/descriptions that may legitimately contain tabs or newlines (which
+# @tsv would escape and a line reader would mis-split).  Consume with a
+# matching run of `IFS= read -r -d '' field` calls per value.
 _nn_cfg_nulfields() {
-  local _dc="$1" _fields="$2"; shift 2
+  local _dc="$1" _vals="$2" _fields="$3"
   printf '%s' "$NN_CFG_JSON" | jq -j --arg dc "$_dc" \
-    '$ARGS.positional[] as $v | ('"$_fields"') | .[] | (., "\u0000")' \
-    --args "$@"
+    "($_vals | tostring) as \$v | ($_fields) | .[] | (., \"\\u0000\")"
 }
 
 # --- Pre-compute workflow values ---
@@ -879,9 +886,8 @@ nn_precompute_workflow() {
     NN_TYPE_COLORS[$_v]=$(_nn_resolve_color "$_color")
     _nn_valid_color "${NN_TYPE_COLORS[$_v]}" || { echo "notenav: type.$_v.color '${NN_TYPE_COLORS[$_v]}' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
     NN_TYPE_DESCS[$_v]=$_desc
-  done < <(_nn_cfg_nulfields "$NN_TYPE_DEFAULT_COLOR" \
-      '[$v, (.type[$v].icon // "*"), (.type[$v].color // $dc), (.type[$v].description // "")]' \
-      "${NN_TYPE_VALUES[@]}")
+  done < <(_nn_cfg_nulfields "$NN_TYPE_DEFAULT_COLOR" '.type.values[]' \
+      '[$v, (.type[$v].icon // "*"), (.type[$v].color // $dc), (.type[$v].description // "")]')
 
   # Statuses
   mapfile -t NN_STATUS_VALUES < <(nn_cfg '.status.values[]')
@@ -896,9 +902,8 @@ nn_precompute_workflow() {
     NN_STATUS_COLORS[$_v]=$(_nn_resolve_color "$_color")
     _nn_valid_color "${NN_STATUS_COLORS[$_v]}" || { echo "notenav: status.colors.$_v '${NN_STATUS_COLORS[$_v]}' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
     NN_STATUS_DESCS[$_v]=$_desc
-  done < <(_nn_cfg_nulfields "$NN_STATUS_DEFAULT_COLOR" \
-      '[$v, (.status.colors[$v] // $dc), (.status.descriptions[$v] // "")]' \
-      "${NN_STATUS_VALUES[@]}")
+  done < <(_nn_cfg_nulfields "$NN_STATUS_DEFAULT_COLOR" '.status.values[]' \
+      '[$v, (.status.colors[$v] // $dc), (.status.descriptions[$v] // "")]')
 
   # Status initial (starting state for notes without a status)
   NN_STATUS_INITIAL=$(nn_cfg '.status.initial // empty')
@@ -928,9 +933,8 @@ nn_precompute_workflow() {
      && IFS= read -r -d '' _rev; do
     [[ -n "$_fwd" ]] && NN_STATUS_FWD[$_v]=$_fwd
     [[ -n "$_rev" ]] && NN_STATUS_REV[$_v]=$_rev
-  done < <(_nn_cfg_nulfields "" \
-      '[$v, (.status.lifecycle.forward[$v] // ""), (.status.lifecycle.reverse[$v] // "")]' \
-      "${NN_STATUS_VALUES[@]}")
+  done < <(_nn_cfg_nulfields "" '.status.values[]' \
+      '[$v, (.status.lifecycle.forward[$v] // ""), (.status.lifecycle.reverse[$v] // "")]')
   for _v in "${!NN_STATUS_FWD[@]}"; do
     _nn_in_array "${NN_STATUS_FWD[$_v]}" "${NN_STATUS_VALUES[@]}" || {
       echo "notenav: status.lifecycle.forward.$_v target '${NN_STATUS_FWD[$_v]}' not in status.values" >&2; return 1; }
@@ -973,17 +977,15 @@ nn_precompute_workflow() {
       NN_PRIORITY_COLORS[$_v]=$(_nn_resolve_color "$_color")
       _nn_valid_color "${NN_PRIORITY_COLORS[$_v]}" || { echo "notenav: priority.colors.$_v '${NN_PRIORITY_COLORS[$_v]}' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
       NN_PRIORITY_LABELS[$_v]="${_label:-P$_v}"
-    done < <(_nn_cfg_nulfields "$NN_PRIORITY_DEFAULT_COLOR" \
-        '[$v, (.priority.colors[$v] // $dc), (.priority.labels[$v] // "")]' \
-        "${NN_PRIORITY_VALUES[@]}")
+    done < <(_nn_cfg_nulfields "$NN_PRIORITY_DEFAULT_COLOR" '.priority.values[]' \
+        '[$v, (.priority.colors[$v] // $dc), (.priority.labels[$v] // "")]')
     while IFS= read -r -d '' _v \
        && IFS= read -r -d '' _up \
        && IFS= read -r -d '' _down; do
       [[ -n "$_up" ]] && NN_PRIORITY_UP[$_v]=$_up
       [[ -n "$_down" ]] && NN_PRIORITY_DOWN[$_v]=$_down
-    done < <(_nn_cfg_nulfields "" \
-        '[$v, (.priority.lifecycle.up[$v] // ""), (.priority.lifecycle.down[$v] // "")]' \
-        "${NN_PRIORITY_VALUES[@]}")
+    done < <(_nn_cfg_nulfields "" '.priority.values[]' \
+        '[$v, (.priority.lifecycle.up[$v] // ""), (.priority.lifecycle.down[$v] // "")]')
     for _v in "${!NN_PRIORITY_UP[@]}"; do
       _nn_in_array "${NN_PRIORITY_UP[$_v]}" "${NN_PRIORITY_VALUES[@]}" || {
         echo "notenav: priority.lifecycle.up.$_v target '${NN_PRIORITY_UP[$_v]}' not in priority.values" >&2; return 1; }
