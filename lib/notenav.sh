@@ -391,6 +391,24 @@ nn_cfg() {
   printf '%s' "$NN_CFG_JSON" | jq -r "$1"
 }
 
+# Batch per-value config extraction: ONE jq fork emitting, for each value in
+# "$@" (in order), the fields of the given jq array expression, each field
+# NUL-terminated.  Replaces a per-value fork loop (each nn_cfg call spawns a
+# jq that re-parses the whole config – ~100 forks per launch became a
+# handful).  The program sees the config as `.`, each value as `$v`, and the
+# section default colour as `$dc`; it must produce an ARRAY of field
+# expressions.  NUL separation is binary-safe for values/icons/descriptions
+# that may legitimately contain tabs or newlines (which @tsv would escape and
+# a line reader would mis-split); values are already rejected if they contain
+# control characters, but descriptions are not.  Consume with a matching run
+# of `IFS= read -r -d '' field` calls per value.
+_nn_cfg_nulfields() {
+  local _dc="$1" _fields="$2"; shift 2
+  printf '%s' "$NN_CFG_JSON" | jq -j --arg dc "$_dc" \
+    '$ARGS.positional[] as $v | ('"$_fields"') | .[] | (., "\u0000")' \
+    --args "$@"
+}
+
 # --- Pre-compute workflow values ---
 # Extracts all workflow/config values into bash variables at startup.
 # Called once after nn_load_config(). Helper scripts read from temp files
@@ -812,7 +830,7 @@ _nn_sanitize_prompt() {
 }
 
 nn_precompute_workflow() {
-  local _v _jv _fwd _rev _label _up _down
+  local _v _fwd _rev _label _up _down _icon _color _desc
   # Schema version check (absent = 1, future versions rejected)
   local _schema_ver
   _schema_ver=$(nn_cfg '.meta.schema_version // 1')
@@ -853,13 +871,17 @@ nn_precompute_workflow() {
   case "$NN_TYPE_VISIBILITY" in typed_only|all) ;;
     *) echo "notenav: defaults.type_visibility '$NN_TYPE_VISIBILITY' invalid (must be 'typed_only' or 'all')" >&2; return 1 ;; esac
   declare -gA NN_TYPE_ICONS NN_TYPE_COLORS NN_TYPE_DESCS
-  for _v in "${NN_TYPE_VALUES[@]}"; do
-    _jv=$(_nn_jq_esc "$_v")
-    NN_TYPE_ICONS[$_v]=$(nn_cfg ".type.\"$_jv\".icon // \"*\"")
-    NN_TYPE_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".type.\"$_jv\".color // \"$NN_TYPE_DEFAULT_COLOR\"")")
+  while IFS= read -r -d '' _v \
+     && IFS= read -r -d '' _icon \
+     && IFS= read -r -d '' _color \
+     && IFS= read -r -d '' _desc; do
+    NN_TYPE_ICONS[$_v]=$_icon
+    NN_TYPE_COLORS[$_v]=$(_nn_resolve_color "$_color")
     _nn_valid_color "${NN_TYPE_COLORS[$_v]}" || { echo "notenav: type.$_v.color '${NN_TYPE_COLORS[$_v]}' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
-    NN_TYPE_DESCS[$_v]=$(nn_cfg ".type.\"$_jv\".description // \"\"")
-  done
+    NN_TYPE_DESCS[$_v]=$_desc
+  done < <(_nn_cfg_nulfields "$NN_TYPE_DEFAULT_COLOR" \
+      '[$v, (.type[$v].icon // "*"), (.type[$v].color // $dc), (.type[$v].description // "")]' \
+      "${NN_TYPE_VALUES[@]}")
 
   # Statuses
   mapfile -t NN_STATUS_VALUES < <(nn_cfg '.status.values[]')
@@ -868,12 +890,15 @@ nn_precompute_workflow() {
   NN_STATUS_DEFAULT_COLOR=$(_nn_resolve_color "$(nn_cfg '.status.default_color // "90"')")
   _nn_valid_color "$NN_STATUS_DEFAULT_COLOR" || { echo "notenav: status.default_color '$NN_STATUS_DEFAULT_COLOR' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
   declare -gA NN_STATUS_COLORS NN_STATUS_DESCS
-  for _v in "${NN_STATUS_VALUES[@]}"; do
-    _jv=$(_nn_jq_esc "$_v")
-    NN_STATUS_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".status.colors.\"$_jv\" // \"$NN_STATUS_DEFAULT_COLOR\"")")
+  while IFS= read -r -d '' _v \
+     && IFS= read -r -d '' _color \
+     && IFS= read -r -d '' _desc; do
+    NN_STATUS_COLORS[$_v]=$(_nn_resolve_color "$_color")
     _nn_valid_color "${NN_STATUS_COLORS[$_v]}" || { echo "notenav: status.colors.$_v '${NN_STATUS_COLORS[$_v]}' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
-    NN_STATUS_DESCS[$_v]=$(nn_cfg ".status.descriptions.\"$_jv\" // \"\"")
-  done
+    NN_STATUS_DESCS[$_v]=$_desc
+  done < <(_nn_cfg_nulfields "$NN_STATUS_DEFAULT_COLOR" \
+      '[$v, (.status.colors[$v] // $dc), (.status.descriptions[$v] // "")]' \
+      "${NN_STATUS_VALUES[@]}")
 
   # Status initial (starting state for notes without a status)
   NN_STATUS_INITIAL=$(nn_cfg '.status.initial // empty')
@@ -898,13 +923,14 @@ nn_precompute_workflow() {
 
   # Status lifecycle
   declare -gA NN_STATUS_FWD NN_STATUS_REV
-  for _v in "${NN_STATUS_VALUES[@]}"; do
-    _jv=$(_nn_jq_esc "$_v")
-    _fwd=$(nn_cfg ".status.lifecycle.forward.\"$_jv\" // empty")
+  while IFS= read -r -d '' _v \
+     && IFS= read -r -d '' _fwd \
+     && IFS= read -r -d '' _rev; do
     [[ -n "$_fwd" ]] && NN_STATUS_FWD[$_v]=$_fwd
-    _rev=$(nn_cfg ".status.lifecycle.reverse.\"$_jv\" // empty")
     [[ -n "$_rev" ]] && NN_STATUS_REV[$_v]=$_rev
-  done
+  done < <(_nn_cfg_nulfields "" \
+      '[$v, (.status.lifecycle.forward[$v] // ""), (.status.lifecycle.reverse[$v] // "")]' \
+      "${NN_STATUS_VALUES[@]}")
   for _v in "${!NN_STATUS_FWD[@]}"; do
     _nn_in_array "${NN_STATUS_FWD[$_v]}" "${NN_STATUS_VALUES[@]}" || {
       echo "notenav: status.lifecycle.forward.$_v target '${NN_STATUS_FWD[$_v]}' not in status.values" >&2; return 1; }
@@ -941,20 +967,23 @@ nn_precompute_workflow() {
       return 1
     fi
 
-    for _v in "${NN_PRIORITY_VALUES[@]}"; do
-      _jv=$(_nn_jq_esc "$_v")
-      NN_PRIORITY_COLORS[$_v]=$(_nn_resolve_color "$(nn_cfg ".priority.colors.\"$_jv\" // \"$NN_PRIORITY_DEFAULT_COLOR\"")")
+    while IFS= read -r -d '' _v \
+       && IFS= read -r -d '' _color \
+       && IFS= read -r -d '' _label; do
+      NN_PRIORITY_COLORS[$_v]=$(_nn_resolve_color "$_color")
       _nn_valid_color "${NN_PRIORITY_COLORS[$_v]}" || { echo "notenav: priority.colors.$_v '${NN_PRIORITY_COLORS[$_v]}' invalid (must be a color name or ANSI code, e.g. 'cyan', 'bold-red', '31;1')" >&2; return 1; }
-      _label=$(nn_cfg ".priority.labels.\"$_jv\" // empty")
       NN_PRIORITY_LABELS[$_v]="${_label:-P$_v}"
-    done
-    for _v in "${NN_PRIORITY_VALUES[@]}"; do
-      _jv=$(_nn_jq_esc "$_v")
-      _up=$(nn_cfg ".priority.lifecycle.up.\"$_jv\" // empty")
+    done < <(_nn_cfg_nulfields "$NN_PRIORITY_DEFAULT_COLOR" \
+        '[$v, (.priority.colors[$v] // $dc), (.priority.labels[$v] // "")]' \
+        "${NN_PRIORITY_VALUES[@]}")
+    while IFS= read -r -d '' _v \
+       && IFS= read -r -d '' _up \
+       && IFS= read -r -d '' _down; do
       [[ -n "$_up" ]] && NN_PRIORITY_UP[$_v]=$_up
-      _down=$(nn_cfg ".priority.lifecycle.down.\"$_jv\" // empty")
       [[ -n "$_down" ]] && NN_PRIORITY_DOWN[$_v]=$_down
-    done
+    done < <(_nn_cfg_nulfields "" \
+        '[$v, (.priority.lifecycle.up[$v] // ""), (.priority.lifecycle.down[$v] // "")]' \
+        "${NN_PRIORITY_VALUES[@]}")
     for _v in "${!NN_PRIORITY_UP[@]}"; do
       _nn_in_array "${NN_PRIORITY_UP[$_v]}" "${NN_PRIORITY_VALUES[@]}" || {
         echo "notenav: priority.lifecycle.up.$_v target '${NN_PRIORITY_UP[$_v]}' not in priority.values" >&2; return 1; }

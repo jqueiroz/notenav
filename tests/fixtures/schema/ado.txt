@@ -132,11 +132,6 @@ bug	✖
 
 == .schema_type_order ==
 featuretaskbug
-== .schema_types ==
-feature	◇	35	Planned capability or improvement
-task	◆	36	Discrete unit of work
-bug	✖	31	Defect to fix
-
 == .schema_type_sort_order ==
 feature
 task
@@ -151,6 +146,11 @@ bug
 length($6) > 0
 == .schema_type_visibility ==
 all
+== .schema_types ==
+feature	◇	35	Planned capability or improvement
+task	◆	36	Discrete unit of work
+bug	✖	31	Defect to fix
+
 == .schema_workflow_name ==
 ADO
 
