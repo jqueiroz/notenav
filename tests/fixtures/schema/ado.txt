@@ -1,0 +1,156 @@
+== .schema_after_create ==
+edit
+== .schema_archive ==
+closed
+removed
+
+== .schema_archive_cond ==
+ && $2!="closed" && $2!="removed"
+== .schema_archive_label ==
+closed/removed
+== .schema_archive_only_cond ==
+ && ($2=="closed" || $2=="removed")
+== .schema_defaults ==
+priority
+type
+hide
+false
+false
+
+== .schema_delete_confirm ==
+always
+== .schema_delete_method ==
+trash
+== .schema_editor ==
+nvim
+
+== .schema_group_options ==
+
+type
+status
+
+== .schema_header_mode ==
+guided
+== .schema_icon_setup ==
+icon["feature"] = "◇"; icon["task"] = "◆"; icon["bug"] = "✖"; 
+== .schema_pin_mode ==
+auto
+== .schema_priority_down ==
+1	2
+2	3
+3	4
+
+== .schema_priority_enabled ==
+true
+== .schema_priority_filter_cycle ==
+1
+2
+3
+4
+
+== .schema_priority_labels ==
+1	P1
+2	P2
+3	P3
+4	P4
+
+== .schema_priority_plus ==
+demote
+== .schema_priority_unset_pos ==
+last
+== .schema_priority_up ==
+2	1
+3	2
+4	3
+
+== .schema_priority_values ==
+1
+2
+3
+4
+
+== .schema_sort_chains ==
+priority	status	created	title
+status	priority	created	title
+created	title
+modified	title
+title	created
+
+== .schema_sort_options ==
+created
+modified
+title
+priority
+
+== .schema_status_descs ==
+new	Not yet triaged
+active	In progress
+resolved	Fix or feature complete, pending verification
+closed	Verified and closed
+removed	Discarded or no longer relevant
+
+== .schema_status_filter_cycle ==
+new
+active
+resolved
+closed
+
+== .schema_status_fwd ==
+new	active
+active	resolved
+resolved	closed
+closed	new
+
+== .schema_status_initial ==
+new
+== .schema_status_order ==
+newactiveresolvedclosedremoved
+== .schema_status_rev ==
+new	closed
+active	new
+resolved	active
+closed	resolved
+
+== .schema_status_sort_order ==
+new
+active
+resolved
+closed
+removed
+
+== .schema_status_values ==
+new
+active
+resolved
+closed
+removed
+
+== .schema_type_icons ==
+feature	◇
+task	◆
+bug	✖
+
+== .schema_type_order ==
+featuretaskbug
+== .schema_types ==
+feature	◇	35	Planned capability or improvement
+task	◆	36	Discrete unit of work
+bug	✖	31	Defect to fix
+
+== .schema_type_sort_order ==
+feature
+task
+bug
+
+== .schema_type_values ==
+feature
+task
+bug
+
+== .schema_type_vis_cond ==
+length($6) > 0
+== .schema_type_visibility ==
+all
+== .schema_workflow_name ==
+ADO
+

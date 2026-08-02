@@ -34,6 +34,15 @@ for wf in zenith cuboid ado gtd zettelkasten; do
   # independent view of the same resolved maps.
   assert_bytes "$CAP/.awk_color_stats" "$FIX/$wf.stats.awk" \
     "workflow '$wf' stats program drifted from golden"
+  # Direct snapshot of every resolved config map: type/status/priority
+  # values, icons, colours, descriptions, lifecycle, labels, ordering –
+  # the raw output of the per-value extraction (stronger than the rendered
+  # awk above).  All .schema_* files, concatenated in a stable order.
+  ( cd "$CAP" && for _scf in $(ls .schema_* 2>/dev/null | sort); do
+      printf '== %s ==\n' "$_scf"; cat "$_scf"; printf '\n'
+    done ) > "$WORK/$wf.schema"
+  assert_bytes "$WORK/$wf.schema" "$REPO/tests/fixtures/schema/$wf.txt" \
+    "workflow '$wf' resolved config maps drifted from golden (extraction changed?)"
 done
 
 finish

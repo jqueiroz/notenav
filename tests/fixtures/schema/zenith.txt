@@ -1,0 +1,156 @@
+== .schema_after_create ==
+edit
+== .schema_archive ==
+done
+removed
+
+== .schema_archive_cond ==
+ && $2!="done" && $2!="removed"
+== .schema_archive_label ==
+done/removed
+== .schema_archive_only_cond ==
+ && ($2=="done" || $2=="removed")
+== .schema_defaults ==
+priority
+type
+hide
+false
+false
+
+== .schema_delete_confirm ==
+always
+== .schema_delete_method ==
+trash
+== .schema_editor ==
+nvim
+
+== .schema_group_options ==
+
+type
+status
+
+== .schema_header_mode ==
+guided
+== .schema_icon_setup ==
+icon["task"] = "◆"; icon["idea"] = "✦"; icon["reference"] = "▪"; 
+== .schema_pin_mode ==
+auto
+== .schema_priority_down ==
+1	2
+2	3
+3	4
+
+== .schema_priority_enabled ==
+true
+== .schema_priority_filter_cycle ==
+1
+2
+3
+4
+
+== .schema_priority_labels ==
+1	P1
+2	P2
+3	P3
+4	P4
+
+== .schema_priority_plus ==
+demote
+== .schema_priority_unset_pos ==
+last
+== .schema_priority_up ==
+2	1
+3	2
+4	3
+
+== .schema_priority_values ==
+1
+2
+3
+4
+
+== .schema_sort_chains ==
+priority	status	created	title
+status	priority	created	title
+created	title
+modified	title
+title	created
+
+== .schema_sort_options ==
+created
+modified
+title
+priority
+
+== .schema_status_descs ==
+active	Currently being worked on
+blocked	Waiting on an external dependency
+new	Not yet started
+done	Completed
+removed	Discarded or no longer relevant
+
+== .schema_status_filter_cycle ==
+new
+active
+blocked
+done
+
+== .schema_status_fwd ==
+active	done
+blocked	active
+new	active
+done	new
+
+== .schema_status_initial ==
+new
+== .schema_status_order ==
+activeblockednewdoneremoved
+== .schema_status_rev ==
+active	new
+blocked	new
+new	done
+done	active
+
+== .schema_status_sort_order ==
+active
+blocked
+new
+done
+removed
+
+== .schema_status_values ==
+active
+blocked
+new
+done
+removed
+
+== .schema_type_icons ==
+task	◆
+idea	✦
+reference	▪
+
+== .schema_type_order ==
+taskideareference
+== .schema_types ==
+task	◆	36	Concrete, actionable unit of work
+idea	✦	35	Captures an early insight; may evolve into one or more tasks
+reference	▪	33	Living documentation; continually updated as understanding grows
+
+== .schema_type_sort_order ==
+task
+idea
+reference
+
+== .schema_type_values ==
+task
+idea
+reference
+
+== .schema_type_vis_cond ==
+length($6) > 0
+== .schema_type_visibility ==
+all
+== .schema_workflow_name ==
+Zenith
+

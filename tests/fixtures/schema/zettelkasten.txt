@@ -1,0 +1,133 @@
+== .schema_after_create ==
+edit
+== .schema_archive ==
+archived
+
+== .schema_archive_cond ==
+ && $2!="archived"
+== .schema_archive_label ==
+archived
+== .schema_archive_only_cond ==
+ && ($2=="archived")
+== .schema_defaults ==
+created
+type
+hide
+false
+false
+
+== .schema_delete_confirm ==
+always
+== .schema_delete_method ==
+trash
+== .schema_editor ==
+nvim
+
+== .schema_group_options ==
+
+type
+status
+
+== .schema_header_mode ==
+guided
+== .schema_icon_setup ==
+icon["fleeting"] = "◇"; icon["literature"] = "▪"; icon["permanent"] = "◆"; 
+== .schema_pin_mode ==
+auto
+== .schema_priority_down ==
+
+== .schema_priority_enabled ==
+false
+== .schema_priority_filter_cycle ==
+
+== .schema_priority_labels ==
+
+== .schema_priority_plus ==
+demote
+== .schema_priority_unset_pos ==
+last
+== .schema_priority_up ==
+
+== .schema_priority_values ==
+
+== .schema_sort_chains ==
+priority	status	created	title
+status	priority	created	title
+created	title
+modified	title
+title	created
+
+== .schema_sort_options ==
+created
+modified
+title
+
+== .schema_status_descs ==
+draft	Initial capture, not yet developed
+review	Being refined and linked
+mature	Fully developed, well-connected idea
+archived	No longer actively maintained
+
+== .schema_status_filter_cycle ==
+draft
+review
+mature
+archived
+
+== .schema_status_fwd ==
+draft	review
+review	mature
+mature	archived
+archived	draft
+
+== .schema_status_initial ==
+draft
+== .schema_status_order ==
+draftreviewmaturearchived
+== .schema_status_rev ==
+draft	archived
+review	draft
+mature	review
+archived	mature
+
+== .schema_status_sort_order ==
+draft
+review
+mature
+archived
+
+== .schema_status_values ==
+draft
+review
+mature
+archived
+
+== .schema_type_icons ==
+fleeting	◇
+literature	▪
+permanent	◆
+
+== .schema_type_order ==
+fleetingliteraturepermanent
+== .schema_types ==
+fleeting	◇	33	Quick capture, to be processed
+literature	▪	34	Notes from a source
+permanent	◆	36	Atomic, fully developed idea
+
+== .schema_type_sort_order ==
+fleeting
+literature
+permanent
+
+== .schema_type_values ==
+fleeting
+literature
+permanent
+
+== .schema_type_vis_cond ==
+length($6) > 0
+== .schema_type_visibility ==
+all
+== .schema_workflow_name ==
+Zettelkasten
+

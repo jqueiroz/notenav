@@ -1,0 +1,159 @@
+== .schema_after_create ==
+edit
+== .schema_archive ==
+done
+dropped
+
+== .schema_archive_cond ==
+ && $2!="done" && $2!="dropped"
+== .schema_archive_label ==
+done/dropped
+== .schema_archive_only_cond ==
+ && ($2=="done" || $2=="dropped")
+== .schema_defaults ==
+priority
+type
+hide
+false
+false
+
+== .schema_delete_confirm ==
+always
+== .schema_delete_method ==
+trash
+== .schema_editor ==
+nvim
+
+== .schema_group_options ==
+
+type
+status
+
+== .schema_header_mode ==
+guided
+== .schema_icon_setup ==
+icon["action"] = "◆"; icon["project"] = "◈"; icon["reference"] = "▪"; 
+== .schema_pin_mode ==
+auto
+== .schema_priority_down ==
+1	2
+2	3
+
+== .schema_priority_enabled ==
+true
+== .schema_priority_filter_cycle ==
+1
+2
+3
+
+== .schema_priority_labels ==
+1	P1
+2	P2
+3	P3
+
+== .schema_priority_plus ==
+demote
+== .schema_priority_unset_pos ==
+last
+== .schema_priority_up ==
+2	1
+3	2
+
+== .schema_priority_values ==
+1
+2
+3
+
+== .schema_sort_chains ==
+priority	status	created	title
+status	priority	created	title
+created	title
+modified	title
+title	created
+
+== .schema_sort_options ==
+created
+modified
+title
+priority
+
+== .schema_status_descs ==
+next	Clarified and ready to do
+waiting	Blocked on someone else
+inbox	Captured but not yet clarified
+someday	Parked for later consideration
+done	Completed
+dropped	Intentionally removed
+
+== .schema_status_filter_cycle ==
+inbox
+next
+waiting
+someday
+done
+
+== .schema_status_fwd ==
+next	done
+waiting	next
+inbox	next
+someday	next
+done	inbox
+dropped	inbox
+
+== .schema_status_initial ==
+inbox
+== .schema_status_order ==
+nextwaitinginboxsomedaydonedropped
+== .schema_status_rev ==
+next	inbox
+waiting	inbox
+inbox	someday
+someday	dropped
+done	next
+dropped	someday
+
+== .schema_status_sort_order ==
+next
+waiting
+inbox
+someday
+done
+dropped
+
+== .schema_status_values ==
+next
+waiting
+inbox
+someday
+done
+dropped
+
+== .schema_type_icons ==
+action	◆
+project	◈
+reference	▪
+
+== .schema_type_order ==
+actionprojectreference
+== .schema_types ==
+action	◆	36	Single concrete action
+project	◈	35	Multi-step outcome
+reference	▪	33	Non-actionable reference material
+
+== .schema_type_sort_order ==
+action
+project
+reference
+
+== .schema_type_values ==
+action
+project
+reference
+
+== .schema_type_vis_cond ==
+length($6) > 0
+== .schema_type_visibility ==
+all
+== .schema_workflow_name ==
+GTD
+
