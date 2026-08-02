@@ -133,12 +133,6 @@ ritual	◎
 
 == .schema_type_order ==
 taskideareferenceritual
-== .schema_types ==
-task	◆	36	Concrete, actionable unit of work
-idea	✦	35	Captures an early insight; may evolve into tasks or references
-reference	▪	33	Living documentation; continually updated as understanding grows
-ritual	◎	32	Recurring practice or routine to revisit regularly
-
 == .schema_type_sort_order ==
 task
 idea
@@ -155,6 +149,12 @@ ritual
 length($6) > 0
 == .schema_type_visibility ==
 all
+== .schema_types ==
+task	◆	36	Concrete, actionable unit of work
+idea	✦	35	Captures an early insight; may evolve into tasks or references
+reference	▪	33	Living documentation; continually updated as understanding grows
+ritual	◎	32	Recurring practice or routine to revisit regularly
+
 == .schema_workflow_name ==
 Cuboid
 
