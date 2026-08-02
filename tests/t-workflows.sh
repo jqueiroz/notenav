@@ -38,10 +38,7 @@ for wf in zenith cuboid ado gtd zettelkasten; do
   # values, icons, colours, descriptions, lifecycle, labels, ordering –
   # the raw output of the per-value extraction (stronger than the rendered
   # awk above).  All .schema_* files, concatenated in a stable order.
-  # LC_ALL=C sort: the concatenation ORDER must be collation-stable so the
-  # golden matches regardless of the locale the suite runs under (C vs UTF-8
-  # order '_' differently); the file CONTENTS are locale-independent.
-  ( cd "$CAP" && for _scf in $(ls .schema_* 2>/dev/null | LC_ALL=C sort); do
+  ( cd "$CAP" && for _scf in $(ls .schema_* 2>/dev/null | sort); do
       printf '== %s ==\n' "$_scf"; cat "$_scf"; printf '\n'
     done ) > "$WORK/$wf.schema"
   assert_bytes "$WORK/$wf.schema" "$REPO/tests/fixtures/schema/$wf.txt" \

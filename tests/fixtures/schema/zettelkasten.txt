@@ -109,6 +109,11 @@ permanent	◆
 
 == .schema_type_order ==
 fleetingliteraturepermanent
+== .schema_types ==
+fleeting	◇	33	Quick capture, to be processed
+literature	▪	34	Notes from a source
+permanent	◆	36	Atomic, fully developed idea
+
 == .schema_type_sort_order ==
 fleeting
 literature
@@ -123,11 +128,6 @@ permanent
 length($6) > 0
 == .schema_type_visibility ==
 all
-== .schema_types ==
-fleeting	◇	33	Quick capture, to be processed
-literature	▪	34	Notes from a source
-permanent	◆	36	Atomic, fully developed idea
-
 == .schema_workflow_name ==
 Zettelkasten
 
