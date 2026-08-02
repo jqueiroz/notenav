@@ -5440,9 +5440,10 @@ if ! declare -F _nn_find_md_with_mtime >/dev/null 2>&1; then
   # which the band would misread as a survivable per-file skip.)
   _nn_find_md_with_mtime() { return 200; }
 fi
-# Sentinel for the degraded-walk hint: single-sourced so the write below
-# and the recovery-clear both reference the exact same string
+# Sentinels for the two degraded-walk hints: single-sourced so each write
+# below and the recovery-clear reference the exact same strings
 _nn_partial_hint='partial scan – press r to retry'
+_nn_scan_err_hint='scan error – press r to retry'
 # Per-invocation tmp name: concurrent reloads (watcher + binds) sharing one
 # fixed tmp used to garble .raw transiently with interleaved/truncated rows
 # Reload start time: .last_action freshness must be judged against when
@@ -5506,19 +5507,30 @@ if [ "${_raw_st[1]}" = 0 ] \
     fi
   else
     rm -f "$dir/.scan_degraded"
-    # A complete scan recovered the notebook: clear our own stale hint so
-    # the border (rendered from .last_action) stops claiming the listing
-    # is incomplete.  Auto-refresh recovery has no r-binding to self-heal
-    # it.  Match the EXACT sentinel so fresh action feedback (which never
-    # equals this string) is never clobbered.
-    if [ "$(cat "$dir/.last_action" 2>/dev/null)" = "$_nn_partial_hint" ]; then
-      : > "$dir/.last_action"
+    # A complete scan recovered the notebook: clear our own stale hint
+    # (EITHER sentinel – a prior degraded walk may have written 'partial
+    # scan', a prior killed/scan-error walk 'scan error') so the border
+    # (rendered from .last_action) stops claiming the listing is degraded.
+    # Auto-refresh recovery has no r-binding to self-heal it.  Matching the
+    # EXACT sentinels is the whole guard: genuine action feedback never
+    # equals either string, so it is never touched (no _la_fresh gate is
+    # needed or wanted – the hint's own mtime is recent, and gating on it
+    # would leave the stale hint on the very next reload).  The read-then-
+    # truncate shares the same microsecond write race every other
+    # .last_action writer has; the sentinel match keeps the blast radius to
+    # our own cosmetic hint.  The -s guard skips the read on the common
+    # empty-slot hot path (watcher/poll reloads of a healthy notebook).
+    if [ -s "$dir/.last_action" ]; then
+      _la_now=$(cat "$dir/.last_action" 2>/dev/null)
+      if [ "$_la_now" = "$_nn_partial_hint" ] || [ "$_la_now" = "$_nn_scan_err_hint" ]; then
+        : > "$dir/.last_action"
+      fi
     fi
   fi
 else
   rm -f "$_raw_tmp"
   _raw_complete=0
-  [ "$_la_fresh" = 1 ] || printf 'scan error – press r to retry' > "$dir/.last_action"
+  [ "$_la_fresh" = 1 ] || printf '%s' "$_nn_scan_err_hint" > "$dir/.last_action"
 fi
 
 # Prune satellite files: remove paths that no longer exist in .raw.

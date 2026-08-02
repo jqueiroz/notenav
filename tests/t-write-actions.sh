@@ -689,11 +689,22 @@ PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # degr
 grep -q 'partial scan' "$CAP/.last_action" || fail "recovery pin setup: degraded walk did not write the hint"
 bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # complete recovery
 grep -q 'partial scan' "$CAP/.last_action" && fail "stale partial-scan hint survived a complete-scan recovery"
-# … but recovery must clear ONLY the exact sentinel, never fresh feedback
+# … the SCAN-ERROR hint (killed walk / unsourceable helper) must clear on
+# recovery too – the same lingering-hint bug applies to both sentinels
+PATH="$_kf9:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # killed: writes scan-error
+grep -q 'scan error' "$CAP/.last_action" || fail "recovery pin setup: killed walk did not write scan-error hint"
+bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # complete recovery
+grep -q 'scan error' "$CAP/.last_action" && fail "stale scan-error hint survived a complete-scan recovery"
+# … but recovery must clear ONLY the exact sentinels, never fresh feedback
 PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # degraded again
 printf 'status set' > "$CAP/.last_action"   # a user action lands after the hint
 bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # complete recovery
 grep -q 'status set' "$CAP/.last_action" || fail "recovery clobbered fresh action feedback (not just the hint sentinel)"
+# … and unrelated stale non-sentinel content is left alone on recovery
+PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # degraded again
+printf 'old news' > "$CAP/.last_action"; touch -d '60 seconds ago' "$CAP/.last_action" 2>/dev/null || touch -t 202601010101 "$CAP/.last_action"
+bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # complete recovery
+grep -q 'old news' "$CAP/.last_action" || fail "recovery cleared unrelated stale content (sentinel match too loose)"
 rm -f "$CAP/.scan_degraded"; bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
 
 # ── reload must FAIL CLOSED when its shared walker helper is unsourceable
