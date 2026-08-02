@@ -2575,8 +2575,10 @@ EOF
       mapfile -t _typ_values < <(nn_cfg '.type.values // [] | .[]')
     fi
     _typ_count=${#_typ_values[@]}
-    # Shared helper covers all three sections (the old inline check saw
-    # only type.values) and matches the startup refusal exactly
+    # One shared helper for all three sections (replacing the three separate
+    # inline per-section checks) so it cannot drift from the startup refusal.
+    # Reports the first offending section, exactly as startup does – the
+    # config won't load, so naming one section is enough to direct the fix.
     local _empty_bad
     _empty_bad=$(_nn_values_empty_check)
     [[ -n "$_empty_bad" ]] && _warn "${_empty_bad}.values contains an empty string – notenav will refuse to start (values are join keys and lookup subscripts)"
@@ -2713,9 +2715,8 @@ EOF
       mapfile -t _sta_values < <(nn_cfg '.status.values // [] | .[]')
     fi
     _sta_count=${#_sta_values[@]}
-    if [[ ${#_sta_values[@]} -gt 0 ]] && _in_array "" "${_sta_values[@]}"; then
-      _warn "status.values contains an empty string"
-    fi
+    # empty-string check: covered once for all sections by the shared
+    # _nn_values_empty_check in the type section above
     local _sta_dups
     _sta_dups=$(_dupes "${_sta_values[@]}")
     [[ -n "$_sta_dups" ]] && _warn "status.values has duplicates: $_sta_dups"
@@ -2912,9 +2913,8 @@ EOF
         mapfile -t _pri_values < <(nn_cfg '.priority.values // [] | .[]')
       fi
       _pri_count=${#_pri_values[@]}
-      if [[ ${#_pri_values[@]} -gt 0 ]] && _in_array "" "${_pri_values[@]}"; then
-        _warn "priority.values contains an empty string"
-      fi
+      # empty-string check: covered once for all sections by the shared
+      # _nn_values_empty_check in the type section above
       local _pri_dups
       _pri_dups=$(_dupes "${_pri_values[@]}")
       [[ -n "$_pri_dups" ]] && _warn "priority.values has duplicates: $_pri_dups"

@@ -159,15 +159,34 @@ if run_nn "$T" type=task >/dev/null 2>&1; then
 fi
 grep -q 'bad array subscript' "$WORK/err" && fail "empty type value crashed with a raw bash error"
 grep -q 'type.values contains an empty string' "$WORK/err" || fail "no clean diagnostic for an empty type value"
-(cd "$T" && TERM=xterm NO_COLOR=1 bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/emptyv.out"
+# XDG_CONFIG_HOME explicit: the developer's real ~/.config must never leak
+# into a doctor diagnosis (lib.sh exports a hermetic default, pinned here)
+(cd "$T" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/emptyv.out"
 grep -q 'type.values contains an empty string' "$WORK/emptyv.out" || fail "doctor did not warn about the empty type value"
 grep -q 'bad array subscript' "$WORK/emptyv.out" && fail "doctor crashed on the empty type value"
-# same guard for the status section (the shared helper's other branch)
+# same guard for the status section (the shared helper's other branch).
+# Doctor must warn EXACTLY ONCE: a leftover per-section inline check
+# alongside the shared helper would double-report with inconsistent wording
 printf '[meta]\nname = "t"\n[type]\nvalues = ["task"]\n[type.task]\nicon = "t"\n[status]\nvalues = ["new", ""]\nfilter_cycle = ["new"]\n' > "$T/.nn/workflow.toml"
 if run_nn "$T" type=task >/dev/null 2>&1; then
   fail "nn loaded a workflow whose status.values contains an empty string"
 fi
 grep -q 'status.values contains an empty string' "$WORK/err" || fail "no clean diagnostic for an empty status value"
+(cd "$T" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/emptysv.out"
+grep -q 'bad array subscript' "$WORK/emptysv.out" && fail "doctor crashed on the empty status value"
+_esv_n=$(grep -c 'status.values contains an empty string' "$WORK/emptysv.out")
+[[ "$_esv_n" -eq 1 ]] || fail "doctor reported the empty status value $_esv_n times (expected exactly 1)"
+# priority.values: the mixed-type branch (numeric values), where jq's
+# index("") on a number array must still find a bare empty string
+printf '[meta]\nname = "t"\n[type]\nvalues = ["task"]\n[type.task]\nicon = "t"\n[status]\nvalues = ["new"]\nfilter_cycle = ["new"]\n[priority]\nvalues = [1, 2, ""]\n' > "$T/.nn/workflow.toml"
+if run_nn "$T" type=task >/dev/null 2>&1; then
+  fail "nn loaded a workflow whose priority.values contains an empty string"
+fi
+grep -q 'priority.values contains an empty string' "$WORK/err" || fail "no clean diagnostic for an empty priority value"
+(cd "$T" && TERM=xterm NO_COLOR=1 XDG_CONFIG_HOME="$UHOME" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/emptypv.out"
+grep -q 'bad array subscript' "$WORK/emptypv.out" && fail "doctor crashed on the empty priority value"
+_epv_n=$(grep -c 'priority.values contains an empty string' "$WORK/emptypv.out")
+[[ "$_epv_n" -eq 1 ]] || fail "doctor reported the empty priority value $_epv_n times (expected exactly 1)"
 
 # ── a NESTED sort stage dying mid-stream must fail the ad-hoc listing ────
 # (the failure lives inside _nn_adhoc_sort's awk|sort|awk – only pipefail
