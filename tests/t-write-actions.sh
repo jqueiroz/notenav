@@ -61,6 +61,25 @@ else
   fi
 fi
 
+# ── the picker-style fallback block is copy-pasted into every emitted
+#    sub-picker (it runs precisely WHEN .fn_note – which defines
+#    _nn_picker_style – is unsourceable, so it cannot itself be factored
+#    into a sourced helper without reintroducing the dependency it guards).
+#    Self-containment is the design; the drift hazard is not – pin every
+#    copy byte-identical so an edit to one that misses the others fails ──
+_pk_hdr='declare -F _nn_picker_style >/dev/null 2>&1 && _nn_picker_style || {'
+_pk_n=$(grep -Fxc "$_pk_hdr" "$REPO/lib/notenav.sh")
+if [[ "$_pk_n" -lt 2 ]]; then
+  fail "picker-style fallback anchor drifted (found $_pk_n copies) – update this pin"
+else
+  # join each 4-line block (anchor + 3) onto one line, then count distinct:
+  # all copies identical → exactly 1 variant
+  _pk_variants=$(grep -A3 -Fx "$_pk_hdr" "$REPO/lib/notenav.sh" \
+                   | grep -v '^--$' | paste -d'|' - - - - | sort -u | grep -c .)
+  [[ "$_pk_variants" -eq 1 ]] \
+    || fail "picker-style fallback copies diverged ($_pk_variants distinct variants across $_pk_n sites)"
+fi
+
 run_action() { bash "$CAP/action.sh" "$CAP" "$@" >/dev/null 2>&1; }
 run_bulk() { bash "$CAP/bulkedit_update.sh" "$@" >/dev/null 2>&1; }
 
@@ -660,6 +679,39 @@ PATH="$_kf9:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
 grep -q 'scan error' "$CAP/.last_action" || fail "killed walk reported nothing in an empty feedback slot"
 rm -f "$CAP/.scan_degraded"
 bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1  # restore real .raw, clear flag
+
+# ── (f) a COMPLETE-scan recovery must clear the stale 'partial scan' hint
+#    – the border renders .last_action, and auto-refresh recovery has no
+#    r binding to self-heal it, so a lingering hint claims the listing is
+#    still incomplete forever after the notebook is fully readable again
+: > "$CAP/.last_action"; touch -d '30 seconds ago' "$CAP/.last_action" 2>/dev/null || touch -t 202601010101 "$CAP/.last_action"
+PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # degraded: writes hint
+grep -q 'partial scan' "$CAP/.last_action" || fail "recovery pin setup: degraded walk did not write the hint"
+bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # complete recovery
+grep -q 'partial scan' "$CAP/.last_action" && fail "stale partial-scan hint survived a complete-scan recovery"
+# … but recovery must clear ONLY the exact sentinel, never fresh feedback
+PATH="$_fw:$PATH" bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # degraded again
+printf 'status set' > "$CAP/.last_action"   # a user action lands after the hint
+bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # complete recovery
+grep -q 'status set' "$CAP/.last_action" || fail "recovery clobbered fresh action feedback (not just the hint sentinel)"
+rm -f "$CAP/.scan_degraded"; bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
+
+# ── reload must FAIL CLOSED when its shared walker helper is unsourceable
+#    (session dir reaped, .fn_find_md truncated): installing an empty .raw
+#    would blank the whole notebook, and pressing r would re-run the same
+#    broken reload – trapping the user in an empty view.  An undefined
+#    function exits 127, which the severity band would otherwise misread
+#    as a survivable per-file skip and install
+bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # good baseline
+_ffm_rows=$(grep -c . "$CAP/.raw")
+cp "$CAP/.fn_find_md" "$CAP/.fn_find_md.keep"
+: > "$CAP/.fn_find_md"; : > "$CAP/.last_action"
+bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1
+[[ "$(grep -c . "$CAP/.raw")" -eq "$_ffm_rows" ]] \
+  || fail "unsourceable .fn_find_md blanked .raw (fail-open: notebook would vanish)"
+grep -q 'scan error' "$CAP/.last_action" || fail "missing walker helper did not report a scan error"
+mv "$CAP/.fn_find_md.keep" "$CAP/.fn_find_md"
+bash "$CAP/reload_raw.sh.orig" "$CAP" >/dev/null 2>&1   # restore
 
 # a sort dying MID-PIPELINE (inside do_chain_sort/do_sort's nested
 # pipelines, where a last-segment-only status check cannot see it) must

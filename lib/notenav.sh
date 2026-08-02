@@ -5429,7 +5429,20 @@ fi
 # the expensive `zk index` that previously ran on every single reload.
 search_dir="$scope_path"
 # Source shared find function and AWK parser (written at startup)
-source "$dir/.fn_find_md"
+source "$dir/.fn_find_md" 2>/dev/null
+if ! declare -F _nn_find_md_with_mtime >/dev/null 2>&1; then
+  # The shared walker is unavailable (session dir reaped mid-session, or
+  # .fn_find_md truncated).  Fail CLOSED like the sibling write scripts:
+  # this fallback reports the KILLED band (a status >128) so the reload
+  # below REFUSES to install – installing an empty .raw would blank the
+  # whole notebook and trap the user, since pressing r would just re-run
+  # the same broken reload.  (An undefined function otherwise exits 127,
+  # which the band would misread as a survivable per-file skip.)
+  _nn_find_md_with_mtime() { return 200; }
+fi
+# Sentinel for the degraded-walk hint: single-sourced so the write below
+# and the recovery-clear both reference the exact same string
+_nn_partial_hint='partial scan – press r to retry'
 # Per-invocation tmp name: concurrent reloads (watcher + binds) sharing one
 # fixed tmp used to garble .raw transiently with interleaved/truncated rows
 # Reload start time: .last_action freshness must be judged against when
@@ -5489,10 +5502,18 @@ if [ "${_raw_st[1]}" = 0 ] \
       :  # fresh feedback wins this round; the next degraded reload hints
     elif [ ! -f "$dir/.scan_degraded" ] || [ ! -s "$dir/.last_action" ]; then
       : > "$dir/.scan_degraded"
-      printf 'partial scan – press r to retry' > "$dir/.last_action"
+      printf '%s' "$_nn_partial_hint" > "$dir/.last_action"
     fi
   else
     rm -f "$dir/.scan_degraded"
+    # A complete scan recovered the notebook: clear our own stale hint so
+    # the border (rendered from .last_action) stops claiming the listing
+    # is incomplete.  Auto-refresh recovery has no r-binding to self-heal
+    # it.  Match the EXACT sentinel so fresh action feedback (which never
+    # equals this string) is never clobbered.
+    if [ "$(cat "$dir/.last_action" 2>/dev/null)" = "$_nn_partial_hint" ]; then
+      : > "$dir/.last_action"
+    fi
   fi
 else
   rm -f "$_raw_tmp"
