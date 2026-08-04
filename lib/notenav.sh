@@ -3389,6 +3389,21 @@ EOF
         _warn "refresh.mode is 'watch' but neither inotifywait nor fswatch is installed (the note list will not auto-refresh; press r to refresh manually)"
       fi
     fi
+    # Watch mode relies on inotify/fswatch, which on several filesystems
+    # deliver NO change events – the watcher runs but silently never fires.
+    # Most relevant on WSL (a notebook under /mnt/c is 9p or DrvFS) and on
+    # network mounts (cifs/smb/nfs).  Uses GNU `stat -f`; on BSD/macOS the
+    # probe returns nothing and this no-ops.  Effective mode (default
+    # "watch") so someone relying on the default is warned too.
+    local _rf_effmode _fstype
+    _rf_effmode=$(nn_cfg '.refresh.mode // "watch"')
+    if [[ "$_rf_effmode" == "watch" ]]; then
+      _fstype=$(stat -f -c '%T' "$_nn_root" 2>/dev/null)
+      case "$_fstype" in
+        9p|v9fs|drvfs|cifs|smbfs|smb2|smb3|nfs|nfs4)
+          _warn "notebook is on a '$_fstype' filesystem, where inotify/fswatch usually deliver no change events (e.g. WSL /mnt/c, network mounts) – refresh.mode='watch' will not auto-refresh. Set refresh.mode = \"poll\" (with a poll_interval) in your config." ;;
+      esac
+    fi
     local _rf_interval
     _rf_interval=$(nn_cfg '.refresh.poll_interval // empty')
     if [[ -n "$_rf_interval" ]]; then

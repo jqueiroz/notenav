@@ -544,4 +544,32 @@ assert_bytes "$b0" "$WORK/b0.expected" "byte-0 BOM dup repaired byte-exact, BOM 
 (cd "$NB17" && bash "$REPO/bin/nn" doctor fix-frontmatter </dev/null >/dev/null 2>&1)
 [[ $? -eq 2 ]] || fail "doctor with positional argument should exit 2"
 
+# ── watch mode on an inotify-hostile filesystem (WSL /mnt/c = 9p/DrvFS,
+#    or a network mount) warns to switch to poll: inotify/fswatch run but
+#    silently never fire there.  Shim `stat` to report a 9p fstype for the
+#    `-f -c %T` probe and pass every other stat call through. ─────────────
+NBFS="$WORK/nb-fstype"; mkdir -p "$NBFS"
+mk_note "$NBFS/a.md" lf 0 '---' 'type: task' 'status: new' '---' 'body'
+_realstat=$(command -v stat)
+SHIMFS="$WORK/statshim"; mkdir -p "$SHIMFS"
+cat > "$SHIMFS/stat" <<SHIM
+#!/bin/sh
+if [ "\$1" = "-f" ] && [ "\$2" = "-c" ] && [ "\$3" = "%T" ]; then echo 9p; exit 0; fi
+exec "$_realstat" "\$@"
+SHIM
+chmod +x "$SHIMFS/stat"
+# default refresh.mode is "watch" (no config needed) → warning must appear
+(cd "$NBFS" && NO_COLOR=1 PATH="$SHIMFS:$PATH" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs.out"
+grep -qi "'9p' filesystem" "$WORK/fs.out" || fail "no watch-on-9p filesystem warning (WSL/DrvFS auto-refresh gap)"
+grep -qi 'refresh.mode = "poll"' "$WORK/fs.out" || fail "fstype warning did not recommend poll mode"
+# control: with the REAL stat (ext/normal fs) the warning must NOT appear
+run_doctor "$NBFS"
+grep -qi 'deliver no change events' "$WORK/doctor.out" && fail "spurious fstype warning on a normal filesystem"
+# and under refresh.mode = "poll" the warning must NOT fire even on 9p
+# (refresh.mode is a USER-scope preference, so set it in the user config)
+UHFS="$WORK/uhome-fstype"; mkdir -p "$UHFS/notenav"
+printf '[refresh]\nmode = "poll"\n' > "$UHFS/notenav/config.toml"
+(cd "$NBFS" && NO_COLOR=1 XDG_CONFIG_HOME="$UHFS" PATH="$SHIMFS:$PATH" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs2.out"
+grep -qi 'deliver no change events' "$WORK/fs2.out" && fail "fstype warning fired under poll mode (should warn for watch only)"
+
 finish
