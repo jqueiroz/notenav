@@ -544,32 +544,37 @@ assert_bytes "$b0" "$WORK/b0.expected" "byte-0 BOM dup repaired byte-exact, BOM 
 (cd "$NB17" && bash "$REPO/bin/nn" doctor fix-frontmatter </dev/null >/dev/null 2>&1)
 [[ $? -eq 2 ]] || fail "doctor with positional argument should exit 2"
 
-# ── watch mode on an inotify-hostile filesystem (WSL /mnt/c = 9p/DrvFS,
-#    or a network mount) warns to switch to poll: inotify/fswatch run but
-#    silently never fire there.  Shim `stat` to report a 9p fstype for the
-#    `-f -c %T` probe and pass every other stat call through. ─────────────
+# ── watch mode on an inotify-blind filesystem (WSL /mnt/c = 9p on WSL2,
+#    DrvFS on WSL1; SMB/CIFS mounts) warns to switch to poll: the watcher
+#    runs but silently never fires there.  The fstype is read from
+#    /proc/self/mountinfo; NN_MOUNTINFO overrides it with a fake single
+#    root mount so the check is deterministic – independent of the real
+#    /tmp filesystem, which could itself be NFS/9p on some CI hosts. ──────
 NBFS="$WORK/nb-fstype"; mkdir -p "$NBFS"
 mk_note "$NBFS/a.md" lf 0 '---' 'type: task' 'status: new' '---' 'body'
-_realstat=$(command -v stat)
-SHIMFS="$WORK/statshim"; mkdir -p "$SHIMFS"
-cat > "$SHIMFS/stat" <<SHIM
-#!/bin/sh
-if [ "\$1" = "-f" ] && [ "\$2" = "-c" ] && [ "\$3" = "%T" ]; then echo 9p; exit 0; fi
-exec "$_realstat" "\$@"
-SHIM
-chmod +x "$SHIMFS/stat"
-# default refresh.mode is "watch" (no config needed) → warning must appear
-(cd "$NBFS" && NO_COLOR=1 PATH="$SHIMFS:$PATH" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs.out"
-grep -qi "'9p' filesystem" "$WORK/fs.out" || fail "no watch-on-9p filesystem warning (WSL/DrvFS auto-refresh gap)"
-grep -qi 'refresh.mode = "poll"' "$WORK/fs.out" || fail "fstype warning did not recommend poll mode"
-# control: with the REAL stat (ext/normal fs) the warning must NOT appear
-run_doctor "$NBFS"
-grep -qi 'deliver no change events' "$WORK/doctor.out" && fail "spurious fstype warning on a normal filesystem"
-# and under refresh.mode = "poll" the warning must NOT fire even on 9p
-# (refresh.mode is a USER-scope preference, so set it in the user config)
+_mkmi() { printf '1 1 0:1 / / rw - %s none rw\n' "$1" > "$2"; }
+# both WSL fstypes must warn (9p = WSL2, drvfs = WSL1 – the latter is why a
+# `stat -f` magic-number probe was insufficient) as must SMB/CIFS
+for _fs in 9p drvfs cifs; do
+  _mkmi "$_fs" "$WORK/mi-$_fs"
+  (cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-$_fs" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-$_fs.out"
+  grep -qi "'$_fs' filesystem" "$WORK/fs-$_fs.out" || fail "no watch-on-$_fs warning (inotify-blind fs auto-refresh gap)"
+  grep -qi 'refresh.mode = "poll"' "$WORK/fs-$_fs.out" || fail "$_fs fstype warning did not recommend poll mode"
+done
+# a normal fstype must NOT warn (deterministic control via fake ext4 mount)
+_mkmi ext4 "$WORK/mi-ext4"
+(cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-ext4" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-ext4.out"
+grep -qi 'deliver no change events' "$WORK/fs-ext4.out" && fail "spurious fstype warning on a normal (ext4) filesystem"
+# NFS must NOT warn: local inotify DOES fire for the host's own edits there,
+# so watch mode still works for a single-user notebook
+_mkmi nfs "$WORK/mi-nfs"
+(cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-nfs" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-nfs.out"
+grep -qi 'deliver no change events' "$WORK/fs-nfs.out" && fail "fstype warning nagged an NFS notebook (local edits do fire inotify)"
+# under refresh.mode = "poll" (USER-scope preference) the warning must NOT
+# fire even on 9p
 UHFS="$WORK/uhome-fstype"; mkdir -p "$UHFS/notenav"
 printf '[refresh]\nmode = "poll"\n' > "$UHFS/notenav/config.toml"
-(cd "$NBFS" && NO_COLOR=1 XDG_CONFIG_HOME="$UHFS" PATH="$SHIMFS:$PATH" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs2.out"
-grep -qi 'deliver no change events' "$WORK/fs2.out" && fail "fstype warning fired under poll mode (should warn for watch only)"
+(cd "$NBFS" && NO_COLOR=1 XDG_CONFIG_HOME="$UHFS" NN_MOUNTINFO="$WORK/mi-9p" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-poll.out"
+grep -qi 'deliver no change events' "$WORK/fs-poll.out" && fail "fstype warning fired under poll mode (should warn for watch only)"
 
 finish

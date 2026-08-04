@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **Sort chains**: configurable tie-breaking sequences for each primary sort field. When two notes share the same primary sort value, the chain fields break the tie in order. Default chains: `priority → [status, created, title]`, `status → [priority, created, title]`, timestamps → `[title]`, title → `[created]`. Configurable via `[defaults.sort_chain]`.
 - `nn doctor` now reports line-ending diagnostics: CRLF and BOM note counts (informational), mixed-line-ending warnings, and detection of duplicated frontmatter blocks left by the CRLF write bug (see Fixed), listing affected paths.
-- `nn doctor` warns when a notebook under `refresh.mode = "watch"` sits on a filesystem where inotify/fswatch deliver no change events (WSL's `/mnt/c` — `9p`/`drvfs` — or network mounts), recommending poll mode; previously the watcher ran but silently never fired there.
+- `nn doctor` warns when a notebook under `refresh.mode = "watch"` sits on a filesystem where inotify/fswatch deliver no change events (WSL's `/mnt/c` — `9p` on WSL2, `drvfs` on WSL1 — or SMB/CIFS mounts), recommending poll mode; previously the watcher ran but silently never fired there.
 - `nn doctor --fix-frontmatter`: opt-in repair for notes with a duplicated frontmatter block – merges the blocks (latest edits win), writes a `.bak` backup per note, and refuses files that don't match the known damage pattern.
 - Test suite (`tests/run.sh`) covering the frontmatter write paths byte-for-byte across LF/CRLF/BOM/mixed line-ending variants, wired into CI.
 

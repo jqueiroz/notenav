@@ -1724,6 +1724,33 @@ _nn_picker_style() {
 # depend on it).  Empty output when stat fails.
 _nn_mtime_of() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 
+# _nn_path_fstype <path> – filesystem type of the mount containing <path>,
+# read from /proc/self/mountinfo (override via NN_MOUNTINFO for tests).
+# Returns the real fstype string ("drvfs", "9p", "cifs", "ext4", …) or
+# nothing on non-Linux / no /proc / no match.  Preferred over `stat -f`:
+# stat maps the fs magic number to a name and does not know DrvFS (WSL1
+# /mnt/c → "UNKNOWN (0x…)"), whereas mountinfo carries the literal name.
+# mountinfo line: ID PID MAJ:MIN root MOUNTPOINT opts [optional…] - FSTYPE …
+# the fstype follows the " - " separator; pick the longest mount point that
+# is a path-prefix of <path> (the most specific mount).
+_nn_path_fstype() {
+  local _mi="${NN_MOUNTINFO:-/proc/self/mountinfo}"
+  [ -r "$_mi" ] || return 0
+  local _p
+  _p=$(cd "$1" 2>/dev/null && pwd -P) || _p="$1"
+  awk -v path="$_p" '
+    { mp = $5
+      if (substr(path, 1, length(mp)) == mp) {
+        c = substr(path, length(mp) + 1, 1)
+        if ((mp == "/" || c == "" || c == "/") && length(mp) >= blen) {
+          blen = length(mp); fs = ""
+          for (i = 7; i <= NF; i++) if ($i == "-") { fs = $(i + 1); break }
+        }
+      }
+    }
+    END { if (fs != "") print fs }' "$_mi" 2>/dev/null
+}
+
 # _nn_state_lock <session-dir> – serialize read-modify-write updates of the
 # pin/mark state files (.pinned/.marked/.f_match_paths).  Without it, a
 # watcher-triggered reload's satellite prune racing an action's pin append
@@ -3384,24 +3411,27 @@ EOF
         *) _warn "refresh.mode '$_rf_mode' invalid (must be 'watch' for filesystem events, 'poll' for periodic check, or 'manual' for r-key only)" ;;
       esac
     fi
+    # base.toml always supplies mode = "watch", so an unset user value
+    # already resolves to "watch" here (default-config users included).
     if [[ "$_rf_mode" == "watch" ]]; then
       if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
         _warn "refresh.mode is 'watch' but neither inotifywait nor fswatch is installed (the note list will not auto-refresh; press r to refresh manually)"
       fi
-    fi
-    # Watch mode relies on inotify/fswatch, which on several filesystems
-    # deliver NO change events – the watcher runs but silently never fires.
-    # Most relevant on WSL (a notebook under /mnt/c is 9p or DrvFS) and on
-    # network mounts (cifs/smb/nfs).  Uses GNU `stat -f`; on BSD/macOS the
-    # probe returns nothing and this no-ops.  Effective mode (default
-    # "watch") so someone relying on the default is warned too.
-    local _rf_effmode _fstype
-    _rf_effmode=$(nn_cfg '.refresh.mode // "watch"')
-    if [[ "$_rf_effmode" == "watch" ]]; then
-      _fstype=$(stat -f -c '%T' "$_nn_root" 2>/dev/null)
+      # Watch mode relies on inotify/fswatch, which on some filesystems
+      # deliver NO change events – the watcher runs but silently never
+      # fires.  Most relevant on WSL (a notebook under /mnt/c is 9p on WSL2
+      # or DrvFS on WSL1) and on SMB/CIFS mounts.  The fstype is read from
+      # /proc/self/mountinfo, which carries the real name ("drvfs", "9p",
+      # "cifs") – GNU `stat -f` maps by magic number and cannot name DrvFS.
+      # Linux-only (reads /proc); on macOS/BSD the probe returns nothing and
+      # this no-ops.  NFS is deliberately excluded: local inotify DOES fire
+      # for the host's own edits there, so watch mode still works for a
+      # single-user notebook (it only misses other clients' changes).
+      local _fstype
+      _fstype=$(_nn_path_fstype "$_nn_root")
       case "$_fstype" in
-        9p|v9fs|drvfs|cifs|smbfs|smb2|smb3|nfs|nfs4)
-          _warn "notebook is on a '$_fstype' filesystem, where inotify/fswatch usually deliver no change events (e.g. WSL /mnt/c, network mounts) – refresh.mode='watch' will not auto-refresh. Set refresh.mode = \"poll\" (with a poll_interval) in your config." ;;
+        9p|v9fs|drvfs|cifs|smb3|smbfs)
+          _warn "notebook is on a '$_fstype' filesystem, where inotify/fswatch deliver no change events (e.g. WSL /mnt/c, SMB mounts) – refresh.mode='watch' will not auto-refresh. Set refresh.mode = \"poll\" (with a poll_interval) in your config." ;;
       esac
     fi
     local _rf_interval
