@@ -553,9 +553,10 @@ assert_bytes "$b0" "$WORK/b0.expected" "byte-0 BOM dup repaired byte-exact, BOM 
 NBFS="$WORK/nb-fstype"; mkdir -p "$NBFS"
 mk_note "$NBFS/a.md" lf 0 '---' 'type: task' 'status: new' '---' 'body'
 _mkmi() { printf '1 1 0:1 / / rw - %s none rw\n' "$1" > "$2"; }
-# both WSL fstypes must warn (9p = WSL2, drvfs = WSL1 – the latter is why a
-# `stat -f` magic-number probe was insufficient) as must SMB/CIFS
-for _fs in 9p drvfs cifs; do
+# WSL drive-mount fstypes must warn (9p = WSL2, drvfs = WSL1 – the latter
+# is why a `stat -f` magic-number probe was insufficient; virtiofs = newer
+# WSL2 / Docker Desktop bind mounts) as must SMB/CIFS
+for _fs in 9p drvfs virtiofs cifs; do
   _mkmi "$_fs" "$WORK/mi-$_fs"
   (cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-$_fs" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-$_fs.out"
   grep -qi "'$_fs' filesystem" "$WORK/fs-$_fs.out" || fail "no watch-on-$_fs warning (inotify-blind fs auto-refresh gap)"
@@ -576,5 +577,40 @@ UHFS="$WORK/uhome-fstype"; mkdir -p "$UHFS/notenav"
 printf '[refresh]\nmode = "poll"\n' > "$UHFS/notenav/config.toml"
 (cd "$NBFS" && NO_COLOR=1 XDG_CONFIG_HOME="$UHFS" NN_MOUNTINFO="$WORK/mi-9p" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-poll.out"
 grep -qi 'deliver no change events' "$WORK/fs-poll.out" && fail "fstype warning fired under poll mode (should warn for watch only)"
+
+# ── _nn_path_fstype mount-selection unit tests: the doctor pins above use a
+#    single root mount, so exercise the longest-prefix / path-boundary /
+#    fallback logic directly with a MULTI-mount mountinfo and non-existent
+#    paths (cd fails → the literal path is used → host-independent). ───────
+_fstype_of() { # <mountinfo-file> <path> -> stdout
+  NN_MOUNTINFO="$1" bash -c '. "'"$REPO"'/lib/notenav.sh" 2>/dev/null; _nn_path_fstype "'"$2"'"'
+}
+# /nntest/c (drvfs) nested under / (ext4); optional tag fields present.
+# The root (/) is listed LAST on purpose so the assertions distinguish
+# genuine longest-prefix selection from a naive last-match-wins scan.
+cat > "$WORK/mi-multi" <<'MI'
+2 1 0:2 / /nntest/c rw master:3 propagate_from:5 - drvfs C: rw
+1 1 0:1 / / rw shared:1 - ext4 /dev/root rw
+MI
+[[ "$(_fstype_of "$WORK/mi-multi" /nntest/c/notes)" == drvfs ]] \
+  || fail "_nn_path_fstype did not pick the longest-prefix mount (/nntest/c drvfs over / ext4)"
+[[ "$(_fstype_of "$WORK/mi-multi" /nntest/c)" == drvfs ]] \
+  || fail "_nn_path_fstype missed an exact mount-point match"
+[[ "$(_fstype_of "$WORK/mi-multi" /home/user/notes)" == ext4 ]] \
+  || fail "_nn_path_fstype did not fall back to the / mount"
+# path-boundary: /nntest/cx must NOT match the /nntest/c mount (adjacency)
+[[ "$(_fstype_of "$WORK/mi-multi" /nntest/cx/notes)" == ext4 ]] \
+  || fail "_nn_path_fstype matched an adjacent mount (/nntest/cx vs /nntest/c boundary bug)"
+# no matching mount (no / entry) → empty
+printf '2 1 0:2 / /nntest/c rw - drvfs C: rw\n' > "$WORK/mi-noroot"
+[[ -z "$(_fstype_of "$WORK/mi-noroot" /home/user/notes)" ]] \
+  || fail "_nn_path_fstype returned a fstype for an unmounted path"
+# no-optional-fields record (field 7 is the '-' separator directly)
+printf '1 1 0:1 / / rw - 9p host rw\n' > "$WORK/mi-noopt"
+[[ "$(_fstype_of "$WORK/mi-noopt" /any/where)" == 9p ]] \
+  || fail "_nn_path_fstype mis-parsed a mountinfo record with no optional fields"
+# missing /proc / unreadable NN_MOUNTINFO → empty (non-Linux no-op)
+[[ -z "$(_fstype_of "$WORK/does-not-exist-mi" /any/where)" ]] \
+  || fail "_nn_path_fstype did not no-op on an unreadable mountinfo source"
 
 finish

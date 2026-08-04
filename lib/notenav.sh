@@ -3419,18 +3419,19 @@ EOF
       fi
       # Watch mode relies on inotify/fswatch, which on some filesystems
       # deliver NO change events – the watcher runs but silently never
-      # fires.  Most relevant on WSL (a notebook under /mnt/c is 9p on WSL2
-      # or DrvFS on WSL1) and on SMB/CIFS mounts.  The fstype is read from
+      # fires.  Most relevant on WSL, where a notebook under /mnt/c is 9p
+      # (WSL2), DrvFS (WSL1), or virtiofs (newer WSL2 / Docker Desktop bind
+      # mounts), and on SMB/CIFS mounts.  The fstype is read from
       # /proc/self/mountinfo, which carries the real name ("drvfs", "9p",
-      # "cifs") – GNU `stat -f` maps by magic number and cannot name DrvFS.
-      # Linux-only (reads /proc); on macOS/BSD the probe returns nothing and
-      # this no-ops.  NFS is deliberately excluded: local inotify DOES fire
-      # for the host's own edits there, so watch mode still works for a
-      # single-user notebook (it only misses other clients' changes).
+      # "virtiofs", "cifs") – GNU `stat -f` maps by magic number and cannot
+      # name DrvFS.  Linux-only (reads /proc); on macOS/BSD the probe returns
+      # nothing and this no-ops.  NFS is deliberately excluded: local inotify
+      # DOES fire for the host's own edits there, so watch mode still works
+      # for a single-user notebook (it only misses other clients' changes).
       local _fstype
       _fstype=$(_nn_path_fstype "$_nn_root")
       case "$_fstype" in
-        9p|v9fs|drvfs|cifs|smb3|smbfs)
+        9p|v9fs|drvfs|virtiofs|cifs|smb3|smbfs)
           _warn "notebook is on a '$_fstype' filesystem, where inotify/fswatch deliver no change events (e.g. WSL /mnt/c, SMB mounts) – refresh.mode='watch' will not auto-refresh. Set refresh.mode = \"poll\" (with a poll_interval) in your config." ;;
       esac
     fi
