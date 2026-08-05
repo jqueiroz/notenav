@@ -591,6 +591,15 @@ grep -qF "printf 'bulk edit → %d updated' " "$_ba" \
 if grep -F 'bulk edit → no changes' "$_ba" | grep -q 'locked or unwritable'; then
   fail "lock hint leaked into the no-changes bulk-edit message"
 fi
+# action.sh's sibling hint IS behaviorally drivable (it runs non-interactive
+# with the note path as an arg), so assert the real message: a same-value
+# set writes nothing (count=0) and must report the lock/unchanged hint – on
+# /mnt/c a note held open by a Windows app reads the same as a genuine no-op
+_alk="$WORK/note-lockhint.md"
+mk_note "$_alk" lf 0 '---' 'type: task' 'status: active' 'title: Lk' '---' 'body'
+run_action status active "$_alk"   # already active → no write → count=0
+grep -qxF '⚠ no files modified – unchanged or locked?' "$CAP/.last_action" \
+  || fail "same-value action lost the 'unchanged or locked?' hint: [$(cat "$CAP/.last_action" 2>/dev/null)]"
 
 # ── killwatcher.sh: identity-checked watcher kill (PID-reuse guard) ──────
 # recycled PID: an alive process whose args lack the session dir (PID 1)
