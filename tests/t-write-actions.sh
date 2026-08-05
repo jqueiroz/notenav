@@ -575,6 +575,23 @@ for _lk_s in action.sh newnote.sh; do
     || fail "$_lk_s has no actual _nn_state_lock call"
 done
 
+# ── bulk edit: a failed write (a note held locked by a Windows app on
+#    /mnt/c, or an unwritable path) reports the same lock/unwritable hint
+#    action.sh gives – a bare "N failed" is a dead end for a WSL user.  The
+#    apply orchestrator confirms via /dev/tty (not drivable headless), so
+#    pin the wiring in the captured script: both failure branches carry the
+#    hint, the success / no-change branches do not. ───────────────────────
+_ba="$CAP/bulkedit_apply.sh"
+grep -qF 'updated, %d failed – locked or unwritable?' "$_ba" \
+  || fail "bulk edit updated+failed message dropped the locked/unwritable hint"
+grep -qF 'bulk edit → %d failed – locked or unwritable?' "$_ba" \
+  || fail "bulk edit all-failed message dropped the locked/unwritable hint"
+grep -qF "printf 'bulk edit → %d updated' " "$_ba" \
+  || fail "bulk edit success-only message changed (the hint must NOT be on it)"
+if grep -F 'bulk edit → no changes' "$_ba" | grep -q 'locked or unwritable'; then
+  fail "lock hint leaked into the no-changes bulk-edit message"
+fi
+
 # ── killwatcher.sh: identity-checked watcher kill (PID-reuse guard) ──────
 # recycled PID: an alive process whose args lack the session dir (PID 1)
 # must NOT be signaled; the stale pidfile is still cleaned up

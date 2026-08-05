@@ -6267,13 +6267,17 @@ if [ "$count" -gt 0 ]; then
   fi
 fi
 # Action label summary: cover all combinations so the user sees feedback
-# even when nothing applied or some notes failed.
+# even when nothing applied or some notes failed.  A failure is usually a
+# write that could not complete – most often a note held locked by another
+# program (a Windows app when the notebook lives on /mnt/c) or an
+# unwritable path – so a failed count carries the same hint action.sh gives.
+# NB: no parentheses – the border label consumer strips ( and ).
 if [ "$count" -gt 0 ] && [ "$fail_count" -gt 0 ]; then
-  printf 'bulk edit → %d updated, %d failed' "$count" "$fail_count" > "$dir/.last_action"
+  printf 'bulk edit → %d updated, %d failed – locked or unwritable?' "$count" "$fail_count" > "$dir/.last_action"
 elif [ "$count" -gt 0 ]; then
   printf 'bulk edit → %d updated' "$count" > "$dir/.last_action"
 elif [ "$fail_count" -gt 0 ]; then
-  printf 'bulk edit → %d failed' "$fail_count" > "$dir/.last_action"
+  printf 'bulk edit → %d failed – locked or unwritable?' "$fail_count" > "$dir/.last_action"
 else
   printf 'bulk edit → no changes' > "$dir/.last_action"
 fi
