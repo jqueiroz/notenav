@@ -609,13 +609,16 @@ grep -qxF '⚠ no files modified – unchanged or locked?' "$CAP/.last_action" \
 _mkmi_fb() { printf '1 1 0:1 / / rw - %s none rw\n' "$1" > "$2"; }
 NBFB="$WORK/nb-fallback"; mkdir -p "$NBFB"
 mk_note "$NBFB/a.md" lf 0 '---' 'type: task' 'status: new' '---' 'body'
-for _fs in 9p drvfs; do
+for _fs in 9p v9fs drvfs; do
   _mkmi_fb "$_fs" "$WORK/mifb-$_fs"
   if NN_MOUNTINFO="$WORK/mifb-$_fs" capture_nn_dir "$NBFB" "$WORK/capfb-$_fs"; then
     [[ "$(cat "$WORK/capfb-$_fs/.refresh_mode" 2>/dev/null)" == poll ]] \
       || fail "watch mode did not fall back to poll on a '$_fs' filesystem (dead-watcher gap)"
-    grep -qF 'using poll refresh' "$WORK/capfb-$_fs/.last_action" \
-      || fail "watch→poll fallback on '$_fs' emitted no border notice"
+    # assert the RENDERED border (.border_action, built by the startup
+    # refresh), not just .last_action – the notice must actually show on
+    # the first frame, which requires seeding it before that refresh
+    grep -qF 'using poll refresh' "$WORK/capfb-$_fs/.border_action" \
+      || fail "watch→poll notice on '$_fs' does not render in the startup border"
   fi
 done
 # a normal filesystem must NOT fall back: default watch config resolves to
@@ -625,9 +628,35 @@ _mkmi_fb ext4 "$WORK/mifb-ext4"
 if NN_MOUNTINFO="$WORK/mifb-ext4" capture_nn_dir "$NBFB" "$WORK/capfb-ext4"; then
   [[ "$(cat "$WORK/capfb-ext4/.refresh_mode" 2>/dev/null)" != poll ]] \
     || fail "watch mode wrongly fell back to poll on an ext4 filesystem"
-  if grep -qF 'using poll refresh' "$WORK/capfb-ext4/.last_action" 2>/dev/null; then
+  if grep -qF 'using poll refresh' "$WORK/capfb-ext4/.border_action" 2>/dev/null; then
     fail "watch→poll notice leaked on a normal filesystem"
   fi
+fi
+
+# ── edit.sh reindex policy: after editing a note, the list must reflect the
+#    change immediately in EVERY mode except watch (whose real-time inotify
+#    catches it).  Manual has no watcher; poll would otherwise lag the user's
+#    OWN edit by up to poll_interval (~30s) – so both must reindex here.
+#    Replace reload_raw with a marker to observe the decision directly. ─────
+NBED="$WORK/nb-edit"; CAPED="$WORK/cap-edit"; mkdir -p "$NBED"
+mk_note "$NBED/e.md" lf 0 '---' 'type: task' 'status: new' '---' 'body'
+if capture_nn_dir "$NBED" "$CAPED"; then
+  printf '#!/bin/sh\ntouch "%s"\n' "$WORK/reidx.marker" > "$CAPED/reload_raw.sh"
+  chmod +x "$CAPED/reload_raw.sh"
+  printf '%s' "$NBED/e.md" > "$CAPED/.edit_target"
+  printf 'true' > "$CAPED/.schema_editor"   # no-op editor
+  # poll → must reindex
+  printf 'poll' > "$CAPED/.refresh_mode"; rm -f "$WORK/reidx.marker"
+  bash "$CAPED/edit.sh"
+  [[ -f "$WORK/reidx.marker" ]] || fail "edit.sh did not reindex in poll mode (own edit would lag ~poll_interval)"
+  # watch → must NOT reindex (inotify catches it; reindex would be redundant)
+  printf 'watch' > "$CAPED/.refresh_mode"; rm -f "$WORK/reidx.marker"
+  bash "$CAPED/edit.sh"
+  [[ -f "$WORK/reidx.marker" ]] && fail "edit.sh reindexed in watch mode (redundant with the inotify watcher)"
+  # manual (no .refresh_mode) → must reindex
+  rm -f "$CAPED/.refresh_mode" "$WORK/reidx.marker"
+  bash "$CAPED/edit.sh"
+  [[ -f "$WORK/reidx.marker" ]] || fail "edit.sh did not reindex in manual mode"
 fi
 
 # ── killwatcher.sh: identity-checked watcher kill (PID-reuse guard) ──────

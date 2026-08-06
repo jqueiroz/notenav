@@ -7978,11 +7978,39 @@ ENDFILTER
     printf '%s' "${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}" > "$_nn_dir/.term_cols"
     printf '%s' "${LINES:-$(tput lines 2>/dev/null || echo 24)}" > "$_nn_dir/.term_rows"
 
-    # Seed .last_action with zk fallback warning (if any) so it shows on first render.
-    # filter.sh refresh does not clear .last_action, so this survives.
-    if [[ -n "$_zk_fallback_msg" ]]; then
-      printf '%s' "$_zk_fallback_msg" > "$_nn_dir/.last_action"
+    # Resolve the effective refresh mode BEFORE the first filter.sh refresh
+    # below builds .border_action, so a watch→poll fallback note renders on
+    # the first frame (like the zk note).  watch → manual if no watcher tool
+    # is installed; watch → poll on WSL Windows-drive mounts (9p/v9fs on
+    # WSL2, DrvFS on WSL1), which have NO inotify support at all – strictly
+    # better than a dead watcher, with nothing to downgrade.  Other
+    # inotify-uncertain fstypes (virtiofs, cifs) stay on watch and are only
+    # flagged by `nn doctor`: auto-demoting them could drop a working
+    # guest-local inotify setup.  A too-large notebook still forces manual.
+    local _nn_raw_count; _nn_raw_count=$(wc -l < "$_nn_dir/.raw")
+    local _nn_refresh_mode="$NN_REFRESH_MODE"
+    local _nn_watch_to_poll=""
+    if [[ "$_nn_refresh_mode" == "watch" ]]; then
+      case "$(_nn_path_fstype "$(cat "$_nn_dir/.notebook_root" 2>/dev/null)")" in
+        9p|v9fs|drvfs)
+          _nn_refresh_mode="poll"; _nn_watch_to_poll=1 ;;
+        *)
+          if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
+            _nn_refresh_mode="manual"
+          fi ;;
+      esac
     fi
+    if [[ "$_nn_refresh_mode" != "manual" && $NN_REFRESH_MAX_FILES -gt 0 && $_nn_raw_count -gt $NN_REFRESH_MAX_FILES ]]; then
+      _nn_refresh_mode="manual"
+    fi
+    # Seed .last_action so a startup note shows on the FIRST render (filter.sh
+    # refresh does not clear it).  Combine the zk-native fallback and the
+    # watch→poll fallback when both apply so neither is lost.  No parentheses
+    # in the poll note – the border-label consumer strips ( and ).
+    local _nn_seed="$_zk_fallback_msg"
+    [[ -n "$_nn_watch_to_poll" ]] && \
+      _nn_seed="${_nn_seed:+$_nn_seed · }watch unavailable on this filesystem – using poll refresh"
+    [[ -n "$_nn_seed" ]] && printf '%s' "$_nn_seed" > "$_nn_dir/.last_action"
 
     # Generate initial results, stats, and header via filter.sh
     "$_nn_dir/filter.sh" "$_nn_dir" refresh > /dev/null
@@ -8025,8 +8053,11 @@ ENDWK
     chmod +x "$_nn_dir/wrapkey.sh"
 
     # Editor helper: isolates editor command from fzf binding syntax
-    # After the editor exits, re-indexes if no auto-refresh watcher is active
-    # (.refresh_mode is only written when watch/poll is active).
+    # After the editor exits, re-index UNLESS a real-time watcher (watch
+    # mode) is active.  Only watch mode catches the edit promptly (inotify,
+    # ~1s); manual has no watcher and poll would not reflect the user's own
+    # edit for up to poll_interval (~30s) – so both reindex synchronously
+    # here for instant feedback.  (.refresh_mode is absent in manual mode.)
     cat > "$_nn_dir/edit.sh" << 'ENDEDIT'
 #!/usr/bin/env bash
 dir=$(dirname "$0")
@@ -8035,8 +8066,8 @@ mapfile -t nn_editor_cmd < <(cat "$dir/.schema_editor" 2>/dev/null)
 target=$(cat "$dir/.edit_target" 2>/dev/null)
 case "$target" in *.empty_placeholder) exit 0 ;; esac
 [ -f "$target" ] && "${nn_editor_cmd[@]}" "$target"
-# Re-index when no watcher is running (manual refresh mode)
-if ! [ -f "$dir/.refresh_mode" ]; then
+# Re-index unless watch mode's real-time watcher will catch the edit
+if [ "$(cat "$dir/.refresh_mode" 2>/dev/null)" != "watch" ]; then
   "$dir/reload_raw.sh" "$dir" 2>/dev/null
 fi
 ENDEDIT
@@ -8274,35 +8305,8 @@ ENDDELETE
     local _nn_fzf_ansi=(--ansi)
     [[ -n "${NO_COLOR+x}" ]] && _nn_fzf_ansi=()
 
-    # Resolve effective refresh mode (watch → manual if no watcher tool)
-    local _nn_raw_count
-    _nn_raw_count=$(wc -l < "$_nn_dir/.raw")
-    local _nn_refresh_mode="$NN_REFRESH_MODE"
-    local _nn_watch_to_poll=""
-    if [[ "$_nn_refresh_mode" == "watch" ]]; then
-      # inotify/fswatch deliver NO events on WSL's Windows-drive mounts
-      # (9p on WSL2, DrvFS on WSL1): these fstypes have no change-notify
-      # support at all, so watch mode runs but never fires.  Fall back to
-      # poll – strictly better than a dead watcher (and than manual), with
-      # nothing to downgrade since no working watch setup exists there.
-      # Other inotify-uncertain fstypes (virtiofs, cifs) stay on watch and
-      # are only flagged by `nn doctor`: auto-demoting them could wrongly
-      # drop a setup where guest-local inotify does work.  `nn doctor`
-      # explains the fallback; a one-time border notice surfaces it below.
-      case "$(_nn_path_fstype "$(cat "$_nn_dir/.notebook_root" 2>/dev/null)")" in
-        9p|drvfs)
-          _nn_refresh_mode="poll"; _nn_watch_to_poll=1 ;;
-        *)
-          if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
-            _nn_refresh_mode="manual"
-          fi ;;
-      esac
-    fi
-    if [[ "$_nn_refresh_mode" != "manual" && $NN_REFRESH_MAX_FILES -gt 0 && $_nn_raw_count -gt $NN_REFRESH_MAX_FILES ]]; then
-      _nn_refresh_mode="manual"
-    fi
-
-    # Set up --listen and watcher for auto-refresh modes
+    # Set up --listen and watcher for auto-refresh modes (mode resolved
+    # above, before the border was built, so its fallback note already shows)
     local _nn_fzf_listen=()
     local _nn_fzf_start_watcher=""
     if [[ "$_nn_refresh_mode" != "manual" ]]; then
@@ -8310,12 +8314,6 @@ ENDDELETE
       printf '%s' "$_nn_refresh_mode" > "$_nn_dir/.refresh_mode"
       printf '%s' "$NN_REFRESH_POLL_INTERVAL" > "$_nn_dir/.refresh_interval"
       _nn_fzf_start_watcher="+execute-silent($_nn_dir/watcher.sh $_nn_dir &)"
-      # Surface the watch→poll fallback once in the border (otherwise silent);
-      # the first action/reload replaces it.  No parentheses – the label
-      # consumer strips ( and ).  This intentionally supersedes any earlier
-      # startup seed (e.g. the zk-native note) on the rare fs where both apply.
-      [[ -n "$_nn_watch_to_poll" ]] && \
-        printf 'watch unavailable on this filesystem – using poll refresh' > "$_nn_dir/.last_action"
     fi
 
     # Keys to unbind/rebind when toggling search mode (/ key)
