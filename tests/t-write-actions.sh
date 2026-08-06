@@ -632,6 +632,22 @@ if NN_MOUNTINFO="$WORK/mifb-ext4" capture_nn_dir "$NBFB" "$WORK/capfb-ext4"; the
     fail "watch→poll notice leaked on a normal filesystem"
   fi
 fi
+# a note-limit demotion overrides the fallback: a 9p notebook over
+# auto_refresh_note_limit resolves to MANUAL (no watcher), so the poll note
+# must NOT show – claiming "using poll refresh" while auto-refresh is off
+# would be a false promise.  (auto_refresh_note_limit is user-scope.)
+UHLIM="$WORK/uhome-lim"; mkdir -p "$UHLIM/notenav"
+printf '[refresh]\nauto_refresh_note_limit = 1\n' > "$UHLIM/notenav/config.toml"
+NBLIM="$WORK/nb-lim"; mkdir -p "$NBLIM"
+mk_note "$NBLIM/a.md" lf 0 '---' 'type: task' 'status: new' '---' 'x'
+mk_note "$NBLIM/b.md" lf 0 '---' 'type: task' 'status: new' '---' 'x'   # 2 > limit 1
+if XDG_CONFIG_HOME="$UHLIM" NN_MOUNTINFO="$WORK/mifb-9p" capture_nn_dir "$NBLIM" "$WORK/cap-lim"; then
+  [[ ! -f "$WORK/cap-lim/.refresh_mode" ]] \
+    || fail "note-limit demotion did not override the 9p poll fallback (mode should be manual)"
+  if grep -qF 'using poll refresh' "$WORK/cap-lim/.border_action" 2>/dev/null; then
+    fail "poll note shown on a note-limit-demoted (manual) 9p notebook — false auto-refresh claim"
+  fi
+fi
 
 # ── edit.sh reindex policy: after editing a note, the list must reflect the
 #    change immediately in EVERY mode except watch (whose real-time inotify

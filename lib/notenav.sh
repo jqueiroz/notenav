@@ -8006,9 +8006,12 @@ ENDFILTER
     # Seed .last_action so a startup note shows on the FIRST render (filter.sh
     # refresh does not clear it).  Combine the zk-native fallback and the
     # watch→poll fallback when both apply so neither is lost.  No parentheses
-    # in the poll note – the border-label consumer strips ( and ).
+    # in the poll note – the border-label consumer strips ( and ).  Gate the
+    # poll note on the FINAL mode being poll: the note-limit check above can
+    # demote a fallback to manual, and claiming "using poll refresh" while
+    # auto-refresh is actually off would be a false promise.
     local _nn_seed="$_zk_fallback_msg"
-    [[ -n "$_nn_watch_to_poll" ]] && \
+    [[ -n "$_nn_watch_to_poll" && "$_nn_refresh_mode" == "poll" ]] && \
       _nn_seed="${_nn_seed:+$_nn_seed · }watch unavailable on this filesystem – using poll refresh"
     [[ -n "$_nn_seed" ]] && printf '%s' "$_nn_seed" > "$_nn_dir/.last_action"
 
