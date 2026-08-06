@@ -601,6 +601,35 @@ run_action status active "$_alk"   # already active → no write → count=0
 grep -qxF '⚠ no files modified – unchanged or locked?' "$CAP/.last_action" \
   || fail "same-value action lost the 'unchanged or locked?' hint: [$(cat "$CAP/.last_action" 2>/dev/null)]"
 
+# ── watch mode auto-falls-back to poll on WSL Windows-drive mounts (9p on
+#    WSL2, DrvFS on WSL1), where inotify delivers nothing – a dead watcher
+#    becomes working poll refresh, with a one-time border notice.  Normal
+#    filesystems keep watch (only nn doctor flags the uncertain ones).
+#    NN_MOUNTINFO overrides the fstype source (see _nn_path_fstype). ───────
+_mkmi_fb() { printf '1 1 0:1 / / rw - %s none rw\n' "$1" > "$2"; }
+NBFB="$WORK/nb-fallback"; mkdir -p "$NBFB"
+mk_note "$NBFB/a.md" lf 0 '---' 'type: task' 'status: new' '---' 'body'
+for _fs in 9p drvfs; do
+  _mkmi_fb "$_fs" "$WORK/mifb-$_fs"
+  if NN_MOUNTINFO="$WORK/mifb-$_fs" capture_nn_dir "$NBFB" "$WORK/capfb-$_fs"; then
+    [[ "$(cat "$WORK/capfb-$_fs/.refresh_mode" 2>/dev/null)" == poll ]] \
+      || fail "watch mode did not fall back to poll on a '$_fs' filesystem (dead-watcher gap)"
+    grep -qF 'using poll refresh' "$WORK/capfb-$_fs/.last_action" \
+      || fail "watch→poll fallback on '$_fs' emitted no border notice"
+  fi
+done
+# a normal filesystem must NOT fall back: default watch config resolves to
+# watch (watcher present) or manual (none) – never the fallback poll, and no
+# notice.  (Real /tmp fstype is irrelevant: NN_MOUNTINFO forces ext4 here.)
+_mkmi_fb ext4 "$WORK/mifb-ext4"
+if NN_MOUNTINFO="$WORK/mifb-ext4" capture_nn_dir "$NBFB" "$WORK/capfb-ext4"; then
+  [[ "$(cat "$WORK/capfb-ext4/.refresh_mode" 2>/dev/null)" != poll ]] \
+    || fail "watch mode wrongly fell back to poll on an ext4 filesystem"
+  if grep -qF 'using poll refresh' "$WORK/capfb-ext4/.last_action" 2>/dev/null; then
+    fail "watch→poll notice leaked on a normal filesystem"
+  fi
+fi
+
 # ── killwatcher.sh: identity-checked watcher kill (PID-reuse guard) ──────
 # recycled PID: an alive process whose args lack the session dir (PID 1)
 # must NOT be signaled; the stale pidfile is still cleaned up

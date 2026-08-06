@@ -8278,10 +8278,25 @@ ENDDELETE
     local _nn_raw_count
     _nn_raw_count=$(wc -l < "$_nn_dir/.raw")
     local _nn_refresh_mode="$NN_REFRESH_MODE"
+    local _nn_watch_to_poll=""
     if [[ "$_nn_refresh_mode" == "watch" ]]; then
-      if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
-        _nn_refresh_mode="manual"
-      fi
+      # inotify/fswatch deliver NO events on WSL's Windows-drive mounts
+      # (9p on WSL2, DrvFS on WSL1): these fstypes have no change-notify
+      # support at all, so watch mode runs but never fires.  Fall back to
+      # poll – strictly better than a dead watcher (and than manual), with
+      # nothing to downgrade since no working watch setup exists there.
+      # Other inotify-uncertain fstypes (virtiofs, cifs) stay on watch and
+      # are only flagged by `nn doctor`: auto-demoting them could wrongly
+      # drop a setup where guest-local inotify does work.  `nn doctor`
+      # explains the fallback; a one-time border notice surfaces it below.
+      case "$(_nn_path_fstype "$(cat "$_nn_dir/.notebook_root" 2>/dev/null)")" in
+        9p|drvfs)
+          _nn_refresh_mode="poll"; _nn_watch_to_poll=1 ;;
+        *)
+          if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
+            _nn_refresh_mode="manual"
+          fi ;;
+      esac
     fi
     if [[ "$_nn_refresh_mode" != "manual" && $NN_REFRESH_MAX_FILES -gt 0 && $_nn_raw_count -gt $NN_REFRESH_MAX_FILES ]]; then
       _nn_refresh_mode="manual"
@@ -8295,6 +8310,12 @@ ENDDELETE
       printf '%s' "$_nn_refresh_mode" > "$_nn_dir/.refresh_mode"
       printf '%s' "$NN_REFRESH_POLL_INTERVAL" > "$_nn_dir/.refresh_interval"
       _nn_fzf_start_watcher="+execute-silent($_nn_dir/watcher.sh $_nn_dir &)"
+      # Surface the watch→poll fallback once in the border (otherwise silent);
+      # the first action/reload replaces it.  No parentheses – the label
+      # consumer strips ( and ).  This intentionally supersedes any earlier
+      # startup seed (e.g. the zk-native note) on the rare fs where both apply.
+      [[ -n "$_nn_watch_to_poll" ]] && \
+        printf 'watch unavailable on this filesystem – using poll refresh' > "$_nn_dir/.last_action"
     fi
 
     # Keys to unbind/rebind when toggling search mode (/ key)

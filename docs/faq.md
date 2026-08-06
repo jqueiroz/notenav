@@ -162,7 +162,7 @@ Yes. Notes with Windows (CRLF) line endings and/or a UTF-8 byte-order mark are f
 
 Caveats for notebooks under `/mnt/c` (the Windows drive mounted in WSL):
 
-- **File watching doesn't work on `/mnt/c`.** Linux inotify never fires for Windows-drive paths, so `refresh.mode = "watch"` silently does nothing there – use `"poll"` (or manual refresh). `nn doctor` detects this (it flags a notebook on a `9p`/`drvfs`/`virtiofs` filesystem under watch mode and tells you to switch to poll). For the fastest experience, keep the notebook in the Linux filesystem (e.g. `~/notes`) and access it from Windows via `\\wsl$`.
+- **File watching doesn't work on `/mnt/c`.** Linux inotify never fires for Windows-drive paths, so `refresh.mode = "watch"` can't auto-refresh there. notenav handles the common case automatically: on a `9p` (WSL2) or `drvfs` (WSL1) mount — where inotify has no support at all — watch mode transparently falls back to **poll** (a one-time "using poll refresh" note shows in the border). For other filesystems where inotify is merely uncertain (`virtiofs`, SMB/CIFS), watch is left as-is and `nn doctor` flags it so you can switch to `"poll"` yourself. For the fastest experience, keep the notebook in the Linux filesystem (e.g. `~/notes`) and access it from Windows via `\\wsl$`.
 - **Indexing is slower** on `/mnt/c` because every file access crosses the Windows/Linux boundary.
 - **A note held open by a Windows app** (with a sharing lock) can make an edit fail; notenav reports "no files modified" instead of writing.
 - **If you version your notebook with git**, disable line-ending conversion for it (`git config core.autocrlf false` in the notebook, or a `.gitattributes` with `*.md -text`), otherwise git itself may rewrite your notes' endings on checkout.
