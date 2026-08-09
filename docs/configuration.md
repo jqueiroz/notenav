@@ -617,7 +617,7 @@ auto_refresh_note_limit = 0  # disable auto-refresh above this note count (0 = n
 
 **Mode details:**
 
-- **`watch`** (default) – uses `inotifywait` (Linux) or `fswatch` (macOS/FreeBSD) to detect `.md` file changes in real time, with 1-second debouncing. If neither tool is installed, silently degrades to `manual` at runtime. On `9p`/`drvfs` filesystems (WSL Windows-drive mounts), which have no inotify support, it transparently falls back to `poll` at startup (a one-time "using poll refresh" note appears in the border); `nn doctor` flags other filesystems where watch may not fire (`virtiofs`, SMB/CIFS).
+- **`watch`** (default) – uses `inotifywait` (Linux) or `fswatch` (macOS/FreeBSD) to detect `.md` file changes in real time, with 1-second debouncing. If neither tool is installed, silently degrades to `manual` at runtime. On WSL2 `9p`/`v9fs` Windows-drive mounts, where Windows-side edits do not reliably produce inotify events, it transparently falls back to `poll` at startup (a one-time "using poll refresh" note appears in the border). DrvFS on WSL1 remains on watch because it supports notifications; `nn doctor` flags filesystems where host or remote changes may not fire (`virtiofs`, SMB/CIFS).
 - **`poll`** – checks every `poll_interval` seconds whether any `.md` file is newer than the last index. Only triggers a reload when something actually changed.
 - **`manual`** – no automatic refresh. Press `r` in command mode to reload.
 

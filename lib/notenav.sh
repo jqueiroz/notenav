@@ -1735,11 +1735,23 @@ _nn_mtime_of() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 # is a path-prefix of <path> (the most specific mount).
 _nn_path_fstype() {
   local _mi="${NN_MOUNTINFO:-/proc/self/mountinfo}"
-  [ -r "$_mi" ] || return 0
+  [[ -r "$_mi" ]] || return 0
   local _p
   _p=$(cd "$1" 2>/dev/null && pwd -P) || _p="$1"
   awk -v path="$_p" '
-    { mp = $5
+    function unescape_mount(s,    out, i, q) {
+      out = ""
+      for (i = 1; i <= length(s); i++) {
+        q = substr(s, i, 4)
+        if      (q == "\\040") { out = out sprintf("%c", 32); i += 3 }
+        else if (q == "\\011") { out = out sprintf("%c",  9); i += 3 }
+        else if (q == "\\012") { out = out sprintf("%c", 10); i += 3 }
+        else if (q == "\\134") { out = out sprintf("%c", 92); i += 3 }
+        else out = out substr(s, i, 1)
+      }
+      return out
+    }
+    { mp = unescape_mount($5)
       if (substr(path, 1, length(mp)) == mp) {
         c = substr(path, length(mp) + 1, 1)
         if ((mp == "/" || c == "" || c == "/") && length(mp) >= blen) {
@@ -3414,25 +3426,21 @@ EOF
     # base.toml always supplies mode = "watch", so an unset user value
     # already resolves to "watch" here (default-config users included).
     if [[ "$_rf_mode" == "watch" ]]; then
-      if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
-        _warn "refresh.mode is 'watch' but neither inotifywait nor fswatch is installed (the note list will not auto-refresh; press r to refresh manually)"
-      fi
-      # Watch mode relies on inotify/fswatch, which on some filesystems
-      # deliver NO change events – the watcher runs but silently never
-      # fires.  Most relevant on WSL, where a notebook under /mnt/c is 9p
-      # (WSL2), DrvFS (WSL1), or virtiofs (newer WSL2 / Docker Desktop bind
-      # mounts), and on SMB/CIFS mounts.  The fstype is read from
-      # /proc/self/mountinfo, which carries the real name ("drvfs", "9p",
-      # "virtiofs", "cifs") – GNU `stat -f` maps by magic number and cannot
-      # name DrvFS.  Linux-only (reads /proc); on macOS/BSD the probe returns
-      # nothing and this no-ops.  NFS is deliberately excluded: local inotify
-      # DOES fire for the host's own edits there, so watch mode still works
-      # for a single-user notebook (it only misses other clients' changes).
       local _fstype
       _fstype=$(_nn_path_fstype "$_nn_root")
       case "$_fstype" in
-        9p|v9fs|drvfs|virtiofs|cifs|smb3|smbfs)
-          _warn "notebook is on a '$_fstype' filesystem, where inotify/fswatch deliver no change events (e.g. WSL /mnt/c, SMB mounts) – refresh.mode='watch' will not auto-refresh. Set refresh.mode = \"poll\" (with a poll_interval) in your config." ;;
+        9p|v9fs)
+          _info "notebook is on a '$_fstype' filesystem; refresh.mode='watch' will use the poll fallback at runtime" ;;
+        *)
+          if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
+            _warn "refresh.mode is 'watch' but neither inotifywait nor fswatch is installed (the note list will not auto-refresh; press r to refresh manually)"
+          else
+            case "$_fstype" in
+              virtiofs|cifs|smb3|smbfs)
+                _warn "notebook is on a '$_fstype' filesystem, where host or remote changes may not generate inotify/fswatch events – refresh.mode='watch' may miss external edits. Consider refresh.mode = \"poll\" (with a poll_interval)." ;;
+              *) ;;
+            esac
+          fi ;;
       esac
     fi
     local _rf_interval
@@ -7981,9 +7989,9 @@ ENDFILTER
     # Resolve the effective refresh mode BEFORE the first filter.sh refresh
     # below builds .border_action, so a watch→poll fallback note renders on
     # the first frame (like the zk note).  watch → manual if no watcher tool
-    # is installed; watch → poll on WSL Windows-drive mounts (9p/v9fs on
-    # WSL2, DrvFS on WSL1), which have NO inotify support at all – strictly
-    # better than a dead watcher, with nothing to downgrade.  Other
+    # is installed; watch → poll on WSL2 Windows-drive mounts (9p/v9fs),
+    # where Windows-side changes do not reliably produce inotify events.
+    # DrvFS (WSL1) supports notifications and remains on watch.  Other
     # inotify-uncertain fstypes (virtiofs, cifs) stay on watch and are only
     # flagged by `nn doctor`: auto-demoting them could drop a working
     # guest-local inotify setup.  A too-large notebook still forces manual.
@@ -7992,7 +8000,7 @@ ENDFILTER
     local _nn_watch_to_poll=""
     if [[ "$_nn_refresh_mode" == "watch" ]]; then
       case "$(_nn_path_fstype "$(cat "$_nn_dir/.notebook_root" 2>/dev/null)")" in
-        9p|v9fs|drvfs)
+        9p|v9fs)
           _nn_refresh_mode="poll"; _nn_watch_to_poll=1 ;;
         *)
           if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then

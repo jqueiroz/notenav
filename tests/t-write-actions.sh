@@ -601,15 +601,15 @@ run_action status active "$_alk"   # already active → no write → count=0
 grep -qxF '⚠ no files modified – unchanged or locked?' "$CAP/.last_action" \
   || fail "same-value action lost the 'unchanged or locked?' hint: [$(cat "$CAP/.last_action" 2>/dev/null)]"
 
-# ── watch mode auto-falls-back to poll on WSL Windows-drive mounts (9p on
-#    WSL2, DrvFS on WSL1), where inotify delivers nothing – a dead watcher
-#    becomes working poll refresh, with a one-time border notice.  Normal
-#    filesystems keep watch (only nn doctor flags the uncertain ones).
+# ── watch mode auto-falls-back to poll on WSL2 Windows-drive mounts (9p),
+#    where Windows-side changes do not reliably produce inotify events, with
+#    a one-time border notice. DrvFS and normal filesystems keep watch (only
+#    nn doctor flags the uncertain ones).
 #    NN_MOUNTINFO overrides the fstype source (see _nn_path_fstype). ───────
 _mkmi_fb() { printf '1 1 0:1 / / rw - %s none rw\n' "$1" > "$2"; }
 NBFB="$WORK/nb-fallback"; mkdir -p "$NBFB"
 mk_note "$NBFB/a.md" lf 0 '---' 'type: task' 'status: new' '---' 'body'
-for _fs in 9p v9fs drvfs; do
+for _fs in 9p v9fs; do
   _mkmi_fb "$_fs" "$WORK/mifb-$_fs"
   if NN_MOUNTINFO="$WORK/mifb-$_fs" capture_nn_dir "$NBFB" "$WORK/capfb-$_fs"; then
     [[ "$(cat "$WORK/capfb-$_fs/.refresh_mode" 2>/dev/null)" == poll ]] \
@@ -621,6 +621,14 @@ for _fs in 9p v9fs drvfs; do
       || fail "watch→poll notice on '$_fs' does not render in the startup border"
   fi
 done
+# DrvFS supports notifications on WSL1 and must not be forced to poll.
+_mkmi_fb drvfs "$WORK/mifb-drvfs"
+if NN_MOUNTINFO="$WORK/mifb-drvfs" capture_nn_dir "$NBFB" "$WORK/capfb-drvfs"; then
+  [[ "$(cat "$WORK/capfb-drvfs/.refresh_mode" 2>/dev/null)" != poll ]] \
+    || fail "watch mode wrongly fell back to poll on DrvFS"
+  grep -qF 'using poll refresh' "$WORK/capfb-drvfs/.border_action" 2>/dev/null \
+    && fail "watch-to-poll notice leaked on DrvFS"
+fi
 # a normal filesystem must NOT fall back: default watch config resolves to
 # watch (watcher present) or manual (none) – never the fallback poll, and no
 # notice.  (Real /tmp fstype is irrelevant: NN_MOUNTINFO forces ext4 here.)

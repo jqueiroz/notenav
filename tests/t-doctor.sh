@@ -544,39 +544,63 @@ assert_bytes "$b0" "$WORK/b0.expected" "byte-0 BOM dup repaired byte-exact, BOM 
 (cd "$NB17" && bash "$REPO/bin/nn" doctor fix-frontmatter </dev/null >/dev/null 2>&1)
 [[ $? -eq 2 ]] || fail "doctor with positional argument should exit 2"
 
-# ── watch mode on an inotify-blind filesystem (WSL /mnt/c = 9p on WSL2,
-#    DrvFS on WSL1; SMB/CIFS mounts) warns to switch to poll: the watcher
-#    runs but silently never fires there.  The fstype is read from
+# ── watch mode filesystem guidance: WSL2 9p uses the automatic poll
+#    fallback; uncertain host/remote notification filesystems recommend
+#    poll without claiming that local events never work.  The fstype is read
+#    from
 #    /proc/self/mountinfo; NN_MOUNTINFO overrides it with a fake single
 #    root mount so the check is deterministic – independent of the real
 #    /tmp filesystem, which could itself be NFS/9p on some CI hosts. ──────
 NBFS="$WORK/nb-fstype"; mkdir -p "$NBFS"
 mk_note "$NBFS/a.md" lf 0 '---' 'type: task' 'status: new' '---' 'body'
 _mkmi() { printf '1 1 0:1 / / rw - %s none rw\n' "$1" > "$2"; }
-# WSL drive-mount fstypes must warn (9p = WSL2, drvfs = WSL1 – the latter
-# is why a `stat -f` magic-number probe was insufficient; virtiofs = newer
-# WSL2 / Docker Desktop bind mounts) as must SMB/CIFS
-for _fs in 9p drvfs virtiofs cifs; do
+# WSL2 9p is handled automatically at runtime.
+for _fs in 9p v9fs; do
   _mkmi "$_fs" "$WORK/mi-$_fs"
   (cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-$_fs" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-$_fs.out"
-  grep -qi "'$_fs' filesystem" "$WORK/fs-$_fs.out" || fail "no watch-on-$_fs warning (inotify-blind fs auto-refresh gap)"
-  grep -qi 'refresh.mode = "poll"' "$WORK/fs-$_fs.out" || fail "$_fs fstype warning did not recommend poll mode"
+  grep -qi "'$_fs' filesystem" "$WORK/fs-$_fs.out" || fail "no watch-to-poll fallback info for $_fs"
+  grep -qi 'use the poll fallback' "$WORK/fs-$_fs.out" || fail "$_fs fallback info did not describe the effective runtime mode"
+done
+# The fallback does not need a watcher binary, so doctor must not claim that
+# auto-refresh is disabled when neither watcher is installed.
+command() {
+  if [[ "${1:-}" == -v && ("${2:-}" == inotifywait || "${2:-}" == fswatch) ]]; then return 1; fi
+  builtin command "$@"
+}
+export -f command
+(cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-9p" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-9p-no-watcher.out"
+unset -f command
+grep -qi 'will not auto-refresh; press r' "$WORK/fs-9p-no-watcher.out" \
+  && fail "doctor claimed 9p fallback needed a watcher binary"
+grep -qi 'use the poll fallback' "$WORK/fs-9p-no-watcher.out" \
+  || fail "doctor lost the 9p fallback info when watcher binaries were absent"
+# DrvFS (WSL1) supports inotify and must remain on watch.
+_mkmi drvfs "$WORK/mi-drvfs"
+(cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-drvfs" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-drvfs.out"
+grep -qi "'drvfs' filesystem" "$WORK/fs-drvfs.out" && fail "doctor incorrectly reported DrvFS as event-blind"
+# VirtioFS and SMB/CIFS may miss host/remote changes, but local events can work.
+for _fs in virtiofs cifs; do
+  _mkmi "$_fs" "$WORK/mi-$_fs"
+  (cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-$_fs" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-$_fs.out"
+  grep -qi "'$_fs' filesystem" "$WORK/fs-$_fs.out" || fail "no watch-on-$_fs warning"
+  grep -qi 'may not generate' "$WORK/fs-$_fs.out" || fail "$_fs warning overstated notification failure"
+  grep -qi 'refresh.mode = "poll"' "$WORK/fs-$_fs.out" || fail "$_fs warning did not recommend poll mode"
 done
 # a normal fstype must NOT warn (deterministic control via fake ext4 mount)
 _mkmi ext4 "$WORK/mi-ext4"
 (cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-ext4" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-ext4.out"
-grep -qi 'deliver no change events' "$WORK/fs-ext4.out" && fail "spurious fstype warning on a normal (ext4) filesystem"
+grep -qi 'may not generate' "$WORK/fs-ext4.out" && fail "spurious fstype warning on a normal (ext4) filesystem"
 # NFS must NOT warn: local inotify DOES fire for the host's own edits there,
 # so watch mode still works for a single-user notebook
 _mkmi nfs "$WORK/mi-nfs"
 (cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-nfs" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-nfs.out"
-grep -qi 'deliver no change events' "$WORK/fs-nfs.out" && fail "fstype warning nagged an NFS notebook (local edits do fire inotify)"
+grep -qi 'may not generate' "$WORK/fs-nfs.out" && fail "fstype warning nagged an NFS notebook (local edits do fire inotify)"
 # under refresh.mode = "poll" (USER-scope preference) the warning must NOT
 # fire even on 9p
 UHFS="$WORK/uhome-fstype"; mkdir -p "$UHFS/notenav"
 printf '[refresh]\nmode = "poll"\n' > "$UHFS/notenav/config.toml"
 (cd "$NBFS" && NO_COLOR=1 XDG_CONFIG_HOME="$UHFS" NN_MOUNTINFO="$WORK/mi-9p" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-poll.out"
-grep -qi 'deliver no change events' "$WORK/fs-poll.out" && fail "fstype warning fired under poll mode (should warn for watch only)"
+grep -qi 'poll fallback\|may not generate' "$WORK/fs-poll.out" && fail "fstype guidance fired under poll mode (should describe watch only)"
 
 # ── _nn_path_fstype mount-selection unit tests: the doctor pins above use a
 #    single root mount, so exercise the longest-prefix / path-boundary /
@@ -590,12 +614,15 @@ _fstype_of() { # <mountinfo-file> <path> -> stdout
 # genuine longest-prefix selection from a naive last-match-wins scan.
 cat > "$WORK/mi-multi" <<'MI'
 2 1 0:2 / /nntest/c rw master:3 propagate_from:5 - drvfs C: rw
+3 1 0:3 / /nntest/share\040name rw - cifs //server/share rw
 1 1 0:1 / / rw shared:1 - ext4 /dev/root rw
 MI
 [[ "$(_fstype_of "$WORK/mi-multi" /nntest/c/notes)" == drvfs ]] \
   || fail "_nn_path_fstype did not pick the longest-prefix mount (/nntest/c drvfs over / ext4)"
 [[ "$(_fstype_of "$WORK/mi-multi" /nntest/c)" == drvfs ]] \
   || fail "_nn_path_fstype missed an exact mount-point match"
+[[ "$(_fstype_of "$WORK/mi-multi" '/nntest/share name/notes')" == cifs ]] \
+  || fail "_nn_path_fstype did not decode an escaped mount-point space"
 [[ "$(_fstype_of "$WORK/mi-multi" /home/user/notes)" == ext4 ]] \
   || fail "_nn_path_fstype did not fall back to the / mount"
 # path-boundary: /nntest/cx must NOT match the /nntest/c mount (adjacency)
