@@ -1724,21 +1724,25 @@ _nn_picker_style() {
 # depend on it).  Empty output when stat fails.
 _nn_mtime_of() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 
-# _nn_path_fstype <path> – filesystem type of the mount containing <path>,
-# read from /proc/self/mountinfo (override via NN_MOUNTINFO for tests).
-# Returns the real fstype string ("drvfs", "9p", "cifs", "ext4", …) or
-# nothing on non-Linux / no /proc / no match.  Preferred over `stat -f`:
-# stat maps the fs magic number to a name and does not know DrvFS (WSL1
+# _nn_path_fstype <path> – filesystem type of the mount containing <path>.
+# Linux reads /proc/self/mountinfo (override via NN_MOUNTINFO for tests);
+# macOS/FreeBSD fall back to their `df` filesystem-type column.  Returns the
+# real fstype string ("drvfs", "9p", "cifs", "smbfs", "ext4", …), or
+# nothing when it cannot be determined.  mountinfo is preferred on Linux:
+# `stat -f` maps the fs magic number to a name and does not know DrvFS (WSL1
 # /mnt/c → "UNKNOWN (0x…)"), whereas mountinfo carries the literal name.
 # mountinfo line: ID PID MAJ:MIN root MOUNTPOINT opts [optional…] - FSTYPE …
 # the fstype follows the " - " separator; pick the longest mount point that
 # is a path-prefix of <path> (the most specific mount).
 _nn_path_fstype() {
   local _mi="${NN_MOUNTINFO:-/proc/self/mountinfo}"
-  [[ -r "$_mi" ]] || return 0
   local _p
   _p=$(cd "$1" 2>/dev/null && pwd -P) || _p="$1"
-  awk -v path="$_p" '
+  if [[ -r "$_mi" ]]; then
+    # ENVIRON preserves literal backslashes; awk -v interprets sequences such
+    # as \040 and would corrupt a valid mount path containing those bytes.
+    NN_FSTYPE_PATH="$_p" awk '
+    BEGIN { path = ENVIRON["NN_FSTYPE_PATH"] }
     function unescape_mount(s,    out, i, q) {
       out = ""
       for (i = 1; i <= length(s); i++) {
@@ -1761,6 +1765,17 @@ _nn_path_fstype() {
       }
     }
     END { if (fs != "") print fs }' "$_mi" 2>/dev/null
+    return 0
+  fi
+
+  # BSD df variants expose the filesystem type in column 2, but use
+  # different switches: -Y on macOS, -T on FreeBSD.  -P keeps each record
+  # on one line even when the filesystem name is long.
+  case "$(uname -s 2>/dev/null)" in
+    Darwin)  df -P -Y "$_p" 2>/dev/null | awk 'NR == 2 { print $2; exit }' ;;
+    FreeBSD) df -P -T "$_p" 2>/dev/null | awk 'NR == 2 { print $2; exit }' ;;
+    *) ;;
+  esac
 }
 
 # _nn_state_lock <session-dir> – serialize read-modify-write updates of the
@@ -3430,7 +3445,7 @@ EOF
       _fstype=$(_nn_path_fstype "$_nn_root")
       case "$_fstype" in
         9p|v9fs)
-          _info "notebook is on a '$_fstype' filesystem; refresh.mode='watch' will use the poll fallback at runtime" ;;
+          _info "notebook is on a '$_fstype' filesystem; refresh.mode='watch' will use the poll fallback at runtime when auto-refresh is enabled" ;;
         *)
           if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
             _warn "refresh.mode is 'watch' but neither inotifywait nor fswatch is installed (the note list will not auto-refresh; press r to refresh manually)"

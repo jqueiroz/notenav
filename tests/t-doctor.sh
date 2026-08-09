@@ -560,6 +560,7 @@ for _fs in 9p v9fs; do
   (cd "$NBFS" && NO_COLOR=1 NN_MOUNTINFO="$WORK/mi-$_fs" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-$_fs.out"
   grep -qi "'$_fs' filesystem" "$WORK/fs-$_fs.out" || fail "no watch-to-poll fallback info for $_fs"
   grep -qi 'use the poll fallback' "$WORK/fs-$_fs.out" || fail "$_fs fallback info did not describe the effective runtime mode"
+  grep -qi 'when auto-refresh is enabled' "$WORK/fs-$_fs.out" || fail "$_fs fallback info ignored the note-limit override"
 done
 # The fallback does not need a watcher binary, so doctor must not claim that
 # auto-refresh is disabled when neither watcher is installed.
@@ -601,6 +602,17 @@ UHFS="$WORK/uhome-fstype"; mkdir -p "$UHFS/notenav"
 printf '[refresh]\nmode = "poll"\n' > "$UHFS/notenav/config.toml"
 (cd "$NBFS" && NO_COLOR=1 XDG_CONFIG_HOME="$UHFS" NN_MOUNTINFO="$WORK/mi-9p" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-poll.out"
 grep -qi 'poll fallback\|may not generate' "$WORK/fs-poll.out" && fail "fstype guidance fired under poll mode (should describe watch only)"
+# A note-count limit can override the 9p fallback at runtime.  Doctor should
+# describe that fallback conditionally rather than promise an effective mode
+# that its own later threshold check says is disabled.
+UHLIMFS="$WORK/uhome-fstype-limit"; mkdir -p "$UHLIMFS/notenav"
+printf '[refresh]\nauto_refresh_note_limit = 1\n' > "$UHLIMFS/notenav/config.toml"
+mk_note "$NBFS/b.md" lf 0 '---' 'type: task' 'status: new' '---' 'body'
+(cd "$NBFS" && NO_COLOR=1 XDG_CONFIG_HOME="$UHLIMFS" NN_MOUNTINFO="$WORK/mi-9p" bash "$REPO/bin/nn" doctor </dev/null 2>&1) > "$WORK/fs-9p-limit.out"
+grep -qi 'poll fallback at runtime when auto-refresh is enabled' "$WORK/fs-9p-limit.out" \
+  || fail "9p fallback info did not acknowledge the note-limit override"
+grep -qi 'Auto-refresh disabled' "$WORK/fs-9p-limit.out" \
+  || fail "doctor fixture did not exercise the note-limit override"
 
 # ── _nn_path_fstype mount-selection unit tests: the doctor pins above use a
 #    single root mount, so exercise the longest-prefix / path-boundary /
@@ -615,6 +627,7 @@ _fstype_of() { # <mountinfo-file> <path> -> stdout
 cat > "$WORK/mi-multi" <<'MI'
 2 1 0:2 / /nntest/c rw master:3 propagate_from:5 - drvfs C: rw
 3 1 0:3 / /nntest/share\040name rw - cifs //server/share rw
+4 1 0:4 / /nntest/literal\134040name rw - cifs //server/literal rw
 1 1 0:1 / / rw shared:1 - ext4 /dev/root rw
 MI
 [[ "$(_fstype_of "$WORK/mi-multi" /nntest/c/notes)" == drvfs ]] \
@@ -623,6 +636,8 @@ MI
   || fail "_nn_path_fstype missed an exact mount-point match"
 [[ "$(_fstype_of "$WORK/mi-multi" '/nntest/share name/notes')" == cifs ]] \
   || fail "_nn_path_fstype did not decode an escaped mount-point space"
+[[ "$(_fstype_of "$WORK/mi-multi" '/nntest/literal\040name/notes')" == cifs ]] \
+  || fail "_nn_path_fstype corrupted a literal backslash escape in the lookup path"
 [[ "$(_fstype_of "$WORK/mi-multi" /home/user/notes)" == ext4 ]] \
   || fail "_nn_path_fstype did not fall back to the / mount"
 # path-boundary: /nntest/cx must NOT match the /nntest/c mount (adjacency)
@@ -636,8 +651,30 @@ printf '2 1 0:2 / /nntest/c rw - drvfs C: rw\n' > "$WORK/mi-noroot"
 printf '1 1 0:1 / / rw - 9p host rw\n' > "$WORK/mi-noopt"
 [[ "$(_fstype_of "$WORK/mi-noopt" /any/where)" == 9p ]] \
   || fail "_nn_path_fstype mis-parsed a mountinfo record with no optional fields"
-# missing /proc / unreadable NN_MOUNTINFO → empty (non-Linux no-op)
+# unreadable mountinfo on an unsupported OS → empty
 [[ -z "$(_fstype_of "$WORK/does-not-exist-mi" /any/where)" ]] \
-  || fail "_nn_path_fstype did not no-op on an unreadable mountinfo source"
+  || fail "_nn_path_fstype returned a type without a supported metadata source"
+
+# macOS and FreeBSD do not expose Linux mountinfo.  Their df variants use
+# different switches for the filesystem-type column; shims pin both paths.
+SHIMBSD="$WORK/fstype-bsd-shim"; mkdir -p "$SHIMBSD"
+cat > "$SHIMBSD/uname" <<'SHIM'
+#!/bin/sh
+printf '%s\n' "$NN_TEST_OS"
+SHIM
+cat > "$SHIMBSD/df" <<'SHIM'
+#!/bin/sh
+case "$NN_TEST_OS:$*" in
+  'Darwin:-P -Y /nntest/bsd/share'|'FreeBSD:-P -T /nntest/bsd/share') ;;
+  *) exit 2 ;;
+esac
+printf '%s\n' 'Filesystem Type 512-blocks Used Available Capacity Mounted on'
+printf '%s\n' '//server/share smbfs 1 1 1 1% /nntest/bsd/share'
+SHIM
+chmod +x "$SHIMBSD/uname" "$SHIMBSD/df"
+for _os in Darwin FreeBSD; do
+  [[ "$(PATH="$SHIMBSD:$PATH" NN_TEST_OS="$_os" _fstype_of "$WORK/does-not-exist-mi" /nntest/bsd/share)" == smbfs ]] \
+    || fail "_nn_path_fstype did not detect smbfs via $_os df"
+done
 
 finish
